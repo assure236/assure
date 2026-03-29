@@ -1,4 +1,5 @@
 const { User, ChitGroup, ChitMember, Auction, Payment } = require('../models');
+const AppSetting = require('../models/AppSetting');
 
 exports.getMemberDashboard = async (req, res, next) => {
   try {
@@ -7,11 +8,12 @@ exports.getMemberDashboard = async (req, res, next) => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-    const [memberships, recentPayments, upcomingAuctions, user] = await Promise.all([
+    const [memberships, recentPayments, upcomingAuctions, user, showCreditScoreSetting] = await Promise.all([
       ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id'),
       Payment.find({ user_id: userId, payment_status: 'success' }).populate('chit_group_id', 'group_name').sort({ payment_date: -1 }).limit(5),
       Auction.find({ status: { $in: ['scheduled', 'in_progress'] } }).populate('chit_group_id', 'group_name group_number chit_value').sort({ auction_date: 1 }).limit(3),
       User.findById(userId).select('full_name credit_score kyc_status'),
+      AppSetting.findOne({ key: 'show_credit_score' }),
     ]);
 
     const paidThisMonth = await Payment.aggregate([
@@ -29,6 +31,7 @@ exports.getMemberDashboard = async (req, res, next) => {
         activeGroups: memberships.filter(m => m.chit_group_id?.status === 'active').length,
         totalInvested,
         paymentsThisMonth: paidThisMonth[0]?.total || 0,
+        showCreditScore: showCreditScoreSetting?.value === 'true' || showCreditScoreSetting?.value === true,
         memberships,
         recentPayments,
         upcomingAuctions: upcomingAuctions.map(a => ({ ...a.toObject(), status: a.status === 'in_progress' ? 'active' : a.status })),
@@ -131,6 +134,45 @@ exports.getDividendAnalytics = async (req, res, next) => {
     }).filter(Boolean);
 
     res.json({ success: true, data: { groups, memberships, completedAuctions } });
+  } catch (err) { next(err); }
+};
+
+exports.getProfileCompletion = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId).select('full_name email mobile pan_number aadhaar_number date_of_birth address city state pincode profile_image_url bank_account_number bank_ifsc_code kyc_status');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const fields = [
+      { key: 'full_name', label: 'Full Name', filled: !!user.full_name },
+      { key: 'email', label: 'Email', filled: !!user.email },
+      { key: 'mobile', label: 'Mobile', filled: !!user.mobile },
+      { key: 'pan_number', label: 'PAN Number', filled: !!user.pan_number },
+      { key: 'aadhaar_number', label: 'Aadhaar Number', filled: !!user.aadhaar_number },
+      { key: 'date_of_birth', label: 'Date of Birth', filled: !!user.date_of_birth },
+      { key: 'address', label: 'Address', filled: !!user.address },
+      { key: 'city', label: 'City', filled: !!user.city },
+      { key: 'state', label: 'State', filled: !!user.state },
+      { key: 'pincode', label: 'Pincode', filled: !!user.pincode },
+      { key: 'profile_image_url', label: 'Profile Photo', filled: !!user.profile_image_url },
+      { key: 'bank_account_number', label: 'Bank Account', filled: !!user.bank_account_number },
+      { key: 'bank_ifsc_code', label: 'Bank IFSC', filled: !!user.bank_ifsc_code },
+    ];
+
+    const filled = fields.filter(f => f.filled).length;
+    const total = fields.length;
+    const percentage = Math.round((filled / total) * 100);
+
+    res.json({
+      success: true,
+      data: {
+        percentage,
+        filled,
+        total,
+        fields,
+        isComplete: percentage === 100,
+      }
+    });
   } catch (err) { next(err); }
 };
 

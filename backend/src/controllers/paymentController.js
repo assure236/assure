@@ -288,10 +288,58 @@ exports.refundPayment = async (req, res, next) => {
 exports.downloadReceipt = async (req, res, next) => {
   try {
     const payment = await Payment.findById(req.params.id)
-      .populate('user_id', 'full_name mobile member_id')
-      .populate('chit_group_id', 'group_name group_number');
+      .populate('user_id', 'full_name mobile member_id email')
+      .populate('chit_group_id', 'group_name group_number chit_value');
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
-    const html = '<html><body><h2>Payment Receipt</h2><p>Payment #: ' + payment.payment_number + '</p><p>Amount: ₹' + payment.total_amount + '</p><p>Date: ' + (payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-IN') : 'N/A') + '</p><p>Status: ' + payment.payment_status + '</p></body></html>';
+
+    const user = payment.user_id || {};
+    const group = payment.chit_group_id || {};
+    const date = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+    const amount = Number(payment.total_amount || payment.amount || 0).toLocaleString('en-IN');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Payment Receipt</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5f5;padding:20px}
+.receipt{max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1)}
+.header{background:linear-gradient(135deg,#1565C0,#1976D2);color:#fff;padding:24px;text-align:center}
+.header h1{font-size:20px;margin-bottom:4px}
+.header p{font-size:12px;opacity:0.85}
+.status{display:inline-block;margin-top:10px;padding:4px 16px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase;background:${payment.payment_status === 'success' ? 'rgba(76,175,80,0.2);color:#4CAF50' : 'rgba(255,152,0,0.2);color:#FF9800'}}
+.body{padding:24px}
+.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0}
+.row:last-child{border-bottom:none}
+.label{color:#666;font-size:13px}
+.value{font-weight:600;font-size:13px;text-align:right}
+.amount-row{background:#f8f9fa;margin:16px -24px;padding:16px 24px;border-top:2px dashed #e0e0e0;border-bottom:2px dashed #e0e0e0}
+.amount-row .value{font-size:20px;color:#1565C0}
+.footer{text-align:center;padding:16px 24px;background:#fafafa;font-size:11px;color:#999}
+@media print{body{background:#fff;padding:0}.receipt{box-shadow:none}}
+</style></head><body>
+<div class="receipt">
+  <div class="header">
+    <h1>Assure ChitFunds</h1>
+    <p>Payment Receipt</p>
+    <div class="status">${payment.payment_status}</div>
+  </div>
+  <div class="body">
+    <div class="row"><span class="label">Receipt No</span><span class="value">${payment.payment_number || payment._id}</span></div>
+    <div class="row"><span class="label">Date</span><span class="value">${date}</span></div>
+    <div class="row"><span class="label">Member</span><span class="value">${user.full_name || 'N/A'}</span></div>
+    <div class="row"><span class="label">Member ID</span><span class="value">${user.member_id || 'N/A'}</span></div>
+    <div class="row"><span class="label">Chit Group</span><span class="value">${group.group_name || 'N/A'}</span></div>
+    <div class="row"><span class="label">Group No</span><span class="value">${group.group_number || 'N/A'}</span></div>
+    <div class="row"><span class="label">Payment Method</span><span class="value">${payment.payment_method || 'N/A'}</span></div>
+    ${payment.transaction_id ? `<div class="row"><span class="label">Transaction ID</span><span class="value">${payment.transaction_id}</span></div>` : ''}
+    <div class="row amount-row"><span class="label" style="font-size:15px">Amount Paid</span><span class="value">₹${amount}</span></div>
+  </div>
+  <div class="footer">
+    This is a computer-generated receipt. No signature required.<br>
+    Assure ChitFunds &bull; assure.fund
+  </div>
+</div>
+<script>window.onload=function(){window.print()}</script>
+</body></html>`;
     res.set('Content-Type', 'text/html');
     res.send(html);
   } catch (err) { next(err); }
@@ -300,18 +348,92 @@ exports.downloadReceipt = async (req, res, next) => {
 exports.getAccountStatement = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId).select('full_name mobile member_id email');
     const payments = await Payment.find({ user_id: userId, payment_status: 'success' })
-      .populate('chit_group_id', 'group_name').sort({ payment_date: -1 });
-    const csv = ['Date,Group,Amount,Payment#,Method', ...payments.map(p => [
-      p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : '',
-      p.chit_group_id?.group_name || '',
-      p.total_amount || p.amount || '',
-      p.payment_number || '',
-      p.payment_method || '',
-    ].join(','))].join('\n');
-    res.set('Content-Type', 'text/csv');
-    res.set('Content-Disposition', 'attachment; filename="statement.csv"');
-    res.send(csv);
+      .populate('chit_group_id', 'group_name').sort({ payment_date: 1 });
+
+    const format = req.query.format || 'csv';
+    if (format === 'csv') {
+      const csv = ['Date,Group,Amount,Payment#,Method', ...payments.map(p => [
+        p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : '',
+        p.chit_group_id?.group_name || '',
+        p.total_amount || p.amount || '',
+        p.payment_number || '',
+        p.payment_method || '',
+      ].join(','))].join('\n');
+      res.set('Content-Type', 'text/csv');
+      res.set('Content-Disposition', 'attachment; filename="statement.csv"');
+      return res.send(csv);
+    }
+
+    // Bank-style HTML statement
+    const totalPaid = payments.reduce((s, p) => s + (p.total_amount || p.amount || 0), 0);
+    let runningBalance = 0;
+    const rows = payments.map(p => {
+      const amt = p.total_amount || p.amount || 0;
+      runningBalance += amt;
+      const date = p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+      return `<tr>
+        <td>${date}</td>
+        <td>${p.payment_number || '—'}</td>
+        <td>${p.chit_group_id?.group_name || '—'}</td>
+        <td>${p.payment_method || '—'}</td>
+        <td class="amt">₹${Number(amt).toLocaleString('en-IN')}</td>
+        <td class="amt">₹${Number(runningBalance).toLocaleString('en-IN')}</td>
+      </tr>`;
+    }).join('');
+
+    const now = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Account Statement</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f5f5f5;padding:20px}
+.stmt{max-width:800px;margin:0 auto;background:#fff;border-radius:4px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.1)}
+.header{background:linear-gradient(135deg,#1565C0,#0D47A1);color:#fff;padding:24px 32px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:22px;letter-spacing:0.5px}
+.header .date{font-size:12px;opacity:0.8}
+.info{display:flex;gap:40px;padding:20px 32px;background:#f8f9ff;border-bottom:2px solid #1565C0}
+.info div{font-size:13px;color:#333}
+.info .label{color:#888;font-size:11px;margin-bottom:2px}
+.summary{display:flex;gap:32px;padding:16px 32px;background:#fafafa;border-bottom:1px solid #e0e0e0}
+.summary .box{text-align:center;flex:1}
+.summary .box .num{font-size:20px;font-weight:700;color:#1565C0}
+.summary .box .lbl{font-size:11px;color:#666;margin-top:2px}
+table{width:100%;border-collapse:collapse}
+th{background:#f5f5f5;padding:10px 12px;font-size:11px;text-transform:uppercase;color:#666;border-bottom:2px solid #ddd;text-align:left}
+td{padding:10px 12px;font-size:13px;border-bottom:1px solid #f0f0f0}
+tr:hover td{background:#f8f9ff}
+.amt{text-align:right;font-family:'Courier New',monospace;font-weight:600}
+.footer{text-align:center;padding:16px;background:#fafafa;font-size:10px;color:#999;border-top:2px solid #e0e0e0}
+@media print{body{background:#fff;padding:0}.stmt{box-shadow:none;border-radius:0}th{background:#eee}}
+</style></head><body>
+<div class="stmt">
+  <div class="header">
+    <div><h1>Assure ChitFunds</h1><div class="date">Account Statement</div></div>
+    <div style="text-align:right"><div class="date">Generated on</div><div style="font-size:14px">${now}</div></div>
+  </div>
+  <div class="info">
+    <div><div class="label">Account Holder</div><strong>${user?.full_name || 'N/A'}</strong></div>
+    <div><div class="label">Member ID</div><strong>${user?.member_id || 'N/A'}</strong></div>
+    <div><div class="label">Mobile</div><strong>${user?.mobile || 'N/A'}</strong></div>
+  </div>
+  <div class="summary">
+    <div class="box"><div class="num">${payments.length}</div><div class="lbl">Total Transactions</div></div>
+    <div class="box"><div class="num">₹${Number(totalPaid).toLocaleString('en-IN')}</div><div class="lbl">Total Amount Paid</div></div>
+  </div>
+  <table>
+    <thead><tr><th>Date</th><th>Receipt #</th><th>Chit Group</th><th>Method</th><th style="text-align:right">Amount</th><th style="text-align:right">Cumulative</th></tr></thead>
+    <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:24px;color:#999">No transactions found</td></tr>'}</tbody>
+  </table>
+  <div class="footer">
+    This is a system-generated statement. For any discrepancies, please contact support.<br>
+    Assure ChitFunds &bull; assure.fund
+  </div>
+</div>
+<script>window.onload=function(){window.print()}</script>
+</body></html>`;
+    res.set('Content-Type', 'text/html');
+    res.send(html);
   } catch (err) { next(err); }
 };
 

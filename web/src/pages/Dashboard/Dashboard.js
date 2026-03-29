@@ -53,23 +53,33 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [dividendData, setDividendData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [profileCompletion, setProfileCompletion] = useState(null);
 
   useEffect(() => { fetchDashboardData(); }, []);
 
   const fetchDashboardData = async () => {
     try {
       setError(null);
-      const [dashRes, analyticsRes] = await Promise.allSettled([
+      const [dashRes, analyticsRes, profileRes, dividendRes] = await Promise.allSettled([
         axios.get('/dashboard/member'),
         axios.get('/dashboard/analytics'),
+        axios.get('/dashboard/profile-completion'),
+        axios.get('/dashboard/dividend-analytics'),
       ]);
       if (dashRes.status === 'fulfilled' && dashRes.value.data.success) {
         setDashboardData(dashRes.value.data.data);
       }
       if (analyticsRes.status === 'fulfilled' && analyticsRes.value.data.success) {
         setAnalytics(analyticsRes.value.data.data);
+      }
+      if (profileRes.status === 'fulfilled' && profileRes.value.data.success) {
+        setProfileCompletion(profileRes.value.data.data);
+      }
+      if (dividendRes.status === 'fulfilled' && dividendRes.value.data.success) {
+        setDividendData(dividendRes.value.data.data);
       }
     } catch (err) {
       setError('Could not load dashboard data. Please refresh.');
@@ -99,14 +109,14 @@ const Dashboard = () => {
       icon: <AccountBalanceIcon />, subtitle: 'lifetime contribution'
     },
     {
-      title: 'Payments This Month', color: '#ed6c02',
-      value: `₹${(dashboardData?.paymentsThisMonth || 0).toLocaleString('en-IN')}`,
-      icon: <PaymentIcon />, subtitle: 'this month'
+      title: 'Dividend Earned', color: '#ed6c02',
+      value: `₹${((dividendData?.groups || []).reduce((s, g) => s + (g.avg_dividend_per_member * g.completed_auctions || 0), 0)).toLocaleString('en-IN')}`,
+      icon: <TrendingUpIcon />, subtitle: 'total dividends'
     },
     {
-      title: 'Credit Score', color: '#9c27b0',
-      value: dashboardData?.user?.credit_score || dashboardData?.creditScore || 500,
-      icon: <TrendingUpIcon />, subtitle: 'payment discipline'
+      title: 'Loan', color: '#9c27b0',
+      value: 'Apply',
+      icon: <AccountBalanceIcon />, subtitle: 'chit-backed loan'
     }
   ];
 
@@ -154,6 +164,26 @@ const Dashboard = () => {
           </Grid>
         ))}
       </Grid>
+
+      {/* Profile Completion Tracker */}
+      {profileCompletion && !profileCompletion.isComplete && (
+        <Paper sx={{ p: 3, borderRadius: 3, mb: 4, border: '1px solid #1976d2' }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="h6">Complete Your Profile</Typography>
+            <Chip label={`${profileCompletion.percentage}%`} color="primary" size="small" />
+          </Box>
+          <LinearProgress variant="determinate" value={profileCompletion.percentage} sx={{ height: 8, borderRadius: 4, mb: 2 }} />
+          <Box display="flex" flexWrap="wrap" gap={1}>
+            {profileCompletion.fields.filter(f => !f.filled).map(f => (
+              <Chip key={f.key} label={f.label} size="small" variant="outlined" color="warning"
+                onClick={() => navigate('/profile')} sx={{ cursor: 'pointer' }} />
+            ))}
+          </Box>
+          <Button size="small" sx={{ mt: 1 }} onClick={() => navigate('/profile')}>
+            Complete Profile →
+          </Button>
+        </Paper>
+      )}
 
       {/* Analytics Charts */}
       {analytics && (

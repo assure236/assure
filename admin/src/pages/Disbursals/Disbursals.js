@@ -23,6 +23,10 @@ const Disbursals = () => {
   const [refNumber, setRefNumber] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpAction, setOtpAction] = useState(''); // 'disburse' or 'reject'
 
   const fetchDisbursals = useCallback(async () => {
     setLoading(true);
@@ -41,12 +45,14 @@ const Disbursals = () => {
 
   const handleDisburse = async () => {
     if (!refNumber.trim()) { toast.error('Please enter a reference number'); return; }
+    if (!otpVerified) { toast.error('Please verify OTP first'); return; }
     setSubmitting(true);
     try {
       await axios.put(`admin/disbursals/${disburseDialog.auction_id}/disburse`, { reference_number: refNumber });
       toast.success('Disbursal approved and marked as disbursed!');
       setDisburseDialog(null);
       setRefNumber('');
+      resetOtp();
       fetchDisbursals();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to approve disbursal');
@@ -56,18 +62,51 @@ const Disbursals = () => {
   };
 
   const handleReject = async () => {
+    if (!otpVerified) { toast.error('Please verify OTP first'); return; }
     setSubmitting(true);
     try {
       await axios.put(`admin/disbursals/${rejectDialog.auction_id}/reject`, { reason: rejectReason });
       toast.success('Disbursal rejected.');
       setRejectDialog(null);
       setRejectReason('');
+      resetOtp();
       fetchDisbursals();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to reject disbursal');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const sendOtp = async (action, targetId) => {
+    try {
+      const res = await axios.post('admin/otp/send', { action, target_id: targetId });
+      toast.success(res.data.message || 'OTP sent!');
+      setOtpSent(true);
+      setOtpAction(action);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send OTP');
+    }
+  };
+
+  const verifyOtp = async (action, targetId) => {
+    if (!otp.trim()) { toast.error('Enter OTP'); return; }
+    try {
+      const res = await axios.post('admin/otp/verify', { action, target_id: targetId, otp: otp.trim() });
+      if (res.data.success) {
+        toast.success('OTP verified!');
+        setOtpVerified(true);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Invalid OTP');
+    }
+  };
+
+  const resetOtp = () => {
+    setOtpSent(false);
+    setOtp('');
+    setOtpVerified(false);
+    setOtpAction('');
   };
 
   const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
@@ -208,7 +247,7 @@ const Disbursals = () => {
       </Card>
 
       {/* Approve Dialog */}
-      <Dialog open={!!disburseDialog} onClose={() => { setDisburseDialog(null); setRefNumber(''); }} maxWidth="sm" fullWidth>
+      <Dialog open={!!disburseDialog} onClose={() => { setDisburseDialog(null); setRefNumber(''); resetOtp(); }} maxWidth="sm" fullWidth>
         <DialogTitle>Approve Disbursal</DialogTitle>
         <DialogContent>
           {disburseDialog && (
@@ -227,19 +266,39 @@ const Disbursals = () => {
                 helperText="NEFT/IMPS/UPI reference number for the bank transfer"
                 sx={{ mt: 1 }}
               />
+              {/* OTP Section */}
+              <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>Admin OTP Verification</Typography>
+                {!otpSent ? (
+                  <Button variant="outlined" size="small" onClick={() => sendOtp('disburse', disburseDialog.auction_id)}>
+                    Send OTP
+                  </Button>
+                ) : !otpVerified ? (
+                  <Box display="flex" gap={1} alignItems="center">
+                    <TextField size="small" label="Enter OTP" value={otp} onChange={e => setOtp(e.target.value)}
+                      inputProps={{ maxLength: 6 }} sx={{ width: 150 }} />
+                    <Button variant="contained" size="small" onClick={() => verifyOtp('disburse', disburseDialog.auction_id)}>
+                      Verify
+                    </Button>
+                    <Button size="small" onClick={() => sendOtp('disburse', disburseDialog.auction_id)}>Resend</Button>
+                  </Box>
+                ) : (
+                  <Alert severity="success" sx={{ py: 0 }}>OTP Verified ✓</Alert>
+                )}
+              </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setDisburseDialog(null); setRefNumber(''); }}>Cancel</Button>
-          <Button variant="contained" color="success" onClick={handleDisburse} disabled={submitting}>
+          <Button onClick={() => { setDisburseDialog(null); setRefNumber(''); resetOtp(); }}>Cancel</Button>
+          <Button variant="contained" color="success" onClick={handleDisburse} disabled={submitting || !otpVerified}>
             {submitting ? <CircularProgress size={20} /> : 'Confirm Disbursal'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Reject Dialog */}
-      <Dialog open={!!rejectDialog} onClose={() => { setRejectDialog(null); setRejectReason(''); }} maxWidth="sm" fullWidth>
+      <Dialog open={!!rejectDialog} onClose={() => { setRejectDialog(null); setRejectReason(''); resetOtp(); }} maxWidth="sm" fullWidth>
         <DialogTitle>Reject Disbursal</DialogTitle>
         <DialogContent>
           {rejectDialog && (
@@ -249,12 +308,32 @@ const Disbursals = () => {
               </Alert>
               <TextField fullWidth label="Reason for Rejection (optional)" multiline rows={3}
                 value={rejectReason} onChange={e => setRejectReason(e.target.value)} sx={{ mt: 1 }} />
+              {/* OTP Section */}
+              <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>Admin OTP Verification</Typography>
+                {!otpSent ? (
+                  <Button variant="outlined" size="small" onClick={() => sendOtp('reject', rejectDialog.auction_id)}>
+                    Send OTP
+                  </Button>
+                ) : !otpVerified ? (
+                  <Box display="flex" gap={1} alignItems="center">
+                    <TextField size="small" label="Enter OTP" value={otp} onChange={e => setOtp(e.target.value)}
+                      inputProps={{ maxLength: 6 }} sx={{ width: 150 }} />
+                    <Button variant="contained" size="small" onClick={() => verifyOtp('reject', rejectDialog.auction_id)}>
+                      Verify
+                    </Button>
+                    <Button size="small" onClick={() => sendOtp('reject', rejectDialog.auction_id)}>Resend</Button>
+                  </Box>
+                ) : (
+                  <Alert severity="success" sx={{ py: 0 }}>OTP Verified ✓</Alert>
+                )}
+              </Box>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setRejectDialog(null); setRejectReason(''); }}>Cancel</Button>
-          <Button variant="contained" color="error" onClick={handleReject} disabled={submitting}>
+          <Button onClick={() => { setRejectDialog(null); setRejectReason(''); resetOtp(); }}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={handleReject} disabled={submitting || !otpVerified}>
             {submitting ? <CircularProgress size={20} /> : 'Reject Disbursal'}
           </Button>
         </DialogActions>

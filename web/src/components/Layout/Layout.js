@@ -34,6 +34,7 @@ import {
   BarChart as AnalyticsIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
+import Chatbot from '../Chatbot/Chatbot';
 import axios from 'axios';
 
 const drawerWidth = 240;
@@ -217,6 +218,7 @@ const Layout = () => {
       >
         <Outlet />
       </Box>
+      <Chatbot />
     </Box>
   );
 };

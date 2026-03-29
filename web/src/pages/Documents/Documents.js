@@ -8,7 +8,8 @@ import {
   CloudUpload as UploadIcon, Visibility as ViewIcon,
   CheckCircle as ApprovedIcon, Schedule as PendingIcon,
   Error as RejectedIcon, Description as DocIcon,
-  InsertDriveFile as FileIcon, CameraAlt as CameraIcon
+  InsertDriveFile as FileIcon, CameraAlt as CameraIcon,
+  VerifiedUser as DigiLockerIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -37,8 +38,33 @@ const Documents = () => {
   const fileInputRef = useRef();
   const cameraInputRef = useRef();
   const [pendingDocType, setPendingDocType] = useState(null);
+  const [dlStatus, setDlStatus] = useState(null);
+  const [dlLoading, setDlLoading] = useState(false);
 
-  useEffect(() => { fetchDocuments(); }, []);
+  useEffect(() => { fetchDocuments(); fetchDlStatus(); }, []);
+
+  const fetchDlStatus = async () => {
+    try {
+      const res = await axios.get('/digilocker/status');
+      if (res.data.success) setDlStatus(res.data.data);
+    } catch {}
+  };
+
+  const handleDigiLocker = async () => {
+    setDlLoading(true);
+    try {
+      const res = await axios.get('/digilocker/auth-url');
+      if (res.data.success && res.data.data.authUrl) {
+        window.location.href = res.data.data.authUrl;
+      } else {
+        toast.error(res.data.message || 'DigiLocker not available');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'DigiLocker not configured');
+    } finally {
+      setDlLoading(false);
+    }
+  };
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -132,6 +158,32 @@ const Documents = () => {
           Upload all required documents to complete KYC verification.
         </Alert>
       )}
+
+      {/* DigiLocker Integration */}
+      <Card sx={{ mb: 3, borderRadius: 3, border: dlStatus?.connected ? '1px solid #4caf50' : '1px solid #1976d2' }}>
+        <CardContent>
+          <Box display="flex" alignItems="center" gap={2}>
+            <DigiLockerIcon sx={{ fontSize: 40, color: dlStatus?.connected ? '#4caf50' : '#1976d2' }} />
+            <Box flex={1}>
+              <Typography variant="h6">DigiLocker eKYC</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {dlStatus?.connected
+                  ? `Connected — DigiLocker ID: ${dlStatus.digilocker_id}`
+                  : 'Connect your DigiLocker to auto-verify Aadhaar & PAN instantly'}
+              </Typography>
+            </Box>
+            <Button
+              variant={dlStatus?.connected ? 'outlined' : 'contained'}
+              color={dlStatus?.connected ? 'success' : 'primary'}
+              startIcon={dlLoading ? <CircularProgress size={16} /> : <DigiLockerIcon />}
+              onClick={handleDigiLocker}
+              disabled={dlLoading || dlStatus?.connected}
+            >
+              {dlStatus?.connected ? 'Connected' : 'Connect DigiLocker'}
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
 
       <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>Required Documents (JPEG/PNG only)</Typography>
       <Grid container spacing={2} mb={4}>

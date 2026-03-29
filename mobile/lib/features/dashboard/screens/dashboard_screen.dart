@@ -37,6 +37,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (!didPop) setState(() => _currentIndex = 0);
       },
       child: Scaffold(
+        floatingActionButton: FloatingActionButton(
+          onPressed: () => context.push('/chatbot'),
+          backgroundColor: const Color(0xFF1976D2),
+          child: const Icon(Icons.smart_toy_rounded, color: Colors.white),
+        ),
         body: IndexedStack(
           index: _currentIndex,
           children: [
@@ -199,6 +204,8 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
                 ),
                 if (dash.kycStatus != 'verified')
                   SliverToBoxAdapter(child: _KycBanner(switchTab: widget.switchTab)),
+                if (!dash.isProfileComplete)
+                  SliverToBoxAdapter(child: _ProfileTracker(dash: dash, switchTab: widget.switchTab)),
                 SliverToBoxAdapter(child: _StatsRow(dash: dash)),
                 SliverToBoxAdapter(child: _QuickActions(switchTab: widget.switchTab)),
                 SliverToBoxAdapter(child: _ActiveChits(dash: dash, switchTab: widget.switchTab)),
@@ -445,6 +452,114 @@ class _KycBanner extends StatelessWidget {
   }
 }
 
+// ─── Profile Tracker ──────────────────────────────────────────────────────────
+class _ProfileTracker extends StatelessWidget {
+  final DashboardProvider dash;
+  final void Function(int) switchTab;
+  const _ProfileTracker({required this.dash, required this.switchTab});
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = dash.profilePercentage;
+    final missing = dash.missingFields;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFF1976D2), width: 1),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.blue.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.person_outline_rounded,
+                  color: Color(0xFF1976D2), size: 24),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text('Complete Your Profile',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE3F2FD),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('$pct%',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                        color: Color(0xFF1976D2))),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: pct / 100,
+              minHeight: 8,
+              backgroundColor: const Color(0xFFE3F2FD),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+            ),
+          ),
+          if (missing.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: missing
+                  .map<Widget>((f) => Chip(
+                        label: Text(
+                          (f['name'] as String? ?? '')
+                              .replaceAll('_', ' ')
+                              .split(' ')
+                              .map((w) =>
+                                  w.isNotEmpty
+                                      ? '${w[0].toUpperCase()}${w.substring(1)}'
+                                      : w)
+                              .join(' '),
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        materialTapTargetSize:
+                            MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFFFFF3E0),
+                        side: BorderSide.none,
+                      ))
+                  .toList(),
+            ),
+          ],
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: () => switchTab(4),
+              style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFF1976D2),
+                  padding: EdgeInsets.zero),
+              child: const Text('Complete Now →',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Stats Row ────────────────────────────────────────────────────────────────
 class _StatsRow extends StatelessWidget {
   final DashboardProvider dash;
@@ -478,12 +593,15 @@ class _StatsRow extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: _StatCard(
-              label: 'Credit Score',
-              value: '${dash.creditScore}',
-              icon: Icons.star_rounded,
-              iconBg: const Color(0xFFFFF3E0),
-              iconColor: const Color(0xFFE65100),
+            child: GestureDetector(
+              onTap: () => context.push('/loans'),
+              child: _StatCard(
+                label: 'Loan',
+                value: 'Apply',
+                icon: Icons.account_balance_rounded,
+                iconBg: const Color(0xFFFFF3E0),
+                iconColor: const Color(0xFFE65100),
+              ),
             ),
           ),
         ],

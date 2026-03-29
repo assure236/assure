@@ -13,6 +13,48 @@ const logger = require('../utils/logger');
 const adminOnly = [authMiddleware, authorizeRoles('admin', 'manager')];
 const superAdminOnly = [authMiddleware, authorizeRoles('super_admin')];
 
+// ─── Admin OTP for sensitive actions ──────────────────────────────────────────
+const ADMIN_PHONE = process.env.ADMIN_OTP_PHONE || '6301406134';
+const otpStore = new Map(); // key: `${action}_${targetId}` → { otp, expiresAt }
+
+function generateOtp() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// POST /admin/otp/send — send OTP to admin phone
+router.post('/otp/send', adminOnly, async (req, res) => {
+  const { action, target_id } = req.body;
+  if (!action || !target_id) return res.status(400).json({ success: false, message: 'action and target_id required' });
+  const otp = generateOtp();
+  const key = `${action}_${target_id}`;
+  otpStore.set(key, { otp, expiresAt: Date.now() + 5 * 60 * 1000 });
+  setTimeout(() => otpStore.delete(key), 5 * 60 * 1000);
+
+  try {
+    await notificationService.sendSMS(ADMIN_PHONE, `Assure ChitFunds: Your OTP for ${action} is ${otp}. Valid for 5 minutes.`);
+  } catch (e) {
+    logger.warn('Admin OTP SMS failed, OTP:', otp);
+  }
+  logger.info(`Admin OTP generated for ${key}: ${otp}`);
+  res.json({ success: true, message: `OTP sent to admin phone ending ***${ADMIN_PHONE.slice(-4)}` });
+});
+
+// POST /admin/otp/verify — verify OTP
+router.post('/otp/verify', adminOnly, async (req, res) => {
+  const { action, target_id, otp } = req.body;
+  if (!action || !target_id || !otp) return res.status(400).json({ success: false, message: 'action, target_id, otp required' });
+  const key = `${action}_${target_id}`;
+  const stored = otpStore.get(key);
+  if (!stored) return res.status(400).json({ success: false, message: 'No OTP found. Request a new one.' });
+  if (Date.now() > stored.expiresAt) {
+    otpStore.delete(key);
+    return res.status(400).json({ success: false, message: 'OTP expired. Request a new one.' });
+  }
+  if (stored.otp !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP' });
+  otpStore.delete(key);
+  res.json({ success: true, message: 'OTP verified successfully' });
+});
+
 const toId = (id) => {
   try { return new mongoose.Types.ObjectId(id); } catch (_) { return null; }
 };

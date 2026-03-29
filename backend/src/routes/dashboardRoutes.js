@@ -31,4 +31,9 @@ router.get('/analytics', dashboardController.getMemberAnalytics);
 // @access  Private (Members)
 router.get('/dividend-analytics', dashboardController.getDividendAnalytics);
 
+// @route   GET /api/v1/dashboard/profile-completion
+// @desc    Get profile completion tracker data
+// @access  Private
+router.get('/profile-completion', dashboardController.getProfileCompletion);
+
 module.exports = router;

@@ -23,6 +23,15 @@ class DashboardProvider with ChangeNotifier {
   List get recentPayments => (_data?['recentPayments'] as List?) ?? [];
   List get upcomingAuctions => (_data?['upcomingAuctions'] as List?) ?? [];
 
+  // Profile completion
+  Map<String, dynamic>? _profileCompletion;
+  Map<String, dynamic>? get profileCompletion => _profileCompletion;
+  int get profilePercentage => (_profileCompletion?['percentage'] ?? 0) as int;
+  bool get isProfileComplete => _profileCompletion?['isComplete'] == true;
+  List get missingFields => ((_profileCompletion?['fields'] as List?) ?? [])
+      .where((f) => f['filled'] != true)
+      .toList();
+
   Future<void> fetchDashboard() async {
     // Skip API call if no token (dev/test mode — show empty dashboard)
     final prefs = await SharedPreferences.getInstance();
@@ -46,6 +55,14 @@ class DashboardProvider with ChangeNotifier {
         _error = res['message'] ?? 'Failed to load dashboard';
         _data = {};
       }
+
+      // Fetch profile completion
+      try {
+        final profileRes = await ApiService.get('/dashboard/profile-completion');
+        if (profileRes['success'] == true) {
+          _profileCompletion = Map<String, dynamic>.from(profileRes['data']);
+        }
+      } catch (_) {}
     } catch (e) {
       _error = 'Could not connect to server';
       _data = {};

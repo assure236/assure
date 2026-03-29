@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers/payment_provider.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import 'cashfree_payment_screen.dart';
 
@@ -42,6 +44,16 @@ class _PaymentsScreenState extends State<PaymentsScreen>
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.receipt_long_rounded),
+            tooltip: 'Account Statement',
+            onPressed: () {
+              final url = '${ApiService.baseUrl}/payments/statement?format=html';
+              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.secondaryColor,
@@ -524,9 +536,14 @@ class _PaymentTile extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
-                onPressed: () => Navigator.pop(ctx),
-                icon: const Icon(Icons.close, size: 18),
-                label: const Text('Close'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  final paymentId = payment['_id'] ?? payment['id'] ?? '';
+                  final url = '${ApiService.baseUrl}/payments/receipt/$paymentId';
+                  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                },
+                icon: const Icon(Icons.download_rounded, size: 18),
+                label: const Text('Download'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,

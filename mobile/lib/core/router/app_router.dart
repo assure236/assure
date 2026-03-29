@@ -23,6 +23,7 @@ import '../../features/support/screens/support_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/change_password_screen.dart';
 import '../../features/auth/screens/qr_scan_screen.dart';
+import '../../features/chatbot/screens/chatbot_screen.dart';
 
 class AppRouter {
   static GoRouter router(AuthProvider authProvider) {
@@ -136,6 +137,10 @@ class AppRouter {
         GoRoute(
           path: '/qr-scan',
           builder: (context, state) => const QrScanScreen(),
+        ),
+        GoRoute(
+          path: '/chatbot',
+          builder: (context, state) => const ChatbotScreen(),
         ),
       ],
     );

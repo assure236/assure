@@ -19,6 +19,7 @@ const Settings = () => {
     default_credit_score: '650',
     maintenance_mode: false,
     allow_registration: true,
+    show_credit_score: false,
     sms_notifications: true,
     email_notifications: true,
   });
@@ -127,6 +128,7 @@ const Settings = () => {
               {[
                 { field: 'kyc_required', label: 'Require KYC for Chit Group Enrollment' },
                 { field: 'allow_registration', label: 'Allow New User Registration' },
+                { field: 'show_credit_score', label: 'Show Credit Score on Member Dashboard' },
                 { field: 'maintenance_mode', label: 'Maintenance Mode (blocks all member logins)' },
               ].map(({ field, label }) => (
                 <Box key={field} display="flex" justifyContent="space-between" alignItems="center" py={1}

@@ -205,6 +205,12 @@ const Payments = () => {
             variant="outlined" startIcon={downloadingStatement ? <CircularProgress size={16} /> : <StatementIcon />}
             onClick={handleDownloadStatement} disabled={downloadingStatement}
           >
+            CSV
+          </Button>
+          <Button
+            variant="contained" startIcon={<StatementIcon />}
+            onClick={() => window.open(`${axios.defaults.baseURL}/payments/statement?format=html`, '_blank')}
+          >
             Statement
           </Button>
         </Box>

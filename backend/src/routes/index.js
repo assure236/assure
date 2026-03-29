@@ -14,6 +14,8 @@ const dashboardRoutes = require('./dashboardRoutes');
 const kycRoutes = require('./kycRoutes');
 const adminRoutes = require('./adminRoutes');
 const walletRoutes = require('./walletRoutes');
+const chatbotRoutes = require('./chatbotRoutes');
+const digilockerRoutes = require('./digilockerRoutes');
 
 // Public routes
 router.use('/auth', authRoutes);
@@ -32,6 +34,8 @@ router.use('/referrals', referralRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/kyc', kycRoutes);
 router.use('/wallet', walletRoutes);
+router.use('/chatbot', chatbotRoutes);
+router.use('/digilocker', digilockerRoutes);
 
 // API info endpoint
 router.get('/', (req, res) => {
