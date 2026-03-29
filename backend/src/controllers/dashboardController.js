@@ -1,0 +1,157 @@
+const { User, ChitGroup, ChitMember, Auction, Payment } = require('../models');
+
+exports.getMemberDashboard = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+    const [memberships, recentPayments, upcomingAuctions, user] = await Promise.all([
+      ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id'),
+      Payment.find({ user_id: userId, payment_status: 'success' }).populate('chit_group_id', 'group_name').sort({ payment_date: -1 }).limit(5),
+      Auction.find({ status: { $in: ['scheduled', 'in_progress'] } }).populate('chit_group_id', 'group_name group_number chit_value').sort({ auction_date: 1 }).limit(3),
+      User.findById(userId).select('full_name credit_score kyc_status'),
+    ]);
+
+    const paidThisMonth = await Payment.aggregate([
+      { $match: { user_id: userId, payment_status: 'success', payment_date: { $gte: startOfMonth, $lte: endOfMonth } } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    const totalInvested = recentPayments.reduce((s, p) => s + (p.amount || 0), 0);
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        totalGroups: memberships.length,
+        activeGroups: memberships.filter(m => m.chit_group_id?.status === 'active').length,
+        totalInvested,
+        paymentsThisMonth: paidThisMonth[0]?.total || 0,
+        memberships,
+        recentPayments,
+        upcomingAuctions: upcomingAuctions.map(a => ({ ...a.toObject(), status: a.status === 'in_progress' ? 'active' : a.status })),
+      }
+    });
+  } catch (err) { next(err); }
+};
+
+exports.getMemberAnalytics = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      months.push({ label: d.toLocaleString('en-IN', { month: 'short', year: '2-digit' }), start: new Date(d.getFullYear(), d.getMonth(), 1), end: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59) });
+    }
+
+    const [paid, pending, failed, memberships] = await Promise.all([
+      Payment.countDocuments({ user_id: userId, payment_status: 'success' }),
+      Payment.countDocuments({ user_id: userId, payment_status: 'pending' }),
+      Payment.countDocuments({ user_id: userId, payment_status: 'failed' }),
+      ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id', 'group_name chit_value status'),
+    ]);
+
+    const monthlyPayments = await Promise.all(months.map(async m => {
+      const r = await Payment.aggregate([
+        { $match: { user_id: userId, payment_status: 'success', payment_date: { $gte: m.start, $lte: m.end } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]);
+      return r[0]?.total || 0;
+    }));
+
+    const totalInvestedAgg = await Payment.aggregate([
+      { $match: { user_id: userId, payment_status: 'success' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        monthly_collections: months.map((m, i) => ({ month: m.label, amount: monthlyPayments[i] })),
+        payment_status: { paid, pending, failed },
+        active_chits: memberships.length,
+        chit_details: memberships.map(m => ({ group_name: m.chit_group_id?.group_name, chit_value: m.chit_group_id?.chit_value, status: m.chit_group_id?.status })),
+        total_invested: totalInvestedAgg[0]?.total || 0,
+      }
+    });
+  } catch (err) { next(err); }
+};
+
+exports.getDividendAnalytics = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const memberships = await ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id');
+    const groupIds = memberships.map(m => m.chit_group_id?._id).filter(Boolean);
+    const completedAuctions = groupIds.length > 0
+      ? await Auction.find({ chit_group_id: { $in: groupIds }, status: 'completed' }).populate('chit_group_id')
+      : [];
+
+    // Build per-group analytics the frontend expects
+    const groups = memberships.map(m => {
+      const g = m.chit_group_id;
+      if (!g) return null;
+      const groupAuctions = completedAuctions.filter(a => a.chit_group_id?._id?.toString() === g._id.toString());
+      const totalMembers = g.total_members || 1;
+      const chitValue = g.chit_value || 0;
+      const commission = chitValue * 0.05;
+      const avgWinBid = groupAuctions.length > 0
+        ? groupAuctions.reduce((s, a) => s + (a.winning_bid_amount || 0), 0) / groupAuctions.length
+        : chitValue * 0.25;
+      const avgDividend = avgWinBid / totalMembers;
+      const netReturn = avgDividend * (g.duration_months || 0);
+      const effectiveReturnPct = chitValue > 0 ? ((netReturn / chitValue) * 100).toFixed(1) : '0.0';
+      const winProbability = totalMembers > 0 ? ((1 / totalMembers) * 100).toFixed(1) : '0.0';
+
+      // Projected monthly dividends for remaining duration
+      const remainingMonths = Math.max(0, (g.duration_months || 0) - groupAuctions.length);
+      const projected_dividends = Array.from({ length: remainingMonths }, (_, i) => ({
+        month: groupAuctions.length + i + 1,
+        estimated_dividend: Math.round(avgDividend),
+        cumulative: Math.round(avgDividend * (i + 1)),
+      }));
+
+      return {
+        group_id: g._id.toString(),
+        group_name: g.group_name,
+        current_month: groupAuctions.length,
+        duration_months: g.duration_months || 0,
+        chit_value: chitValue,
+        monthly_installment: g.monthly_installment || chitValue / totalMembers,
+        avg_dividend_per_member: Math.round(avgDividend),
+        net_return: Math.round(netReturn),
+        avg_winning_bid: Math.round(avgWinBid),
+        effective_return_pct: parseFloat(effectiveReturnPct),
+        completed_auctions: groupAuctions.length,
+        win_probability_pct: parseFloat(winProbability),
+        projected_dividends,
+      };
+    }).filter(Boolean);
+
+    res.json({ success: true, data: { groups, memberships, completedAuctions } });
+  } catch (err) { next(err); }
+};
+
+exports.getAdminDashboard = async (req, res, next) => {
+  try {
+    const [totalUsers, totalGroups, activeAuctions] = await Promise.all([
+      User.countDocuments({ role: 'member' }),
+      ChitGroup.countDocuments(),
+      Auction.countDocuments({ status: { $in: ['scheduled', 'in_progress'] } }),
+    ]);
+    const totalPaymentsAgg = await Payment.aggregate([{ $match: { payment_status: 'success' } }, { $group: { _id: null, total: { $sum: '$amount' } } }]);
+    res.json({ success: true, data: { totalUsers, totalGroups, totalPayments: totalPaymentsAgg[0]?.total || 0, activeAuctions } });
+  } catch (err) { next(err); }
+};
+
+exports.getStatistics = async (req, res, next) => {
+  try {
+    const [users, groups, auctions] = await Promise.all([
+      User.countDocuments(), ChitGroup.countDocuments(), Auction.countDocuments({ status: 'completed' })
+    ]);
+    const rev = await Payment.aggregate([{ $match: { payment_status: 'success' } }, { $group: { _id: null, t: { $sum: '$amount' } } }]);
+    res.json({ success: true, data: { users, groups, totalRevenue: rev[0]?.t || 0, completedAuctions: auctions } });
+  } catch (err) { next(err); }
+};

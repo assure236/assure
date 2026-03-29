@@ -1,0 +1,9 @@
+{
+  "short_name": "ACF Admin",
+  "name": "Assure Chit Funds - Admin Portal",
+  "icons": [],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#1976d2",
+  "background_color": "#ffffff"
+}

@@ -1,0 +1,30 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Environment files (keep .env.production, ignore .env)
+.env
+backend/.env
+web/.env
+admin/.env
+
+# Build outputs
+web/build/
+admin/build/
+
+# Logs
+logs/
+*.log
+
+# Uploads (local files)
+backend/uploads/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
