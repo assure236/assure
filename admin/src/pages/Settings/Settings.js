@@ -3,7 +3,7 @@ import {
   Container, Typography, Box, Card, CardContent, Grid, TextField,
   Button, CircularProgress, Alert, Divider, Switch, FormControlLabel, Paper
 } from '@mui/material';
-import { Save as SaveIcon } from '@mui/icons-material';
+import { Save as SaveIcon, Cloud as CloudIcon, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -26,6 +26,34 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  const [erpStatus, setErpStatus] = useState(null); // null | 'testing' | { connected, user } | { error }
+
+  useEffect(() => { fetchSettings(); fetchErpStatus(); }, []);
+
+  const fetchErpStatus = async () => {
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/admin/erpnext/status`);
+      if (res.data.data?.configured) {
+        setErpStatus({ configured: true });
+      } else {
+        setErpStatus({ configured: false });
+      }
+    } catch { setErpStatus({ configured: false }); }
+  };
+
+  const testErpConnection = async () => {
+    setErpStatus({ configured: true, testing: true });
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_URL}/admin/erpnext/test`);
+      if (res.data.success) {
+        setErpStatus({ configured: true, connected: true, user: res.data.data.user });
+        toast.success(`ERPNext connected as ${res.data.data.user}`);
+      }
+    } catch (err) {
+      setErpStatus({ configured: true, connected: false, error: err.response?.data?.message || 'Connection failed' });
+      toast.error('ERPNext connection failed');
+    }
+  };
 
   useEffect(() => { fetchSettings(); }, []);
 
@@ -160,6 +188,63 @@ const Settings = () => {
               ))}
               <Alert severity="info" sx={{ mt: 2, fontSize: 12 }}>
                 SMS & Email gateway integration (Twilio/SendGrid) will be added in Phase 5.
+              </Alert>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* ERPNext Integration */}
+        <Grid item xs={12}>
+          <Card sx={{ borderRadius: 3, border: erpStatus?.connected ? '1px solid #4caf50' : '1px solid #e0e0e0' }}>
+            <CardContent>
+              <Box display="flex" alignItems="center" gap={2} mb={2}>
+                <CloudIcon sx={{ fontSize: 32, color: erpStatus?.connected ? '#4caf50' : '#1976d2' }} />
+                <Box flex={1}>
+                  <Typography variant="h6">ERPNext Integration</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Sync members, payments, and chit groups with your ERPNext instance for accounting and financial reports.
+                  </Typography>
+                </Box>
+                {erpStatus?.connected && (
+                  <Box display="flex" alignItems="center" gap={0.5}>
+                    <CheckCircle color="success" fontSize="small" />
+                    <Typography variant="body2" color="success.main" fontWeight={600}>
+                      Connected as {erpStatus.user}
+                    </Typography>
+                  </Box>
+                )}
+                {erpStatus?.connected === false && erpStatus?.error && (
+                  <Box display="flex" alignItems="center" gap={0.5}>
+                    <ErrorIcon color="error" fontSize="small" />
+                    <Typography variant="body2" color="error.main" fontWeight={600}>
+                      {erpStatus.error}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              {!erpStatus?.configured ? (
+                <Alert severity="warning">
+                  ERPNext is not configured. Set <code>ERPNEXT_URL</code>, <code>ERPNEXT_API_KEY</code>, and <code>ERPNEXT_API_SECRET</code> in your backend <code>.env</code> file, then restart the server.
+                </Alert>
+              ) : (
+                <Box display="flex" gap={2} alignItems="center">
+                  <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary">ERPNext URL</Typography>
+                    <Typography variant="body2" fontWeight={600}>{process.env.REACT_APP_ERPNEXT_URL || 'Configured in backend .env'}</Typography>
+                  </Paper>
+                  <Button
+                    variant="contained"
+                    startIcon={erpStatus?.testing ? <CircularProgress size={16} color="inherit" /> : <CloudIcon />}
+                    onClick={testErpConnection}
+                    disabled={erpStatus?.testing}
+                  >
+                    {erpStatus?.testing ? 'Testing...' : 'Test Connection'}
+                  </Button>
+                </Box>
+              )}
+              <Alert severity="info" sx={{ mt: 2, fontSize: 12 }}>
+                Go to <strong>Accounting → ERPNext</strong> tab to sync data and fetch financial reports from ERPNext.
               </Alert>
             </CardContent>
           </Card>

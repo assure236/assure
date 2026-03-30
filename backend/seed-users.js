@@ -24,9 +24,9 @@ const User = mongoose.models.User || mongoose.model('User', userSchema);
 const usersToSeed = [
   {
     full_name:    'Super Admin',
-    email:        'admin@assurechitfunds.com',
+    email:        'assure.fund@outlook.com',
     mobile:       '9000000000',
-    password:     'Admin@123456',
+    password:     'Varsha@2026',
     role:         'admin',
     kyc_status:   'verified',
     member_id:    'MEM000001',

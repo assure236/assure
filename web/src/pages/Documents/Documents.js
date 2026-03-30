@@ -212,6 +212,13 @@ const Documents = () => {
                   {vs === 'rejected' && (doc.notes || doc.rejection_reason) && (
                     <Alert severity="error" sx={{ py: 0, fontSize: 11, mt: 1 }}>{doc.notes || doc.rejection_reason}</Alert>
                   )}
+                  {doc?.file_url && (
+                    <Box
+                      component="img" src={doc.file_url} alt={docType.label}
+                      onClick={() => setPreviewDoc(doc)}
+                      sx={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 1, mt: 1, cursor: 'pointer', border: '1px solid #e0e0e0' }}
+                    />
+                  )}
                 </CardContent>
                 <CardActions>
                   {doc && (

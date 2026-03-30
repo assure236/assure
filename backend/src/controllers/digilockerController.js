@@ -23,8 +23,8 @@ function generateCodeChallenge(verifier) {
  */
 exports.getAuthUrl = async (req, res, next) => {
   try {
-    if (!DL_CLIENT_ID) {
-      return res.status(503).json({ success: false, message: 'DigiLocker integration not configured. Set DIGILOCKER_CLIENT_ID in .env' });
+    if (!DL_CLIENT_ID || DL_CLIENT_ID.startsWith('your_')) {
+      return res.status(503).json({ success: false, message: 'DigiLocker integration not configured yet. Please contact admin.' });
     }
 
     const userId = String(req.user._id || req.user.id);

@@ -8,6 +8,7 @@ const {
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
 } = require('../models');
 const notificationService = require('../services/notificationService');
+const erpnextService = require('../services/erpnextService');
 const logger = require('../utils/logger');
 
 const adminOnly = [authMiddleware, authorizeRoles('admin', 'manager')];
@@ -1077,15 +1078,17 @@ router.put('/defaulters/:paymentId/waive-fee', adminOnly, async (req, res, next)
 // ============ DOCUMENTS (admin view) ============
 router.get('/documents', adminOnly, async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, status, doc_type } = req.query;
     const filter = {};
     if (status && status !== 'all') {
-      // Map 'approved' alias to canonical 'verified' stored in DB
       filter.verification_status = status === 'approved' ? 'verified' : status;
+    }
+    if (doc_type && doc_type !== 'all') {
+      filter.document_type = doc_type;
     }
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [docs, total] = await Promise.all([
-      Document.find(filter).populate('user_id', 'full_name mobile member_id kyc_status').sort({ created_at: -1 }).skip(skip).limit(parseInt(limit)),
+      Document.find(filter).populate('user_id', 'full_name mobile member_id kyc_status email').sort({ created_at: -1 }).skip(skip).limit(parseInt(limit)),
       Document.countDocuments(filter),
     ]);
     res.json({ success: true, data: docs, total });
@@ -1329,6 +1332,123 @@ router.get('/risk/assessment', adminOnly, async (req, res, next) => {
       User.countDocuments({ kyc_status: 'pending', role: 'member' }),
     ]);
     res.json({ success: true, data: { lowCreditUsers: usersLowScore, topDefaulters: defaulters, pendingKYC } });
+  } catch (err) { next(err); }
+});
+
+// ============ ERPNEXT INTEGRATION ============
+
+// Check ERPNext config status
+router.get('/erpnext/status', adminOnly, async (req, res) => {
+  res.json({ success: true, data: { configured: erpnextService.isConfigured() } });
+});
+
+// Test connection
+router.get('/erpnext/test', adminOnly, async (req, res, next) => {
+  try {
+    if (!erpnextService.isConfigured()) {
+      return res.status(503).json({ success: false, message: 'ERPNext not configured. Add valid credentials in .env' });
+    }
+    const result = await erpnextService.testConnection();
+    res.json({ success: true, data: result });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.response?.data?.message || err.message });
+  }
+});
+
+// Sync summary / dashboard
+router.get('/erpnext/summary', adminOnly, async (req, res, next) => {
+  try {
+    if (!erpnextService.isConfigured()) {
+      return res.status(503).json({ success: false, message: 'ERPNext not configured' });
+    }
+    const data = await erpnextService.getSyncSummary();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Sync all members as Customers
+router.post('/erpnext/sync/members', adminOnly, async (req, res, next) => {
+  try {
+    const members = await User.find({ role: 'member' }).lean();
+    const result = await erpnextService.syncAllCustomers(members);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+// Sync all successful payments as Journal Entries
+router.post('/erpnext/sync/payments', adminOnly, async (req, res, next) => {
+  try {
+    const { from, to } = req.body;
+    const filter = { payment_status: 'success' };
+    if (from || to) {
+      filter.payment_date = {};
+      if (from) filter.payment_date.$gte = new Date(from);
+      if (to) filter.payment_date.$lte = new Date(to + 'T23:59:59');
+    }
+    const payments = await Payment.find(filter)
+      .populate('user_id', 'full_name mobile member_id')
+      .populate('chit_group_id', 'group_name group_number')
+      .lean();
+    const result = await erpnextService.syncAllPayments(payments);
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+// Sync all chit groups as Projects
+router.post('/erpnext/sync/groups', adminOnly, async (req, res, next) => {
+  try {
+    const groups = await ChitGroup.find().lean();
+    const results = { synced: 0, failed: 0, errors: [] };
+    for (const group of groups) {
+      try {
+        await erpnextService.syncChitGroup(group);
+        results.synced++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push({ group: group.group_name, error: err.message });
+      }
+    }
+    res.json({ success: true, data: results });
+  } catch (err) { next(err); }
+});
+
+// Fetch P&L from ERPNext
+router.get('/erpnext/reports/pl', adminOnly, async (req, res, next) => {
+  try {
+    const data = await erpnextService.fetchProfitAndLoss(req.query);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Fetch Balance Sheet from ERPNext
+router.get('/erpnext/reports/balance-sheet', adminOnly, async (req, res, next) => {
+  try {
+    const data = await erpnextService.fetchBalanceSheet(req.query);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Fetch General Ledger from ERPNext
+router.get('/erpnext/reports/general-ledger', adminOnly, async (req, res, next) => {
+  try {
+    const data = await erpnextService.fetchGeneralLedger(req.query);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Fetch Trial Balance from ERPNext
+router.get('/erpnext/reports/trial-balance', adminOnly, async (req, res, next) => {
+  try {
+    const data = await erpnextService.fetchTrialBalance(req.query);
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Fetch Accounts Receivable
+router.get('/erpnext/reports/receivable', adminOnly, async (req, res, next) => {
+  try {
+    const data = await erpnextService.fetchAccountsReceivable(req.query);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 });
 

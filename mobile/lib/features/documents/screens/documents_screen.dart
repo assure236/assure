@@ -381,6 +381,26 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
               ],
             ),
             if (doc != null || status == 'rejected') ...[
+              if (doc?['file_url'] != null) ...[
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () => _viewDocument(doc!['file_url']),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      doc!['file_url'],
+                      height: 120,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 60,
+                        color: Colors.grey.shade100,
+                        child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [

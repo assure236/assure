@@ -4,7 +4,7 @@ import {
   CircularProgress, Alert, Paper, Table, TableBody, TableCell,
   TableHead, TableRow, Divider, TextField, MenuItem
 } from '@mui/material';
-import { Download as DownloadIcon, Refresh as RefreshIcon } from '@mui/icons-material';
+import { Download as DownloadIcon, Refresh as RefreshIcon, Print as PrintIcon } from '@mui/icons-material';
 import axios from 'axios';
 
 const Reports = () => {
@@ -32,9 +32,21 @@ const Reports = () => {
   };
 
   const handleExport = () => {
-    const url = `${process.env.REACT_APP_API_URL}/admin/reports/export?type=${reportType}&period=${period}`;
-    window.open(url, '_blank');
+    if (!report?.data?.length) return;
+    const tableData = report.data;
+    const headers = Object.keys(tableData[0]);
+    const rows = tableData.map(row => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','));
+    const csv = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${reportType}-${period}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
+
+  const handlePrint = () => window.print();
 
   const summaryItems = report?.summary || [];
   const tableData = report?.data || [];
@@ -53,13 +65,18 @@ const Reports = () => {
               { value: 'overdue_payments', label: 'Overdue Payments' },
               { value: 'kyc_status', label: 'KYC Status Report' },
               { value: 'auction_summary', label: 'Auction Summary' },
+              { value: 'members', label: 'New Members Report' },
             ].map(o => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
           </TextField>
           <TextField size="small" label="Period" type="month" value={period}
             onChange={e => setPeriod(e.target.value)} InputLabelProps={{ shrink: true }} />
           <Button startIcon={<RefreshIcon />} onClick={fetchReport}>Refresh</Button>
-          <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleExport}>
+          <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleExport}
+            disabled={!report?.data?.length}>
             Export CSV
+          </Button>
+          <Button variant="outlined" startIcon={<PrintIcon />} onClick={handlePrint}>
+            Print
           </Button>
         </Box>
       </Box>

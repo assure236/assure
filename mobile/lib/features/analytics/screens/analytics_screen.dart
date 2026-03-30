@@ -23,7 +23,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _fetchAnalytics();
   }
 
@@ -101,6 +101,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             Tab(text: 'Overview'),
             Tab(text: 'Dividends'),
             Tab(text: 'Calculator'),
+            Tab(text: 'Statement'),
           ],
         ),
       ),
@@ -118,6 +119,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                     ),
                     _DividendAnalyticsTab(analytics: _analytics),
                     const _DividendCalculatorTab(),
+                    const _AccountStatementTab(),
                   ],
                 ),
     );
@@ -502,6 +504,174 @@ class _ResultRow extends StatelessWidget {
       Text(label, style: TextStyle(color: Colors.grey[700], fontSize: isHighlight ? 15 : 13, fontWeight: isHighlight ? FontWeight.bold : FontWeight.normal)),
       Text(value, style: TextStyle(color: color, fontSize: isHighlight ? 18 : 14, fontWeight: FontWeight.bold)),
     ]);
+  }
+}
+
+// TAB 4: ACCOUNT STATEMENT
+class _AccountStatementTab extends StatefulWidget {
+  const _AccountStatementTab();
+  @override
+  State<_AccountStatementTab> createState() => _AccountStatementTabState();
+}
+
+class _AccountStatementTabState extends State<_AccountStatementTab> {
+  List<Map<String, dynamic>> _payments = [];
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchStatement();
+  }
+
+  Future<void> _fetchStatement() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final res = await ApiService.get('/payments/my');
+      if (res['success'] == true) {
+        setState(() => _payments = List<Map<String, dynamic>>.from(res['data'] ?? []));
+      } else {
+        setState(() => _error = res['message'] ?? 'Failed to load statement');
+      }
+    } catch (e) {
+      setState(() => _error = 'Could not load statement');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: AppTheme.errorColor),
+          const SizedBox(height: 12),
+          Text(_error!, textAlign: TextAlign.center),
+          const SizedBox(height: 12),
+          ElevatedButton(onPressed: _fetchStatement, child: const Text('Retry')),
+        ],
+      )));
+    }
+
+    final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '\u20B9', decimalDigits: 0);
+    final totalAmount = _payments.fold<double>(0, (s, p) => s + ((p['total_amount'] ?? p['amount'] ?? 0).toDouble()));
+    final successful = _payments.where((p) => p['payment_status'] == 'completed').length;
+    final pending = _payments.where((p) => p['payment_status'] == 'pending' || p['payment_status'] == 'overdue').length;
+
+    return RefreshIndicator(
+      onRefresh: _fetchStatement,
+      child: _payments.isEmpty
+          ? ListView(children: [
+              const SizedBox(height: 100),
+              Center(child: Column(children: [
+                Icon(Icons.receipt_long, size: 64, color: Colors.grey[300]),
+                const SizedBox(height: 12),
+                const Text('No transactions yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const SizedBox(height: 4),
+                const Text('Your payment history will appear here', style: TextStyle(color: Colors.grey, fontSize: 13)),
+              ])),
+            ])
+          : ListView(padding: const EdgeInsets.all(16), children: [
+              // Summary cards
+              Row(children: [
+                Expanded(child: _SummaryCard(label: 'Transactions', value: '${_payments.length}', icon: Icons.receipt_long, color: AppTheme.primaryColor)),
+                const SizedBox(width: 12),
+                Expanded(child: _SummaryCard(label: 'Total Amount', value: fmt.format(totalAmount), icon: Icons.account_balance_wallet, color: AppTheme.secondaryColor)),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: _SummaryCard(label: 'Successful', value: '$successful', icon: Icons.check_circle_outline, color: AppTheme.successColor)),
+                const SizedBox(width: 12),
+                Expanded(child: _SummaryCard(label: 'Pending', value: '$pending', icon: Icons.pending_outlined, color: Colors.orange)),
+              ]),
+              const SizedBox(height: 20),
+              const Text('Transaction History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              ..._payments.map((p) => _PaymentTile(payment: p, fmt: fmt)),
+            ]),
+    );
+  }
+}
+
+class _PaymentTile extends StatelessWidget {
+  final Map<String, dynamic> payment;
+  final NumberFormat fmt;
+  const _PaymentTile({required this.payment, required this.fmt});
+
+  @override
+  Widget build(BuildContext context) {
+    final status = payment['payment_status'] ?? 'pending';
+    final amount = (payment['total_amount'] ?? payment['amount'] ?? 0).toDouble();
+    final date = payment['payment_date'] ?? payment['created_at'] ?? '';
+    final groupName = payment['chit_group_name'] ?? payment['group_name'] ?? 'Chit Group';
+    final month = payment['month_number'] ?? '-';
+    final type = (payment['payment_type'] ?? 'monthly').toString().replaceAll('_', ' ');
+
+    Color statusColor;
+    IconData statusIcon;
+    switch (status) {
+      case 'completed':
+        statusColor = AppTheme.successColor;
+        statusIcon = Icons.check_circle;
+        break;
+      case 'failed':
+        statusColor = AppTheme.errorColor;
+        statusIcon = Icons.cancel;
+        break;
+      case 'overdue':
+        statusColor = Colors.red;
+        statusIcon = Icons.warning;
+        break;
+      default:
+        statusColor = Colors.orange;
+        statusIcon = Icons.pending;
+    }
+
+    String formattedDate = '';
+    if (date.isNotEmpty) {
+      try {
+        final dt = DateTime.parse(date);
+        formattedDate = DateFormat('dd MMM yyyy').format(dt);
+      } catch (_) {
+        formattedDate = date.toString();
+      }
+    }
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        leading: Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(color: statusColor.withAlpha(25), borderRadius: BorderRadius.circular(10)),
+          child: Icon(statusIcon, color: statusColor, size: 22),
+        ),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: Text(groupName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), overflow: TextOverflow.ellipsis)),
+            Text(fmt.format(amount), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: statusColor)),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Row(children: [
+            Text('Month $month', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(width: 8),
+            Container(width: 4, height: 4, decoration: BoxDecoration(color: Colors.grey[400], shape: BoxShape.circle)),
+            const SizedBox(width: 8),
+            Text(type, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const Spacer(),
+            Text(formattedDate, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          ]),
+        ),
+      ),
+    );
   }
 }
 

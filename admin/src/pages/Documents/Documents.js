@@ -123,16 +123,27 @@ export default function Documents() {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    {['Member', 'KYC Status', 'Document Type', 'Status', 'Uploaded', 'Notes', 'Actions'].map(h => (
+                    {['Preview', 'Member', 'KYC Status', 'Document Type', 'Status', 'Uploaded', 'Notes', 'Actions'].map(h => (
                       <TableCell key={h} sx={{ fontWeight: 700, bgcolor: 'grey.50' }}>{h}</TableCell>
                     ))}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {rows.length === 0 ? (
-                    <TableRow><TableCell colSpan={7} align="center" sx={{ py: 6, color: 'text.secondary' }}>No documents found</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>No documents found</TableCell></TableRow>
                   ) : rows.map(row => (
                     <TableRow key={row._id || row.id} hover>
+                      <TableCell sx={{ width: 60 }}>
+                        {row.file_url ? (
+                          <Box component="img" src={row.file_url} alt="doc"
+                            sx={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 1, cursor: 'pointer', border: '1px solid #e0e0e0' }}
+                            onClick={() => setPreviewDoc(row)} />
+                        ) : (
+                          <Avatar variant="rounded" sx={{ width: 48, height: 48, bgcolor: 'grey.200' }}>
+                            <Visibility fontSize="small" color="disabled" />
+                          </Avatar>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Avatar sx={{ width: 30, height: 30, bgcolor: 'primary.main', fontSize: 12 }}>
@@ -162,7 +173,7 @@ export default function Documents() {
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
-                          {row.file_path && (
+                          {row.file_url && (
                             <Tooltip title="Preview Document">
                               <IconButton size="small" onClick={() => setPreviewDoc(row)}>
                                 <Visibility fontSize="small" />
@@ -208,8 +219,13 @@ export default function Documents() {
         <DialogContent>
           {verifyDialog.doc && (
             <Box>
-              <Typography gutterBottom>Member: <strong>{verifyDialog.doc.user?.full_name}</strong></Typography>
-              <Typography gutterBottom>Document: <strong>{(verifyDialog.doc.document_type || '').replace('_', ' ')}</strong></Typography>
+              <Typography gutterBottom>Member: <strong>{verifyDialog.doc.user_id?.full_name || '—'}</strong></Typography>
+              <Typography gutterBottom>Mobile: <strong>{verifyDialog.doc.user_id?.mobile || '—'}</strong></Typography>
+              <Typography gutterBottom>Document: <strong>{(verifyDialog.doc.document_type || '').replace(/_/g, ' ')}</strong></Typography>
+              {verifyDialog.doc.file_url && (
+                <Box component="img" src={verifyDialog.doc.file_url} alt="doc"
+                  sx={{ width: '100%', maxHeight: 300, objectFit: 'contain', borderRadius: 1, mt: 1, mb: 1, border: '1px solid #e0e0e0' }} />
+              )}
               <TextField
                 label="Remarks (optional)" multiline rows={3} fullWidth size="small" sx={{ mt: 2 }}
                 value={remarks} onChange={e => setRemarks(e.target.value)}
@@ -229,22 +245,42 @@ export default function Documents() {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewDoc} onClose={() => setPreviewDoc(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Document Preview — {previewDoc?.document_type?.replace('_', ' ')}</DialogTitle>
+        <DialogTitle sx={{ textTransform: 'capitalize' }}>
+          Document Preview — {previewDoc?.document_type?.replace(/_/g, ' ')}
+          {previewDoc?.user_id?.full_name && (
+            <Typography variant="body2" color="text.secondary">
+              {previewDoc.user_id.full_name} • {previewDoc.user_id.mobile || ''}
+            </Typography>
+          )}
+        </DialogTitle>
         <DialogContent>
-          {previewDoc?.file_path ? (
-            previewDoc.file_path.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-              <Box component="img" src={`/api/v1/uploads/${previewDoc.file_path}`}
-                alt="document" sx={{ maxWidth: '100%', borderRadius: 1 }} />
-            ) : (
+          {previewDoc?.file_url ? (
+            previewDoc.file_url.match(/\.(pdf)$/i) ? (
               <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', height: 500 }}>
-                <iframe src={`/api/v1/uploads/${previewDoc.file_path}`} title="doc" width="100%" height="100%" style={{ border: 0 }} />
+                <iframe src={previewDoc.file_url} title="doc" width="100%" height="100%" style={{ border: 0 }} />
               </Box>
+            ) : (
+              <Box component="img" src={previewDoc.file_url}
+                alt="document" sx={{ maxWidth: '100%', borderRadius: 1 }} />
             )
           ) : (
             <Typography color="text.secondary">No file available for preview</Typography>
           )}
+          <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            <Chip label={previewDoc?.verification_status || 'pending'} size="small"
+              color={statusColor(previewDoc?.verification_status)} />
+            <Typography variant="caption" color="text.secondary">
+              Uploaded: {previewDoc?.created_at ? new Date(previewDoc.created_at).toLocaleDateString('en-IN') : '—'}
+            </Typography>
+            {previewDoc?.uploaded_from && (
+              <Typography variant="caption" color="text.secondary">Source: {previewDoc.uploaded_from}</Typography>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
+          {previewDoc?.file_url && (
+            <Button onClick={() => window.open(previewDoc.file_url, '_blank')}>Open in New Tab</Button>
+          )}
           <Button onClick={() => setPreviewDoc(null)}>Close</Button>
         </DialogActions>
       </Dialog>

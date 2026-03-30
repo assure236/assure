@@ -141,6 +141,8 @@ const Analytics = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [statement, setStatement] = useState(null);
+  const [stmtLoading, setStmtLoading] = useState(false);
 
   useEffect(() => { fetchAnalytics(); }, []);
 
@@ -163,18 +165,36 @@ const Analytics = () => {
     }
   };
 
-  const handleExportStatement = async () => {
+  const fetchStatement = async () => {
+    setStmtLoading(true);
     try {
-      const res = await axios.get('/payments/statement?format=csv', { responseType: 'blob' });
-      const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'account_statement.csv';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      alert('Could not download statement. Please try again.');
-    }
+      const res = await axios.get('/payments/my');
+      if (res.data.success) setStatement(res.data.data || []);
+    } catch { setStatement([]); }
+    finally { setStmtLoading(false); }
+  };
+
+  useEffect(() => { if (tab === 3) fetchStatement(); }, [tab]);
+
+  const handleExportStatement = () => {
+    if (!statement?.length) return;
+    const headers = ['Date', 'Group', 'Type', 'Amount', 'Status', 'Ref'];
+    const rows = statement.map(p => [
+      p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : '-',
+      p.chit_group_id?.group_name || '-',
+      p.payment_type || '-',
+      p.total_amount || p.amount || 0,
+      p.payment_status || '-',
+      p.transaction_id || '-',
+    ]);
+    const csv = [headers.join(','), ...rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'my_account_statement.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   if (loading) {
@@ -210,6 +230,7 @@ const Analytics = () => {
         <Tab label="My Overview" icon={<BarChartIcon />} iconPosition="start" />
         <Tab label="Dividend Analytics" icon={<WalletIcon />} iconPosition="start" />
         <Tab label="Dividend Calculator" icon={<CalcIcon />} iconPosition="start" />
+        <Tab label="Account Statement" icon={<DownloadIcon />} iconPosition="start" />
       </Tabs>
 
       {/* ── Tab 0: Overview ─────────────────────────────────────────── */}
@@ -368,6 +389,75 @@ const Analytics = () => {
       {tab === 2 && (
         <Paper sx={{ p: 3, borderRadius: 3 }}>
           <DividendCalculator />
+        </Paper>
+      )}
+
+      {/* ── Tab 3: Account Statement ─────────────────────────────────── */}
+      {tab === 3 && (
+        <Paper sx={{ p: 3, borderRadius: 3 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Typography variant="h6">Account Statement</Typography>
+            <Button variant="contained" size="small" startIcon={<DownloadIcon />}
+              onClick={handleExportStatement} disabled={!statement?.length}>
+              Export CSV
+            </Button>
+          </Box>
+          <Divider sx={{ mb: 2 }} />
+          {stmtLoading ? (
+            <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>
+          ) : !statement?.length ? (
+            <Alert severity="info">No payment records found.</Alert>
+          ) : (
+            <>
+              <Grid container spacing={2} mb={3}>
+                {(() => {
+                  const total = statement.reduce((s, p) => s + (p.total_amount || p.amount || 0), 0);
+                  const success = statement.filter(p => p.payment_status === 'success');
+                  const pending = statement.filter(p => p.payment_status === 'pending' || p.payment_status === 'overdue');
+                  return [
+                    { label: 'Total Transactions', value: statement.length, color: '#1976d2' },
+                    { label: 'Total Amount', value: fmt(total), color: '#4caf50' },
+                    { label: 'Successful', value: success.length, color: '#388e3c' },
+                    { label: 'Pending/Overdue', value: pending.length, color: '#f57c00' },
+                  ].map(c => (
+                    <Grid item xs={6} sm={3} key={c.label}>
+                      <Paper sx={{ p: 2, borderLeft: `4px solid ${c.color}`, borderRadius: 2 }}>
+                        <Typography variant="caption" color="text.secondary">{c.label}</Typography>
+                        <Typography variant="h6" fontWeight={700}>{c.value}</Typography>
+                      </Paper>
+                    </Grid>
+                  ));
+                })()}
+              </Grid>
+              <Box sx={{ overflowX: 'auto' }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      {['Date', 'Group', 'Month', 'Type', 'Amount', 'Status', 'Reference'].map(h => (
+                        <TableCell key={h} sx={{ fontWeight: 700, bgcolor: 'grey.50' }}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {statement.map((p, i) => (
+                      <TableRow key={p._id || i} hover>
+                        <TableCell>{p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN') : '—'}</TableCell>
+                        <TableCell>{p.chit_group_id?.group_name || '—'}</TableCell>
+                        <TableCell>{p.month_number || '—'}</TableCell>
+                        <TableCell><Chip label={p.payment_type || '—'} size="small" sx={{ textTransform: 'capitalize' }} /></TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{fmt(p.total_amount || p.amount)}</TableCell>
+                        <TableCell>
+                          <Chip label={p.payment_status} size="small"
+                            color={p.payment_status === 'success' ? 'success' : p.payment_status === 'pending' ? 'warning' : 'error'} />
+                        </TableCell>
+                        <TableCell><Typography variant="caption" color="text.secondary">{p.transaction_id || '—'}</Typography></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Box>
+            </>
+          )}
         </Paper>
       )}
     </Container>
