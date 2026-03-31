@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/chit_group_provider.dart';
@@ -41,14 +42,15 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            expandedHeight: 120,
+            expandedHeight: 100,
             floating: true,
             pinned: true,
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
+            title: const Text('My Chit Groups',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            centerTitle: true,
             flexibleSpace: FlexibleSpaceBar(
-              title: const Text('My Chit Groups',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               background: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -442,100 +444,164 @@ class _AvailableGroupCard extends StatelessWidget {
     final monthly =
         double.tryParse(data['monthly_installment']?.toString() ?? '0') ?? 0;
     final members = data['total_members'] ?? 0;
+    final enrolledCount = data['enrolled_members'] ?? data['current_members'] ?? 0;
     final duration = data['duration_months'] ?? 0;
+    final groupName = data['group_name'] ?? '';
+    final psoNumber = data['pso_number'] ?? data['registration_number'] ?? '';
+    final auctionType = data['auction_frequency'] ?? data['auction_type'] ?? 'Monthly';
+    final commencementDate = data['commencement_date'];
+    final dividendUpto = data['dividend_upto'] ?? data['max_dividend'] ?? 0;
+    final minBid = data['min_bid'] ?? data['minimum_bid'] ?? 0;
+    final maxBid = data['max_bid'] ?? data['maximum_bid'] ?? 0;
+    final slotsLeft = (members is int ? members : 0) - (enrolledCount is int ? enrolledCount : 0);
+
+    String dateStr = '';
+    if (commencementDate != null) {
+      try {
+        dateStr = DateFormat('dd-MM-yyyy').format(DateTime.parse(commencementDate.toString()));
+      } catch (_) {}
+    }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                    colors: [Color(0xFF1976D2), Color(0xFF0D47A1)]),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Icon(Icons.account_balance, color: Colors.white),
+      elevation: 3,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // Header with chit value
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(data['group_name'] ?? '',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                Text(data['group_number'] ?? '',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(children: [
+            Text(
+              '₹ ${NumberFormat('#,##,###').format(chitValue)}',
+              style: const TextStyle(
+                color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+            ),
+            const Text('Chit Value',
+                style: TextStyle(color: Colors.white70, fontSize: 13)),
+          ]),
+        ),
+
+        // Details grid
+        Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(children: [
+            Row(children: [
+              Expanded(child: _DetailItem(
+                label: 'Subscription Value',
+                value: '₹${_fmt(monthly)}/Month',
+                valueColor: AppTheme.errorColor,
+              )),
+              Expanded(child: _DetailItem(
+                label: 'First Auction Date',
+                value: dateStr.isNotEmpty ? dateStr : 'TBD',
+              )),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _DetailItem(
+                label: 'Duration',
+                value: '$duration Months',
+              )),
+              Expanded(child: _DetailItem(
+                label: 'Auctions',
+                value: auctionType.toString(),
+              )),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _DetailItem(
+                label: 'PSO No.',
+                value: psoNumber.toString().isNotEmpty ? psoNumber.toString() : 'N/A',
+                valueColor: AppTheme.primaryColor,
+              )),
+              Expanded(child: _DetailItem(
+                label: 'Group Name',
+                value: groupName,
+              )),
+            ]),
+            if (dividendUpto != 0 || minBid != 0) ...[
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: _DetailItem(
+                  label: 'Dividend Upto',
+                  value: '₹${_fmt(double.tryParse(dividendUpto.toString()) ?? 0)}',
+                )),
+                Expanded(child: _DetailItem(
+                  label: 'Bid Range',
+                  value: '₹${_fmt(double.tryParse(minBid.toString()) ?? 0)} - ₹${_fmt(double.tryParse(maxBid.toString()) ?? 0)}',
+                )),
               ]),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                  color: Colors.green.withAlpha(31),
-                  borderRadius: BorderRadius.circular(20)),
-              child: const Text('OPEN',
-                  style: TextStyle(
-                      color: Colors.green,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold)),
-            ),
+            ],
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _DetailItem(
+                label: 'Total Members',
+                value: '$members',
+              )),
+              Expanded(child: _DetailItem(
+                label: 'Slots Available',
+                value: slotsLeft > 0 ? '$slotsLeft left' : 'Filling up',
+                valueColor: slotsLeft > 0 ? AppTheme.successColor : AppTheme.errorColor,
+              )),
+            ]),
           ]),
-          const SizedBox(height: 16),
-          Row(children: [
-            Expanded(
-              child: _StatItem(
-                  label: 'Chit Value', value: '₹${_fmt(chitValue)}'),
-            ),
-            Expanded(
-              child: _StatItem(
-                  label: 'Monthly', value: '₹${_fmt(monthly)}'),
-            ),
-            Expanded(
-              child: _StatItem(label: 'Members', value: '$members'),
-            ),
-            Expanded(
-              child: _StatItem(label: 'Duration', value: '${duration}m'),
-            ),
-          ]),
-          const SizedBox(height: 16),
-          SizedBox(
+        ),
+
+        // Enroll button
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
+            child: ElevatedButton.icon(
               onPressed: onEnroll,
+              icon: const Icon(Icons.how_to_reg_rounded),
+              label: const Text('Enroll Now'),
               style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10))),
-              child: const Text('Enroll Now'),
+                      borderRadius: BorderRadius.circular(12))),
             ),
           ),
-        ]),
-      ),
+        ),
+      ]),
     );
   }
 
   String _fmt(double v) {
     if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
     if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}K';
-    return v.toStringAsFixed(0);
+    return NumberFormat('#,##,###').format(v);
   }
 }
 
-class _StatItem extends StatelessWidget {
+class _DetailItem extends StatelessWidget {
   final String label;
   final String value;
-  const _StatItem({required this.label, required this.value});
+  final Color? valueColor;
+  const _DetailItem({required this.label, required this.value, this.valueColor});
 
   @override
   Widget build(BuildContext context) {
-    return Column(children: [
-      Text(value,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+      const SizedBox(height: 2),
+      Text(value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: valueColor ?? Colors.black87,
+          )),
     ]);
   }
 }

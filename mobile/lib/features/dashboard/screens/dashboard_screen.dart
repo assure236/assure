@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/auction_provider.dart';
 import '../../../core/providers/dashboard_provider.dart';
+import '../../../core/providers/notification_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../chit_groups/screens/chit_groups_screen.dart';
 import '../../auctions/screens/auctions_screen.dart';
@@ -109,6 +110,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<DashboardProvider>().fetchDashboard();
+        context.read<NotificationProvider>().fetchNotifications();
         // Listen to AuctionProvider changes to refresh dashboard
         context.read<AuctionProvider>().addListener(_onAuctionsChanged);
       }
@@ -304,26 +306,37 @@ class _HeaderSection extends StatelessWidget {
                             color: Colors.white, size: 26),
                         tooltip: 'Scan web QR',
                       ),
-                      Stack(
-                        children: [
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.notifications_outlined,
-                                color: Colors.white, size: 28),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFFFF9800),
-                                shape: BoxShape.circle,
+                      Consumer<NotificationProvider>(
+                        builder: (context, notifProvider, _) {
+                          final unread = notifProvider.unreadCount;
+                          return Stack(
+                            children: [
+                              IconButton(
+                                onPressed: () => context.push('/notifications'),
+                                icon: const Icon(Icons.notifications_outlined,
+                                    color: Colors.white, size: 28),
                               ),
-                            ),
-                          ),
-                        ],
+                              if (unread > 0)
+                                Positioned(
+                                  top: 6,
+                                  right: 6,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFFFF9800),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                    child: Text(
+                                      unread > 9 ? '9+' : '$unread',
+                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -594,7 +607,15 @@ class _StatsRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: GestureDetector(
-              onTap: () => context.push('/loans'),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Loan feature coming soon!'),
+                    behavior: SnackBarBehavior.floating,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
               child: _StatCard(
                 label: 'Loan',
                 value: 'Apply',
@@ -847,15 +868,21 @@ class _ActiveChits extends StatelessWidget {
                                       ?.toString() ??
                                   '0') ??
                           0;
-                      return _ChitCard(
-                        name: group['group_name']?.toString() ??
-                            'Chit Group',
-                        chitValue: chitValue,
-                        monthly: monthly,
-                        currentMonth: current,
-                        totalMonths: total,
-                        progress: progress,
-                        index: i,
+                      final groupId = (group['_id'] ?? group['id'] ?? '').toString();
+                      return GestureDetector(
+                        onTap: () {
+                          if (groupId.isNotEmpty) context.push('/chit-groups/$groupId');
+                        },
+                        child: _ChitCard(
+                          name: group['group_name']?.toString() ??
+                              'Chit Group',
+                          chitValue: chitValue,
+                          monthly: monthly,
+                          currentMonth: current,
+                          totalMonths: total,
+                          progress: progress,
+                          index: i,
+                        ),
                       );
                     },
                   ),

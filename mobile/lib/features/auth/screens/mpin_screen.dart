@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -8,7 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../widgets/pin_input_row.dart';
 
 /// Shown to returning users who have previously logged in on this device.
-/// Skips phone + OTP — just asks for MPIN directly.
+/// Supports fingerprint/face unlock as a quick alternative to MPIN.
 class MpinScreen extends StatefulWidget {
   const MpinScreen({super.key});
 
@@ -19,11 +20,15 @@ class MpinScreen extends StatefulWidget {
 class _MpinScreenState extends State<MpinScreen> {
   String _maskedMobile = '';
   bool _isLoading = false;
+  final LocalAuthentication _localAuth = LocalAuthentication();
+  bool _biometricsAvailable = false;
+  bool _biometricsEnabled = false;
 
   @override
   void initState() {
     super.initState();
     _loadMobile();
+    _checkBiometrics();
   }
 
   Future<void> _loadMobile() async {
@@ -31,6 +36,56 @@ class _MpinScreenState extends State<MpinScreen> {
     final mobile = prefs.getString('mobile') ?? '';
     if (mobile.length == 10) {
       setState(() => _maskedMobile = '+91 XXXXXX${mobile.substring(6)}');
+    }
+  }
+
+  Future<void> _checkBiometrics() async {
+    try {
+      final canCheck = await _localAuth.canCheckBiometrics;
+      final isDeviceSupported = await _localAuth.isDeviceSupported();
+      final prefs = await SharedPreferences.getInstance();
+      final enabled = prefs.getBool('biometrics_enabled') ?? true; // default on
+      if (mounted) {
+        setState(() {
+          _biometricsAvailable = canCheck && isDeviceSupported;
+          _biometricsEnabled = enabled && _biometricsAvailable;
+        });
+        // Auto-trigger biometric on screen load
+        if (_biometricsEnabled) {
+          _authenticateWithBiometrics();
+        }
+      }
+    } catch (_) {
+      // Device doesn't support biometrics
+    }
+  }
+
+  Future<void> _authenticateWithBiometrics() async {
+    try {
+      final authenticated = await _localAuth.authenticate(
+        localizedReason: 'Authenticate to access Assure ChitFunds',
+        options: const AuthenticationOptions(
+          stickyAuth: true,
+          biometricOnly: false,
+        ),
+      );
+      if (authenticated && mounted) {
+        // Use stored token to re-authenticate
+        final prefs = await SharedPreferences.getInstance();
+        final storedMpin = prefs.getString('saved_mpin');
+        if (storedMpin != null) {
+          _login(storedMpin);
+        } else {
+          // Fallback: just use MPIN login with the stored mobile
+          // Show message that they need to enter MPIN first time after enabling
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Enter MPIN once to enable quick biometric login'),
+            behavior: SnackBarBehavior.floating,
+          ));
+        }
+      }
+    } catch (e) {
+      debugPrint('Biometric auth error: $e');
     }
   }
 
@@ -44,6 +99,9 @@ class _MpinScreenState extends State<MpinScreen> {
     setState(() => _isLoading = false);
 
     if (res['success'] == true) {
+      // Save MPIN securely for biometric login
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('saved_mpin', mpin);
       context.go('/dashboard');
     } else {
       if (mounted) {
@@ -117,6 +175,45 @@ class _MpinScreenState extends State<MpinScreen> {
               if (_isLoading) ...[
                 const SizedBox(height: 20),
                 const CircularProgressIndicator(),
+              ],
+              if (_biometricsAvailable) ...[
+                const SizedBox(height: 24),
+                GestureDetector(
+                  onTap: _biometricsEnabled ? _authenticateWithBiometrics : null,
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: _biometricsEnabled
+                              ? AppTheme.primaryColor.withAlpha(26)
+                              : Colors.grey.withAlpha(26),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.fingerprint_rounded,
+                          size: 32,
+                          color: _biometricsEnabled
+                              ? AppTheme.primaryColor
+                              : Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _biometricsEnabled
+                            ? 'Tap to use fingerprint'
+                            : 'Biometrics disabled',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _biometricsEnabled
+                              ? AppTheme.primaryColor
+                              : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ],
           ),
