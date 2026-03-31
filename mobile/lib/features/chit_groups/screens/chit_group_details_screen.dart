@@ -363,7 +363,7 @@ class _MembersTabState extends State<_MembersTab> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: ListTile(
             leading: CircleAvatar(
-              backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+              backgroundColor: AppTheme.primaryColor.withAlpha(26),
               child: Text('${i + 1}',
                   style: const TextStyle(
                       color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
@@ -375,7 +375,7 @@ class _MembersTabState extends State<_MembersTab> {
                 ? Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                        color: Colors.amber.withOpacity(0.15),
+                        color: Colors.amber.withAlpha(38),
                         borderRadius: BorderRadius.circular(8)),
                     child: const Row(mainAxisSize: MainAxisSize.min, children: [
                       Icon(Icons.emoji_events, size: 14, color: Colors.amber),
@@ -465,7 +465,7 @@ class _PaymentScheduleTabState extends State<_PaymentScheduleTab> {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: statusColor.withOpacity(0.1),
+                  backgroundColor: statusColor.withAlpha(26),
                   radius: 20,
                   child: Icon(statusIcon, color: statusColor, size: 20),
                 ),
@@ -565,7 +565,7 @@ class _PaymentScheduleTabState extends State<_PaymentScheduleTab> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1), shape: BoxShape.circle),
+                  color: AppTheme.primaryColor.withAlpha(26), shape: BoxShape.circle),
               child: const Icon(Icons.payment, size: 40, color: AppTheme.primaryColor),
             ),
             const SizedBox(height: 12),
@@ -597,9 +597,9 @@ class _PaymentScheduleTabState extends State<_PaymentScheduleTab> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                    color: AppTheme.errorColor.withOpacity(0.05),
+                    color: AppTheme.errorColor.withAlpha(13),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.errorColor.withOpacity(0.3))),
+                    border: Border.all(color: AppTheme.errorColor.withAlpha(76))),
                 child: const Row(children: [
                   Icon(Icons.warning_amber, color: AppTheme.errorColor, size: 16),
                   SizedBox(width: 8),
@@ -612,7 +612,7 @@ class _PaymentScheduleTabState extends State<_PaymentScheduleTab> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+                  color: Colors.blue.withAlpha(13), borderRadius: BorderRadius.circular(10)),
               child: const Row(children: [
                 Icon(Icons.lock_outlined, color: Colors.blue, size: 14),
                 SizedBox(width: 6),

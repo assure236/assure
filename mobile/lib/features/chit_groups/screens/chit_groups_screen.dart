@@ -313,7 +313,7 @@ class _ChitGroupCard extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withAlpha(26),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Icon(Icons.account_balance, color: AppTheme.primaryColor),
@@ -330,7 +330,7 @@ class _ChitGroupCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _statusColor.withOpacity(0.12),
+                    color: _statusColor.withAlpha(31),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -474,7 +474,7 @@ class _AvailableGroupCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.12),
+                  color: Colors.green.withAlpha(31),
                   borderRadius: BorderRadius.circular(20)),
               child: const Text('OPEN',
                   style: TextStyle(

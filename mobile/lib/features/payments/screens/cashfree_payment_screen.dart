@@ -211,7 +211,7 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
           WebViewWidget(controller: _controller),
           if (_isLoading || _verifying)
             Container(
-              color: Colors.white.withOpacity(0.85),
+              color: Colors.white.withAlpha(217),
               child: Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   const CircularProgressIndicator(color: AppTheme.primaryColor),

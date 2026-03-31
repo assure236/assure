@@ -338,8 +338,8 @@ class _HeaderSection extends StatelessWidget {
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                     decoration: BoxDecoration(
                       color: kycVerified
-                          ? Colors.green.withOpacity(0.2)
-                          : Colors.orange.withOpacity(0.2),
+                          ? Colors.green.withAlpha(51)
+                          : Colors.orange.withAlpha(51),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color:
@@ -415,7 +415,7 @@ class _KycBanner extends StatelessWidget {
         border: Border.all(color: const Color(0xFFFF9800), width: 1),
         boxShadow: [
           BoxShadow(
-              color: Colors.orange.withOpacity(0.1),
+              color: Colors.orange.withAlpha(26),
               blurRadius: 8,
               offset: const Offset(0, 2)),
         ],
@@ -471,7 +471,7 @@ class _ProfileTracker extends StatelessWidget {
         border: Border.all(color: const Color(0xFF1976D2), width: 1),
         boxShadow: [
           BoxShadow(
-              color: Colors.blue.withOpacity(0.08),
+              color: Colors.blue.withAlpha(20),
               blurRadius: 8,
               offset: const Offset(0, 2)),
         ],
@@ -634,7 +634,7 @@ class _StatCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.06),
+              color: Colors.black.withAlpha(15),
               blurRadius: 8,
               offset: const Offset(0, 2)),
         ],
@@ -754,7 +754,7 @@ class _ActionButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withOpacity(0.06),
+                color: Colors.black.withAlpha(15),
                 blurRadius: 8,
                 offset: const Offset(0, 2)),
           ],
@@ -906,7 +906,7 @@ class _ChitCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: colors[0].withOpacity(0.4),
+              color: colors[0].withAlpha(102),
               blurRadius: 12,
               offset: const Offset(0, 4)),
         ],
@@ -1033,7 +1033,7 @@ class _UpcomingAuctions extends StatelessWidget {
                     : null,
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withAlpha(13),
                       blurRadius: 6,
                       offset: const Offset(0, 2)),
                 ],
@@ -1150,7 +1150,7 @@ class _RecentPayments extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withAlpha(13),
                           blurRadius: 8,
                           offset: const Offset(0, 2)),
                     ],
@@ -1235,7 +1235,7 @@ class _EmptyCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.05), blurRadius: 6),
+              color: Colors.black.withAlpha(13), blurRadius: 6),
         ],
       ),
       child: Column(

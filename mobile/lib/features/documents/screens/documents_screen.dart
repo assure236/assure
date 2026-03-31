@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,6 +22,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   List<Map<String, dynamic>> _documents = [];
   String? _error;
   String? _uploadingType;
+  Map<String, dynamic>? _kycStatus;
+  bool _digilockerLoading = false;
 
   static const List<Map<String, dynamic>> _docTypes = [
     {'key': 'aadhaar_card', 'label': 'Aadhaar Card (Front & Back)', 'icon': 'badge', 'maxSizeKB': 500},
@@ -33,6 +36,42 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   void initState() {
     super.initState();
     _fetchDocuments();
+    _fetchKycStatus();
+  }
+
+  Future<void> _fetchKycStatus() async {
+    try {
+      final res = await ApiService.get('/kyc/status');
+      if (res['success'] == true) {
+        setState(() => _kycStatus = res['data']);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _initDigilocker() async {
+    setState(() => _digilockerLoading = true);
+    try {
+      final res = await ApiService.get('/kyc/digilocker/init');
+      if (res['success'] == true) {
+        final url = res['data']?['auth_url'] ?? res['auth_url'];
+        if (url != null) {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else {
+            _showSnackBar('Could not open DigiLocker');
+          }
+        } else {
+          _showSnackBar('DigiLocker URL not received');
+        }
+      } else {
+        _showSnackBar(res['message'] ?? 'DigiLocker init failed');
+      }
+    } catch (e) {
+      _showSnackBar('Could not connect to server');
+    } finally {
+      setState(() => _digilockerLoading = false);
+    }
   }
 
   Future<void> _fetchDocuments() async {
@@ -235,6 +274,8 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildKycCard(),
+            const SizedBox(height: 16),
             _buildProgressCard(uploaded, total),
             const SizedBox(height: 20),
             const Text('Required Documents (JPEG/PNG only)',
@@ -244,6 +285,127 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildKycCard() {
+    final status = _kycStatus?['kyc_status'] ?? 'not_started';
+    final panVerified = _kycStatus?['pan_verified'] == true;
+    final aadhaarVerified = _kycStatus?['aadhaar_verified'] == true;
+
+    Color statusColor;
+    String statusLabel;
+    IconData statusIcon;
+
+    switch (status) {
+      case 'approved':
+        statusColor = AppTheme.successColor;
+        statusLabel = 'KYC Verified';
+        statusIcon = Icons.verified_user;
+        break;
+      case 'pending':
+        statusColor = AppTheme.secondaryColor;
+        statusLabel = 'Under Review';
+        statusIcon = Icons.hourglass_empty;
+        break;
+      case 'rejected':
+        statusColor = AppTheme.errorColor;
+        statusLabel = 'KYC Rejected';
+        statusIcon = Icons.cancel;
+        break;
+      default:
+        statusColor = Colors.orange;
+        statusLabel = 'KYC Pending';
+        statusIcon = Icons.person_outline;
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(statusIcon, color: statusColor, size: 22),
+                const SizedBox(width: 8),
+                const Text('KYC Verification',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: statusColor.withAlpha(26),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(statusLabel,
+                      style: TextStyle(color: statusColor, fontSize: 11,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _kycStep('PAN', panVerified),
+                const SizedBox(width: 16),
+                _kycStep('Aadhaar (DigiLocker)', aadhaarVerified),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (status != 'approved') ...
+              [
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () => context.push('/kyc'),
+                        icon: const Icon(Icons.edit, size: 16),
+                        label: const Text('Complete KYC'),
+                        style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor),
+                      ),
+                    ),
+                    if (panVerified && !aadhaarVerified) ...
+                      [
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _digilockerLoading ? null : _initDigilocker,
+                            icon: _digilockerLoading
+                                ? const SizedBox(height: 14, width: 14,
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2))
+                                : const Icon(Icons.account_balance, size: 16),
+                            label: const Text('DigiLocker'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                  ],
+                ),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _kycStep(String label, bool done) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(done ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: done ? AppTheme.successColor : Colors.grey, size: 16),
+        const SizedBox(width: 4),
+        Text(label,
+            style: TextStyle(
+                color: done ? AppTheme.successColor : Colors.grey,
+                fontSize: 12)),
+      ],
     );
   }
 
@@ -338,7 +500,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withAlpha(26),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(_iconForType(docType['icon'] as String? ?? 'badge'),
@@ -364,7 +526,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
+                    color: statusColor.withAlpha(26),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(

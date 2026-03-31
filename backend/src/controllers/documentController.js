@@ -51,7 +51,7 @@ exports.uploadDocument = async (req, res, next) => {
     } else {
       if (!fs.existsSync(LOCAL_UPLOAD_DIR)) fs.mkdirSync(LOCAL_UPLOAD_DIR, { recursive: true });
       fs.writeFileSync(path.join(LOCAL_UPLOAD_DIR, fileName), req.file.buffer);
-      const baseUrl = process.env.API_BASE_URL || 'http://localhost:' + (process.env.PORT || 5000);
+      const baseUrl = process.env.BACKEND_URL || 'http://localhost:' + (process.env.PORT || 5000);
       fileUrl = baseUrl + '/uploads/documents/' + fileName;
     }
 

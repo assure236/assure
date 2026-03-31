@@ -89,7 +89,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.08),
+                color: AppTheme.primaryColor.withAlpha(20),
                 shape: BoxShape.circle,
               ),
               child: const Icon(Icons.lock_outline,
@@ -202,10 +202,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.06),
+                  color: Colors.orange.withAlpha(15),
                   borderRadius: BorderRadius.circular(12),
                   border:
-                      Border.all(color: Colors.orange.withOpacity(0.3))),
+                      Border.all(color: Colors.orange.withAlpha(76))),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

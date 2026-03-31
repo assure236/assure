@@ -85,7 +85,7 @@ class _MpinScreenState extends State<MpinScreen> {
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color: AppTheme.primaryColor.withAlpha(26),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

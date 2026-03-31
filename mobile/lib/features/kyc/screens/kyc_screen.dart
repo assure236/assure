@@ -218,9 +218,9 @@ class _KycScreenState extends State<KycScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withAlpha(26),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withAlpha(76)),
       ),
       child: Row(
         children: [
@@ -273,7 +273,7 @@ class _KycScreenState extends State<KycScreen> {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: done ? AppTheme.successColor : AppTheme.primaryColor.withOpacity(0.1),
+            color: done ? AppTheme.successColor : AppTheme.primaryColor.withAlpha(26),
             shape: BoxShape.circle,
           ),
           child: Center(

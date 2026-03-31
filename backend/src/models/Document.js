@@ -21,5 +21,8 @@ const documentSchema = new mongoose.Schema({
   notes: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+documentSchema.index({ user_id: 1, document_type: 1 });
+documentSchema.index({ user_id: 1, verification_status: 1 });
+
 const Document = mongoose.model('Document', documentSchema);
 module.exports = Document;

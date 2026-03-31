@@ -315,7 +315,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppTheme.primaryColor.withOpacity(0.1),
+          backgroundColor: AppTheme.primaryColor.withAlpha(26),
           child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?',
               style: const TextStyle(color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
         ),
@@ -328,7 +328,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: (status == 'active' ? AppTheme.successColor : AppTheme.secondaryColor)
-                .withOpacity(0.1),
+                .withAlpha(26),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(

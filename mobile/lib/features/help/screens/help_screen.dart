@@ -258,7 +258,7 @@ class _TutorialCard extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor.withOpacity(0.1),
+            color: AppTheme.primaryColor.withAlpha(26),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: AppTheme.primaryColor, size: 26),
@@ -337,7 +337,7 @@ class _FaqTile extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color: AppTheme.primaryColor.withAlpha(26),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -383,9 +383,9 @@ class _ContactCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.secondaryColor.withOpacity(0.08),
+        color: AppTheme.secondaryColor.withAlpha(20),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.secondaryColor.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.secondaryColor.withAlpha(76)),
       ),
       child: Column(children: [
         const Icon(Icons.headset_mic_outlined,

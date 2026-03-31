@@ -120,7 +120,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1), shape: BoxShape.circle),
+                  color: AppTheme.primaryColor.withAlpha(26), shape: BoxShape.circle),
               child: const Icon(Icons.payment, size: 40, color: AppTheme.primaryColor),
             ),
             const SizedBox(height: 12),
@@ -161,9 +161,9 @@ class _PaymentsScreenState extends State<PaymentsScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                    color: AppTheme.errorColor.withOpacity(0.05),
+                    color: AppTheme.errorColor.withAlpha(13),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppTheme.errorColor.withOpacity(0.3))),
+                    border: Border.all(color: AppTheme.errorColor.withAlpha(76))),
                 child: Row(children: [
                   const Icon(Icons.warning_amber, color: AppTheme.errorColor, size: 16),
                   const SizedBox(width: 8),
@@ -176,7 +176,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.05), borderRadius: BorderRadius.circular(10)),
+                  color: Colors.blue.withAlpha(13), borderRadius: BorderRadius.circular(10)),
               child: const Row(children: [
                 Icon(Icons.lock_outlined, color: Colors.blue, size: 14),
                 SizedBox(width: 6),
@@ -436,7 +436,7 @@ class _PaymentTile extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-                color: statusColor.withOpacity(0.1),
+                color: statusColor.withAlpha(26),
                 borderRadius: BorderRadius.circular(12)),
             child: Icon(statusIcon, color: statusColor),
           ),
@@ -492,7 +492,7 @@ class _PaymentTile extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: statusColor.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(color: statusColor.withAlpha(26), shape: BoxShape.circle),
             child: Icon(Icons.receipt_long, size: 40, color: statusColor),
           ),
           const SizedBox(height: 12),
@@ -500,7 +500,7 @@ class _PaymentTile extends StatelessWidget {
           const SizedBox(height: 4),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: statusColor.withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(color: statusColor.withAlpha(31), borderRadius: BorderRadius.circular(20)),
             child: Text(status.toUpperCase(), style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 20),
@@ -641,8 +641,8 @@ class _UpcomingPaymentsTab extends StatelessWidget {
                         height: 44,
                         decoration: BoxDecoration(
                           color: isOverdue
-                              ? AppTheme.errorColor.withOpacity(0.1)
-                              : AppTheme.secondaryColor.withOpacity(0.1),
+                              ? AppTheme.errorColor.withAlpha(26)
+                              : AppTheme.secondaryColor.withAlpha(26),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
@@ -685,7 +685,7 @@ class _UpcomingPaymentsTab extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                            color: AppTheme.errorColor.withOpacity(0.08),
+                            color: AppTheme.errorColor.withAlpha(20),
                             borderRadius: BorderRadius.circular(8)),
                         child: Row(children: [
                           const Icon(Icons.warning, size: 14, color: AppTheme.errorColor),

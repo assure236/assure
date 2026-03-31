@@ -108,7 +108,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   CircleAvatar(
                     radius: 52,
-                    backgroundColor: AppTheme.primaryColor.withOpacity(0.15),
+                    backgroundColor: AppTheme.primaryColor.withAlpha(38),
                     child: Text(
                       user?.fullName.isNotEmpty == true
                           ? user!.fullName[0].toUpperCase()
@@ -196,10 +196,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                  color: Colors.blue.withOpacity(0.06),
+                  color: Colors.blue.withAlpha(15),
                   borderRadius: BorderRadius.circular(12),
                   border:
-                      Border.all(color: Colors.blue.withOpacity(0.2))),
+                      Border.all(color: Colors.blue.withAlpha(51))),
               child: const Row(children: [
                 Icon(Icons.info_outline, color: Colors.blue, size: 18),
                 SizedBox(width: 8),

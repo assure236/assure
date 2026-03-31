@@ -1,4 +1,4 @@
-﻿import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -215,7 +215,7 @@ class _PaymentOverviewTab extends StatelessWidget {
             lineBarsData: [LineChartBarData(
               spots: spots, isCurved: true, color: AppTheme.primaryColor, barWidth: 3,
               dotData: const FlDotData(show: true),
-              belowBarData: BarAreaData(show: true, color: AppTheme.primaryColor.withOpacity(0.12)),
+              belowBarData: BarAreaData(show: true, color: AppTheme.primaryColor.withAlpha(31)),
             )],
             minY: 0, maxY: maxY * 1.2,
           )),
@@ -339,7 +339,7 @@ class _GroupDividendCard extends StatelessWidget {
           Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: AppTheme.successColor.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(color: AppTheme.successColor.withAlpha(26), borderRadius: BorderRadius.circular(8)),
             child: Text('${_fmt(dividend)} earned', style: const TextStyle(color: AppTheme.successColor, fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ]),
@@ -456,8 +456,8 @@ class _DividendCalculatorTabState extends State<_DividendCalculatorTab> {
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: AppTheme.primaryColor.withOpacity(0.06), borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.primaryColor.withOpacity(0.2))),
+            decoration: BoxDecoration(color: AppTheme.primaryColor.withAlpha(15), borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.primaryColor.withAlpha(51))),
             child: const Row(children: [
               Icon(Icons.info_outline, color: AppTheme.primaryColor, size: 16),
               SizedBox(width: 8),

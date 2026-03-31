@@ -40,5 +40,9 @@ const auctionSchema = new mongoose.Schema({
   paused_time_remaining: { type: Number, default: 0 },  // seconds remaining when paused
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+auctionSchema.index({ status: 1 });
+auctionSchema.index({ chit_group_id: 1, status: 1 });
+auctionSchema.index({ chit_group_id: 1, month_number: 1 });
+
 const Auction = mongoose.model('Auction', auctionSchema);
 module.exports = Auction;

@@ -753,7 +753,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.3),
+                color: Colors.orange.withAlpha(76),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
@@ -766,8 +766,8 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: auctionStatus == 'completed'
-                    ? AppTheme.successColor.withOpacity(0.3)
-                    : Colors.orange.withOpacity(0.3),
+                    ? AppTheme.successColor.withAlpha(76)
+                    : Colors.orange.withAlpha(76),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -810,7 +810,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -873,7 +873,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withAlpha(38),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -893,7 +893,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: isUrgent ? const Color(0xFFFF5252).withOpacity(0.3) : Colors.white24,
+            color: isUrgent ? const Color(0xFFFF5252).withAlpha(76) : Colors.white24,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(value,
@@ -920,7 +920,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(20), blurRadius: 8, offset: const Offset(0, -2))],
       ),
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: Column(
@@ -1139,7 +1139,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
                 leading: CircleAvatar(
                   backgroundColor: isLeading
                       ? AppTheme.successColor
-                      : AppTheme.primaryColor.withOpacity(0.1),
+                      : AppTheme.primaryColor.withAlpha(26),
                   child: isLeading
                       ? const Icon(Icons.emoji_events, color: Colors.white, size: 20)
                       : Text((p['name'] as String)[0].toUpperCase(),
@@ -1235,12 +1235,12 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     final isHighest = amount == highestBidAmount && highestBidAmount > 0;
 
     final bgColor = isMe
-        ? AppTheme.primaryColor.withOpacity(0.12)
+        ? AppTheme.primaryColor.withAlpha(31)
         : isHighest
             ? Colors.green.shade50
             : Colors.grey.shade100;
     final borderColor = isMe
-        ? AppTheme.primaryColor.withOpacity(0.3)
+        ? AppTheme.primaryColor.withAlpha(76)
         : isHighest
             ? Colors.green.shade300
             : Colors.grey.shade200;
@@ -1281,7 +1281,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withOpacity(0.15),
+                        color: AppTheme.primaryColor.withAlpha(38),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text('T#$ticketNo',

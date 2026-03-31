@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const { User, Document } = require('../models');
 const logger = require('../utils/logger');
 
@@ -8,8 +9,14 @@ const DL_CLIENT_ID = process.env.DIGILOCKER_CLIENT_ID || '';
 const DL_CLIENT_SECRET = process.env.DIGILOCKER_CLIENT_SECRET || '';
 const DL_REDIRECT_URI = process.env.DIGILOCKER_REDIRECT_URI || '';
 
-// In-memory code_verifier store (use Redis in production)
-const verifierStore = new Map();
+// Persistent store for PKCE verifiers (survives server restart)
+const dlSessionSchema = new mongoose.Schema({
+  state: { type: String, required: true, unique: true },
+  code_verifier: { type: String, required: true },
+  user_id: { type: String, required: true },
+  expires_at: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
+}, { timestamps: true });
+const DLSession = mongoose.models.DLSession || mongoose.model('DLSession', dlSessionSchema);
 
 function generateCodeVerifier() {
   return crypto.randomBytes(32).toString('base64url');
@@ -32,9 +39,8 @@ exports.getAuthUrl = async (req, res, next) => {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
 
-    // Store verifier keyed by state (expires in 10 min)
-    verifierStore.set(state, { codeVerifier, userId });
-    setTimeout(() => verifierStore.delete(state), 10 * 60 * 1000);
+    // Store verifier in database (expires in 10 min via TTL index)
+    await DLSession.create({ state, code_verifier: codeVerifier, user_id: userId, expires_at: new Date(Date.now() + 10 * 60 * 1000) });
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -47,7 +53,7 @@ exports.getAuthUrl = async (req, res, next) => {
     });
 
     const authUrl = `${DL_BASE}/public/oauth2/1/authorize?${params.toString()}`;
-    res.json({ success: true, data: { authUrl, state } });
+    res.json({ success: true, data: { auth_url: authUrl, authUrl, state } });
   } catch (err) { next(err); }
 };
 
@@ -61,13 +67,12 @@ exports.handleCallback = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'code and state are required' });
     }
 
-    const stored = verifierStore.get(state);
+    const stored = await DLSession.findOneAndDelete({ state });
     if (!stored) {
       return res.status(400).json({ success: false, message: 'Invalid or expired state' });
     }
-    verifierStore.delete(state);
 
-    const userId = stored.userId;
+    const userId = stored.user_id;
 
     // Exchange code for access token
     const tokenRes = await fetch(`${DL_BASE}/public/oauth2/2/token`, {
@@ -79,7 +84,7 @@ exports.handleCallback = async (req, res, next) => {
         client_id: DL_CLIENT_ID,
         client_secret: DL_CLIENT_SECRET,
         redirect_uri: DL_REDIRECT_URI,
-        code_verifier: stored.codeVerifier,
+        code_verifier: stored.code_verifier,
       }),
     });
     const tokenData = await tokenRes.json();

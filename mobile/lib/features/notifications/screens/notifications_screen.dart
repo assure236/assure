@@ -279,7 +279,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
           if (!isRead) _markRead(id);
         },
         child: Container(
-          color: isRead ? Colors.transparent : AppTheme.primaryColor.withOpacity(0.04),
+          color: isRead ? Colors.transparent : AppTheme.primaryColor.withAlpha(10),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -288,7 +288,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                 width: 42,
                 height: 42,
                 decoration: BoxDecoration(
-                  color: _typeColor(type).withOpacity(0.15),
+                  color: _typeColor(type).withAlpha(38),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(_typeIcon(type), color: _typeColor(type), size: 22),

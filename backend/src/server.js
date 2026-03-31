@@ -23,7 +23,7 @@ const io = socketIO(server, {
 });
 
 app.use(helmet());
-app.use(cors({ origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL], credentials: true }));
+app.use(cors({ origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, 'https://www.assure.fund'].filter(Boolean), credentials: true }));
 
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
