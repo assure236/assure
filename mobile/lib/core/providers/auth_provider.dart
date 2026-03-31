@@ -214,6 +214,12 @@ class AuthProvider with ChangeNotifier {
 
   // ─── QR Login — confirm a web QR session from the mobile app ──────────────
 
+  /// Called after successful biometric authentication with a valid stored token.
+  void authenticateFromBiometric() {
+    _isAuthenticated = true;
+    notifyListeners();
+  }
+
   Future<Map<String, dynamic>> confirmQrLogin(String sessionId) async {
     try {
       final res = await ApiService.post('/auth/qr-confirm', {'sessionId': sessionId});

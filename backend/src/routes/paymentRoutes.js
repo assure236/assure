@@ -3,7 +3,21 @@ const router = express.Router();
 const paymentController = require('../controllers/paymentController');
 const { authMiddleware, authorizeRoles } = require('../middleware/auth');
 
-// All routes require authentication
+// ── Public routes (no auth — WebView loads these) ────────────────────────────
+// @route   GET /api/v1/payments/checkout/:id
+// @desc    Serve Cashfree checkout page (HTML + JS SDK)
+// @access  Public (payment ID acts as token)
+router.get('/checkout/:id', paymentController.checkoutPage);
+
+// @route   GET /api/v1/payments/checkout-return
+// @desc    Cashfree redirects here after payment
+// @access  Public
+router.get('/checkout-return', paymentController.checkoutReturn);
+
+// Cashfree webhook (no auth — Cashfree sends POST with signature)
+router.post('/webhook/cashfree', paymentController.cashfreeWebhook);
+
+// All remaining routes require authentication
 router.use(authMiddleware);
 
 // @route   POST /api/v1/payments/create-order
@@ -25,9 +39,6 @@ router.get('/my-payments', paymentController.getMyPayments);
 // @desc    Get user's due payments
 // @access  Private
 router.get('/due-payments', paymentController.getDuePayments);
-
-// Cashfree webhook
-router.post('/webhook/cashfree', paymentController.cashfreeWebhook);
 
 // @route   GET /api/v1/payments/receipt/:id
 // @desc    Download payment receipt (HTML printable)

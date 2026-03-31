@@ -108,8 +108,10 @@ exports.createPaymentOrder = async (req, res, next) => {
     }
 
     const paymentSessionId = cfRes.data?.payment_session_id;
-    await Payment.findByIdAndUpdate(payment._id, { cashfree_order_id: cfOrderId });
-    const paymentUrl = cf.paymentPageUrl + cfOrderId;
+    await Payment.findByIdAndUpdate(payment._id, { cashfree_order_id: cfOrderId, payment_session_id: paymentSessionId });
+
+    // Build checkout URL served by our own backend (loads Cashfree JS SDK)
+    const paymentUrl = baseUrl + '/api/v1/payments/checkout/' + String(payment._id);
 
     res.json({ success: true, data: { payment_id: String(payment._id), order_id: cfOrderId, payment_session_id: paymentSessionId, payment_url: paymentUrl } });
   } catch (err) { next(err); }
@@ -234,6 +236,103 @@ exports.getUpcomingPayments = async (req, res, next) => {
 };
 
 exports.getDuePayments = exports.getUpcomingPayments;
+
+// ─── Cashfree Hosted Checkout Page (serves HTML with JS SDK) ─────────────────
+exports.checkoutPage = async (req, res, next) => {
+  try {
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) return res.status(404).send('<h1>Payment not found</h1>');
+    const sessionId = payment.payment_session_id;
+    const orderId = payment.cashfree_order_id;
+    if (!sessionId) return res.status(400).send('<h1>Payment session expired. Please try again.</h1>');
+
+    const isTest = process.env.CASHFREE_ENV !== 'PROD';
+    const mode = isTest ? 'sandbox' : 'production';
+    const webUrl = process.env.WEB_CLIENT_URL || 'http://localhost:3000';
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const returnUrl = backendUrl + '/api/v1/payments/checkout-return?order_id=' + orderId + '&payment_id=' + payment._id;
+
+    const html = `<!DOCTYPE html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Secure Payment - Assure ChitFunds</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4f8;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.container{text-align:center;padding:40px 20px}.spinner{width:40px;height:40px;border:4px solid #e3f2fd;border-top:4px solid #1976D2;border-radius:50%;animation:spin 1s linear infinite;margin:20px auto}
+@keyframes spin{to{transform:rotate(360deg)}}h2{color:#1976D2;margin-bottom:8px}p{color:#666;font-size:14px}.error{color:#d32f2f;margin-top:16px;display:none}
+.btn{display:inline-block;margin-top:20px;padding:12px 32px;background:#1976D2;color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;text-decoration:none}
+</style>
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+</head><body>
+<div class="container">
+  <div class="spinner" id="spinner"></div>
+  <h2>Processing Payment</h2>
+  <p>Redirecting to secure payment page...</p>
+  <div class="error" id="error">Payment could not be initiated. <br><a class="btn" href="javascript:location.reload()">Try Again</a></div>
+</div>
+<script>
+(async function() {
+  try {
+    const cashfree = await Cashfree({ mode: "${mode}" });
+    const result = await cashfree.checkout({ paymentSessionId: "${sessionId}", returnUrl: "${returnUrl}" });
+    if (result.error) {
+      document.getElementById('spinner').style.display='none';
+      document.getElementById('error').style.display='block';
+      console.error('Cashfree error:', result.error);
+    }
+  } catch(e) {
+    document.getElementById('spinner').style.display='none';
+    document.getElementById('error').style.display='block';
+    console.error('Checkout error:', e);
+  }
+})();
+</script></body></html>`;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (err) { next(err); }
+};
+
+// ─── Checkout Return (Cashfree redirects here after payment) ─────────────────
+exports.checkoutReturn = async (req, res, next) => {
+  try {
+    const { order_id, payment_id } = req.query;
+    const payment = payment_id ? await Payment.findById(payment_id) : null;
+    const status = payment?.payment_status || 'pending';
+
+    // Auto-verify with Cashfree if still pending
+    if (payment && order_id && status !== 'success') {
+      try {
+        const cf = getCashfree();
+        const cfRes = await axios.get(cf.baseUrl + '/orders/' + order_id, { headers: cf.headers });
+        if (cfRes.data?.order_status === 'PAID') {
+          await Payment.findByIdAndUpdate(payment._id, { payment_status: 'success', payment_date: new Date(), transaction_id: cfRes.data.cf_order_id || order_id });
+          const updated = await Payment.findById(payment._id);
+          await handlePaymentSuccess(updated);
+        }
+      } catch (_) {}
+    }
+
+    const updatedPayment = payment_id ? await Payment.findById(payment_id) : null;
+    const finalStatus = updatedPayment?.payment_status || status;
+    const isSuccess = finalStatus === 'success';
+
+    const html = `<!DOCTYPE html><html><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment ${isSuccess ? 'Successful' : 'Processing'}</title>
+<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,sans-serif;background:#f0f4f8;display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:#fff;border-radius:16px;padding:40px;text-align:center;max-width:400px;box-shadow:0 4px 20px rgba(0,0,0,0.1)}
+.icon{font-size:64px;margin-bottom:16px}h2{margin-bottom:8px}p{color:#666;font-size:14px;margin-bottom:20px}
+.btn{display:inline-block;padding:12px 32px;background:${isSuccess ? '#4CAF50' : '#1976D2'};color:#fff;border-radius:8px;text-decoration:none;font-weight:600}</style>
+</head><body><div class="card">
+<div class="icon">${isSuccess ? '✅' : '⏳'}</div>
+<h2>${isSuccess ? 'Payment Successful!' : 'Payment Processing'}</h2>
+<p>${isSuccess ? 'Your installment has been recorded. Thank you!' : 'Your payment is being processed. You can close this window.'}</p>
+<a class="btn" href="javascript:void(0)" onclick="try{window.close()}catch(e){history.back()}">Done</a>
+</div></body></html>`;
+
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (err) { next(err); }
+};
 
 exports.getPaymentById = async (req, res, next) => {
   try {

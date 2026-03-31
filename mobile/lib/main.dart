@@ -10,11 +10,13 @@ import 'core/providers/notification_provider.dart';
 import 'core/providers/dashboard_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Push notifications are sent via AWS SNS — no Firebase initialization needed
+  // Initialize local notifications (no Firebase needed)
+  await LocalNotificationService().init();
 
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([

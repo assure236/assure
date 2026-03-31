@@ -62,26 +62,57 @@ class _MpinScreenState extends State<MpinScreen> {
 
   Future<void> _authenticateWithBiometrics() async {
     try {
+      final availableBiometrics = await _localAuth.getAvailableBiometrics();
+      final hasFinger = availableBiometrics.contains(BiometricType.fingerprint) ||
+          availableBiometrics.contains(BiometricType.strong) ||
+          availableBiometrics.contains(BiometricType.weak);
+
       final authenticated = await _localAuth.authenticate(
-        localizedReason: 'Authenticate to access Assure ChitFunds',
-        options: const AuthenticationOptions(
+        localizedReason: 'Unlock Assure ChitFunds',
+        options: AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false,
+          biometricOnly: hasFinger, // fingerprint only if available, else allow device PIN
+          useErrorDialogs: true,
+          sensitiveTransaction: false,
         ),
       );
       if (authenticated && mounted) {
-        // Use stored token to re-authenticate
+        // Try saved MPIN first
         final prefs = await SharedPreferences.getInstance();
         final storedMpin = prefs.getString('saved_mpin');
-        if (storedMpin != null) {
+        if (storedMpin != null && storedMpin.length == 6) {
           _login(storedMpin);
         } else {
-          // Fallback: just use MPIN login with the stored mobile
-          // Show message that they need to enter MPIN first time after enabling
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Enter MPIN once to enable quick biometric login'),
-            behavior: SnackBarBehavior.floating,
-          ));
+          // No saved MPIN — use stored token to validate session directly
+          final token = prefs.getString('token');
+          if (token != null) {
+            // Token exists, try to refresh profile to validate it's still good
+            if (mounted) {
+              setState(() => _isLoading = true);
+              final auth = context.read<AuthProvider>();
+              try {
+                await auth.refreshProfile();
+                if (auth.user != null && mounted) {
+                  // Token is valid — let them through
+                  auth.authenticateFromBiometric();
+                  context.go('/dashboard');
+                  return;
+                }
+              } catch (_) {}
+              if (mounted) {
+                setState(() => _isLoading = false);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Session expired. Please enter your MPIN'),
+                  behavior: SnackBarBehavior.floating,
+                ));
+              }
+            }
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Enter MPIN once to enable quick biometric login'),
+              behavior: SnackBarBehavior.floating,
+            ));
+          }
         }
       }
     } catch (e) {

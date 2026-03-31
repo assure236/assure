@@ -49,9 +49,10 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
   }
 
   bool _isReturnUrl(String url) {
-    // Intercept our return URL patterns
-    return url.contains('order_id=${widget.orderId}') ||
-        url.contains('localhost:3000/payments') ||
+    // Intercept our checkout-return URL
+    return url.contains('/checkout-return') ||
+        url.contains('order_id=${widget.orderId}') ||
+        url.contains('assure.fund/payments') ||
         url.contains('assurechitfunds://payment-return');
   }
 

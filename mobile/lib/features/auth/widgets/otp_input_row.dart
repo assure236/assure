@@ -64,6 +64,9 @@ class _OtpInputRowState extends State<OtpInputRow> {
             keyboardType: TextInputType.number,
             inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             maxLength: i == 0 ? _length : 1, // allow paste only in first box
+            enableSuggestions: false,
+            autocorrect: false,
+            autofillHints: const [],
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
             decoration: InputDecoration(
               counterText: '',

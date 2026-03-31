@@ -42,7 +42,6 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            expandedHeight: 100,
             floating: true,
             pinned: true,
             backgroundColor: AppTheme.primaryColor,
@@ -50,17 +49,6 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
             title: const Text('My Chit Groups',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             centerTitle: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-              ),
-            ),
             bottom: TabBar(
               controller: _tabController,
               indicatorColor: AppTheme.secondaryColor,

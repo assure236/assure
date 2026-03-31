@@ -7,6 +7,7 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/auction_provider.dart';
 import '../../../core/providers/dashboard_provider.dart';
 import '../../../core/providers/notification_provider.dart';
+import '../../../core/services/local_notification_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../chit_groups/screens/chit_groups_screen.dart';
 import '../../auctions/screens/auctions_screen.dart';
@@ -111,6 +112,8 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
       if (mounted) {
         context.read<DashboardProvider>().fetchDashboard();
         context.read<NotificationProvider>().fetchNotifications();
+        // Start background notification polling (every 30 seconds)
+        LocalNotificationService().startPolling(intervalSeconds: 30);
         // Listen to AuctionProvider changes to refresh dashboard
         context.read<AuctionProvider>().addListener(_onAuctionsChanged);
       }
@@ -131,6 +134,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    LocalNotificationService().stopPolling();
     // Remove listener safely — provider might already be disposed
     try {
       context.read<AuctionProvider>().removeListener(_onAuctionsChanged);

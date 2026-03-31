@@ -13,6 +13,7 @@ const paymentSchema = new mongoose.Schema({
   payment_gateway: String,
   transaction_id: { type: String, unique: true, sparse: true },
   cashfree_order_id: String,
+  payment_session_id: String,
   payment_status: { type: String, enum: ['pending', 'success', 'failed', 'refunded', 'overdue'], default: 'pending' },
   payment_date: Date,
   due_date: Date,

@@ -47,6 +47,9 @@ dependencies:
   
   # Notifications — push handled by AWS SNS via backend
 
+  # Local Notifications (no Firebase)
+  flutter_local_notifications: ^18.0.1
+
   # WebSocket / Real-time
   socket_io_client: ^3.1.4
   

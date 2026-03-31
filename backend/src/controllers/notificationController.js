@@ -40,3 +40,38 @@ exports.deleteNotification = async (req, res, next) => {
     res.json({ success: true, message: 'Notification deleted' });
   } catch (err) { next(err); }
 };
+
+// Create notification for a specific user (admin use)
+exports.sendNotification = async (req, res, next) => {
+  try {
+    const { user_id, title, message, type = 'general', data } = req.body;
+    if (!user_id || !title || !message) {
+      return res.status(400).json({ success: false, message: 'user_id, title, message required' });
+    }
+    const notification = await Notification.create({ user_id, title, message, type, data, sent_at: new Date() });
+    res.status(201).json({ success: true, data: notification });
+  } catch (err) { next(err); }
+};
+
+// Create notification for all users (admin broadcast)
+exports.broadcastNotification = async (req, res, next) => {
+  try {
+    const { title, message, type = 'general', data } = req.body;
+    if (!title || !message) {
+      return res.status(400).json({ success: false, message: 'title, message required' });
+    }
+    const User = require('../models').User;
+    const users = await User.find({ role: 'member', is_active: true }).select('_id');
+    const docs = users.map(u => ({ user_id: u._id, title, message, type, data, sent_at: new Date() }));
+    await Notification.insertMany(docs);
+    res.status(201).json({ success: true, message: `Notification sent to ${docs.length} users` });
+  } catch (err) { next(err); }
+};
+
+// Get unread count
+exports.getUnreadCount = async (req, res, next) => {
+  try {
+    const count = await Notification.countDocuments({ user_id: req.user._id || req.user.id, is_read: false });
+    res.json({ success: true, data: { count } });
+  } catch (err) { next(err); }
+};
