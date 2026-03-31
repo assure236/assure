@@ -23,6 +23,10 @@ class AuthProvider with ChangeNotifier {
 
   AuthProvider() {
     _loadFromStorage();
+    // Auto-logout when API returns 401 (token expired)
+    ApiService.onUnauthorized = () async {
+      await logout();
+    };
   }
 
   Future<void> _loadFromStorage() async {
@@ -33,7 +37,8 @@ class AuthProvider with ChangeNotifier {
 
     if (_token != null && userJson != null) {
       _user = User.fromJson(jsonDecode(userJson));
-      _isAuthenticated = true;
+      // Don't auto-authenticate on cold start — require MPIN re-entry
+      // _isAuthenticated stays false so splash redirects to /mpin
     }
     notifyListeners();
   }

@@ -523,7 +523,7 @@ class _ProfileTracker extends StatelessWidget {
               children: missing
                   .map<Widget>((f) => Chip(
                         label: Text(
-                          (f['name'] as String? ?? '')
+                          f['label'] as String? ?? (f['key'] as String? ?? '')
                               .replaceAll('_', ' ')
                               .split(' ')
                               .map((w) =>

@@ -1,5 +1,15 @@
 const { User, ChitGroup, ChitMember, Payment } = require('../models');
 const bcrypt = require('bcrypt');
+const AWS = require('aws-sdk');
+const path = require('path');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
+
+const USE_S3 = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_S3_BUCKET);
+const s3 = USE_S3 ? new AWS.S3({ region: process.env.AWS_REGION, accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY }) : null;
+const BUCKET = process.env.AWS_S3_BUCKET;
+const CLOUDFRONT_URL = process.env.AWS_CLOUDFRONT_URL;
+const LOCAL_UPLOAD_DIR = path.join(__dirname, '../../uploads/profiles');
 
 exports.getProfile = async (req, res, next) => {
   try {
@@ -39,7 +49,27 @@ exports.changePassword = async (req, res, next) => {
 };
 
 exports.uploadProfileImage = async (req, res, next) => {
-  res.json({ success: true, message: 'Profile image upload pending', data: null });
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No image provided' });
+    const userId = req.user._id || req.user.id;
+    const ext = path.extname(req.file.originalname);
+    const fileName = uuidv4() + ext;
+    let fileUrl;
+
+    if (USE_S3) {
+      const s3Key = 'profiles/' + userId + '/' + fileName;
+      await s3.upload({ Bucket: BUCKET, Key: s3Key, Body: req.file.buffer, ContentType: req.file.mimetype, ServerSideEncryption: 'AES256' }).promise();
+      fileUrl = CLOUDFRONT_URL ? CLOUDFRONT_URL + '/' + s3Key : 'https://' + BUCKET + '.s3.' + process.env.AWS_REGION + '.amazonaws.com/' + s3Key;
+    } else {
+      if (!fs.existsSync(LOCAL_UPLOAD_DIR)) fs.mkdirSync(LOCAL_UPLOAD_DIR, { recursive: true });
+      fs.writeFileSync(path.join(LOCAL_UPLOAD_DIR, fileName), req.file.buffer);
+      const baseUrl = process.env.BACKEND_URL || ('http://localhost:' + (process.env.PORT || 5000));
+      fileUrl = baseUrl + '/uploads/profiles/' + fileName;
+    }
+
+    const user = await User.findByIdAndUpdate(userId, { profile_image_url: fileUrl }, { new: true }).select('-password_hash');
+    res.json({ success: true, message: 'Profile image uploaded', data: user });
+  } catch (err) { next(err); }
 };
 
 exports.getMyChitGroups = async (req, res, next) => {

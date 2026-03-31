@@ -9,9 +9,20 @@ class ApiService {
   static String get socketUrl => AppConfig.socketUrl;
   static const _timeout = Duration(seconds: 30);
 
+  /// Callback set by AuthProvider to handle forced logout on 401
+  static Future<void> Function()? onUnauthorized;
+
   static Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('token');
+  }
+
+  static Future<Map<String, dynamic>> _handleResponse(http.Response response) async {
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 401 && onUnauthorized != null) {
+      await onUnauthorized!();
+    }
+    return body;
   }
 
   static Future<Map<String, dynamic>> get(String endpoint) async {
@@ -24,7 +35,7 @@ class ApiService {
       },
     ).timeout(_timeout);
 
-    return jsonDecode(response.body);
+    return _handleResponse(response);
   }
 
   static Future<Map<String, dynamic>> post(
@@ -39,7 +50,7 @@ class ApiService {
       body: jsonEncode(data),
     ).timeout(_timeout);
 
-    return jsonDecode(response.body);
+    return _handleResponse(response);
   }
 
   static Future<Map<String, dynamic>> put(
@@ -54,7 +65,7 @@ class ApiService {
       body: jsonEncode(data),
     );
 
-    return jsonDecode(response.body);
+    return _handleResponse(response);
   }
 
   static Future<Map<String, dynamic>> delete(String endpoint) async {
@@ -67,7 +78,7 @@ class ApiService {
       },
     );
 
-    return jsonDecode(response.body);
+    return _handleResponse(response);
   }
 
   static Future<Map<String, dynamic>> uploadFile(

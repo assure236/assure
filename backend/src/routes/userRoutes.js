@@ -1,7 +1,18 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const userController = require('../controllers/userController');
 const { authMiddleware, authorizeRoles } = require('../middleware/auth');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Only JPEG and PNG images are allowed'));
+  }
+});
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -24,7 +35,7 @@ router.put('/change-password', userController.changePassword);
 // @route   POST /api/v1/users/upload-profile-image
 // @desc    Upload profile image
 // @access  Private
-router.post('/upload-profile-image', userController.uploadProfileImage);
+router.post('/upload-profile-image', upload.single('image'), userController.uploadProfileImage);
 
 // @route   GET /api/v1/users/my-chit-groups
 // @desc    Get user's chit groups
