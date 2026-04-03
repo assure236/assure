@@ -40,6 +40,7 @@ const Documents = () => {
   const [pendingDocType, setPendingDocType] = useState(null);
   const [dlStatus, setDlStatus] = useState(null);
   const [dlLoading, setDlLoading] = useState(false);
+  const [localPreviews, setLocalPreviews] = useState({});
 
   useEffect(() => { fetchDocuments(); fetchDlStatus(); }, []);
 
@@ -108,6 +109,10 @@ const Documents = () => {
       return;
     }
 
+    // Show immediate local preview
+    const localUrl = URL.createObjectURL(file);
+    setLocalPreviews(prev => ({ ...prev, [pendingDocType]: localUrl }));
+
     setUploading(pendingDocType);
     try {
       const form = new FormData();
@@ -122,6 +127,8 @@ const Documents = () => {
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Upload failed.');
+      // Remove local preview on failure
+      setLocalPreviews(prev => { const n = { ...prev }; delete n[pendingDocType]; return n; });
     } finally {
       setUploading(null);
       setPendingDocType(null);
@@ -212,17 +219,17 @@ const Documents = () => {
                   {vs === 'rejected' && (doc.notes || doc.rejection_reason) && (
                     <Alert severity="error" sx={{ py: 0, fontSize: 11, mt: 1 }}>{doc.notes || doc.rejection_reason}</Alert>
                   )}
-                  {doc?.file_url && (
+                  {(doc?.file_url || localPreviews[docType.key]) && (
                     <Box
-                      component="img" src={doc.file_url} alt={docType.label}
-                      onClick={() => setPreviewDoc(doc)}
+                      component="img" src={localPreviews[docType.key] || doc.file_url} alt={docType.label}
+                      onClick={() => setPreviewDoc({ ...doc, _previewUrl: localPreviews[docType.key] || doc?.file_url })}
                       sx={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 1, mt: 1, cursor: 'pointer', border: '1px solid #e0e0e0' }}
                     />
                   )}
                 </CardContent>
                 <CardActions>
-                  {doc && (
-                    <Tooltip title="Preview"><IconButton size="small" onClick={() => setPreviewDoc(doc)}><ViewIcon /></IconButton></Tooltip>
+                  {(doc || localPreviews[docType.key]) && (
+                    <Tooltip title="Preview"><IconButton size="small" onClick={() => setPreviewDoc({ ...doc, _previewUrl: localPreviews[docType.key] || doc?.file_url })}><ViewIcon /></IconButton></Tooltip>
                   )}
                   {docType.key === 'selfie_photo' ? (
                     <Button size="small" startIcon={isUploading ? <CircularProgress size={14} /> : <CameraIcon />}
@@ -250,15 +257,17 @@ const Documents = () => {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewDoc} onClose={() => setPreviewDoc(null)} maxWidth="md" fullWidth>
-        <DialogTitle>{previewDoc?.document_type?.replace(/_/g, ' ')}</DialogTitle>
+        <DialogTitle sx={{ textTransform: 'capitalize' }}>{previewDoc?.document_type?.replace(/_/g, ' ') || 'Document Preview'}</DialogTitle>
         <DialogContent>
-          {previewDoc?.file_url?.endsWith('.pdf')
-            ? <iframe src={previewDoc.file_url} title="doc" width="100%" height="500px" />
-            : <Box component="img" src={previewDoc?.file_url} alt="document" sx={{ width: '100%', borderRadius: 2 }} />
+          {previewDoc?.mime_type === 'application/pdf'
+            ? <iframe src={previewDoc._previewUrl || previewDoc?.file_url} title="doc" width="100%" height="500px" style={{ border: 'none' }} />
+            : <Box component="img" src={previewDoc?._previewUrl || previewDoc?.file_url} alt="document"
+                sx={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 2 }} />
           }
           <Divider sx={{ my: 1 }} />
           <Typography variant="caption" color="text.secondary">
             Uploaded: {previewDoc?.created_at ? new Date(previewDoc.created_at).toLocaleDateString('en-IN') : '—'}
+            {previewDoc?.file_size ? ` • Size: ${(previewDoc.file_size / 1024).toFixed(1)} KB` : ''}
           </Typography>
         </DialogContent>
         <DialogActions>
