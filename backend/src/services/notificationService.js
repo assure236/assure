@@ -13,18 +13,13 @@ exports.sendOTP = async (mobile, otp) => {
     throw new Error('FAST2SMS_API_KEY must be set in .env');
   }
 
-  const template = (process.env.FAST2SMS_MESSAGE_TEMPLATE || 'Your OTP for Assure ChitFunds is {#var#}. Valid for 10 minutes. Do not share with anyone.')
-    .replace('{#var#}', otp);
-
   const body = {
     route: 'dlt',
     sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
-    message: template,
+    message: parseInt(process.env.FAST2SMS_MESSAGE_ID),
     variables_values: String(otp),
     flash: 0,
     numbers: String(mobile),
-    peid: process.env.FAST2SMS_DLT_ENTITY_ID,
-    template_id: process.env.FAST2SMS_DLT_TEMPLATE_ID,
   };
 
   try {
@@ -72,10 +67,10 @@ exports.sendSMS = async (mobile, message) => {
       body: JSON.stringify({
         route: 'dlt',
         sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
-        message: message,
+        message: parseInt(process.env.FAST2SMS_MESSAGE_ID),
+        variables_values: message,
         flash: 0,
         numbers: String(mobile),
-        peid: process.env.FAST2SMS_DLT_ENTITY_ID,
       }),
     });
     const result = await response.json();
