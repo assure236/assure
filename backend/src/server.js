@@ -17,6 +17,7 @@ const timerManager = require('./services/auctionTimerManager');
 require('./cron/reminders');
 
 const app = express();
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 const io = socketIO(server, {
   cors: { origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, process.env.MOBILE_CLIENT_URL || '*'], credentials: true }
