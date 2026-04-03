@@ -32,15 +32,38 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setUserAgent('Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36')
+      ..enableZoom(false)
       ..setNavigationDelegate(
         NavigationDelegate(
-          onPageStarted: (_) => setState(() => _isLoading = true),
-          onPageFinished: (_) => setState(() => _isLoading = false),
+          onPageStarted: (url) {
+            setState(() => _isLoading = true);
+            // Check if this is a return URL while loading
+            if (_isReturnUrl(url)) {
+              _handleReturn();
+            }
+          },
+          onPageFinished: (url) {
+            setState(() => _isLoading = false);
+            // Also check on finish in case redirect happened
+            if (_isReturnUrl(url)) {
+              _handleReturn();
+            }
+          },
+          onWebResourceError: (error) {
+            debugPrint('WebView error: ${error.description} (${error.errorCode})');
+          },
           onNavigationRequest: (req) {
             final url = req.url;
             // Allow UPI intent URLs to be handled by external apps
-            if (url.startsWith('upi://') || url.startsWith('intent://') || url.startsWith('phonepe://') || url.startsWith('gpay://') || url.startsWith('paytmmp://')) {
-              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication).catchError((_) {});
+            if (url.startsWith('upi://') ||
+                url.startsWith('intent://') ||
+                url.startsWith('phonepe://') ||
+                url.startsWith('gpay://') ||
+                url.startsWith('paytmmp://') ||
+                url.startsWith('credpay://') ||
+                url.startsWith('whatsapp://')) {
+              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)
+                  .catchError((_) {});
               return NavigationDecision.prevent;
             }
             // Intercept Cashfree return URL pattern

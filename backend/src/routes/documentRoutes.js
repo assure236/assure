@@ -18,11 +18,11 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: MAX_FILE_SIZE },
   fileFilter: (req, file, cb) => {
-    const allowed = ['image/jpeg', 'image/png'];
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png'];
     if (allowed.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only JPEG and PNG images are allowed'));
+      cb(new Error('Only JPG, JPEG and PNG images are allowed'));
     }
   }
 });

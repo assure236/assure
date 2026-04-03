@@ -278,7 +278,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             const SizedBox(height: 16),
             _buildProgressCard(uploaded, total),
             const SizedBox(height: 20),
-            const Text('Required Documents (JPEG/PNG only)',
+            const Text('Required Documents (JPG/JPEG/PNG only)',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
             ...(_docTypes.map((dt) => _buildDocCard(dt)).toList()),
@@ -513,7 +513,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
                     children: [
                       Text(label,
                           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                      Text('Max: $maxSizeKB KB · JPEG/PNG only',
+                      Text('Max: $maxSizeKB KB · JPG/JPEG/PNG only',
                           style: const TextStyle(color: Colors.grey, fontSize: 11)),
                       if (uploadedAt != null)
                         Text(

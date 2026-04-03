@@ -59,7 +59,7 @@ const errorHandler = (err, req, res, next) => {
   if (err.code === 'LIMIT_FILE_SIZE') {
     return res.status(400).json({
       success: false,
-      message: 'File size too large. Maximum allowed: 500 KB (Aadhaar), 200 KB (PAN), 400 KB (Cheque), 150 KB (Selfie). Format: JPEG/PNG only.'
+      message: 'File size too large. Maximum allowed: 500 KB (Aadhaar), 200 KB (PAN), 400 KB (Cheque), 150 KB (Selfie). Format: JPG/JPEG/PNG only.'
     });
   }
 

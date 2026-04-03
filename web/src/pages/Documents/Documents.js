@@ -97,9 +97,9 @@ const Documents = () => {
     if (!file || !pendingDocType) return;
     e.target.value = '';
 
-    const allowedTypes = ['image/jpeg', 'image/png'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Only JPEG and PNG files are allowed.');
+      toast.error('Only JPG, JPEG and PNG files are allowed.');
       return;
     }
     const docConfig = DOC_TYPES.find(d => d.key === pendingDocType);
@@ -192,7 +192,7 @@ const Documents = () => {
         </CardContent>
       </Card>
 
-      <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>Required Documents (JPEG/PNG only)</Typography>
+      <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>Required Documents (JPG/JPEG/PNG only)</Typography>
       <Grid container spacing={2} mb={4}>
         {required.map(docType => {
           const doc = getDoc(docType.key);

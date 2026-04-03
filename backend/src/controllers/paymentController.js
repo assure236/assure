@@ -301,12 +301,20 @@ exports.checkoutPage = async (req, res, next) => {
 (async function() {
   try {
     const cashfree = await Cashfree({ mode: "${mode}" });
-    const result = await cashfree.checkout({ paymentSessionId: "${sessionId}", returnUrl: "${returnUrl}" });
+    const result = await cashfree.checkout({ paymentSessionId: "${sessionId}", returnUrl: "${returnUrl}", redirectTarget: "_self" });
     if (result.error) {
       document.getElementById('spinner').style.display='none';
       document.getElementById('error').style.display='block';
       console.error('Cashfree error:', result.error);
     }
+    // Fallback: if still on this page after 8s, show manual redirect link
+    setTimeout(function() {
+      if (document.getElementById('spinner').style.display !== 'none') {
+        document.getElementById('spinner').style.display='none';
+        document.getElementById('error').innerHTML = 'Payment page taking too long. <br><a class="btn" href="https://payments.cashfree.com/order/#${sessionId}" target="_self">Open Payment Page</a>';
+        document.getElementById('error').style.display='block';
+      }
+    }, 8000);
   } catch(e) {
     document.getElementById('spinner').style.display='none';
     document.getElementById('error').style.display='block';
