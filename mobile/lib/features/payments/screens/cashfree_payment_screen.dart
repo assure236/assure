@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -22,93 +20,61 @@ class CashfreePaymentScreen extends StatefulWidget {
   State<CashfreePaymentScreen> createState() => _CashfreePaymentScreenState();
 }
 
-class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
-  late final WebViewController _controller;
-  bool _isLoading = true;
+class _CashfreePaymentScreenState extends State<CashfreePaymentScreen>
+    with WidgetsBindingObserver {
+  bool _launched = false;
   bool _verifying = false;
+  bool _done = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..enableZoom(false)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (url) {
-            setState(() => _isLoading = true);
-            // Check if this is a return URL while loading
-            if (_isReturnUrl(url)) {
-              _handleReturn();
-            }
-          },
-          onPageFinished: (url) {
-            setState(() => _isLoading = false);
-            // Also check on finish in case redirect happened
-            if (_isReturnUrl(url)) {
-              _handleReturn();
-            }
-          },
-          onWebResourceError: (error) {
-            debugPrint('WebView error: ${error.description} (${error.errorCode})');
-          },
-          onNavigationRequest: (req) {
-            final url = req.url;
-            // Allow UPI intent URLs to be handled by external apps
-            if (url.startsWith('upi://') ||
-                url.startsWith('intent://') ||
-                url.startsWith('phonepe://') ||
-                url.startsWith('gpay://') ||
-                url.startsWith('paytmmp://') ||
-                url.startsWith('credpay://') ||
-                url.startsWith('whatsapp://')) {
-              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)
-                  .catchError((_) {});
-              return NavigationDecision.prevent;
-            }
-            // Intercept Cashfree return URL pattern
-            if (_isReturnUrl(url)) {
-              _handleReturn();
-              return NavigationDecision.prevent;
-            }
-            return NavigationDecision.navigate;
-          },
-        ),
-      );
-
-    // Enable third-party cookies on Android (required by Cashfree)
-    final platform = _controller.platform;
-    if (platform is AndroidWebViewController) {
-      AndroidWebViewController.enableDebugging(false);
-      platform.setOnShowFileSelector((_) async => []);
-    }
-    final cookieManager = WebViewCookieManager();
-    if (cookieManager.platform is AndroidWebViewCookieManager) {
-      (cookieManager.platform as AndroidWebViewCookieManager)
-          .setAcceptThirdPartyCookies(platform as AndroidWebViewController, true);
-    }
-
-    // Load payment URL after cookies are configured
-    _controller.loadRequest(Uri.parse(widget.paymentUrl));
+    WidgetsBinding.instance.addObserver(this);
+    _openPaymentPage();
   }
 
-  bool _isReturnUrl(String url) {
-    // Intercept our checkout-return URL or Cashfree success/failure pages
-    return url.contains('/checkout-return') ||
-        url.contains('order_id=${widget.orderId}') ||
-        url.contains('assure.fund/payments') ||
-        url.contains('assurechitfunds://payment-return') ||
-        url.contains('/order/pay/status') ||
-        url.contains('cashfree.com/pg/orders');
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
-  Future<void> _handleReturn() async {
-    if (_verifying) return;
-    setState(() => _verifying = true);
-    await _verifyPayment();
+  /// When the app comes back to foreground after browser payment, auto-verify
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _launched && !_verifying && !_done) {
+      _verifyPayment();
+    }
+  }
+
+  Future<void> _openPaymentPage() async {
+    final uri = Uri.parse(widget.paymentUrl);
+    try {
+      // Open in Chrome Custom Tab (in-app browser) — not a WebView
+      final ok = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (!ok) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      setState(() => _launched = true);
+    } catch (_) {
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        setState(() => _launched = true);
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open payment page'), backgroundColor: Colors.red),
+          );
+          Navigator.pop(context, {'success': false, 'status': 'FAILED'});
+        }
+      }
+    }
   }
 
   Future<void> _verifyPayment() async {
+    if (_verifying || _done) return;
+    setState(() => _verifying = true);
+
     try {
       final res = await ApiService.post('/payments/verify', {
         'order_id': widget.orderId,
@@ -122,31 +88,26 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
       final alreadyVerified = res['message'] == 'Already verified';
 
       if ((success && (payStatus == 'success' || payStatus == 'paid')) || alreadyVerified) {
+        setState(() => _done = true);
         _showResultAndPop(
           success: true,
           title: 'Payment Successful!',
           message: 'Your installment has been recorded. Thank you!',
         );
       } else if (payStatus == 'failed') {
+        setState(() => _done = true);
         _showResultAndPop(
           success: false,
           title: 'Payment Failed',
           message: 'Your payment could not be processed. Please try again.',
         );
       } else {
-        _showResultAndPop(
-          success: null,
-          title: 'Payment Pending',
-          message: 'Payment status: ${payStatus ?? 'Pending'}. We will update you once confirmed.',
-        );
+        // Still pending — user might not have completed payment yet
+        setState(() => _verifying = false);
       }
     } catch (e) {
       if (!mounted) return;
-      _showResultAndPop(
-        success: null,
-        title: 'Verification Pending',
-        message: 'Could not verify payment automatically. Check your payment history.',
-      );
+      setState(() => _verifying = false);
     }
   }
 
@@ -185,7 +146,6 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
             child: ElevatedButton(
               onPressed: () {
                 Navigator.of(ctx).pop();
-                // Return result to caller
                 Navigator.of(context).pop({
                   'success': success,
                   'status': success == true ? 'SUCCESS' : success == false ? 'FAILED' : 'PENDING',
@@ -216,6 +176,10 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
         leading: IconButton(
           icon: const Icon(Icons.close),
           onPressed: () {
+            if (_done) {
+              Navigator.pop(context, {'success': true, 'status': 'SUCCESS'});
+              return;
+            }
             showDialog(
               context: context,
               builder: (ctx) => AlertDialog(
@@ -235,42 +199,70 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
             );
           },
         ),
-        actions: [
-          if (_verifying)
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-              ),
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.verified_outlined),
-              tooltip: 'Verify Payment',
-              onPressed: _handleReturn,
-            ),
-        ],
       ),
-      body: Stack(
-        children: [
-          WebViewWidget(controller: _controller),
-          if (_isLoading || _verifying)
-            Container(
-              color: Colors.white.withAlpha(217),
-              child: Center(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  const CircularProgressIndicator(color: AppTheme.primaryColor),
-                  const SizedBox(height: 16),
-                  Text(
-                    _verifying ? 'Verifying payment...' : 'Loading payment page...',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (_verifying) ...[
+                const CircularProgressIndicator(color: AppTheme.primaryColor),
+                const SizedBox(height: 24),
+                const Text('Verifying payment...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                const Text('Please wait while we confirm your payment.',
+                    style: TextStyle(color: Colors.black54), textAlign: TextAlign.center),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withAlpha(26),
+                    shape: BoxShape.circle,
                   ),
-                ]),
-              ),
-            ),
-        ],
+                  child: const Icon(Icons.open_in_browser, size: 56, color: AppTheme.primaryColor),
+                ),
+                const SizedBox(height: 24),
+                const Text('Complete Payment',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text(
+                  'A secure payment page has been opened.\nComplete your payment there, then return here.',
+                  style: TextStyle(color: Colors.black54, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _openPaymentPage,
+                    icon: const Icon(Icons.payment, size: 20),
+                    label: const Text('Open Payment Page Again'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: _verifyPayment,
+                    icon: const Icon(Icons.verified_outlined, size: 20),
+                    label: const Text("I've Completed Payment"),
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
