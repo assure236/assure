@@ -22,7 +22,10 @@ const io = socketIO(server, {
   cors: { origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, process.env.MOBILE_CLIENT_URL || '*'], credentials: true }
 });
 
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(cors({ origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, 'https://www.assure.fund'].filter(Boolean), credentials: true }));
 
 const limiter = rateLimit({
