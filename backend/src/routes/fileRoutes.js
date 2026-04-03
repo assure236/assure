@@ -9,13 +9,14 @@ router.get('/:id', async (req, res, next) => {
     if (!result) return res.status(404).json({ success: false, message: 'File not found' });
 
     const { stream, file } = result;
-    res.set('Content-Type', file.contentType || 'application/octet-stream');
+    const contentType = file.contentType || (file.metadata && file.metadata.mimetype) || 'application/octet-stream';
+    res.set('Content-Type', contentType);
     res.set('Content-Length', file.length);
     res.set('Cache-Control', 'public, max-age=86400');
     res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     res.set('Access-Control-Allow-Origin', '*');
     // Let browser display images/PDFs inline
-    const inline = (file.contentType || '').startsWith('image/') || file.contentType === 'application/pdf';
+    const inline = contentType.startsWith('image/') || contentType === 'application/pdf';
     res.set('Content-Disposition', (inline ? 'inline' : 'attachment') + '; filename="' + (file.filename || 'file') + '"');
     stream.pipe(res);
   } catch (err) {

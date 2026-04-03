@@ -27,7 +27,7 @@ async function uploadToGridFS(buffer, filename, mimetype, metadata = {}) {
 
     const uploadStream = b.openUploadStreamWithId(fileId, filename, {
       contentType: mimetype,
-      metadata,
+      metadata: { ...metadata, mimetype },
     });
 
     readable.pipe(uploadStream)
