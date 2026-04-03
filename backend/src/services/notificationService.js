@@ -3,75 +3,86 @@
 const nodemailer = require('nodemailer');
 const logger = require('../utils/logger');
 
-// ─── MSG91 OTP ───────────────────────────────────────────────────────────────
+// ─── Fast2SMS OTP (DLT Route) ────────────────────────────────────────────────
 
 /**
- * Send OTP via MSG91 with DLT-approved template
+ * Send OTP via Fast2SMS DLT route
  */
 exports.sendOTP = async (mobile, otp) => {
-  if (!process.env.MSG91_AUTH_KEY) {
-    throw new Error('MSG91_AUTH_KEY must be set in .env');
+  if (!process.env.FAST2SMS_API_KEY) {
+    throw new Error('FAST2SMS_API_KEY must be set in .env');
   }
 
-  const sender = process.env.MSG91_SENDER_ID || 'ACFUND';
-  let url = `https://api.msg91.com/api/v5/otp?authkey=${process.env.MSG91_AUTH_KEY}&mobile=91${mobile}&otp=${otp}&otp_expiry=10&otp_length=6&sender=${sender}`;
-  if (process.env.MSG91_TEMPLATE_ID) {
-    url += `&template_id=${process.env.MSG91_TEMPLATE_ID}`;
-  }
+  const template = (process.env.FAST2SMS_MESSAGE_TEMPLATE || 'Your OTP for Assure ChitFunds is {#var#}. Valid for 10 minutes. Do not share with anyone.')
+    .replace('{#var#}', otp);
+
+  const body = {
+    route: 'dlt',
+    sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
+    message: template,
+    variables_values: String(otp),
+    flash: 0,
+    numbers: String(mobile),
+    peid: process.env.FAST2SMS_DLT_ENTITY_ID,
+    template_id: process.env.FAST2SMS_DLT_TEMPLATE_ID,
+  };
 
   try {
-    const https = require('https');
-    const result = await new Promise((resolve, reject) => {
-      https.get(url, res => {
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => { try { resolve(JSON.parse(data)); } catch(e) { reject(e); } });
-      }).on('error', reject);
+    const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
+      method: 'POST',
+      headers: {
+        'authorization': process.env.FAST2SMS_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
     });
+    const result = await response.json();
 
-    if (result.type === 'success') {
-      logger.info(`OTP sent via MSG91 to ${mobile} (request_id: ${result.request_id})`);
+    if (result.return === true || result.status_code === 200) {
+      logger.info(`OTP sent via Fast2SMS to ${mobile} (request_id: ${result.request_id})`);
       return result;
     }
 
-    logger.error('MSG91 OTP failed:', JSON.stringify(result));
-    throw new Error(`MSG91 OTP error: ${result.message || JSON.stringify(result)}`);
+    logger.error('Fast2SMS OTP failed:', JSON.stringify(result));
+    throw new Error(`Fast2SMS OTP error: ${result.message || JSON.stringify(result)}`);
   } catch (err) {
-    logger.error('MSG91 OTP exception:', err.message);
+    logger.error('Fast2SMS OTP exception:', err.message);
     throw err;
   }
 };
 
-// ─── MSG91 SMS (non-OTP) ─────────────────────────────────────────────────────
+// ─── Fast2SMS Transactional SMS ──────────────────────────────────────────────
 
 /**
- * Send a transactional SMS via MSG91 flow
+ * Send a transactional SMS via Fast2SMS
  */
 exports.sendSMS = async (mobile, message) => {
-  if (!process.env.MSG91_AUTH_KEY) {
-    logger.warn('MSG91_AUTH_KEY not set — skipping SMS');
+  if (!process.env.FAST2SMS_API_KEY) {
+    logger.warn('FAST2SMS_API_KEY not set — skipping SMS');
     return;
   }
 
   try {
-    const response = await fetch('https://api.msg91.com/api/v5/flow/', {
+    const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
       method: 'POST',
       headers: {
-        'authkey': process.env.MSG91_AUTH_KEY,
-        'Content-Type': 'application/json'
+        'authorization': process.env.FAST2SMS_API_KEY,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        flow_id: process.env.MSG91_SMS_FLOW_ID || process.env.MSG91_TEMPLATE_ID,
-        sender: process.env.MSG91_SENDER_ID || 'ASSURE',
-        mobiles: `91${mobile}`,
-        VAR1: message
-      })
+        route: 'dlt',
+        sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
+        message: message,
+        flash: 0,
+        numbers: String(mobile),
+        peid: process.env.FAST2SMS_DLT_ENTITY_ID,
+      }),
     });
     const result = await response.json();
-    logger.info(`SMS sent via MSG91 to ${mobile}:`, JSON.stringify(result));
+    logger.info(`SMS sent via Fast2SMS to ${mobile}:`, JSON.stringify(result));
     return result;
   } catch (err) {
-    logger.error('MSG91 SMS error:', err.message);
+    logger.error('Fast2SMS SMS error:', err.message);
     throw err;
   }
 };
