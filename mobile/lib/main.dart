@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'core/providers/auth_provider.dart';
 import 'core/providers/chit_group_provider.dart';
@@ -11,11 +13,21 @@ import 'core/providers/dashboard_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/local_notification_service.dart';
+import 'core/services/fcm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize local notifications (no Firebase needed)
+  // Initialize Firebase
+  await Firebase.initializeApp();
+  
+  // Set up background message handler
+  FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+  
+  // Initialize FCM service
+  await FcmService().init();
+  
+  // Initialize local notifications (for polling fallback)
   await LocalNotificationService().init();
 
   // Set preferred orientations

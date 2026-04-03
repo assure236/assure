@@ -19,6 +19,9 @@ logs/
 # Uploads (local files)
 backend/uploads/
 
+# Firebase service account key (SENSITIVE)
+backend/firebase-service-account.json
+
 # OS
 .DS_Store
 Thumbs.db

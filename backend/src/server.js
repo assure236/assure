@@ -15,6 +15,10 @@ const socketHandler = require('./sockets/socketHandler');
 const timerManager = require('./services/auctionTimerManager');
 
 require('./cron/reminders');
+const { initFirebase } = require('./config/firebase');
+
+// Initialize Firebase Admin SDK for push notifications
+initFirebase();
 
 const app = express();
 app.set('trust proxy', 1);

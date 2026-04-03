@@ -1,0 +1,2 @@
+-dontwarn javax.xml.stream.XMLStreamException
+-keep class com.cashfree.** { *; }

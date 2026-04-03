@@ -1,4 +1,5 @@
-const { Notification } = require('../models');
+const { Notification, User } = require('../models');
+const { sendPushNotification, sendPushToMultiple } = require('../config/firebase');
 
 exports.getMyNotifications = async (req, res, next) => {
   try {
@@ -49,6 +50,16 @@ exports.sendNotification = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'user_id, title, message required' });
     }
     const notification = await Notification.create({ user_id, title, message, type, data, sent_at: new Date() });
+
+    // Send FCM push notification
+    const targetUser = await User.findById(user_id).select('fcm_token');
+    if (targetUser?.fcm_token) {
+      const result = await sendPushNotification(targetUser.fcm_token, title, message, { type, notification_id: notification._id.toString() });
+      if (result === 'INVALID_TOKEN') {
+        await User.findByIdAndUpdate(user_id, { $unset: { fcm_token: 1 } });
+      }
+    }
+
     res.status(201).json({ success: true, data: notification });
   } catch (err) { next(err); }
 };
@@ -60,11 +71,47 @@ exports.broadcastNotification = async (req, res, next) => {
     if (!title || !message) {
       return res.status(400).json({ success: false, message: 'title, message required' });
     }
-    const User = require('../models').User;
-    const users = await User.find({ role: 'member', is_active: true }).select('_id');
+    const users = await User.find({ role: 'member', is_active: true }).select('_id fcm_token');
     const docs = users.map(u => ({ user_id: u._id, title, message, type, data, sent_at: new Date() }));
     await Notification.insertMany(docs);
-    res.status(201).json({ success: true, message: `Notification sent to ${docs.length} users` });
+
+    // Send FCM push to all users with tokens
+    const fcmTokens = users.filter(u => u.fcm_token).map(u => u.fcm_token);
+    let pushResult = { successCount: 0, failureCount: 0 };
+    if (fcmTokens.length > 0) {
+      pushResult = await sendPushToMultiple(fcmTokens, title, message, { type });
+      // Clean up invalid tokens
+      if (pushResult.invalidTokens?.length > 0) {
+        await User.updateMany(
+          { fcm_token: { $in: pushResult.invalidTokens } },
+          { $unset: { fcm_token: 1 } }
+        );
+      }
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `Notification sent to ${docs.length} users`,
+      push: { sent: pushResult.successCount, failed: pushResult.failureCount, total_tokens: fcmTokens.length }
+    });
+  } catch (err) { next(err); }
+};
+
+// Register/update FCM token for push notifications
+exports.registerFcmToken = async (req, res, next) => {
+  try {
+    const { fcm_token } = req.body;
+    if (!fcm_token) {
+      return res.status(400).json({ success: false, message: 'fcm_token is required' });
+    }
+    const userId = req.user._id || req.user.id;
+    // Clear this token from any other user (device switched accounts)
+    await User.updateMany(
+      { fcm_token, _id: { $ne: userId } },
+      { $unset: { fcm_token: 1 } }
+    );
+    await User.findByIdAndUpdate(userId, { fcm_token });
+    res.json({ success: true, message: 'FCM token registered' });
   } catch (err) { next(err); }
 };
 

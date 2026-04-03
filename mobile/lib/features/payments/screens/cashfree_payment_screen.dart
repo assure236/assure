@@ -1,17 +1,24 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfdropcheckoutpayment.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpaymentcomponents/cfpaymentcomponent.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayservice.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cftheme/cftheme.dart';
+import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
+import 'package:flutter_cashfree_pg_sdk/utils/cfexceptions.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 
 class CashfreePaymentScreen extends StatefulWidget {
-  final String paymentUrl;
+  final String paymentSessionId;
   final String orderId;
   final String paymentId;
 
   const CashfreePaymentScreen({
     super.key,
-    required this.paymentUrl,
+    required this.paymentSessionId,
     required this.orderId,
     required this.paymentId,
   });
@@ -20,60 +27,91 @@ class CashfreePaymentScreen extends StatefulWidget {
   State<CashfreePaymentScreen> createState() => _CashfreePaymentScreenState();
 }
 
-class _CashfreePaymentScreenState extends State<CashfreePaymentScreen>
-    with WidgetsBindingObserver {
-  bool _launched = false;
+class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
+  final _cfService = CFPaymentGatewayService();
+  bool _processing = true;
   bool _verifying = false;
   bool _done = false;
+  String? _errorMsg;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _openPaymentPage();
+    _cfService.setCallback(_onPaymentVerify, _onPaymentError);
+    _startPayment();
   }
 
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
-  }
-
-  /// When the app comes back to foreground after browser payment, auto-verify
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _launched && !_verifying && !_done) {
-      _verifyPayment();
-    }
-  }
-
-  Future<void> _openPaymentPage() async {
-    final uri = Uri.parse(widget.paymentUrl);
+  void _startPayment() {
     try {
-      // Open in Chrome Custom Tab (in-app browser) — not a WebView
-      final ok = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-      if (!ok) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final session = CFSessionBuilder()
+          .setEnvironment(CFEnvironment.PRODUCTION)
+          .setOrderId(widget.orderId)
+          .setPaymentSessionId(widget.paymentSessionId)
+          .build();
+
+      final theme = CFThemeBuilder()
+          .setNavigationBarBackgroundColorColor("#1565C0")
+          .setPrimaryFont("Roboto")
+          .setSecondaryFont("Roboto")
+          .build();
+
+      final paymentComponent = CFPaymentComponentBuilder()
+          .setComponents(<CFPaymentModes>[
+            CFPaymentModes.UPI,
+            CFPaymentModes.CARD,
+            CFPaymentModes.WALLET,
+            CFPaymentModes.NETBANKING,
+          ])
+          .build();
+
+      final dropPayment = CFDropCheckoutPaymentBuilder()
+          .setSession(session)
+          .setPaymentComponent(paymentComponent)
+          .setTheme(theme)
+          .build();
+
+      _cfService.doPayment(dropPayment);
+    } on CFException catch (e) {
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _errorMsg = e.message ?? 'Failed to start payment';
+        });
       }
-      setState(() => _launched = true);
-    } catch (_) {
-      try {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-        setState(() => _launched = true);
-      } catch (_) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open payment page'), backgroundColor: Colors.red),
-          );
-          Navigator.pop(context, {'success': false, 'status': 'FAILED'});
-        }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _errorMsg = 'Failed to start payment: $e';
+        });
       }
     }
   }
 
-  Future<void> _verifyPayment() async {
+  void _onPaymentVerify(String orderId) {
+    if (!mounted) return;
+    _verifyWithBackend();
+  }
+
+  void _onPaymentError(CFErrorResponse errorResponse, String orderId) {
+    if (!mounted) return;
+    final msg = errorResponse.getMessage() ?? 'Payment failed';
+    if (msg.toLowerCase().contains('cancel')) {
+      Navigator.pop(context, {'success': false, 'status': 'CANCELLED'});
+      return;
+    }
+    setState(() {
+      _processing = false;
+      _errorMsg = msg;
+    });
+  }
+
+  Future<void> _verifyWithBackend() async {
     if (_verifying || _done) return;
-    setState(() => _verifying = true);
+    setState(() {
+      _processing = false;
+      _verifying = true;
+    });
 
     try {
       final res = await ApiService.post('/payments/verify', {
@@ -102,16 +140,21 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen>
           message: 'Your payment could not be processed. Please try again.',
         );
       } else {
-        // Still pending — user might not have completed payment yet
-        setState(() => _verifying = false);
+        setState(() {
+          _verifying = false;
+          _errorMsg = 'Payment is still pending. Please try again.';
+        });
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => _verifying = false);
+      setState(() {
+        _verifying = false;
+        _errorMsg = 'Could not verify payment. Please try again.';
+      });
     }
   }
 
-  void _showResultAndPop({required bool? success, required String title, required String message}) {
+  void _showResultAndPop({required bool success, required String title, required String message}) {
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -119,17 +162,9 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Icon(
-            success == true
-                ? Icons.check_circle_rounded
-                : success == false
-                    ? Icons.cancel_rounded
-                    : Icons.info_rounded,
+            success ? Icons.check_circle_rounded : Icons.cancel_rounded,
             size: 72,
-            color: success == true
-                ? Colors.green
-                : success == false
-                    ? Colors.red
-                    : Colors.orange,
+            color: success ? Colors.green : Colors.red,
           ),
           const SizedBox(height: 16),
           Text(title,
@@ -148,7 +183,7 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen>
                 Navigator.of(ctx).pop();
                 Navigator.of(context).pop({
                   'success': success,
-                  'status': success == true ? 'SUCCESS' : success == false ? 'FAILED' : 'PENDING',
+                  'status': success ? 'SUCCESS' : 'FAILED',
                 });
               },
               style: ElevatedButton.styleFrom(
@@ -180,23 +215,7 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen>
               Navigator.pop(context, {'success': true, 'status': 'SUCCESS'});
               return;
             }
-            showDialog(
-              context: context,
-              builder: (ctx) => AlertDialog(
-                title: const Text('Cancel Payment?'),
-                content: const Text('Are you sure you want to cancel this payment?'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('No')),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      Navigator.pop(context, {'success': false, 'status': 'CANCELLED'});
-                    },
-                    child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red)),
-                  ),
-                ],
-              ),
-            );
+            Navigator.pop(context, {'success': false, 'status': 'CANCELLED'});
           },
         ),
       ),
@@ -213,32 +232,35 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen>
                 const SizedBox(height: 8),
                 const Text('Please wait while we confirm your payment.',
                     style: TextStyle(color: Colors.black54), textAlign: TextAlign.center),
-              ] else ...[
+              ] else if (_processing) ...[
+                const CircularProgressIndicator(color: AppTheme.primaryColor),
+                const SizedBox(height: 24),
+                const Text('Opening payment...', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              ] else if (_errorMsg != null) ...[
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withAlpha(26),
+                    color: Colors.red.withAlpha(26),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.open_in_browser, size: 56, color: AppTheme.primaryColor),
+                  child: const Icon(Icons.error_outline, size: 56, color: Colors.red),
                 ),
                 const SizedBox(height: 24),
-                const Text('Complete Payment',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                const Text(
-                  'A secure payment page has been opened.\nComplete your payment there, then return here.',
-                  style: TextStyle(color: Colors.black54, fontSize: 14),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
+                Text(_errorMsg!, style: const TextStyle(fontSize: 16, color: Colors.red), textAlign: TextAlign.center),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton.icon(
-                    onPressed: _openPaymentPage,
-                    icon: const Icon(Icons.payment, size: 20),
-                    label: const Text('Open Payment Page Again'),
+                    onPressed: () {
+                      setState(() {
+                        _processing = true;
+                        _errorMsg = null;
+                      });
+                      _startPayment();
+                    },
+                    icon: const Icon(Icons.refresh, size: 20),
+                    label: const Text('Try Again'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
@@ -250,13 +272,12 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen>
                 SizedBox(
                   width: double.infinity,
                   height: 48,
-                  child: OutlinedButton.icon(
-                    onPressed: _verifyPayment,
-                    icon: const Icon(Icons.verified_outlined, size: 20),
-                    label: const Text("I've Completed Payment"),
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context, {'success': false, 'status': 'FAILED'}),
                     style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
+                    child: const Text('Go Back'),
                   ),
                 ),
               ],

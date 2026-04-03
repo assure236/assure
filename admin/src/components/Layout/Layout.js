@@ -22,6 +22,7 @@ import {
   Campaign as CommunicationsIcon,
   Business as BranchIcon,
   SupportAgent as SupportIcon,
+  NotificationsActive as PushNotificationIcon,
   ExpandLess, ExpandMore
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
@@ -52,6 +53,7 @@ const navGroups = [
     items: [
       { text: 'Documents / KYC', icon: <DocumentIcon />, path: '/documents' },
       { text: 'Communications', icon: <CommunicationsIcon />, path: '/communications' },
+      { text: 'Push Notifications', icon: <PushNotificationIcon />, path: '/push-notifications' },
     ]
   },
   {

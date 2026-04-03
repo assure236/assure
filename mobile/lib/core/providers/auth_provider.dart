@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../services/fcm_service.dart';
 
 class AuthProvider with ChangeNotifier {
   User? _user;
@@ -210,6 +211,9 @@ class AuthProvider with ChangeNotifier {
     await prefs.setBool('hasLocalAccount', true);
     await prefs.setString('mobile', _user!.mobile);
     await _secureStorage.write(key: 'mpin_set', value: 'true');
+
+    // Register FCM token for push notifications
+    FcmService().registerTokenWithBackend();
   }
 
   // ─── QR Login — confirm a web QR session from the mobile app ──────────────
@@ -218,6 +222,8 @@ class AuthProvider with ChangeNotifier {
   void authenticateFromBiometric() {
     _isAuthenticated = true;
     notifyListeners();
+    // Register FCM token on biometric login too
+    FcmService().registerTokenWithBackend();
   }
 
   Future<Map<String, dynamic>> confirmQrLogin(String sessionId) async {
@@ -236,6 +242,9 @@ class AuthProvider with ChangeNotifier {
     _token = null;
     _isAuthenticated = false;
     // Keep hasLocalAccount true so returning user sees MPIN screen
+
+    // Clear FCM token
+    await FcmService().clearToken();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
