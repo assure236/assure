@@ -228,13 +228,13 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                             final orderId = data['order_id'] as String?;
                             final paymentId = data['payment_id'] as String?;
                             final paymentUrl = data['payment_url'] as String?;
-                            // Prefer our own checkout page URL (loads Cashfree SDK with redirectTarget: _self, works reliably in WebView)
-                            // Fallback to Cashfree hosted page if our URL not available
+                            // Use Cashfree hosted payment page directly (JS SDK doesn't work in Android WebView)
+                            // Fallback to our checkout page only if session ID not available
                             String? effectiveUrl;
-                            if (paymentUrl != null && paymentUrl.isNotEmpty) {
-                              effectiveUrl = paymentUrl;
-                            } else if (paymentSessionId != null && paymentSessionId.isNotEmpty) {
+                            if (paymentSessionId != null && paymentSessionId.isNotEmpty) {
                               effectiveUrl = 'https://payments.cashfree.com/order/#$paymentSessionId';
+                            } else if (paymentUrl != null && paymentUrl.isNotEmpty) {
+                              effectiveUrl = paymentUrl;
                             }
                             if (effectiveUrl != null && orderId != null) {
                               final result = await Navigator.push<Map<String, dynamic>>(
