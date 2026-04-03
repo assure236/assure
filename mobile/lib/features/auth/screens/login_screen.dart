@@ -203,6 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 40),
 
         PinInputRow(
+          key: const ValueKey('login_otp'),
           onCompleted: (v) => setState(() => _otp = v),
         ),
         const SizedBox(height: 32),
@@ -246,6 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
         const SizedBox(height: 40),
 
         PinInputRow(
+          key: const ValueKey('login_mpin'),
           onCompleted: _loginWithMpin,
         ),
         const SizedBox(height: 16),

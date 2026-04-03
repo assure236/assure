@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
@@ -95,7 +96,23 @@ class ApiService {
     if (token != null) {
       request.headers['Authorization'] = 'Bearer $token';
     }
-    request.files.add(await http.MultipartFile.fromPath(fieldName, filePath));
+    // Determine MIME type from file extension (MultipartFile.fromPath often sends application/octet-stream)
+    final ext = filePath.split('.').last.toLowerCase();
+    final mimeMap = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'pdf': 'application/pdf',
+    };
+    final mimeType = mimeMap[ext] ?? 'application/octet-stream';
+    final parts = mimeType.split('/');
+    request.files.add(await http.MultipartFile.fromPath(
+      fieldName,
+      filePath,
+      contentType: MediaType(parts[0], parts[1]),
+    ));
     if (extraFields != null) {
       request.fields.addAll(extraFields);
     }

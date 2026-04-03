@@ -20,6 +20,7 @@ dependencies:
   
   # Networking
   http: ^1.1.2
+  http_parser: ^4.0.2
   dio: ^5.4.0
   
   # Local Storage

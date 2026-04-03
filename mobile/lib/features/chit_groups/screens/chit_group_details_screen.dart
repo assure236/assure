@@ -649,15 +649,23 @@ class _PaymentScheduleTabState extends State<_PaymentScheduleTab> {
                           Navigator.pop(ctx);
                           if (res['success'] == true) {
                             final data = res['data'] as Map<String, dynamic>;
-                            final paymentUrl = data['payment_url'] as String?;
+                            final paymentSessionId = data['payment_session_id'] as String?;
                             final orderId = data['order_id'] as String?;
                             final paymentId = data['payment_id'] as String?;
-                            if (paymentUrl != null && orderId != null) {
+                            final paymentUrl = data['payment_url'] as String?;
+                            // Use Cashfree hosted payment page directly (JS SDK doesn't work in Android WebView)
+                            String? effectiveUrl;
+                            if (paymentSessionId != null && paymentSessionId.isNotEmpty) {
+                              effectiveUrl = 'https://payments.cashfree.com/order/#$paymentSessionId';
+                            } else if (paymentUrl != null && paymentUrl.isNotEmpty) {
+                              effectiveUrl = paymentUrl;
+                            }
+                            if (effectiveUrl != null && orderId != null) {
                               final result = await Navigator.push<Map<String, dynamic>>(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => CashfreePaymentScreen(
-                                    paymentUrl: paymentUrl,
+                                    paymentUrl: effectiveUrl!,
                                     orderId: orderId,
                                     paymentId: paymentId ?? '',
                                   ),
