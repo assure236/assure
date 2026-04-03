@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -31,7 +32,6 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setUserAgent('Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36')
       ..enableZoom(false)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -74,8 +74,22 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
             return NavigationDecision.navigate;
           },
         ),
-      )
-      ..loadRequest(Uri.parse(widget.paymentUrl));
+      );
+
+    // Enable third-party cookies on Android (required by Cashfree)
+    final platform = _controller.platform;
+    if (platform is AndroidWebViewController) {
+      AndroidWebViewController.enableDebugging(false);
+      platform.setOnShowFileSelector((_) async => []);
+    }
+    final cookieManager = WebViewCookieManager();
+    if (cookieManager.platform is AndroidWebViewCookieManager) {
+      (cookieManager.platform as AndroidWebViewCookieManager)
+          .setAcceptThirdPartyCookies(platform as AndroidWebViewController, true);
+    }
+
+    // Load payment URL after cookies are configured
+    _controller.loadRequest(Uri.parse(widget.paymentUrl));
   }
 
   bool _isReturnUrl(String url) {
