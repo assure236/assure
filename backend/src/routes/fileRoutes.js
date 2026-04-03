@@ -11,7 +11,9 @@ router.get('/:id', async (req, res, next) => {
     const { stream, file } = result;
     res.set('Content-Type', file.contentType || 'application/octet-stream');
     res.set('Content-Length', file.length);
-    res.set('Cache-Control', 'public, max-age=86400'); // cache 24h
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.set('Access-Control-Allow-Origin', '*');
     // Let browser display images/PDFs inline
     const inline = (file.contentType || '').startsWith('image/') || file.contentType === 'application/pdf';
     res.set('Content-Disposition', (inline ? 'inline' : 'attachment') + '; filename="' + (file.filename || 'file') + '"');
