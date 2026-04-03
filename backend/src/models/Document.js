@@ -13,6 +13,7 @@ const documentSchema = new mongoose.Schema({
   file_size: Number,
   mime_type: String,
   s3_key: String,
+  gridfs_id: String,
   file_name: String,
   uploaded_from: { type: String, enum: ['web', 'mobile', 'admin', 'digilocker'], default: 'web' },
   verification_status: { type: String, enum: ['pending', 'verified', 'approved', 'rejected'], default: 'pending' },

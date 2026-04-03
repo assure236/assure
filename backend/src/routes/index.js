@@ -16,9 +16,11 @@ const adminRoutes = require('./adminRoutes');
 const walletRoutes = require('./walletRoutes');
 const chatbotRoutes = require('./chatbotRoutes');
 const digilockerRoutes = require('./digilockerRoutes');
+const fileRoutes = require('./fileRoutes');
 
 // Public routes
 router.use('/auth', authRoutes);
+router.use('/files', fileRoutes);
 
 // Admin routes (all protected inside the router)
 router.use('/admin', adminRoutes);

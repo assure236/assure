@@ -1,37 +1,11 @@
-const AWS = require('aws-sdk');
 const { User, Document } = require('../models');
-const path = require('path');
-const fs = require('fs');
-const { v4: uuidv4 } = require('uuid');
-
-const USE_S3 = !!(process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY && process.env.AWS_S3_BUCKET);
-const s3 = USE_S3 ? new AWS.S3({ region: process.env.AWS_REGION, accessKeyId: process.env.AWS_ACCESS_KEY_ID, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY }) : null;
-const BUCKET = process.env.AWS_S3_BUCKET;
-const CLOUDFRONT_URL = process.env.AWS_CLOUDFRONT_URL;
-const LOCAL_UPLOAD_DIR = path.join(__dirname, '../../uploads/kyc');
-
-function buildFileUrl(s3Key) {
-  if (CLOUDFRONT_URL) return CLOUDFRONT_URL + '/' + s3Key;
-  return 'https://' + BUCKET + '.s3.' + process.env.AWS_REGION + '.amazonaws.com/' + s3Key;
-}
+const { uploadToGridFS } = require('../utils/gridfs');
 
 async function uploadFile(file, userId) {
-  const ext = path.extname(file.originalname);
-  const fileName = uuidv4() + ext;
-  let fileUrl, s3Key = null;
-
-  if (USE_S3) {
-    s3Key = 'kyc/' + userId + '/' + fileName;
-    await s3.upload({ Bucket: BUCKET, Key: s3Key, Body: file.buffer, ContentType: file.mimetype, ServerSideEncryption: 'AES256' }).promise();
-    fileUrl = buildFileUrl(s3Key);
-  } else {
-    if (!fs.existsSync(LOCAL_UPLOAD_DIR)) fs.mkdirSync(LOCAL_UPLOAD_DIR, { recursive: true });
-    fs.writeFileSync(path.join(LOCAL_UPLOAD_DIR, fileName), file.buffer);
-    const baseUrl = process.env.BACKEND_URL || ('http://localhost:' + (process.env.PORT || 5000));
-    fileUrl = baseUrl + '/uploads/kyc/' + fileName;
-  }
-
-  return { fileUrl, s3Key, fileName };
+  const { fileId, fileUrl } = await uploadToGridFS(file.buffer, file.originalname, file.mimetype, {
+    userId: userId.toString(), category: 'kyc',
+  });
+  return { fileUrl, gridfsId: fileId, fileName: file.originalname };
 }
 
 exports.getKycStatus = async (req, res, next) => {
@@ -69,7 +43,7 @@ exports.submitKyc = async (req, res, next) => {
 
     const savedDocs = [];
     for (const file of req.files) {
-      const { fileUrl, s3Key } = await uploadFile(file, userId);
+      const { fileUrl, gridfsId } = await uploadFile(file, userId);
       const docType = req.body.document_type || file.fieldname || 'kyc';
       const doc = await Document.create({
         user_id: userId,
@@ -77,7 +51,7 @@ exports.submitKyc = async (req, res, next) => {
         document_name: file.originalname,
         file_name: file.originalname,
         file_url: fileUrl,
-        s3_key: s3Key,
+        gridfs_id: gridfsId,
         file_size: file.size,
         mime_type: file.mimetype,
         verification_status: 'pending',
@@ -96,10 +70,10 @@ exports.uploadKycDocument = async (req, res, next) => {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
     const { document_type } = req.body;
     if (!document_type) return res.status(400).json({ success: false, message: 'document_type required' });
-    const { fileUrl, s3Key } = await uploadFile(req.file, userId);
+    const { fileUrl, gridfsId } = await uploadFile(req.file, userId);
     const doc = await Document.create({
       user_id: userId, document_type, document_name: req.file.originalname, file_name: req.file.originalname,
-      file_url: fileUrl, s3_key: s3Key, file_size: req.file.size, mime_type: req.file.mimetype, verification_status: 'pending',
+      file_url: fileUrl, gridfs_id: gridfsId, file_size: req.file.size, mime_type: req.file.mimetype, verification_status: 'pending',
     });
     await User.findByIdAndUpdate(userId, { kyc_status: 'pending' });
     res.status(201).json({ success: true, message: 'Document uploaded', data: doc });
