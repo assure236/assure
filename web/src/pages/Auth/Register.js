@@ -41,7 +41,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ full_name: '', mobile: '', email: '', referral_code: '' });
   const [mpin, setMpin] = useState('');
-  const [devMobileOtp, setDevMobileOtp] = useState(null);
+
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -52,7 +52,6 @@ export default function Register() {
     setLoading(true);
     try {
       const res = await axios.post('/auth/resend-otp', { mobile: form.mobile });
-      if (res.data?.otp) setDevMobileOtp(res.data.otp);
       setStep(1); toast.success('OTP sent to +91 ' + form.mobile);
     } catch (e) { toast.error(e.response?.data?.message || 'Failed to send OTP'); }
     finally { setLoading(false); }
@@ -162,13 +161,8 @@ export default function Register() {
               <Typography variant="h6" fontWeight={700} gutterBottom>Verify Mobile</Typography>
               <Typography variant="body2" color="text.secondary">OTP sent to +91 {form.mobile}</Typography>
               <PinInput pinKey="motp" length={6} onComplete={verifyMobileOtp} autoFocus />
-              {devMobileOtp && (
-                <Box sx={{ mb: 1, p: 1, bgcolor: '#fff3cd', border: '1px dashed #f59e0b', borderRadius: 1, textAlign: 'center' }}>
-                  <Typography variant="caption" color="warning.dark" fontWeight={700}>DEV MODE — OTP: {devMobileOtp}</Typography>
-                </Box>
-              )}
               {loading && <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>}
-              <Button variant="text" size="small" onClick={() => { setStep(0); setDevMobileOtp(null); }}>← Back</Button>
+              <Button variant="text" size="small" onClick={() => setStep(0)}>← Back</Button>
             </>
           )}
 

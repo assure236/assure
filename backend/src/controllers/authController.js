@@ -26,17 +26,13 @@ exports.resendOtp = async (req, res, next) => {
       otpStore.set('email:' + email, { otp, expires: Date.now() + OTP_TTL_MS, verified: false });
       await sendEmail(email, 'Your Assure ChitFunds OTP',
         '<p>Your OTP is: <b style="font-size:20px">' + otp + '</b>.</p><p>Valid for 10 minutes.</p>');
-      const response = { success: true, message: 'OTP sent to ' + email };
-      if (process.env.NODE_ENV !== 'production') response.otp = otp;
-      return res.json(response);
+      return res.json({ success: true, message: 'OTP sent to ' + email });
     }
     if (mobile) {
       const otp = genOtp();
       otpStore.set('mobile:' + mobile, { otp, expires: Date.now() + OTP_TTL_MS, verified: false });
       await sendOTP(mobile, otp);
-      const response = { success: true, message: 'OTP sent to +91 ' + mobile };
-      if (process.env.NODE_ENV !== 'production') response.otp = otp;
-      return res.json(response);
+      return res.json({ success: true, message: 'OTP sent to +91 ' + mobile });
     }
     return res.status(400).json({ success: false, message: 'Provide mobile or email' });
   } catch (error) { next(error); }
@@ -156,9 +152,7 @@ exports.forgotPassword = async (req, res, next) => {
     const otp = genOtp();
     otpStore.set('mobile:' + mobile, { otp, expires: Date.now() + OTP_TTL_MS, verified: false });
     await sendOTP(mobile, otp);
-    const response = { success: true, message: 'OTP sent for password reset' };
-    if (process.env.NODE_ENV !== 'production') response.otp = otp;
-    res.json(response);
+    res.json({ success: true, message: 'OTP sent for password reset' });
   } catch (error) { next(error); }
 };
 

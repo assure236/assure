@@ -123,15 +123,12 @@ export default function Login() {
     navigate('/dashboard');
   }, [loginWithToken, navigate]);
 
-  const [devOtp, setDevOtp] = useState(null);
-
   const sendOtp = async () => {
     const m = mobileInput.trim();
     if (!/^\d{10}$/.test(m)) return toast.error('Enter a valid 10-digit mobile number');
     setLoading(true);
     try {
       const res = await axios.post('/auth/resend-otp', { mobile: m });
-      if (res.data?.otp) setDevOtp(res.data.otp);
       setMobile(m); setStep(1); toast.success('OTP sent to +91 ' + m);
     } catch (e) { toast.error(e.response?.data?.message || 'Failed to send OTP'); }
     finally { setLoading(false); }
@@ -189,13 +186,8 @@ export default function Login() {
                 <>
                   <Typography variant="body2" align="center" color="text.secondary">Enter the 6-digit OTP</Typography>
                   <PinInput pinKey="otp" length={6} onComplete={verifyOtp} autoFocus />
-                  {devOtp && (
-                    <Box sx={{ mb: 1, p: 1, bgcolor: '#fff3cd', border: '1px dashed #f59e0b', borderRadius: 1, textAlign: 'center' }}>
-                      <Typography variant="caption" color="warning.dark" fontWeight={700}>DEV MODE — OTP: {devOtp}</Typography>
-                    </Box>
-                  )}
                   {loading && <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>}
-                  <Button variant="text" size="small" onClick={() => { setStep(0); setDevOtp(null); }} sx={{ mt: 1 }}>← Change number</Button>
+                  <Button variant="text" size="small" onClick={() => setStep(0)} sx={{ mt: 1 }}>← Change number</Button>
                 </>
               )}
               {step === 2 && (

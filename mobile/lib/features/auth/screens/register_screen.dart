@@ -78,11 +78,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (res['success'] == true) {
       _mobile = mobile;
-      final devOtp = res['otp'] as String?;
-      final msg = devOtp != null
-          ? 'OTP: $devOtp  (copy this — enter below)'
-          : 'OTP sent to +91 $mobile';
-      _showSuccess(msg, duration: Duration(seconds: devOtp != null ? 15 : 4));
+      _showSuccess('OTP sent to +91 $mobile');
       setState(() => _step = 1);
     } else {
       _showError(res['message'] ?? 'Failed to send OTP');
@@ -118,11 +114,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (res['success'] == true) {
       _email = email;
-      final devOtp = res['otp'] as String?;
-      final msg = devOtp != null
-          ? 'Email OTP: $devOtp  (copy this — enter below)'
-          : 'OTP sent to $email';
-      _showSuccess(msg, duration: Duration(seconds: devOtp != null ? 15 : 4));
+      _showSuccess('OTP sent to $email');
       setState(() => _emailOtpSent = true);
     } else {
       _showError(res['message'] ?? 'Failed to send email OTP');

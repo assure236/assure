@@ -54,8 +54,7 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
     if (res['success'] == true) {
       _mobile = mobile;
-      final devOtp = res['otp'] as String?;
-      if (devOtp != null) _showSuccess('OTP: $devOtp  (enter below)');
+      _showSuccess('OTP sent to +91 $mobile');
       setState(() => _step = 1);
     } else {
       _showError(res['message'] ?? 'Failed to send OTP');
