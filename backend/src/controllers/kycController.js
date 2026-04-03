@@ -70,6 +70,17 @@ exports.uploadKycDocument = async (req, res, next) => {
     if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
     const { document_type } = req.body;
     if (!document_type) return res.status(400).json({ success: false, message: 'document_type required' });
+
+    // Remove previous document of the same type for this user
+    const { deleteFromGridFS } = require('../utils/gridfs');
+    const existingDoc = await Document.findOne({ user_id: userId, document_type });
+    if (existingDoc) {
+      if (existingDoc.gridfs_id) {
+        try { await deleteFromGridFS(existingDoc.gridfs_id); } catch (e) { /* already deleted */ }
+      }
+      await Document.findByIdAndDelete(existingDoc._id);
+    }
+
     const { fileUrl, gridfsId } = await uploadFile(req.file, userId);
     const doc = await Document.create({
       user_id: userId, document_type, document_name: req.file.originalname, file_name: req.file.originalname,

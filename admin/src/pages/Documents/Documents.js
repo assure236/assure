@@ -255,13 +255,13 @@ export default function Documents() {
         </DialogTitle>
         <DialogContent>
           {previewDoc?.file_url ? (
-            previewDoc.file_url.match(/\.(pdf)$/i) ? (
+            previewDoc.mime_type === 'application/pdf' ? (
               <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', height: 500 }}>
                 <iframe src={previewDoc.file_url} title="doc" width="100%" height="100%" style={{ border: 0 }} />
               </Box>
             ) : (
               <Box component="img" src={previewDoc.file_url}
-                alt="document" sx={{ maxWidth: '100%', borderRadius: 1 }} />
+                alt="document" sx={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: 1 }} />
             )
           ) : (
             <Typography color="text.secondary">No file available for preview</Typography>

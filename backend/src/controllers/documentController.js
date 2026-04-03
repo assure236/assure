@@ -27,6 +27,16 @@ exports.uploadDocument = async (req, res, next) => {
     }
 
     const userId = req.user._id || req.user.id;
+
+    // Remove previous document of the same type for this user
+    const existingDoc = await Document.findOne({ user_id: userId, document_type });
+    if (existingDoc) {
+      if (existingDoc.gridfs_id) {
+        try { await deleteFromGridFS(existingDoc.gridfs_id); } catch (e) { /* already deleted */ }
+      }
+      await Document.findByIdAndDelete(existingDoc._id);
+    }
+
     const { fileId, fileUrl } = await uploadToGridFS(req.file.buffer, req.file.originalname, req.file.mimetype, {
       userId: userId.toString(), category: 'documents', documentType: document_type,
     });
