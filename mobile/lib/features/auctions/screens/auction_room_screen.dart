@@ -250,6 +250,12 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
         if (!mounted) return;
         final bid = Map<String, dynamic>.from(data);
         if (bid['auction_id'].toString() == widget.auctionId) {
+          // Normalize user_id: socket sends string, API sends object
+          final rawUserId = bid['user_id'];
+          if (rawUserId is String) {
+            bid['user_id'] = {'_id': rawUserId, 'full_name': bid['bidder_name'] ?? 'Member'};
+            bid['bidder'] = bid['user_id'];
+          }
           setState(() {
             _bids.insert(0, bid);
             if (_auction != null) {
@@ -1089,13 +1095,15 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
   List<Map<String, dynamic>> _getUniqueParticipants() {
     final Map<String, Map<String, dynamic>> pMap = {};
     for (final bid in _bids) {
-      final uid = bid['user_id']?['_id']?.toString() ??
-          bid['user_id']?.toString() ??
-          bid['bidder_name']?.toString() ?? 'unknown';
-      final name = bid['bidder']?['full_name'] ??
-          bid['user_id']?['full_name'] ??
+      final rawUserId = bid['user_id'];
+      final uid = rawUserId is Map
+          ? (rawUserId['_id']?.toString() ?? 'unknown')
+          : rawUserId?.toString() ?? bid['bidder_name']?.toString() ?? 'unknown';
+      final name = (rawUserId is Map ? rawUserId['full_name'] : null) ??
+          (bid['bidder'] is Map ? bid['bidder']['full_name'] : null) ??
           bid['bidder_name'] ??
-          bid['member']?['full_name'] ?? 'Member';
+          (bid['member'] is Map ? bid['member']['full_name'] : null) ??
+          'Member';
       final amount = ((bid['bid_amount'] ?? 0) as num).toDouble();
       if (!pMap.containsKey(uid)) {
         pMap[uid] = {'name': name, 'bidCount': 0, 'highestBid': 0.0};
@@ -1221,13 +1229,15 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
 
   Widget _buildChatBidBubble(Map<String, dynamic> bid, double highestBidAmount) {
     final amount = ((bid['bid_amount'] ?? 0) as num).toDouble();
-    final bidUserId = bid['user_id']?['_id']?.toString() ??
-        bid['user_id']?.toString() ??
-        '';
-    final bidderName = bid['bidder']?['full_name'] ??
-        bid['user_id']?['full_name'] ??
+    final rawUserId = bid['user_id'];
+    final bidUserId = rawUserId is Map
+        ? (rawUserId['_id']?.toString() ?? '')
+        : rawUserId?.toString() ?? '';
+    final bidderName = (rawUserId is Map ? rawUserId['full_name'] : null) ??
+        (bid['bidder'] is Map ? bid['bidder']['full_name'] : null) ??
         bid['bidder_name'] ??
-        bid['member']?['full_name'] ?? 'Member';
+        (bid['member'] is Map ? bid['member']['full_name'] : null) ??
+        'Member';
     final ticketNo = bid['ticket_number'] ?? bid['ticketNumber'];
     final timestamp = bid['created_at'] ?? bid['bid_time'] ?? bid['timestamp'];
     final bidTimeMs = bid['bid_time_ms'] as int?;

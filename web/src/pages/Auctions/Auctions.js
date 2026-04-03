@@ -46,7 +46,7 @@ const Auctions = () => {
   };
 
   const filtered = {
-    live: auctions.filter(a => a.status === 'active' || a.status === 'in_progress'),
+    live: auctions.filter(a => a.status === 'active' || a.status === 'in_progress' || a.status === 'paused'),
     upcoming: auctions.filter(a => a.status === 'scheduled'),
     past: auctions.filter(a => a.status === 'completed'),
   };
@@ -78,7 +78,8 @@ const Auctions = () => {
       ) : (
         <Grid container spacing={3}>
           {tabData[tab].auctions.map((auction, i) => {
-            const isLive = auction.status === 'active';
+            const isLive = auction.status === 'active' || auction.status === 'in_progress';
+            const isPaused = auction.status === 'paused';
             const isPast = auction.status === 'completed';
             const chitGroup = auction.chitGroup || auction.chit_group_id;
             const chitValue = Number(chitGroup?.chit_value || 0);
@@ -90,24 +91,26 @@ const Auctions = () => {
               <Grid item xs={12} md={6} key={i}>
                 <Card sx={{
                   borderRadius: 3,
-                  border: isLive ? '2px solid #d32f2f' : 'none',
+                  border: isPaused ? '2px solid #ff8f00' : isLive ? '2px solid #d32f2f' : 'none',
                   position: 'relative',
                   overflow: 'visible'
                 }}>
-                  {isLive && (
+                  {(isLive || isPaused) && (
                     <Box sx={{
                       position: 'absolute', top: -10, right: 16,
-                      bgcolor: 'error.main', color: 'white',
+                      bgcolor: isPaused ? 'warning.main' : 'error.main', color: 'white',
                       px: 2, py: 0.5, borderRadius: 10, fontSize: 11, fontWeight: 700
                     }}>
-                      🔴 LIVE
+                      {isPaused ? '⏸️ PAUSED' : '🔴 LIVE'}
                     </Box>
                   )}
                   <Box sx={{
-                    background: isLive
-                      ? 'linear-gradient(135deg, #d32f2f, #b71c1c)'
-                      : isPast ? 'linear-gradient(135deg, #616161, #424242)'
-                      : 'linear-gradient(135deg, #6a1b9a, #4a148c)',
+                    background: isPaused
+                      ? 'linear-gradient(135deg, #ff8f00, #e65100)'
+                      : isLive
+                        ? 'linear-gradient(135deg, #d32f2f, #b71c1c)'
+                        : isPast ? 'linear-gradient(135deg, #616161, #424242)'
+                        : 'linear-gradient(135deg, #6a1b9a, #4a148c)',
                     p: 2, color: 'white', borderRadius: '12px 12px 0 0'
                   }}>
                     <Typography variant="subtitle2" sx={{ opacity: 0.8 }}>
@@ -155,16 +158,16 @@ const Auctions = () => {
                     {!isPast && (
                       <Button
                         fullWidth variant="contained"
-                        disabled={!isLive}
-                        onClick={() => isLive && navigate(`/auctions/${auction._id || auction.id}`)}
+                        disabled={!isLive && !isPaused}
+                        onClick={() => (isLive || isPaused) && navigate(`/auctions/${auction._id || auction.id}`)}
                         sx={{
-                          bgcolor: isLive ? 'error.main' : 'grey.300',
-                          '&:hover': { bgcolor: isLive ? 'error.dark' : 'grey.300' },
+                          bgcolor: isPaused ? 'warning.main' : isLive ? 'error.main' : 'grey.300',
+                          '&:hover': { bgcolor: isPaused ? 'warning.dark' : isLive ? 'error.dark' : 'grey.300' },
                           borderRadius: 2
                         }}
-                        startIcon={<GavelIcon />}
+                        startIcon={isPaused ? <GavelIcon /> : <GavelIcon />}
                       >
-                        {isLive ? 'Enter Auction Room' : `Starts ${auction.auction_date
+                        {isPaused ? '⏸️ Auction Paused - View Room' : isLive ? 'Enter Auction Room' : `Starts ${auction.auction_date
                           ? new Date(auction.auction_date).toLocaleDateString('en-IN')
                           : 'soon'}`}
                       </Button>

@@ -20,7 +20,7 @@ class AuctionProvider with ChangeNotifier {
   double get walletBalance => _walletBalance;
 
   List<Map<String, dynamic>> get liveAuctions =>
-      _auctions.where((a) => a['status'] == 'active' || a['status'] == 'in_progress').toList();
+      _auctions.where((a) => a['status'] == 'active' || a['status'] == 'in_progress' || a['status'] == 'paused').toList();
 
   List<Map<String, dynamic>> get upcomingAuctions =>
       _auctions.where((a) => a['status'] == 'scheduled').toList();

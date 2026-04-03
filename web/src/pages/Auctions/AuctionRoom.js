@@ -289,6 +289,7 @@ const AuctionRoom = () => {
   );
 
   const isLive = auction.status === 'active' || auction.status === 'in_progress';
+  const isPaused = auction.status === 'paused';
   const chitGroup = auction.chitGroup || auction.chit_group_id;
   const chitValue = Number(chitGroup?.chit_value || 0);
   const commissionPct = Number(chitGroup?.foreman_commission_percentage || 5);
@@ -327,7 +328,7 @@ const AuctionRoom = () => {
       {/* Header */}
       <Card sx={{ mb: 3, borderRadius: 3 }}>
         <Box sx={{
-          background: isLive ? 'linear-gradient(135deg, #d32f2f, #b71c1c)' : 'linear-gradient(135deg, #616161, #424242)',
+          background: isPaused ? 'linear-gradient(135deg, #ff8f00, #e65100)' : isLive ? 'linear-gradient(135deg, #d32f2f, #b71c1c)' : 'linear-gradient(135deg, #616161, #424242)',
           p: 3, color: 'white', borderRadius: '12px 12px 0 0'
         }}>
           <Box display="flex" justifyContent="space-between" alignItems="flex-start">
@@ -338,6 +339,12 @@ const AuctionRoom = () => {
               <Typography variant="h5" fontWeight={700}>{chitGroup?.group_name}</Typography>
               <Typography sx={{ opacity: 0.7 }}>{chitGroup?.group_number}</Typography>
             </Box>
+            {isPaused && (
+              <Box textAlign="center">
+                <Chip label="⏸️ PAUSED" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, fontSize: 14 }} />
+                <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>Auction is paused by admin</Typography>
+              </Box>
+            )}
             {isLive && (
               <Box textAlign="center">
                 <Box display="flex" gap={1} mb={1}>
@@ -400,7 +407,7 @@ const AuctionRoom = () => {
           <Card sx={{ borderRadius: 3 }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                {isLive ? 'Place Your Bid' : auction.status === 'completed' ? 'Auction Ended' : 'Auction Not Started'}
+                {isLive ? 'Place Your Bid' : isPaused ? '⏸️ Auction Paused' : auction.status === 'completed' ? 'Auction Ended' : 'Auction Not Started'}
               </Typography>
               <Divider sx={{ mb: 2 }} />
               {isLive ? (

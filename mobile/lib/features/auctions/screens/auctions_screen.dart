@@ -244,11 +244,13 @@ class _AuctionCardState extends State<_AuctionCard> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: widget.isLive
-                  ? [const Color(0xFFD32F2F), const Color(0xFFB71C1C)]
-                  : widget.isPast
-                      ? [Colors.grey[700]!, Colors.grey[900]!]
-                      : [const Color(0xFF6A1B9A), const Color(0xFF4A148C)],
+              colors: widget.isLive && a['status'] == 'paused'
+                  ? [const Color(0xFFFF8F00), const Color(0xFFE65100)]
+                  : widget.isLive
+                      ? [const Color(0xFFD32F2F), const Color(0xFFB71C1C)]
+                      : widget.isPast
+                          ? [Colors.grey[700]!, Colors.grey[900]!]
+                          : [const Color(0xFF6A1B9A), const Color(0xFF4A148C)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -261,7 +263,16 @@ class _AuctionCardState extends State<_AuctionCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(children: [
-                      if (widget.isLive) ...[
+                      if (widget.isLive && a['status'] == 'paused') ...[
+                        const Icon(Icons.pause_circle_filled, color: Colors.white, size: 12),
+                        const SizedBox(width: 4),
+                        const Text('PAUSED',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10)),
+                        const SizedBox(width: 8),
+                      ] else if (widget.isLive) ...[
                         Container(
                           width: 8,
                           height: 8,
@@ -292,7 +303,20 @@ class _AuctionCardState extends State<_AuctionCard> {
                             color: Colors.white60, fontSize: 11)),
                   ]),
             ),
-            if (widget.isLive && _serverTimeRemaining > 0)
+            if (widget.isLive && a['status'] == 'paused')
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.pause, color: Colors.white, size: 16),
+                  SizedBox(width: 4),
+                  Text('PAUSED', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                ]),
+              )
+            else if (widget.isLive && _serverTimeRemaining > 0)
               _TimerWidget(remainingSeconds: _serverTimeRemaining),
           ]),
         ),
@@ -343,13 +367,15 @@ class _AuctionCardState extends State<_AuctionCard> {
                           if (id != null) context.push('/auctions/$id');
                         }
                       : null,
-                  icon: const Icon(Icons.gavel, size: 18),
+                  icon: Icon(a['status'] == 'paused' ? Icons.pause_circle : Icons.gavel, size: 18),
                   label: Text(
-                      widget.isLive ? 'Enter Auction Room' : 'Starts ${_startTime(a)}'),
+                      a['status'] == 'paused' ? 'Auction Paused - View Room' : widget.isLive ? 'Enter Auction Room' : 'Starts ${_startTime(a)}'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: widget.isLive
-                        ? AppTheme.errorColor
-                        : Colors.grey[300],
+                    backgroundColor: a['status'] == 'paused'
+                        ? const Color(0xFFFF8F00)
+                        : widget.isLive
+                            ? AppTheme.errorColor
+                            : Colors.grey[300],
                     foregroundColor:
                         widget.isLive ? Colors.white : Colors.grey[600],
                     shape: RoundedRectangleBorder(
