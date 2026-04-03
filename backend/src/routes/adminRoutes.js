@@ -1108,6 +1108,20 @@ router.put('/documents/:id/verify', adminOnly, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// DELETE /admin/documents/:id — admin deletes a document (GridFS + DB), user must re-upload
+router.delete('/documents/:id', adminOnly, async (req, res, next) => {
+  try {
+    const { deleteFromGridFS } = require('../utils/gridfs');
+    const doc = await Document.findById(req.params.id);
+    if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
+    if (doc.gridfs_id) {
+      try { await deleteFromGridFS(doc.gridfs_id); } catch (e) { /* file may already be deleted */ }
+    }
+    await Document.findByIdAndDelete(doc._id);
+    res.json({ success: true, message: 'Document deleted. User will need to re-upload.' });
+  } catch (err) { next(err); }
+});
+
 // ============ REPORTS ============
 router.get('/reports', adminOnly, async (req, res, next) => {
   try {

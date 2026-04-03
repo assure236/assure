@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import {
   CheckCircle, Cancel, Visibility, Refresh, AssignmentTurnedIn,
-  PendingActions, Block
+  PendingActions, Block, Delete
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -28,6 +28,7 @@ export default function Documents() {
   const [verifyDialog, setVerifyDialog] = useState({ open: false, doc: null, action: '' });
   const [remarks, setRemarks] = useState('');
   const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0 });
+  const [deleteDialog, setDeleteDialog] = useState({ open: false, doc: null });
 
   const statusFromTab = ['all', 'pending', 'approved', 'rejected'];
 
@@ -64,6 +65,15 @@ export default function Documents() {
       setRemarks('');
       fetchData();
     } catch (e) { setError('Failed to update document status'); }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_URL}/admin/documents/${deleteDialog.doc._id || deleteDialog.doc.id}`);
+      setSuccess('Document deleted. User will need to re-upload.');
+      setDeleteDialog({ open: false, doc: null });
+      fetchData();
+    } catch (e) { setError('Failed to delete document'); }
   };
 
   const statusColor = (s) => ({ approved: 'success', rejected: 'error', pending: 'warning' }[s] || 'default');
@@ -196,6 +206,12 @@ export default function Documents() {
                               </IconButton>
                             </Tooltip>
                           )}
+                          <Tooltip title="Delete Document">
+                            <IconButton size="small" color="error"
+                              onClick={() => setDeleteDialog({ open: true, doc: row })}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         </Box>
                       </TableCell>
                     </TableRow>
@@ -282,6 +298,30 @@ export default function Documents() {
             <Button onClick={() => window.open(previewDoc.file_url, '_blank')}>Open in New Tab</Button>
           )}
           <Button onClick={() => setPreviewDoc(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialog.open} onClose={() => setDeleteDialog({ open: false, doc: null })} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: 'error.main' }}>Delete Document</DialogTitle>
+        <DialogContent>
+          {deleteDialog.doc && (
+            <Box>
+              <Typography gutterBottom>
+                Are you sure you want to delete this <strong>{(deleteDialog.doc.document_type || '').replace(/_/g, ' ')}</strong> document?
+              </Typography>
+              <Typography gutterBottom>
+                Member: <strong>{deleteDialog.doc.user_id?.full_name || '—'}</strong> ({deleteDialog.doc.user_id?.mobile || '—'})
+              </Typography>
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                This will permanently remove the file from the database. The user will be asked to upload this document again.
+              </Alert>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialog({ open: false, doc: null })}>Cancel</Button>
+          <Button onClick={handleDelete} variant="contained" color="error">Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>
