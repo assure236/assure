@@ -36,9 +36,12 @@ exports.createPaymentOrder = async (req, res, next) => {
     const existing = await Payment.findOne({ chit_group_id, user_id: userId, month_number, payment_status: 'success' });
     if (existing) return res.status(400).json({ success: false, message: 'Month already paid' });
 
+    // Clean up stale pending payments for this user+group+month (prevent duplicates)
+    await Payment.deleteMany({ chit_group_id, user_id: userId, month_number, payment_status: 'pending' });
+
     const [user, group] = await Promise.all([
       User.findById(userId).select('full_name email mobile member_id'),
-      ChitGroup.findById(chit_group_id).select('group_name group_number commencement_date duration_months'),
+      ChitGroup.findById(chit_group_id).select('group_name group_number commencement_date duration_months monthly_installment'),
     ]);
     if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
 
@@ -180,58 +183,84 @@ exports.getMyPayments = async (req, res, next) => {
 exports.getUpcomingPayments = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-
-    // 1. Get existing pending/overdue Payment documents
-    const payments = await Payment.find({ user_id: userId, payment_status: { $in: ['pending', 'overdue'] } })
-      .populate('chit_group_id', 'group_name group_number chit_value commencement_date duration_months')
-      .sort({ due_date: 1 });
     const now = new Date();
-    const existingData = payments.map(p => {
-      const isOverdue = p.due_date && new Date(p.due_date) < now;
-      const daysOverdue = isOverdue ? Math.floor((now - new Date(p.due_date)) / (1000 * 60 * 60 * 24)) : 0;
-      return { ...p.toObject(), id: p._id, chitGroup: p.chit_group_id, chit_group: p.chit_group_id, payment_status: isOverdue ? 'overdue' : 'pending', days_overdue: daysOverdue };
+
+    // Get user's active memberships
+    const memberships = await ChitMember.find({ user_id: userId, is_active: true })
+      .populate('chit_group_id', 'group_name group_number chit_value commencement_date duration_months monthly_installment');
+
+    // Get all successful payments for this user
+    const paidPayments = await Payment.find({ user_id: userId, payment_status: 'success' }).select('chit_group_id month_number amount total_amount');
+    const paidMap = {};
+    paidPayments.forEach(p => { paidMap[String(p.chit_group_id) + '-' + p.month_number] = p; });
+
+    // Get auction dividends
+    const groupIds = memberships.map(m => m.chit_group_id?._id).filter(Boolean);
+    const auctions = await Auction.find({ chit_group_id: { $in: groupIds }, status: 'completed' }).select('chit_group_id month_number dividend_per_member');
+    const dividendMap = {};
+    auctions.forEach(a => {
+      const nextMonth = (a.month_number || 0) + 1;
+      const key = String(a.chit_group_id) + '-' + nextMonth;
+      dividendMap[key] = (dividendMap[key] || 0) + (a.dividend_per_member || 0);
     });
 
-    // 2. Generate virtual entries from payment schedule for all enrolled groups
-    const memberships = await ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id', 'group_name group_number chit_value commencement_date duration_months');
-    const paidPayments = await Payment.find({ user_id: userId, payment_status: 'success' }).select('chit_group_id month_number');
-    const paidMap = {};
-    paidPayments.forEach(p => { paidMap[String(p.chit_group_id) + '-' + p.month_number] = true; });
+    const LATE_FEE_RATE = 0.02; // 2% of installment
+    const schedule = [];
 
-    // Also track months already in existingData
-    const pendingMap = {};
-    existingData.forEach(p => { pendingMap[String(p.chit_group_id?._id || p.chit_group_id) + '-' + p.month_number] = true; });
-
-    const virtualEntries = [];
     for (const m of memberships) {
       const g = m.chit_group_id;
       if (!g || !g.commencement_date || !g.duration_months) continue;
       const start = new Date(g.commencement_date);
-      const monthlyAmount = Math.round(g.chit_value / g.duration_months);
+      const monthlyAmount = g.monthly_installment || Math.round(g.chit_value / g.duration_months);
 
-      // Find the first unpaid month (sequential)
       for (let mo = 1; mo <= g.duration_months; mo++) {
         const key = String(g._id) + '-' + mo;
-        if (paidMap[key]) continue; // already paid
-        if (pendingMap[key]) break; // already in pending list, stop
         const dueDate = new Date(start);
         dueDate.setMonth(dueDate.getMonth() + (mo - 1));
+
+        // Apply dividend reduction
+        const dividend = dividendMap[key] || 0;
+        const baseAmount = Math.max(0, monthlyAmount - dividend);
+
+        if (paidMap[key]) {
+          // Already paid — skip (shown in history tab)
+          continue;
+        }
+
         const isOverdue = dueDate < now;
         const daysOverdue = isOverdue ? Math.floor((now - dueDate) / (1000 * 60 * 60 * 24)) : 0;
-        if (!isOverdue && mo > 1) break; // only show current/overdue month as upcoming
-        virtualEntries.push({
+        const lateFee = isOverdue ? Math.round(baseAmount * LATE_FEE_RATE * 100) / 100 : 0;
+        const isFuture = dueDate > now && !isOverdue;
+
+        // Determine if this is the current payable month (first unpaid month that's due)
+        const isDueNow = !isFuture; // overdue or current month
+
+        schedule.push({
           _id: null, id: null, virtual: true,
           chit_group_id: g._id, chitGroup: g, chit_group: g,
-          month_number: mo, amount: monthlyAmount, total_amount: monthlyAmount, late_fee: 0,
-          due_date: dueDate, payment_status: isOverdue ? 'overdue' : 'pending',
-          days_overdue: daysOverdue, can_pay: true,
+          month_number: mo, amount: baseAmount,
+          late_fee: lateFee,
+          total_amount: Math.round((baseAmount + lateFee) * 100) / 100,
+          dividend_reduction: dividend,
+          due_date: dueDate,
+          payment_status: isOverdue ? 'overdue' : (isFuture ? 'upcoming' : 'pending'),
+          days_overdue: daysOverdue,
+          can_pay: isDueNow,
+          is_future: isFuture,
+          payment_number: null,
         });
-        break; // only the first unpaid month per group (sequential)
       }
     }
 
-    const allData = [...existingData, ...virtualEntries].sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
-    res.json({ success: true, data: allData });
+    // Sort: overdue first, then pending (current), then future
+    schedule.sort((a, b) => {
+      const order = { overdue: 0, pending: 1, upcoming: 2 };
+      const diff = (order[a.payment_status] || 9) - (order[b.payment_status] || 9);
+      if (diff !== 0) return diff;
+      return new Date(a.due_date) - new Date(b.due_date);
+    });
+
+    res.json({ success: true, data: schedule });
   } catch (err) { next(err); }
 };
 

@@ -18,13 +18,23 @@ class PaymentProvider with ChangeNotifier {
   // Due payments from /due-payments (calculated schedule)
   List<Map<String, dynamic>> get duePayments => _duePayments;
 
-  // Fallback: upcoming from raw payment list
+  // Upcoming = overdue + current (can_pay = true)
   List<Map<String, dynamic>> get upcomingPayments {
     if (_duePayments.isNotEmpty) return _duePayments;
     return _payments
         .where((p) => p['payment_status'] == 'pending' || p['payment_status'] == 'overdue')
         .toList();
   }
+
+  // Only payable (overdue + current month, not future)
+  List<Map<String, dynamic>> get payablePayments => _duePayments
+      .where((p) => p['payment_status'] == 'overdue' || p['payment_status'] == 'pending')
+      .toList();
+
+  // Future months
+  List<Map<String, dynamic>> get futurePayments => _duePayments
+      .where((p) => p['payment_status'] == 'upcoming')
+      .toList();
 
   Future<void> fetchPayments() async {
     _isLoading = true;

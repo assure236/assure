@@ -224,15 +224,23 @@ class _PaymentsScreenState extends State<PaymentsScreen>
                           Navigator.pop(ctx);
                           if (res['success'] == true) {
                             final data = res['data'] as Map<String, dynamic>;
-                            final paymentUrl = data['payment_url'] as String?;
+                            final paymentSessionId = data['payment_session_id'] as String?;
                             final orderId = data['order_id'] as String?;
                             final paymentId = data['payment_id'] as String?;
-                            if (paymentUrl != null && orderId != null) {
+                            final paymentUrl = data['payment_url'] as String?;
+                            // Prefer Cashfree hosted payment page (works reliably in WebView)
+                            String? effectiveUrl;
+                            if (paymentSessionId != null && paymentSessionId.isNotEmpty) {
+                              effectiveUrl = 'https://payments.cashfree.com/order/#$paymentSessionId';
+                            } else if (paymentUrl != null) {
+                              effectiveUrl = paymentUrl;
+                            }
+                            if (effectiveUrl != null && orderId != null) {
                               final result = await Navigator.push<Map<String, dynamic>>(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => CashfreePaymentScreen(
-                                    paymentUrl: paymentUrl,
+                                    paymentUrl: effectiveUrl!,
                                     orderId: orderId,
                                     paymentId: paymentId ?? '',
                                   ),
@@ -603,122 +611,199 @@ class _UpcomingPaymentsTab extends StatelessWidget {
       );
     }
 
+    // Split into payable (overdue/pending) and future (upcoming)
+    final payable = payments.where((p) =>
+        p['payment_status'] == 'overdue' || p['payment_status'] == 'pending').toList();
+    final future = payments.where((p) =>
+        p['payment_status'] == 'upcoming').toList();
+
     return RefreshIndicator(
       onRefresh: onRefresh,
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.all(16),
-        itemCount: payments.length,
-        itemBuilder: (context, i) {
-          final p = payments[i];
-          final isOverdue = p['payment_status'] == 'overdue' || p['status'] == 'overdue';
-          final amount =
-              double.tryParse(p['total_amount']?.toString() ?? p['amount']?.toString() ?? '0') ?? 0;
-          final lateFee =
-              double.tryParse(p['late_fee']?.toString() ?? '0') ?? 0;
-          final group =
-              (p['chit_group'] ?? p['chitGroup'])?['group_name'] ?? 'Chit Group';
-          final dueDate = p['due_date'] != null
-              ? DateTime.tryParse(p['due_date'])
-              : null;
+        children: [
+          if (payable.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text('Due Now',
+                  style: TextStyle(
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14)),
+            ),
+            ...payable.map((p) => _buildPayableCard(context, p)),
+          ],
+          if (future.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(top: 16, bottom: 8),
+              child: Text('Future Installments',
+                  style: TextStyle(
+                      color: Colors.grey[500],
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13)),
+            ),
+            ...future.map((p) => _buildFutureCard(context, p)),
+          ],
+        ],
+      ),
+    );
+  }
 
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: isOverdue
-                  ? const BorderSide(color: AppTheme.errorColor, width: 1)
-                  : BorderSide.none,
+  Widget _buildFutureCard(BuildContext context, Map<String, dynamic> p) {
+    final amount = double.tryParse(p['amount']?.toString() ?? '0') ?? 0;
+    final group = (p['chit_group'] ?? p['chitGroup'])?['group_name'] ?? 'Chit Group';
+    final dueDate = p['due_date'] != null ? DateTime.tryParse(p['due_date']) : null;
+    final monthNum = p['month_number'] ?? 0;
+    final dividend = double.tryParse(p['dividend_reduction']?.toString() ?? '0') ?? 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
+      color: Colors.grey[50],
+      child: ListTile(
+        leading: Container(
+          width: 40, height: 40,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Center(
+            child: Text('M$monthNum',
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: Colors.grey[600])),
+          ),
+        ),
+        title: Text(group,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              dueDate != null
+                  ? 'Due: ${DateFormat('dd MMM yyyy').format(dueDate)}'
+                  : 'Upcoming',
+              style: TextStyle(color: Colors.grey[500], fontSize: 11),
             ),
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(children: [
-                      Container(
-                        width: 44,
-                        height: 44,
-                        decoration: BoxDecoration(
-                          color: isOverdue
-                              ? AppTheme.errorColor.withAlpha(26)
-                              : AppTheme.secondaryColor.withAlpha(26),
-                          borderRadius: BorderRadius.circular(12),
+            if (dividend > 0)
+              Text(
+                'Dividend: -₹${NumberFormat('#,##,###').format(dividend)}',
+                style: const TextStyle(color: Colors.green, fontSize: 11),
+              ),
+          ],
+        ),
+        trailing: Text('₹${NumberFormat('#,##,###').format(amount)}',
+            style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Colors.grey[600])),
+      ),
+    );
+  }
+
+  Widget _buildPayableCard(BuildContext context, Map<String, dynamic> p) {
+    final isOverdue = p['payment_status'] == 'overdue';
+    final amount =
+        double.tryParse(p['total_amount']?.toString() ?? p['amount']?.toString() ?? '0') ?? 0;
+    final lateFee = double.tryParse(p['late_fee']?.toString() ?? '0') ?? 0;
+    final group = (p['chit_group'] ?? p['chitGroup'])?['group_name'] ?? 'Chit Group';
+    final dueDate = p['due_date'] != null ? DateTime.tryParse(p['due_date']) : null;
+    final dividend = double.tryParse(p['dividend_reduction']?.toString() ?? '0') ?? 0;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: isOverdue
+            ? const BorderSide(color: AppTheme.errorColor, width: 1)
+            : BorderSide.none,
+      ),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: isOverdue
+                        ? AppTheme.errorColor.withAlpha(26)
+                        : AppTheme.secondaryColor.withAlpha(26),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isOverdue ? Icons.warning_amber : Icons.calendar_today,
+                    color: isOverdue ? AppTheme.errorColor : AppTheme.secondaryColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('$group — Month ${p['month_number'] ?? ''}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        Text(
+                          dueDate != null
+                              ? 'Due: ${DateFormat('dd MMM yyyy').format(dueDate)}'
+                              : 'Due date TBD',
+                          style: TextStyle(
+                              color: isOverdue ? AppTheme.errorColor : Colors.grey[500],
+                              fontSize: 12),
                         ),
-                        child: Icon(
-                          isOverdue ? Icons.warning_amber : Icons.calendar_today,
-                          color: isOverdue
-                              ? AppTheme.errorColor
-                              : AppTheme.secondaryColor,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(group,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 15)),
-                              Text(
-                                dueDate != null
-                                    ? 'Due: ${DateFormat('dd MMM yyyy').format(dueDate)}'
-                                    : 'Due date TBD',
-                                style: TextStyle(
-                                    color: isOverdue
-                                        ? AppTheme.errorColor
-                                        : Colors.grey[500],
-                                    fontSize: 12),
-                              ),
-                            ]),
-                      ),
-                      Text('₹${NumberFormat('#,##,###').format(amount)}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: AppTheme.primaryColor)),
-                    ]),
-                    if (isOverdue) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                            color: AppTheme.errorColor.withAlpha(20),
-                            borderRadius: BorderRadius.circular(8)),
-                        child: Row(children: [
-                          const Icon(Icons.warning, size: 14, color: AppTheme.errorColor),
-                          const SizedBox(width: 6),
-                          Text(
-                            lateFee > 0
-                                ? 'Overdue — late fee: ₹${NumberFormat('#,##,###').format(lateFee)}'
-                                : 'Overdue — late fee may apply',
-                            style: const TextStyle(
-                                color: AppTheme.errorColor, fontSize: 11)),
-                        ]),
-                      ),
-                    ],
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () => onPay(p),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isOverdue
-                              ? AppTheme.errorColor
-                              : AppTheme.secondaryColor,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: Text(isOverdue ? 'Pay Now (Overdue)' : 'Pay Installment'),
-                      ),
-                    ),
+                      ]),
+                ),
+                Text('₹${NumberFormat('#,##,###').format(amount)}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryColor)),
+              ]),
+              if (dividend > 0) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                      color: Colors.green.withAlpha(20), borderRadius: BorderRadius.circular(8)),
+                  child: Text(
+                    'Dividend reduction: ₹${NumberFormat('#,##,###').format(dividend)}',
+                    style: const TextStyle(color: Colors.green, fontSize: 11)),
+                ),
+              ],
+              if (isOverdue) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: AppTheme.errorColor.withAlpha(20),
+                      borderRadius: BorderRadius.circular(8)),
+                  child: Row(children: [
+                    const Icon(Icons.warning, size: 14, color: AppTheme.errorColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      lateFee > 0
+                          ? 'Overdue ${p['days_overdue'] ?? 0} days — late fee: ₹${NumberFormat('#,##,###').format(lateFee)}'
+                          : 'Overdue — late fee may apply',
+                      style: const TextStyle(color: AppTheme.errorColor, fontSize: 11)),
                   ]),
-            ),
-          );
-        },
+                ),
+              ],
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => onPay(p),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isOverdue ? AppTheme.errorColor : AppTheme.secondaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: Text(isOverdue ? 'Pay Now (Overdue)' : 'Pay Installment'),
+                ),
+              ),
+            ]),
       ),
     );
   }

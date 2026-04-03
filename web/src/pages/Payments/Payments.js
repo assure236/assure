@@ -23,6 +23,8 @@ const statusConfig = {
   failed: { color: 'error', icon: <OverdueIcon />, bg: 'error.main' },
   pending: { color: 'warning', icon: <PendingIcon />, bg: 'warning.main' },
   refunded: { color: 'info', icon: <PaidIcon />, bg: 'info.main' },
+  overdue: { color: 'error', icon: <OverdueIcon />, bg: 'error.main' },
+  upcoming: { color: 'default', icon: <PendingIcon />, bg: 'grey.400' },
 };
 
 const formatCurrency = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
@@ -182,8 +184,10 @@ const Payments = () => {
 
   const historyPayments = payments.filter(p => p.payment_status === 'success' || p.payment_status === 'refunded');
   const overdueList = duePayments.filter(p => p.payment_status === 'overdue');
+  const currentDue = duePayments.filter(p => p.payment_status === 'pending');
+  const futurePayments = duePayments.filter(p => p.payment_status === 'upcoming');
   const totalPaid = historyPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
-  const totalUpcoming = duePayments.reduce((s, p) => s + Number(p.total_amount || p.amount || 0), 0);
+  const totalDue = duePayments.filter(p => p.payment_status !== 'upcoming').reduce((s, p) => s + Number(p.total_amount || p.amount || 0), 0);
   const totalPaidLateFees = historyPayments.reduce((s, p) => s + Number(p.late_fee || 0), 0);
 
   const tabList = [
@@ -239,7 +243,7 @@ const Payments = () => {
       <Grid container spacing={2} mb={3}>
         {[
           { label: 'Total Paid', value: formatCurrency(totalPaid), color: '#1976d2', icon: <PaidIcon /> },
-          { label: 'Upcoming Due', value: formatCurrency(totalUpcoming), color: '#ff9800', icon: <PendingIcon /> },
+          { label: 'Upcoming Due', value: formatCurrency(totalDue), color: '#ff9800', icon: <PendingIcon /> },
           { label: 'Overdue Amount', value: formatCurrency(overdueList.reduce((s, p) => s + Number(p.amount || 0), 0)), color: '#f44336', icon: <OverdueIcon /> },
           { label: 'Late Fees Paid', value: formatCurrency(totalPaidLateFees), color: '#9c27b0', icon: <WarnIcon /> },
         ].map(({ label, value, color, icon }) => (
@@ -272,8 +276,8 @@ const Payments = () => {
             {tabList[tab].data.map((p, i) => {
               const status = p.payment_status || 'pending';
               const cfg = statusConfig[status] || statusConfig.pending;
-              const isOverdue = status === 'overdue' || (status === 'pending' && p.due_date && new Date(p.due_date) < new Date());
-              const lateFee = Number(p.late_fee || lateFeeInfo[p._id]?.late_fee || 0);
+              const isOverdue = status === 'overdue';
+              const lateFee = Number(p.late_fee || 0);
               const group = p.chitGroup || p.chit_group;
 
               return (
@@ -290,7 +294,7 @@ const Payments = () => {
                             </IconButton>
                           </Tooltip>
                         )}
-                        {status !== 'success' && status !== 'refunded' && (
+                        {(status === 'pending' || status === 'overdue') && (
                           <Button
                             size="small" variant="contained"
                             color={isOverdue ? 'error' : 'primary'}
@@ -299,6 +303,9 @@ const Payments = () => {
                           >
                             Pay Now
                           </Button>
+                        )}
+                        {status === 'upcoming' && (
+                          <Chip label="Upcoming" size="small" variant="outlined" />
                         )}
                       </Box>
                     }
@@ -330,6 +337,11 @@ const Payments = () => {
                           {group?.group_name && (
                             <Typography variant="caption" display="block">
                               {group.group_name} — Month {p.month_number}
+                            </Typography>
+                          )}
+                          {p.dividend_reduction > 0 && (
+                            <Typography variant="caption" display="block" color="success.main">
+                              Dividend reduction: {formatCurrency(p.dividend_reduction)}
                             </Typography>
                           )}
                           <Typography variant="caption" color={isOverdue ? 'error.main' : 'text.secondary'}>

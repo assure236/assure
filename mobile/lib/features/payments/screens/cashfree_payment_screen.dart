@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../../core/services/api_service.dart';
@@ -30,13 +31,19 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setUserAgent('Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36')
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (_) => setState(() => _isLoading = true),
           onPageFinished: (_) => setState(() => _isLoading = false),
           onNavigationRequest: (req) {
-            // Intercept Cashfree return URL pattern
             final url = req.url;
+            // Allow UPI intent URLs to be handled by external apps
+            if (url.startsWith('upi://') || url.startsWith('intent://') || url.startsWith('phonepe://') || url.startsWith('gpay://') || url.startsWith('paytmmp://')) {
+              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication).catchError((_) {});
+              return NavigationDecision.prevent;
+            }
+            // Intercept Cashfree return URL pattern
             if (_isReturnUrl(url)) {
               _handleReturn();
               return NavigationDecision.prevent;
@@ -49,11 +56,13 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
   }
 
   bool _isReturnUrl(String url) {
-    // Intercept our checkout-return URL
+    // Intercept our checkout-return URL or Cashfree success/failure pages
     return url.contains('/checkout-return') ||
         url.contains('order_id=${widget.orderId}') ||
         url.contains('assure.fund/payments') ||
-        url.contains('assurechitfunds://payment-return');
+        url.contains('assurechitfunds://payment-return') ||
+        url.contains('/order/pay/status') ||
+        url.contains('cashfree.com/pg/orders');
   }
 
   Future<void> _handleReturn() async {
