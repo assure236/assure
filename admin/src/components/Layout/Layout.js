@@ -97,9 +97,12 @@ const Layout = () => {
   const drawer = (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Toolbar sx={{ bgcolor: 'primary.main' }}>
-        <Box>
-          <Typography variant="h6" noWrap fontWeight={700} color="white">Assure ChitFunds</Typography>
-          <Typography variant="caption" color="rgba(255,255,255,0.7)">Admin Panel</Typography>
+        <Box display="flex" alignItems="center" gap={1}>
+          <Box component="img" src="/logo.png" alt="Assure" sx={{ width: 32, height: 32 }} />
+          <Box>
+            <Typography variant="h6" noWrap fontWeight={700} color="white">Assure ChitFunds</Typography>
+            <Typography variant="caption" color="rgba(255,255,255,0.7)">Admin Panel</Typography>
+          </Box>
         </Box>
       </Toolbar>
       <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>

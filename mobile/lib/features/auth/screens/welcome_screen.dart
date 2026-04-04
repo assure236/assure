@@ -24,10 +24,12 @@ class WelcomeScreen extends StatelessWidget {
                   color: AppTheme.primaryColor.withAlpha(26),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.account_balance_rounded,
-                  size: 72,
-                  color: AppTheme.primaryColor,
+                child: Center(
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 100,
+                    height: 100,
+                  ),
                 ),
               ),
               const SizedBox(height: 32),

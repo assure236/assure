@@ -177,10 +177,12 @@ class _MpinScreenState extends State<MpinScreen> {
                   color: AppTheme.primaryColor.withAlpha(26),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(
-                  Icons.account_balance_rounded,
-                  size: 36,
-                  color: AppTheme.primaryColor,
+                child: Center(
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    width: 52,
+                    height: 52,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),

@@ -51,7 +51,7 @@ const Landing = () => {
       <AppBar position="sticky" sx={{ bgcolor: 'white', boxShadow: '0 1px 8px rgba(0,0,0,0.1)' }}>
         <Toolbar sx={{ justifyContent: 'space-between' }}>
           <Box display="flex" alignItems="center" gap={1}>
-            <Avatar sx={{ bgcolor: '#1976d2', width: 36, height: 36, fontSize: 16, fontWeight: 700 }}>AC</Avatar>
+            <Box component="img" src="/logo.png" alt="Assure ChitFunds" sx={{ width: 36, height: 36 }} />
             <Typography variant="h6" fontWeight={700} color="primary.main">Assure ChitFunds</Typography>
           </Box>
           <Box display="flex" gap={2} alignItems="center">

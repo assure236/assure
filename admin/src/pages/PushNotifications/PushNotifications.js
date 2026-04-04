@@ -509,7 +509,7 @@ export default function PushNotifications() {
               {/* Android notification preview */}
               <Paper sx={{ borderRadius: 2, overflow: 'hidden', maxWidth: 320 }}>
                 <Box sx={{ bgcolor: '#f8f9fa', p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ width: 24, height: 24, bgcolor: '#1a237e', fontSize: 10 }}>AC</Avatar>
+                  <Box component="img" src="/logo.png" alt="AC" sx={{ width: 24, height: 24, borderRadius: '50%' }} />
                   <Typography variant="caption" fontWeight={600} color="text.secondary">Assure ChitFunds</Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>now</Typography>
                 </Box>

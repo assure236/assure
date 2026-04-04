@@ -72,10 +72,12 @@ class _SplashScreenState extends State<SplashScreen>
                     color: Colors.white.withAlpha(38),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.account_balance_rounded,
-                    size: 56,
-                    color: Colors.white,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 80,
+                      height: 80,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),

@@ -97,6 +97,7 @@ const Layout = () => {
   const drawer = (
     <div>
       <Toolbar>
+        <Box component="img" src="/logo.png" alt="Assure" sx={{ width: 32, height: 32, mr: 1 }} />
         <Typography variant="h6" noWrap component="div">
           Assure Chits
         </Typography>
