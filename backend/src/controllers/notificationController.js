@@ -1,4 +1,4 @@
-const { Notification, User } = require('../models');
+const { Notification, User, CommunicationLog } = require('../models');
 const { sendPushNotification, sendPushToMultiple } = require('../config/firebase');
 
 exports.getMyNotifications = async (req, res, next) => {
@@ -53,12 +53,27 @@ exports.sendNotification = async (req, res, next) => {
 
     // Send FCM push notification
     const targetUser = await User.findById(user_id).select('fcm_token');
+    let pushStatus = 'sent';
     if (targetUser?.fcm_token) {
       const result = await sendPushNotification(targetUser.fcm_token, title, message, { type, notification_id: notification._id.toString() });
       if (result === 'INVALID_TOKEN') {
         await User.findByIdAndUpdate(user_id, { $unset: { fcm_token: 1 } });
+        pushStatus = 'failed';
+      } else if (!result) {
+        pushStatus = 'failed';
       }
+    } else {
+      pushStatus = 'no_token';
     }
+
+    // Log to CommunicationLog for history tracking
+    try {
+      await CommunicationLog.create({
+        user_id, channel: 'push', type: type || 'general', subject: title, message,
+        status: pushStatus, sent_by: req.user._id || req.user.id,
+        recipient_type: 'individual', sent_at: new Date(),
+      });
+    } catch (_) {}
 
     res.status(201).json({ success: true, data: notification });
   } catch (err) { next(err); }
@@ -88,6 +103,18 @@ exports.broadcastNotification = async (req, res, next) => {
         );
       }
     }
+
+    // Log to CommunicationLog for history tracking
+    try {
+      const adminId = req.user._id || req.user.id;
+      // Insert a single summary log instead of per-user to avoid bloat
+      await CommunicationLog.create({
+        channel: 'push', type: type || 'general', subject: title, message,
+        status: 'sent', sent_by: adminId, recipient_type: 'all',
+        sent_count: pushResult.successCount,
+        sent_at: new Date(),
+      });
+    } catch (_) {}
 
     res.status(201).json({
       success: true,

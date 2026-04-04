@@ -765,9 +765,12 @@ router.delete('/branches/:id', adminOnly, async (req, res, next) => {
 // ============ COMMUNICATIONS ============
 router.get('/communications', adminOnly, async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, type } = req.query;
+    const { page = 1, limit = 20, type, channel, from_date } = req.query;
     const filter = {};
-    if (type) filter.channel = type;
+    if (channel) filter.channel = channel;
+    else if (type && ['sms', 'email', 'whatsapp', 'push', 'notification'].includes(type)) filter.channel = type;
+    if (type && !['sms', 'email', 'whatsapp', 'push', 'notification'].includes(type)) filter.type = type;
+    if (from_date) filter.created_at = { $gte: new Date(from_date) };
     const total = await CommunicationLog.countDocuments(filter);
     const logs = await CommunicationLog.find(filter)
       .populate('user_id', 'full_name mobile')

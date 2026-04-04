@@ -16,7 +16,7 @@ const initFirebase = () => {
     logger.info('Firebase Admin SDK initialized successfully');
     return firebaseApp;
   } catch (err) {
-    logger.error('Firebase Admin SDK initialization failed:', err.message);
+    logger.error('Firebase Admin SDK initialization failed: ' + (err.message || String(err)));
     return null;
   }
 };
