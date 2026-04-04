@@ -122,7 +122,7 @@ const Reports = () => {
         <Grid container spacing={2} mb={3}>
           {summaryItems.map(({ label, value, color }) => (
             <Grid item xs={12} sm={6} md={3} key={label}>
-              <Paper sx={{ p: 2.5, borderRadius: 3, borderLeft: `4px solid ${color || '#1976d2'}` }}>
+              <Paper sx={{ p: 2.5, borderRadius: 3, borderLeft: `4px solid ${color || '#0B1F3B'}` }}>
                 <Typography variant="caption" color="text.secondary">{label}</Typography>
                 <Typography variant="h5" fontWeight={700}>{value}</Typography>
               </Paper>

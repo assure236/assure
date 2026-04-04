@@ -103,9 +103,9 @@ export default function Support() {
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
           { label: 'Open', value: openCount, color: '#d32f2f', icon: <FiberNew /> },
-          { label: 'In Progress', value: inProgressCount, color: '#f57c00', icon: <HourglassEmpty /> },
+          { label: 'In Progress', value: inProgressCount, color: '#B8960F', icon: <HourglassEmpty /> },
           { label: 'Resolved / Closed', value: resolvedCount, color: '#388e3c', icon: <CheckCircle /> },
-          { label: 'Total Tickets', value: total, color: '#1976d2', icon: <SupportAgent /> },
+          { label: 'Total Tickets', value: total, color: '#0B1F3B', icon: <SupportAgent /> },
         ].map((c, i) => (
           <Grid item xs={6} md={3} key={i}>
             <Card sx={{ borderTop: `4px solid ${c.color}`, cursor: 'pointer' }}

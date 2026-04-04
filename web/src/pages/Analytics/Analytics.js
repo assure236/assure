@@ -21,7 +21,7 @@ import {
 import axios from 'axios';
 
 const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const COLORS = ['#1976d2', '#4caf50', '#ff9800', '#e91e63', '#9c27b0', '#00bcd4'];
+const COLORS = ['#0B1F3B', '#4caf50', '#D4AF37', '#e91e63', '#9c27b0', '#00bcd4'];
 
 // ─── Dividend Calculator (standalone) ────────────────────────────────────────
 const DividendCalculator = () => {
@@ -94,10 +94,10 @@ const DividendCalculator = () => {
         <Grid item xs={12} md={7}>
           <Grid container spacing={2} mb={2}>
             {[
-              { label: 'Monthly Installment', value: fmt(monthlyInstallment), color: '#1976d2' },
+              { label: 'Monthly Installment', value: fmt(monthlyInstallment), color: '#0B1F3B' },
               { label: 'Avg Dividend / Month', value: fmt(dividendPerMember), color: '#4caf50' },
               { label: 'Total Dividends (Lifetime)', value: fmt(totalDividends), color: '#9c27b0' },
-              { label: 'Win Probability / Month', value: `${winProbability.toFixed(1)}%`, color: '#ff9800' },
+              { label: 'Win Probability / Month', value: `${winProbability.toFixed(1)}%`, color: '#D4AF37' },
               { label: 'Effective Return Rate', value: `${effectiveReturn}%`, color: '#e91e63' },
               { label: 'Commission (Foreman)', value: fmt(commissionAmt), color: '#607d8b' },
             ].map(({ label, value, color }) => (
@@ -242,7 +242,7 @@ const Analytics = () => {
               <Typography variant="h6" mb={2}>Payment Health</Typography>
               {[
                 { label: 'Paid', value: paymentStatus.paid || 0, color: '#4caf50' },
-                { label: 'Pending', value: paymentStatus.pending || 0, color: '#ff9800' },
+                { label: 'Pending', value: paymentStatus.pending || 0, color: '#D4AF37' },
                 { label: 'Failed', value: paymentStatus.failed || 0, color: '#f44336' },
               ].map(({ label, value, color }) => {
                 const total = (paymentStatus.paid || 0) + (paymentStatus.pending || 0) + (paymentStatus.failed || 0) || 1;
@@ -277,7 +277,7 @@ const Analytics = () => {
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={v => v > 0 ? `₹${(v / 1000).toFixed(0)}k` : '0'} />
                   <Tooltip formatter={v => [fmt(v), 'Amount Paid']} />
-                  <Bar dataKey="amount" fill="#1976d2" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="amount" fill="#0B1F3B" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </Paper>
@@ -344,8 +344,8 @@ const Analytics = () => {
                 <Grid container spacing={2} mb={3}>
                   {[
                     { label: 'Avg Dividend / Month', value: fmt(g.avg_dividend_per_member), color: '#4caf50' },
-                    { label: 'Net Return (Lifetime)', value: fmt(g.net_return), color: '#1976d2' },
-                    { label: 'Avg Winning Bid', value: fmt(g.avg_winning_bid), color: '#ff9800' },
+                    { label: 'Net Return (Lifetime)', value: fmt(g.net_return), color: '#0B1F3B' },
+                    { label: 'Avg Winning Bid', value: fmt(g.avg_winning_bid), color: '#D4AF37' },
                     { label: 'Effective Return', value: `${g.effective_return_pct}%`, color: '#9c27b0' },
                     { label: 'Monthly Installment', value: fmt(g.monthly_installment), color: '#607d8b' },
                     { label: 'Completed Auctions', value: g.completed_auctions, color: '#e91e63' },
@@ -368,7 +368,7 @@ const Analytics = () => {
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
                     <Tooltip formatter={v => [fmt(v)]} />
                     <Line type="monotone" dataKey="estimated_dividend" stroke="#4caf50" strokeWidth={2} dot={false} name="Est. Dividend" />
-                    <Line type="monotone" dataKey="cumulative" stroke="#1976d2" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Cumulative" />
+                    <Line type="monotone" dataKey="cumulative" stroke="#0B1F3B" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Cumulative" />
                     <Legend />
                   </LineChart>
                 </ResponsiveContainer>
@@ -415,10 +415,10 @@ const Analytics = () => {
                   const success = statement.filter(p => p.payment_status === 'success');
                   const pending = statement.filter(p => p.payment_status === 'pending' || p.payment_status === 'overdue');
                   return [
-                    { label: 'Total Transactions', value: statement.length, color: '#1976d2' },
+                    { label: 'Total Transactions', value: statement.length, color: '#0B1F3B' },
                     { label: 'Total Amount', value: fmt(total), color: '#4caf50' },
                     { label: 'Successful', value: success.length, color: '#388e3c' },
-                    { label: 'Pending/Overdue', value: pending.length, color: '#f57c00' },
+                    { label: 'Pending/Overdue', value: pending.length, color: '#B8960F' },
                   ].map(c => (
                     <Grid item xs={6} sm={3} key={c.label}>
                       <Paper sx={{ p: 2, borderLeft: `4px solid ${c.color}`, borderRadius: 2 }}>

@@ -16,9 +16,9 @@ import axios from 'axios';
 const API = process.env.REACT_APP_API_URL;
 
 const CHANNELS = [
-  { value: 'push', label: 'Push Notification', icon: <Notifications />, color: '#7c4dff', desc: 'In-app + FCM push' },
+  { value: 'push', label: 'Push Notification', icon: <Notifications />, color: '#1E3A8A', desc: 'In-app + FCM push' },
   { value: 'sms', label: 'SMS', icon: <Sms />, color: '#00897b', desc: 'Fast2SMS DLT route' },
-  { value: 'email', label: 'Email', icon: <Email />, color: '#1976d2', desc: 'Resend API' },
+  { value: 'email', label: 'Email', icon: <Email />, color: '#0B1F3B', desc: 'Resend API' },
 ];
 
 const RECIPIENTS = [
@@ -43,7 +43,7 @@ const TEMPLATES = [
 
 const channelIcon = (ch) => ({ sms: <Sms fontSize="small" />, email: <Email fontSize="small" />, push: <Notifications fontSize="small" /> }[ch] || <Send fontSize="small" />);
 const channelColor = (ch) => ({ sms: 'info', email: 'primary', push: 'secondary' }[ch] || 'default');
-const channelBg = (ch) => ({ sms: '#e0f2f1', email: '#e3f2fd', push: '#ede7f6' }[ch] || '#f5f5f5');
+const channelBg = (ch) => ({ sms: '#e0f2f1', email: '#E8EDF5', push: '#ede7f6' }[ch] || '#F1F5F9');
 
 export default function Communications() {
   const [logs, setLogs] = useState([]);
@@ -133,7 +133,7 @@ export default function Communications() {
         {[
           { label: 'Sent', value: sentCount, color: '#388e3c', icon: <Send /> },
           { label: 'Failed', value: failedCount, color: '#d32f2f', icon: <Warning /> },
-          { label: 'Channels', value: channelsUsed, color: '#1976d2', icon: <Campaign /> },
+          { label: 'Channels', value: channelsUsed, color: '#0B1F3B', icon: <Campaign /> },
           { label: 'Total Members', value: users.length, color: '#7b1fa2', icon: <People /> },
         ].map((c, i) => (
           <Grid item xs={6} md={3} key={i}>
@@ -225,7 +225,7 @@ export default function Communications() {
 
       {/* Send Dialog */}
       <Dialog open={sendDialog} onClose={() => setSendDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#f5f5f5' }}>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#F1F5F9' }}>
           <Box>
             <Typography variant="h6" fontWeight={700}>Send Communication</Typography>
             <Typography variant="caption" color="text.secondary">Choose channel, recipients and compose your message</Typography>

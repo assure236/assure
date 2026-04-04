@@ -414,7 +414,7 @@ const AuctionRoom = () => {
                 <>
                   {/* Min / Max bid limits bar */}
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} p={1.5}
-                    sx={{ borderRadius: 2, background: 'linear-gradient(90deg, #e3f2fd, #fff3e0)' }}>
+                    sx={{ borderRadius: 2, background: 'linear-gradient(90deg, #E8EDF5, #FDF8E8)' }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Min Bid</Typography>
                       <Typography fontWeight={700} color="primary.main">

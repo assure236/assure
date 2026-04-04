@@ -167,10 +167,10 @@ const Documents = () => {
       )}
 
       {/* DigiLocker Integration */}
-      <Card sx={{ mb: 3, borderRadius: 3, border: dlStatus?.connected ? '1px solid #4caf50' : '1px solid #1976d2' }}>
+      <Card sx={{ mb: 3, borderRadius: 3, border: dlStatus?.connected ? '1px solid #4caf50' : '1px solid #0B1F3B' }}>
         <CardContent>
           <Box display="flex" alignItems="center" gap={2}>
-            <DigiLockerIcon sx={{ fontSize: 40, color: dlStatus?.connected ? '#4caf50' : '#1976d2' }} />
+            <DigiLockerIcon sx={{ fontSize: 40, color: dlStatus?.connected ? '#4caf50' : '#0B1F3B' }} />
             <Box flex={1}>
               <Typography variant="h6">DigiLocker eKYC</Typography>
               <Typography variant="body2" color="text.secondary">

@@ -18,7 +18,7 @@ import {
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
-const PIE_COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f'];
+const PIE_COLORS = ['#0B1F3B', '#388e3c', '#B8960F', '#d32f2f'];
 
 const StatCard = ({ title, value, icon, color, sub, onClick }) => (
   <Card sx={{ borderRadius: 3, height: '100%', cursor: onClick ? 'pointer' : 'default', transition: 'box-shadow 0.2s', '&:hover': onClick ? { boxShadow: 4 } : {} }} onClick={onClick}>
@@ -89,9 +89,9 @@ const Dashboard = () => {
       {/* Stat Cards */}
       <Grid container spacing={3} mb={4}>
         {[
-          { title: 'Total Members', value: s.total_users?.toLocaleString('en-IN'), icon: <PeopleIcon />, color: '#1976d2', sub: `${s.new_users_today || 0} new today`, onClick: () => navigate('/users') },
+          { title: 'Total Members', value: s.total_users?.toLocaleString('en-IN'), icon: <PeopleIcon />, color: '#0B1F3B', sub: `${s.new_users_today || 0} new today`, onClick: () => navigate('/users') },
           { title: 'Active Chit Groups', value: s.active_groups?.toLocaleString('en-IN'), icon: <GroupIcon />, color: '#388e3c', sub: `${s.total_groups || 0} total`, onClick: () => navigate('/chit-groups') },
-          { title: 'Monthly Collection', value: s.monthly_collection ? fmt(s.monthly_collection) : '₹0', icon: <MoneyIcon />, color: '#f57c00', sub: `${fmt(s.total_collection || 0)} overall`, onClick: () => navigate('/accounting') },
+          { title: 'Monthly Collection', value: s.monthly_collection ? fmt(s.monthly_collection) : '₹0', icon: <MoneyIcon />, color: '#B8960F', sub: `${fmt(s.total_collection || 0)} overall`, onClick: () => navigate('/accounting') },
           { title: 'Pending KYC', value: s.pending_kyc?.toLocaleString('en-IN'), icon: <WarningIcon />, color: '#d32f2f', sub: 'Need approval', onClick: () => navigate('/documents') },
           { title: 'Live Auctions', value: s.live_auctions?.toLocaleString('en-IN'), icon: <GavelIcon />, color: '#7b1fa2', sub: `${s.total_auctions || 0} total`, onClick: () => navigate('/auctions') },
           { title: 'Overdue Payments', value: s.overdue_payments?.toLocaleString('en-IN'), icon: <TrendIcon />, color: '#e64a19', sub: `${fmt(s.overdue_amount || 0)} overdue`, onClick: () => navigate('/defaulters') },
@@ -113,8 +113,8 @@ const Dashboard = () => {
                   <AreaChart data={pl.monthly} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                     <defs>
                       <linearGradient id="cGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#1976d2" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#1976d2" stopOpacity={0} />
+                        <stop offset="5%" stopColor="#0B1F3B" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#0B1F3B" stopOpacity={0} />
                       </linearGradient>
                       <linearGradient id="pGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#388e3c" stopOpacity={0.3} />
@@ -126,7 +126,7 @@ const Dashboard = () => {
                     <YAxis tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
                     <RechartTooltip formatter={(v) => fmt(v)} />
                     <Legend />
-                    <Area type="monotone" dataKey="collection" stroke="#1976d2" fill="url(#cGrad)" name="Collection" strokeWidth={2} />
+                    <Area type="monotone" dataKey="collection" stroke="#0B1F3B" fill="url(#cGrad)" name="Collection" strokeWidth={2} />
                     <Area type="monotone" dataKey="profit" stroke="#388e3c" fill="url(#pGrad)" name="Commission" strokeWidth={2} />
                   </AreaChart>
                 </ResponsiveContainer>
@@ -194,10 +194,10 @@ const Dashboard = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} gutterBottom>Financial Summary</Typography>
               {[
-                { label: 'Total Collected', value: fmt(s.total_collection), color: '#1976d2' },
+                { label: 'Total Collected', value: fmt(s.total_collection), color: '#0B1F3B' },
                 { label: 'Monthly Collection', value: fmt(s.monthly_collection), color: '#388e3c' },
                 { label: 'Overdue Amount', value: fmt(s.overdue_amount), color: '#d32f2f' },
-                { label: 'Foreman Commission (est.)', value: fmt((s.total_collection || 0) * 0.05), color: '#f57c00' },
+                { label: 'Foreman Commission (est.)', value: fmt((s.total_collection || 0) * 0.05), color: '#B8960F' },
               ].map((row, i) => (
                 <Box key={i}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1 }}>

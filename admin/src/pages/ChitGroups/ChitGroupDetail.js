@@ -142,9 +142,9 @@ export default function ChitGroupDetail() {
         <Grid item xs={12} md={7}>
           <Grid container spacing={2} sx={{ mb: 2 }}>
             {[
-              { label: 'Total Prize Pool', value: fmt(group.chit_value), color: '#1976d2' },
+              { label: 'Total Prize Pool', value: fmt(group.chit_value), color: '#0B1F3B' },
               { label: 'Monthly Collection', value: fmt(group.monthly_installment * (group.enrolled_members || members.length)), color: '#388e3c' },
-              { label: 'Commission (5%)', value: fmt(group.chit_value * 0.05), color: '#f57c00' },
+              { label: 'Commission (5%)', value: fmt(group.chit_value * 0.05), color: '#B8960F' },
               { label: 'Members Enrolled', value: `${group.enrolled_members || members.length} / ${group.total_members}`, color: '#7b1fa2' },
             ].map(({ label, value, color }) => (
               <Grid item xs={6} key={label}>

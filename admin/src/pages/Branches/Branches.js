@@ -81,9 +81,9 @@ export default function Branches() {
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Branches', value: rows.length, color: '#1976d2', icon: <Business /> },
+          { label: 'Total Branches', value: rows.length, color: '#0B1F3B', icon: <Business /> },
           { label: 'Active Branches', value: activeCount, color: '#388e3c', icon: <LocationOn /> },
-          { label: 'Inactive', value: rows.length - activeCount, color: '#f57c00', icon: <Business /> },
+          { label: 'Inactive', value: rows.length - activeCount, color: '#B8960F', icon: <Business /> },
         ].map((c, i) => (
           <Grid item xs={4} key={i}>
             <Card sx={{ borderLeft: `4px solid ${c.color}` }}>

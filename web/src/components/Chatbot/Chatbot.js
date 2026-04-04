@@ -65,8 +65,8 @@ const Chatbot = () => {
         onClick={() => setOpen(true)}
         sx={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 1200,
-          background: 'linear-gradient(135deg, #1976d2, #1565c0)',
-          '&:hover': { background: 'linear-gradient(135deg, #1565c0, #0d47a1)' }
+          background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)',
+          '&:hover': { background: 'linear-gradient(135deg, #1E3A8A, #0d47a1)' }
         }}
       >
         <BotIcon />
@@ -81,7 +81,7 @@ const Chatbot = () => {
         PaperProps={{ sx: { borderRadius: 3, height: '70vh', maxHeight: 600, display: 'flex', flexDirection: 'column' } }}
       >
         <DialogTitle sx={{
-          background: 'linear-gradient(135deg, #1976d2, #1565c0)',
+          background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)',
           color: 'white', display: 'flex', alignItems: 'center', gap: 1, py: 1.5
         }}>
           <BotIcon /> Assure Bot
@@ -96,7 +96,7 @@ const Chatbot = () => {
                 elevation={0}
                 sx={{
                   p: 1.5, maxWidth: '85%', borderRadius: 2,
-                  bgcolor: msg.from === 'user' ? '#1976d2' : 'white',
+                  bgcolor: msg.from === 'user' ? '#0B1F3B' : 'white',
                   color: msg.from === 'user' ? 'white' : 'text.primary',
                 }}
               >
@@ -113,7 +113,7 @@ const Chatbot = () => {
                         sx={{
                           p: 1.5, mb: 1, borderRadius: 2, cursor: 'pointer',
                           border: '1px solid #e0e0e0',
-                          '&:hover': { bgcolor: '#e3f2fd', borderColor: '#1976d2' },
+                          '&:hover': { bgcolor: '#E8EDF5', borderColor: '#0B1F3B' },
                           transition: 'all 0.2s'
                         }}
                       >

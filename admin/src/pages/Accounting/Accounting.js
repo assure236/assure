@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box, Paper, Typography, Grid, Card, CardContent, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TablePagination,
@@ -23,7 +23,7 @@ const API = process.env.REACT_APP_API_URL;
 const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
 
 const ROOT_COLORS = {
-  Asset: '#1976d2', Liability: '#d32f2f', Income: '#388e3c', Expense: '#f57c00', Equity: '#7b1fa2',
+  Asset: '#0B1F3B', Liability: '#d32f2f', Income: '#388e3c', Expense: '#B8960F', Equity: '#7b1fa2',
 };
 
 const VOUCHER_TYPES = [
@@ -271,11 +271,11 @@ export default function Accounting() {
           <Grid container spacing={2} sx={{ mb: 3 }}>
             {[
               { label: 'FY Revenue', value: fmt(summary.fy_income), icon: <TrendingUp />, color: '#388e3c' },
-              { label: 'FY Expenses', value: fmt(summary.fy_expense), icon: <MoneyOff />, color: '#f57c00' },
-              { label: 'FY Net Profit', value: fmt(summary.fy_profit), icon: <AccountBalance />, color: summary.fy_profit >= 0 ? '#1976d2' : '#d32f2f' },
+              { label: 'FY Expenses', value: fmt(summary.fy_expense), icon: <MoneyOff />, color: '#B8960F' },
+              { label: 'FY Net Profit', value: fmt(summary.fy_profit), icon: <AccountBalance />, color: summary.fy_profit >= 0 ? '#0B1F3B' : '#d32f2f' },
               { label: 'Cash & Bank', value: fmt(summary.cash_balance), icon: <PaymentsIcon />, color: '#00838f' },
               { label: 'This Month Revenue', value: fmt(summary.month_income), icon: <TrendingUp />, color: '#388e3c' },
-              { label: 'This Month Profit', value: fmt(summary.month_profit), icon: <AccountBalance />, color: '#1976d2' },
+              { label: 'This Month Profit', value: fmt(summary.month_profit), icon: <AccountBalance />, color: '#0B1F3B' },
               { label: 'Total Journal Entries', value: summary.total_entries || 0, icon: <MenuBook />, color: '#7b1fa2' },
               { label: 'Active Accounts', value: summary.total_accounts || 0, icon: <AccountTree />, color: '#455a64' },
             ].map((c, i) => (
@@ -596,8 +596,8 @@ export default function Accounting() {
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 {[
                   { label: 'Total Income', value: fmt(pl.total_income), color: '#388e3c', icon: <ArrowUpward /> },
-                  { label: 'Total Expenses', value: fmt(pl.total_expenses), color: '#f57c00', icon: <ArrowDownward /> },
-                  { label: 'Net Profit', value: fmt(pl.net_profit), color: pl.net_profit >= 0 ? '#1976d2' : '#d32f2f', icon: <TrendingUp /> },
+                  { label: 'Total Expenses', value: fmt(pl.total_expenses), color: '#B8960F', icon: <ArrowDownward /> },
+                  { label: 'Net Profit', value: fmt(pl.net_profit), color: pl.net_profit >= 0 ? '#0B1F3B' : '#d32f2f', icon: <TrendingUp /> },
                 ].map((c, i) => (
                   <Grid item xs={12} md={4} key={i}>
                     <Card sx={{ borderTop: `4px solid ${c.color}` }}>
@@ -645,7 +645,7 @@ export default function Accounting() {
                         <Typography fontWeight={600} color="warning.main">{fmt(item.amount)}</Typography>
                       </Box>
                     ))}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1, mt: 1, borderTop: '2px solid #f57c00' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1, mt: 1, borderTop: '2px solid #B8960F' }}>
                       <Typography fontWeight={700}>Total Expenses</Typography>
                       <Typography fontWeight={700} color="warning.main">{fmt(pl.total_expenses)}</Typography>
                     </Box>
@@ -663,8 +663,8 @@ export default function Accounting() {
                       <RTooltip formatter={(v) => fmt(v)} />
                       <Legend />
                       <Bar dataKey="income" fill="#388e3c" name="Income" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="expense" fill="#f57c00" name="Expense" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="profit" fill="#1976d2" name="Profit" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="expense" fill="#B8960F" name="Expense" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="profit" fill="#0B1F3B" name="Profit" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </Paper>
@@ -693,7 +693,7 @@ export default function Accounting() {
                   </Box>
                 ))}
                 {(bs.assets || []).length === 0 && <Typography color="text.secondary">No asset entries yet</Typography>}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1, mt: 1, borderTop: '2px solid #1976d2' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 1, mt: 1, borderTop: '2px solid #0B1F3B' }}>
                   <Typography fontWeight={700}>Total Assets</Typography>
                   <Typography fontWeight={700} color="primary">{fmt(bs.total_assets)}</Typography>
                 </Box>
@@ -748,7 +748,7 @@ export default function Accounting() {
             {[
               { label: 'Cash Inflow', value: fmt(cf.operating?.inflow), color: '#388e3c' },
               { label: 'Cash Outflow', value: fmt(cf.operating?.outflow), color: '#d32f2f' },
-              { label: 'Net Cash Flow', value: fmt(cf.net_cash_flow), color: cf.net_cash_flow >= 0 ? '#1976d2' : '#d32f2f' },
+              { label: 'Net Cash Flow', value: fmt(cf.net_cash_flow), color: cf.net_cash_flow >= 0 ? '#0B1F3B' : '#d32f2f' },
             ].map((c, i) => (
               <Grid item xs={12} md={4} key={i}>
                 <Card sx={{ borderTop: `4px solid ${c.color}` }}>

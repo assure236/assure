@@ -1,4 +1,4 @@
-ï»¿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, Grid, Card, CardContent, Typography, Box, Chip,
   CircularProgress, Alert, Tabs, Tab, List, ListItem, ListItemText,
@@ -27,8 +27,8 @@ const statusConfig = {
   upcoming: { color: 'default', icon: <PendingIcon />, bg: 'grey.400' },
 };
 
-const formatCurrency = (v) => `â‚¹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”';
+const formatCurrency = (v) => `?${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 const Payments = () => {
   const [tab, setTab] = useState(0);
@@ -85,7 +85,7 @@ const Payments = () => {
         const payStatus = res.data.data?.payment_status;
         if (payStatus === 'success' || payStatus === 'paid' || res.data.message === 'Already verified') {
           setPaymentResult({ success: true, message: 'Payment successful! Your receipt will appear below.' });
-          toast.success('Payment confirmed âœ“');
+          toast.success('Payment confirmed ?');
         } else {
           setPaymentResult({ success: null, message: `Payment status: ${payStatus || 'Pending'}. We will notify you once confirmed.` });
           toast.info('Payment pending confirmation');
@@ -143,7 +143,7 @@ const Payments = () => {
           setPaymentStep(0);
         }
       } else if (payment_session_id) {
-        // SDK not loaded â€” redirect to hosted payment page
+        // SDK not loaded — redirect to hosted payment page
         setPayDialog({ ...payDialog, open: false });
         const isTest = !process.env.REACT_APP_CASHFREE_ENV || process.env.REACT_APP_CASHFREE_ENV === 'sandbox';
         const payUrl = isTest
@@ -242,8 +242,8 @@ const Payments = () => {
       {/* Summary Cards */}
       <Grid container spacing={2} mb={3}>
         {[
-          { label: 'Total Paid', value: formatCurrency(totalPaid), color: '#1976d2', icon: <PaidIcon /> },
-          { label: 'Upcoming Due', value: formatCurrency(totalDue), color: '#ff9800', icon: <PendingIcon /> },
+          { label: 'Total Paid', value: formatCurrency(totalPaid), color: '#0B1F3B', icon: <PaidIcon /> },
+          { label: 'Upcoming Due', value: formatCurrency(totalDue), color: '#D4AF37', icon: <PendingIcon /> },
           { label: 'Overdue Amount', value: formatCurrency(overdueList.reduce((s, p) => s + Number(p.amount || 0), 0)), color: '#f44336', icon: <OverdueIcon /> },
           { label: 'Late Fees Paid', value: formatCurrency(totalPaidLateFees), color: '#9c27b0', icon: <WarnIcon /> },
         ].map(({ label, value, color, icon }) => (
@@ -336,7 +336,7 @@ const Payments = () => {
                         <>
                           {group?.group_name && (
                             <Typography variant="caption" display="block">
-                              {group.group_name} â€” Month {p.month_number}
+                              {group.group_name} — Month {p.month_number}
                             </Typography>
                           )}
                           {p.dividend_reduction > 0 && (
@@ -393,7 +393,7 @@ const Payments = () => {
                 {formatCurrency(payDialog.payment.total_amount || payDialog.payment.amount)}
               </Typography>
               <Typography variant="body2" color="text.secondary" textAlign="center" mb={2}>
-                {(payDialog.payment.chit_group || payDialog.payment.chitGroup)?.group_name} â€” Month {payDialog.payment.month_number}
+                {(payDialog.payment.chit_group || payDialog.payment.chitGroup)?.group_name} — Month {payDialog.payment.month_number}
               </Typography>
               {payDialog.payment.late_fee > 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }} icon={<WarnIcon />}>

@@ -99,7 +99,7 @@ const Dashboard = () => {
 
   const stats = [
     {
-      title: 'Active Chit Groups', color: '#1976d2',
+      title: 'Active Chit Groups', color: '#0B1F3B',
       value: dashboardData?.activeGroups || 0,
       icon: <GroupIcon />, subtitle: 'enrolled groups'
     },
@@ -167,7 +167,7 @@ const Dashboard = () => {
 
       {/* Profile Completion Tracker */}
       {profileCompletion && !profileCompletion.isComplete && (
-        <Paper sx={{ p: 3, borderRadius: 3, mb: 4, border: '1px solid #1976d2' }}>
+        <Paper sx={{ p: 3, borderRadius: 3, mb: 4, border: '1px solid #0B1F3B' }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
             <Typography variant="h6">Complete Your Profile</Typography>
             <Chip label={`${profileCompletion.percentage}%`} color="primary" size="small" />
@@ -195,15 +195,15 @@ const Dashboard = () => {
                 <AreaChart data={analytics.monthly_collections} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                   <defs>
                     <linearGradient id="collGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#1976d2" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#1976d2" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#0B1F3B" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#0B1F3B" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={v => v > 0 ? `₹${(v/1000).toFixed(0)}k` : '0'} />
                   <Tooltip formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, 'Amount']} />
-                  <Area type="monotone" dataKey="amount" stroke="#1976d2" fill="url(#collGrad)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="amount" stroke="#0B1F3B" fill="url(#collGrad)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
             </Paper>
@@ -221,7 +221,7 @@ const Dashboard = () => {
                     ]}
                     cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value"
                   >
-                    {['#4caf50', '#ff9800', '#f44336'].map((color, i) => <Cell key={i} fill={color} />)}
+                    {['#4caf50', '#D4AF37', '#f44336'].map((color, i) => <Cell key={i} fill={color} />)}
                   </Pie>
                   <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
                   <Tooltip />

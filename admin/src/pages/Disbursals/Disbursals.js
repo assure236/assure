@@ -130,10 +130,10 @@ const Disbursals = () => {
       {/* Summary Cards */}
       <Grid container spacing={2} mb={3}>
         {[
-          { label: 'Pending Disbursals', value: pending.length, sub: fmt(totalPending) + ' awaiting', color: '#ff9800' },
+          { label: 'Pending Disbursals', value: pending.length, sub: fmt(totalPending) + ' awaiting', color: '#D4AF37' },
           { label: 'Disbursed', value: disbursed.length, sub: 'Completed', color: '#4caf50' },
           { label: 'Rejected', value: rejected.length, sub: 'Declined', color: '#f44336' },
-          { label: 'Total', value: disbursals.length, sub: 'All records', color: '#1976d2' },
+          { label: 'Total', value: disbursals.length, sub: 'All records', color: '#0B1F3B' },
         ].map((s) => (
           <Grid item xs={12} sm={6} md={3} key={s.label}>
             <Card sx={{ borderLeft: `4px solid ${s.color}`, borderRadius: 3 }}>
@@ -267,7 +267,7 @@ const Disbursals = () => {
                 sx={{ mt: 1 }}
               />
               {/* OTP Section */}
-              <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+              <Box sx={{ mt: 2, p: 2, bgcolor: '#F1F5F9', borderRadius: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>Admin OTP Verification</Typography>
                 {!otpSent ? (
                   <Button variant="outlined" size="small" onClick={() => sendOtp('disburse', disburseDialog.auction_id)}>
@@ -309,7 +309,7 @@ const Disbursals = () => {
               <TextField fullWidth label="Reason for Rejection (optional)" multiline rows={3}
                 value={rejectReason} onChange={e => setRejectReason(e.target.value)} sx={{ mt: 1 }} />
               {/* OTP Section */}
-              <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+              <Box sx={{ mt: 2, p: 2, bgcolor: '#F1F5F9', borderRadius: 2 }}>
                 <Typography variant="subtitle2" gutterBottom>Admin OTP Verification</Typography>
                 {!otpSent ? (
                   <Button variant="outlined" size="small" onClick={() => sendOtp('reject', rejectDialog.auction_id)}>

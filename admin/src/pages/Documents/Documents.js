@@ -90,7 +90,7 @@ export default function Documents() {
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Pending Review', value: stats.pending, color: '#f57c00', icon: <PendingActions /> },
+          { label: 'Pending Review', value: stats.pending, color: '#B8960F', icon: <PendingActions /> },
           { label: 'Approved', value: stats.approved, color: '#388e3c', icon: <AssignmentTurnedIn /> },
           { label: 'Rejected', value: stats.rejected, color: '#d32f2f', icon: <Block /> },
         ].map((c, i) => (

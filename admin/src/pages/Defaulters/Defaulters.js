@@ -252,9 +252,9 @@ export default function Defaulters() {
       {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Defaulters', value: stats.total, color: '#1976d2', icon: <Warning />, filter: 'all' },
+          { label: 'Total Defaulters', value: stats.total, color: '#0B1F3B', icon: <Warning />, filter: 'all' },
           { label: 'High Risk (>21d)', value: stats.high, color: '#d32f2f', icon: <GppBad />, filter: 'high' },
-          { label: 'Medium Risk (14-21d)', value: stats.medium, color: '#f57c00', icon: <PersonOff />, filter: 'medium' },
+          { label: 'Medium Risk (14-21d)', value: stats.medium, color: '#B8960F', icon: <PersonOff />, filter: 'medium' },
           { label: 'Low Risk (<14d)', value: stats.low, color: '#388e3c', icon: <WavingHand />, filter: 'low' },
           { label: 'No Reminders Sent', value: stats.noReminder, color: '#9c27b0', icon: <NotificationsActive /> },
           { label: 'Legal Notices Sent', value: stats.legalSent, color: '#b71c1c', icon: <Gavel /> },
@@ -349,7 +349,7 @@ export default function Defaulters() {
                     const rs = row.reminders_sent || 0;
                     return (
                       <TableRow key={row._id || idx} hover sx={{
-                        bgcolor: row.legal_notice_sent ? '#fce4ec' : rs >= 3 ? '#fff3e0' : 'inherit',
+                        bgcolor: row.legal_notice_sent ? '#fce4ec' : rs >= 3 ? '#FDF8E8' : 'inherit',
                       }}>
                         <TableCell padding="checkbox">
                           <Checkbox size="small" checked={selected.includes(idx)} onChange={() => toggleSelect(idx)} />

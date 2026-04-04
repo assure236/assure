@@ -60,9 +60,9 @@ const Referrals = () => {
       {/* Stats Row */}
       <Grid container spacing={2} mb={3}>
         {[
-          { label: 'Total Referrals', value: referrals.length, color: '#1976d2', icon: <PeopleIcon /> },
+          { label: 'Total Referrals', value: referrals.length, color: '#0B1F3B', icon: <PeopleIcon /> },
           { label: 'Total Earnings', value: `₹${Number(totalEarnings).toLocaleString('en-IN')}`, color: '#4caf50', icon: <GiftIcon /> },
-          { label: 'Pending Rewards', value: `₹${Number(pendingEarnings).toLocaleString('en-IN')}`, color: '#ff9800', icon: <GiftIcon /> },
+          { label: 'Pending Rewards', value: `₹${Number(pendingEarnings).toLocaleString('en-IN')}`, color: '#D4AF37', icon: <GiftIcon /> },
         ].map(({ label, value, color, icon }) => (
           <Grid item xs={12} sm={4} key={label}>
             <Paper sx={{ p: 2.5, borderRadius: 3, borderLeft: `4px solid ${color}`, display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -77,7 +77,7 @@ const Referrals = () => {
       </Grid>
 
       {/* Referral Code Card */}
-      <Card sx={{ borderRadius: 3, mb: 3, background: 'linear-gradient(135deg, #1976d2, #1565c0)', color: 'white' }}>
+      <Card sx={{ borderRadius: 3, mb: 3, background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)', color: 'white' }}>
         <CardContent sx={{ textAlign: 'center', py: 4 }}>
           <Typography variant="subtitle1" sx={{ opacity: 0.8, mb: 1 }}>Your Referral Code</Typography>
           <Typography variant="h3" fontWeight={800} letterSpacing={4} sx={{ mb: 2 }}>

@@ -18,7 +18,7 @@ import axios from 'axios';
 const API = process.env.REACT_APP_API_URL;
 
 const NOTIFICATION_TYPES = [
-  { value: 'general', label: 'General', icon: <Notifications />, color: '#1976d2' },
+  { value: 'general', label: 'General', icon: <Notifications />, color: '#0B1F3B' },
   { value: 'payment_reminder', label: 'Payment Reminder', icon: <AccountBalance />, color: '#e65100' },
   { value: 'payment_received', label: 'Payment Received', icon: <Payment />, color: '#2e7d32' },
   { value: 'auction_alert', label: 'Auction Alert', icon: <Gavel />, color: '#d32f2f' },
@@ -30,7 +30,7 @@ const NOTIFICATION_TYPES = [
 ];
 
 const AUTOMATED_JOBS = [
-  { key: 'welcome', label: 'Welcome Notification', desc: 'Sent instantly when a new user registers their device', schedule: 'Instant', icon: <FiberNew />, color: '#1976d2' },
+  { key: 'welcome', label: 'Welcome Notification', desc: 'Sent instantly when a new user registers their device', schedule: 'Instant', icon: <FiberNew />, color: '#0B1F3B' },
   { key: 'kyc', label: 'KYC Reminder', desc: 'Daily reminder to users with pending/rejected KYC', schedule: 'Daily 9:00 AM', icon: <CreditScore />, color: '#0288d1' },
   { key: 'pay_due', label: 'Payment Due Reminder', desc: '3 days before, 1 day before, and on due date', schedule: 'Daily 8:30 AM', icon: <AccountBalance />, color: '#e65100' },
   { key: 'overdue', label: 'Overdue Payment Alert', desc: 'Escalating alerts for overdue payments (1d, 7d, 14d+)', schedule: 'Daily 6:30 PM', icon: <Warning />, color: '#d32f2f' },
@@ -42,21 +42,21 @@ const AUTOMATED_JOBS = [
   { key: 'pay_received', label: 'Payment Receipt', desc: 'Thank-you notification when payment is received', schedule: 'Every 10 min', icon: <Payment />, color: '#2e7d32' },
   { key: 'new_group', label: 'New Group Announcement', desc: 'Broadcasts to all members when a new chit group is created', schedule: 'Every 15 min', icon: <FiberNew />, color: '#7b1fa2' },
   { key: 'dividend', label: 'Dividend Credited', desc: 'Notifies when dividend is credited to wallet', schedule: 'Every 10 min', icon: <MoneyOff />, color: '#00c853' },
-  { key: 'monday', label: 'Monday Engagement', desc: 'Weekly motivational tips and engagement', schedule: 'Mondays 8 AM', icon: <Bolt />, color: '#ff9800' },
+  { key: 'monday', label: 'Monday Engagement', desc: 'Weekly motivational tips and engagement', schedule: 'Mondays 8 AM', icon: <Bolt />, color: '#D4AF37' },
 ];
 
 const CAMPAIGN_TEMPLATES = [
   { label: 'New Chit Group Launch', title: '\u{1F195} New Chit Group Available!', message: 'A brand new chit group has been launched! Join now to start saving and earn great dividends. Limited slots available \u2014 register today!', type: 'promotional', gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', emoji: '\u{1F195}' },
   { label: 'Auction Starting Soon', title: '\u{1F534} Live Auction Starting!', message: 'Your chit group auction is about to begin! Log in now to place your bid and win the prize amount. Don\'t miss out!', type: 'auction_alert', gradient: 'linear-gradient(135deg, #f44336 0%, #e91e63 100%)', emoji: '\u{1F534}' },
-  { label: 'Auction Today', title: '\u23F0 Don\'t Miss Today\'s Auction!', message: 'Reminder: Your chit group auction is happening today! Open the app now to participate and get the best deal.', type: 'auction_alert', gradient: 'linear-gradient(135deg, #ff5722 0%, #ff9800 100%)', emoji: '\u23F0' },
+  { label: 'Auction Today', title: '\u23F0 Don\'t Miss Today\'s Auction!', message: 'Reminder: Your chit group auction is happening today! Open the app now to participate and get the best deal.', type: 'auction_alert', gradient: 'linear-gradient(135deg, #ff5722 0%, #D4AF37 100%)', emoji: '\u23F0' },
   { label: 'Auction Result', title: '\u{1F3C6} Auction Results Are Out!', message: 'The auction for your chit group is complete! Check the app to see the winner, your dividend amount, and next month\'s installment.', type: 'auction_result', gradient: 'linear-gradient(135deg, #f9a825 0%, #ff8f00 100%)', emoji: '\u{1F3C6}' },
   { label: 'Auction Winner', title: '\u{1F389} Congratulations \u2014 You Won!', message: 'You are the winning bidder! Your prize amount will be disbursed to your bank account within 24 hours. Check the app for details.', type: 'auction_result', gradient: 'linear-gradient(135deg, #4caf50 0%, #8bc34a 100%)', emoji: '\u{1F389}' },
-  { label: 'Payment Reminder', title: '\u23F0 Payment Due Reminder', message: 'Your monthly chit installment is due. Please make your payment on time to maintain your membership and avoid late fees.', type: 'payment_reminder', gradient: 'linear-gradient(135deg, #ff9800 0%, #f44336 100%)', emoji: '\u23F0' },
+  { label: 'Payment Reminder', title: '\u23F0 Payment Due Reminder', message: 'Your monthly chit installment is due. Please make your payment on time to maintain your membership and avoid late fees.', type: 'payment_reminder', gradient: 'linear-gradient(135deg, #D4AF37 0%, #f44336 100%)', emoji: '\u23F0' },
   { label: 'Referral Bonus', title: '\u{1F381} Earn \u20B9500 \u2014 Refer a Friend!', message: 'Invite your friends to Assure ChitFunds and earn \u20B9500 for every successful referral! Share your code now from the Referrals section.', type: 'promotional', gradient: 'linear-gradient(135deg, #43a047 0%, #1b5e20 100%)', emoji: '\u{1F381}' },
   { label: 'Dividend Credited', title: '\u{1F4B8} Dividend Credited!', message: 'Great news! Your monthly dividend has been credited to your wallet. Check your payment history for details.', type: 'dividend_credit', gradient: 'linear-gradient(135deg, #00c853 0%, #64dd17 100%)', emoji: '\u{1F4B8}' },
   { label: 'KYC Reminder', title: '\u{1F4CB} Complete Your KYC Today', message: 'Your KYC verification is pending. Complete it now to unlock all features including bidding, payments, and dividends.', type: 'kyc_update', gradient: 'linear-gradient(135deg, #0288d1 0%, #26c6da 100%)', emoji: '\u{1F4CB}' },
   { label: 'Festival Offer', title: '\u{1F38A} Festival Special \u2014 Join & Save!', message: 'Celebrate this festive season with Assure ChitFunds! Join a new chit group today and enjoy special benefits. Limited time offer!', type: 'promotional', gradient: 'linear-gradient(135deg, #ff6f00 0%, #ffca28 100%)', emoji: '\u{1F38A}' },
-  { label: 'Welcome Member', title: '\u{1F64F} Welcome to Assure ChitFunds!', message: 'Thank you for joining our family! Explore your dashboard to view chit groups, track payments, and participate in auctions.', type: 'general', gradient: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)', emoji: '\u{1F64F}' },
+  { label: 'Welcome Member', title: '\u{1F64F} Welcome to Assure ChitFunds!', message: 'Thank you for joining our family! Explore your dashboard to view chit groups, track payments, and participate in auctions.', type: 'general', gradient: 'linear-gradient(135deg, #0B1F3B 0%, #1E3A8A 100%)', emoji: '\u{1F64F}' },
   { label: 'Late Fee Warning', title: '\u26A0\uFE0F Late Fee Applied', message: 'A late fee has been applied to your overdue payment. Pay immediately to avoid further penalties and protect your credit score.', type: 'payment_reminder', gradient: 'linear-gradient(135deg, #d32f2f 0%, #b71c1c 100%)', emoji: '\u26A0\uFE0F' },
 ];
 
@@ -151,7 +151,7 @@ export default function PushNotifications() {
     <Box>
       {/* Header Banner */}
       <Box sx={{
-        background: 'linear-gradient(135deg, #1a237e 0%, #7c4dff 100%)',
+        background: 'linear-gradient(135deg, #071428 0%, #1E3A8A 100%)',
         borderRadius: 3, p: 3, mb: 3, color: 'white',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2
       }}>
@@ -181,10 +181,10 @@ export default function PushNotifications() {
       {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Members', value: stats.total, icon: <People />, bg: '#e3f2fd', color: '#1565c0' },
+          { label: 'Total Members', value: stats.total, icon: <People />, bg: '#E8EDF5', color: '#1E3A8A' },
           { label: 'Push Enabled', value: stats.withTokens, icon: <NotificationsActive />, bg: '#e8f5e9', color: '#2e7d32' },
           { label: 'Delivery Rate', value: `${deliveryRate}%`, icon: <TrendingUp />, bg: '#f3e5f5', color: '#7b1fa2', progress: deliveryRate },
-          { label: 'KYC Pending', value: stats.kycPending, icon: <CreditScore />, bg: '#fff3e0', color: '#e65100' },
+          { label: 'KYC Pending', value: stats.kycPending, icon: <CreditScore />, bg: '#FDF8E8', color: '#e65100' },
           { label: "Today's Push", value: stats.todayPush, icon: <Bolt />, bg: '#e0f7fa', color: '#00838f' },
           { label: 'Automations Active', value: AUTOMATED_JOBS.length, icon: <SmartToy />, bg: '#fce4ec', color: '#c62828' },
         ].map((s, i) => (
@@ -211,7 +211,7 @@ export default function PushNotifications() {
       {/* Tabs */}
       <Paper sx={{ mb: 3, borderRadius: 3, overflow: 'hidden' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)}
-          sx={{ bgcolor: '#f5f5f5', '& .MuiTab-root': { fontWeight: 700, textTransform: 'none' } }}>
+          sx={{ bgcolor: '#F1F5F9', '& .MuiTab-root': { fontWeight: 700, textTransform: 'none' } }}>
           <Tab icon={<SmartToy sx={{ fontSize: 18 }} />} iconPosition="start" label="Automations" />
           <Tab icon={<Star sx={{ fontSize: 18 }} />} iconPosition="start" label="Quick Templates" />
           <Tab icon={<Schedule sx={{ fontSize: 18 }} />} iconPosition="start" label="Campaign History" />
@@ -224,7 +224,7 @@ export default function PushNotifications() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Box>
               <Typography variant="h6" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <SmartToy sx={{ color: '#7c4dff' }} /> Automated Push Notifications
+                <SmartToy sx={{ color: '#1E3A8A' }} /> Automated Push Notifications
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 These run automatically. Members receive the right notification at the right time.
@@ -247,7 +247,7 @@ export default function PushNotifications() {
                       </Avatar>
                       <Box sx={{ flex: 1 }}>
                         <Typography variant="subtitle2" fontWeight={700}>{job.label}</Typography>
-                        <Chip label={job.schedule} size="small" sx={{ fontSize: 10, height: 20, bgcolor: '#f5f5f5', fontWeight: 600 }} />
+                        <Chip label={job.schedule} size="small" sx={{ fontSize: 10, height: 20, bgcolor: '#F1F5F9', fontWeight: 600 }} />
                       </Box>
                       <Switch checked={true} size="small" color="success" disabled />
                     </Box>
@@ -396,7 +396,7 @@ export default function PushNotifications() {
       {/* Create Campaign Dialog */}
       <Dialog open={sendDialog} onClose={() => setSendDialog(false)} maxWidth="md" fullWidth
         PaperProps={{ sx: { borderRadius: 3, overflow: 'hidden' } }}>
-        <Box sx={{ background: 'linear-gradient(135deg, #1a237e, #7c4dff)', p: 2.5, color: 'white' }}>
+        <Box sx={{ background: 'linear-gradient(135deg, #071428, #1E3A8A)', p: 2.5, color: 'white' }}>
           <Typography variant="h5" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Campaign /> Send Manual Campaign
           </Typography>
@@ -410,7 +410,7 @@ export default function PushNotifications() {
                   <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ mb: 1, display: 'block' }}>AUDIENCE</Typography>
                   <ToggleButtonGroup value={form.mode} exclusive
                     onChange={(_, val) => val && setForm(f => ({ ...f, mode: val, user_id: null }))}
-                    fullWidth size="small" sx={{ '& .Mui-selected': { bgcolor: '#1a237e !important', color: 'white !important' } }}>
+                    fullWidth size="small" sx={{ '& .Mui-selected': { bgcolor: '#071428 !important', color: 'white !important' } }}>
                     <ToggleButton value="broadcast"><People sx={{ mr: 1, fontSize: 18 }} /> All Members ({stats.withTokens})</ToggleButton>
                     <ToggleButton value="individual"><Person sx={{ mr: 1, fontSize: 18 }} /> Individual</ToggleButton>
                   </ToggleButtonGroup>
@@ -473,7 +473,7 @@ export default function PushNotifications() {
               </Box>
             </Grid>
 
-            <Grid item xs={12} md={5} sx={{ bgcolor: '#f5f5f5', p: 3, borderLeft: '1px solid #e0e0e0' }}>
+            <Grid item xs={12} md={5} sx={{ bgcolor: '#F1F5F9', p: 3, borderLeft: '1px solid #e0e0e0' }}>
               <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ mb: 2, display: 'block' }}>NOTIFICATION PREVIEW</Typography>
               <Paper sx={{ borderRadius: 2, overflow: 'hidden', maxWidth: 320 }}>
                 <Box sx={{ bgcolor: '#f8f9fa', p: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -511,7 +511,7 @@ export default function PushNotifications() {
           <Button variant="contained" startIcon={sending ? <CircularProgress size={18} /> : <Send />}
             onClick={handleSend} disabled={sending}
             sx={{
-              background: 'linear-gradient(135deg, #1a237e, #7c4dff)', fontWeight: 700, px: 3,
+              background: 'linear-gradient(135deg, #071428, #1E3A8A)', fontWeight: 700, px: 3,
               '&:hover': { background: 'linear-gradient(135deg, #0d1b6e, #651fff)' }
             }}>
             {sending ? 'Sending...' : form.mode === 'broadcast' ? `Send to ${stats.withTokens} Members` : 'Send Notification'}

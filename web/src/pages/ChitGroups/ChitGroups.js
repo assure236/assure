@@ -15,7 +15,7 @@ const ChitGroupCard = ({ group, onViewDetails, onEnroll }) => {
     ? Math.round(((group.current_month || 0) / group.duration_months) * 100) : 0;
   return (
     <Card sx={{ borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column', transition: '0.2s', '&:hover': { transform: 'translateY(-3px)', boxShadow: 6 } }}>
-      <Box sx={{ background: 'linear-gradient(135deg, #1976d2, #1565c0)', p: 2, color: 'white', borderRadius: '12px 12px 0 0' }}>
+      <Box sx={{ background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)', p: 2, color: 'white', borderRadius: '12px 12px 0 0' }}>
         <Box display="flex" justifyContent="space-between" alignItems="flex-start">
           <Box>
             <Typography variant="h6" fontWeight={700}>{group.group_name}</Typography>

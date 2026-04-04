@@ -18,7 +18,7 @@ const CreditScoreMeter = ({ score }) => {
   const s = Number(score || 500);
   const bands = [
     { label: 'Poor', min: 0, max: 499, color: '#f44336' },
-    { label: 'Fair', min: 500, max: 599, color: '#ff9800' },
+    { label: 'Fair', min: 500, max: 599, color: '#D4AF37' },
     { label: 'Good', min: 600, max: 699, color: '#2196f3' },
     { label: 'Very Good', min: 700, max: 749, color: '#4caf50' },
     { label: 'Excellent', min: 750, max: 900, color: '#1b5e20' },
@@ -137,7 +137,7 @@ const Profile = () => {
         {/* Left: Avatar + KYC + Credit Score */}
         <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 3, textAlign: 'center' }}>
-            <Box sx={{ background: 'linear-gradient(135deg, #1976d2, #1565c0)', pt: 4, pb: 2, borderRadius: '12px 12px 0 0' }}>
+            <Box sx={{ background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)', pt: 4, pb: 2, borderRadius: '12px 12px 0 0' }}>
               <Avatar sx={{ width: 90, height: 90, fontSize: 32, bgcolor: 'rgba(255,255,255,0.2)', border: '3px solid white', mx: 'auto', mb: 1.5 }}>
                 {initials}
               </Avatar>

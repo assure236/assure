@@ -13,9 +13,9 @@ import { toast } from 'react-toastify';
 import axios from 'axios';
 
 const TUTORIALS = [
-  { title: 'Getting Started with Assure ChitFunds', duration: '3:45', color: '#1976d2', description: 'An introduction to the platform — registration, login, and navigating your dashboard.', category: 'Beginner' },
+  { title: 'Getting Started with Assure ChitFunds', duration: '3:45', color: '#0B1F3B', description: 'An introduction to the platform — registration, login, and navigating your dashboard.', category: 'Beginner' },
   { title: 'How to Join a Chit Group', duration: '4:20', color: '#388e3c', description: 'Step-by-step guide to browsing available chit groups and enrolling in one.', category: 'Beginner' },
-  { title: 'How to Bid in Live Auctions', duration: '5:10', color: '#f57c00', description: 'Learn how live auctions work, how to place bids, and what happens after winning.', category: 'Intermediate' },
+  { title: 'How to Bid in Live Auctions', duration: '5:10', color: '#B8960F', description: 'Learn how live auctions work, how to place bids, and what happens after winning.', category: 'Intermediate' },
   { title: 'Understanding Your Dividend', duration: '4:55', color: '#7b1fa2', description: 'Explains dividend calculation, winning bid deductions, and expected returns.', category: 'Intermediate' },
   { title: 'KYC Verification Guide', duration: '3:15', color: '#0288d1', description: 'How to upload Aadhaar and PAN documents for KYC verification.', category: 'Beginner' },
   { title: 'Reading Your Account Statement', duration: '3:30', color: '#c62828', description: 'Download and interpret your payment history, receipts, and late fees from the Payments page.', category: 'Advanced' },

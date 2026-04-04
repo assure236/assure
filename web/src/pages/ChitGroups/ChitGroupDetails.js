@@ -139,7 +139,7 @@ const ChitGroupDetails = () => {
 
       {/* Header Card */}
       <Card sx={{ mb: 3, borderRadius: 3 }}>
-        <Box sx={{ background: 'linear-gradient(135deg, #1976d2, #1565c0)', p: 3, color: 'white', borderRadius: '12px 12px 0 0' }}>
+        <Box sx={{ background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)', p: 3, color: 'white', borderRadius: '12px 12px 0 0' }}>
           <Box display="flex" justifyContent="space-between" alignItems="flex-start">
             <Box>
               <Typography variant="h5" fontWeight={700}>{group.group_name}</Typography>
