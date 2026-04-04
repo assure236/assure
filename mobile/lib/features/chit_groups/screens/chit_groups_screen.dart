@@ -461,7 +461,7 @@ class _AvailableGroupCard extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+              colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),

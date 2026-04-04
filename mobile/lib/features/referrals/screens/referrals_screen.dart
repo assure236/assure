@@ -143,7 +143,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+          colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

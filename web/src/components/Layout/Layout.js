@@ -96,14 +96,19 @@ const Layout = () => {
 
   const drawer = (
     <div>
-      <Toolbar>
-        <Box component="img" src="/logo.png" alt="Assure" sx={{ width: 32, height: 32, mr: 1 }} />
-        <Typography variant="h6" noWrap component="div">
-          Assure Chits
-        </Typography>
+      <Toolbar sx={{ bgcolor: '#0B1F3B', borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
+        <Box component="img" src="/logo.png" alt="Assure" sx={{ width: 32, height: 32, mr: 1.5 }} />
+        <Box>
+          <Typography variant="h6" noWrap fontWeight={700} sx={{ color: 'white', fontSize: 15 }}>
+            Assure Chits
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#D4AF37', fontSize: 9, letterSpacing: 1, textTransform: 'uppercase' }}>
+            Member Portal
+          </Typography>
+        </Box>
       </Toolbar>
       <Divider />
-      <List>
+      <List sx={{ px: 0.5, py: 1 }}>
         {menuItems.map((item) => {
           const active = location.pathname === item.path ||
             (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
@@ -113,12 +118,13 @@ const Layout = () => {
                 onClick={() => handleMenuClick(item.path)}
                 selected={active}
                 sx={{
-                  '&.Mui-selected': { bgcolor: 'primary.main', color: 'white', '& .MuiListItemIcon-root': { color: 'white' } },
-                  '&.Mui-selected:hover': { bgcolor: 'primary.dark' },
-                  borderRadius: 1, mx: 0.5, mb: 0.25
+                  '&.Mui-selected': { bgcolor: '#0B1F3B', color: 'white', '& .MuiListItemIcon-root': { color: '#D4AF37' } },
+                  '&.Mui-selected:hover': { bgcolor: '#1E3A8A' },
+                  '&:hover': { bgcolor: 'rgba(11,31,59,0.06)' },
+                  borderRadius: 1.5, mx: 0.5, mb: 0.25
                 }}
               >
-                <ListItemIcon sx={{ color: active ? 'white' : 'inherit' }}>{item.icon}</ListItemIcon>
+                <ListItemIcon sx={{ color: active ? '#D4AF37' : '#475569', minWidth: 36 }}>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>
             </ListItem>
@@ -135,7 +141,10 @@ const Layout = () => {
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` }
+          ml: { sm: `${drawerWidth}px` },
+          bgcolor: 'white',
+          color: '#0B1F3B',
+          boxShadow: '0 1px 3px rgba(11,31,59,0.1)',
         }}
       >
         <Toolbar>

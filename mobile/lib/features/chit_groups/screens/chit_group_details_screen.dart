@@ -102,7 +102,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
         background: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF0D47A1), Color(0xFF1976D2)],
+              colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -122,7 +122,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1976D2), Color(0xFF0D47A1)],
+          colors: [Color(0xFF0B1F3B), Color(0xFF071428)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

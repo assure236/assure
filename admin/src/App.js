@@ -32,11 +32,55 @@ import PushNotifications from './pages/PushNotifications/PushNotifications';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
-      50: '#e3f2fd',
+      main: '#0B1F3B',
+      light: '#1E3A8A',
+      dark: '#071428',
+      50: '#E8EDF5',
+      contrastText: '#ffffff',
     },
     secondary: {
-      main: '#ff9800',
+      main: '#D4AF37',
+      light: '#E3C668',
+      dark: '#B8960F',
+      contrastText: '#0B1F3B',
+    },
+    success: { main: '#16A34A' },
+    error: { main: '#DC2626' },
+    warning: { main: '#F59E0B' },
+    info: { main: '#1E3A8A' },
+    background: {
+      default: '#F8F9FB',
+      paper: '#ffffff',
+    },
+    text: {
+      primary: '#0B1F3B',
+      secondary: '#475569',
+    },
+  },
+  typography: {
+    fontFamily: "'Inter', 'Roboto', sans-serif",
+    h4: { fontWeight: 700 },
+    h5: { fontWeight: 700 },
+    h6: { fontWeight: 600 },
+  },
+  shape: { borderRadius: 10 },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: { textTransform: 'none', fontWeight: 600, borderRadius: 8 },
+        containedPrimary: { '&:hover': { backgroundColor: '#1E3A8A' } },
+        containedSecondary: { color: '#0B1F3B', '&:hover': { backgroundColor: '#E3C668' } },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: { borderRadius: 12, boxShadow: '0 1px 3px rgba(11,31,59,0.08), 0 1px 2px rgba(11,31,59,0.06)' },
+      },
+    },
+    MuiAppBar: {
+      styleOverrides: {
+        root: { boxShadow: '0 1px 3px rgba(11,31,59,0.1)' },
+      },
     },
   },
 });

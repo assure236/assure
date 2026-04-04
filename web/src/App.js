@@ -46,41 +46,50 @@ axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0'
+      main: '#0B1F3B',
+      light: '#1E3A8A',
+      dark: '#071428',
+      contrastText: '#ffffff',
     },
     secondary: {
-      main: '#ff9800',
-      light: '#ffb74d',
-      dark: '#f57c00'
+      main: '#D4AF37',
+      light: '#E3C668',
+      dark: '#B8960F',
+      contrastText: '#0B1F3B',
     },
-    success: {
-      main: '#4caf50'
-    },
-    error: {
-      main: '#f44336'
-    },
+    success: { main: '#16A34A' },
+    error: { main: '#DC2626' },
+    warning: { main: '#F59E0B' },
+    info: { main: '#1E3A8A' },
     background: {
-      default: '#f5f5f5',
+      default: '#F8F9FB',
       paper: '#ffffff'
-    }
+    },
+    text: {
+      primary: '#0B1F3B',
+      secondary: '#475569',
+    },
   },
   typography: {
-    fontFamily: "'Roboto', sans-serif",
-    h4: {
-      fontWeight: 600
-    },
-    h5: {
-      fontWeight: 600
-    },
-    h6: {
-      fontWeight: 600
-    }
+    fontFamily: "'Inter', 'Roboto', sans-serif",
+    h4: { fontWeight: 700 },
+    h5: { fontWeight: 700 },
+    h6: { fontWeight: 600 }
   },
-  shape: {
-    borderRadius: 8
-  }
+  shape: { borderRadius: 10 },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: { textTransform: 'none', fontWeight: 600, borderRadius: 8 },
+        containedPrimary: { '&:hover': { backgroundColor: '#1E3A8A' } },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: { borderRadius: 12, boxShadow: '0 1px 3px rgba(11,31,59,0.08), 0 1px 2px rgba(11,31,59,0.06)' },
+      },
+    },
+  },
 });
 
 function App() {

@@ -44,7 +44,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: const Icon(Icons.computer, color: Color(0xFF1976D2), size: 52),
+        icon: const Icon(Icons.computer, color: Color(0xFF0B1F3B), size: 52),
         title: const Text('Login to Web Portal?'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
@@ -85,7 +85,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
             icon: const Icon(Icons.check_circle, size: 18),
             label: const Text('Confirm Login'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1976D2),
+              backgroundColor: const Color(0xFF0B1F3B),
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),

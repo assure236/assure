@@ -41,7 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Scaffold(
         floatingActionButton: FloatingActionButton(
           onPressed: () => context.push('/chatbot'),
-          backgroundColor: const Color(0xFF1976D2),
+          backgroundColor: const Color(0xFF0B1F3B),
           child: const Icon(Icons.smart_toy_rounded, color: Colors.white),
         ),
         body: IndexedStack(
@@ -254,7 +254,7 @@ class _HeaderSection extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0D47A1), Color(0xFF1565C0), Color(0xFF1976D2)],
+          colors: [Color(0xFF071428), Color(0xFF1E3A8A), Color(0xFF0B1F3B)],
         ),
       ),
       child: SafeArea(
@@ -327,7 +327,7 @@ class _HeaderSection extends StatelessWidget {
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFFFF9800),
+                                      color: Color(0xFFD4AF37),
                                       shape: BoxShape.circle,
                                     ),
                                     constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
@@ -429,7 +429,7 @@ class _KycBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8E1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFF9800), width: 1),
+        border: Border.all(color: const Color(0xFFD4AF37), width: 1),
         boxShadow: [
           BoxShadow(
               color: Colors.orange.withAlpha(26),
@@ -440,7 +440,7 @@ class _KycBanner extends StatelessWidget {
       child: Row(
         children: [
           const Icon(Icons.warning_amber_rounded,
-              color: Color(0xFFFF9800), size: 26),
+              color: Color(0xFFD4AF37), size: 26),
           const SizedBox(width: 12),
           const Expanded(
             child: Column(
@@ -458,7 +458,7 @@ class _KycBanner extends StatelessWidget {
           TextButton(
             onPressed: () => switchTab(4),
             style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFFF9800),
+                foregroundColor: const Color(0xFFD4AF37),
                 padding: EdgeInsets.zero),
             child: const Text('Verify Now',
                 style: TextStyle(fontWeight: FontWeight.bold)),
@@ -485,7 +485,7 @@ class _ProfileTracker extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF1976D2), width: 1),
+        border: Border.all(color: const Color(0xFF0B1F3B), width: 1),
         boxShadow: [
           BoxShadow(
               color: Colors.blue.withAlpha(20),
@@ -499,7 +499,7 @@ class _ProfileTracker extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.person_outline_rounded,
-                  color: Color(0xFF1976D2), size: 24),
+                  color: Color(0xFF0B1F3B), size: 24),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text('Complete Your Profile',
@@ -517,7 +517,7 @@ class _ProfileTracker extends StatelessWidget {
                     style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
-                        color: Color(0xFF1976D2))),
+                        color: Color(0xFF0B1F3B))),
               ),
             ],
           ),
@@ -529,7 +529,7 @@ class _ProfileTracker extends StatelessWidget {
               minHeight: 8,
               backgroundColor: const Color(0xFFE3F2FD),
               valueColor:
-                  const AlwaysStoppedAnimation<Color>(Color(0xFF1976D2)),
+                  const AlwaysStoppedAnimation<Color>(Color(0xFF0B1F3B)),
             ),
           ),
           if (missing.isNotEmpty) ...[
@@ -565,7 +565,7 @@ class _ProfileTracker extends StatelessWidget {
             child: TextButton(
               onPressed: () => switchTab(4),
               style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF1976D2),
+                  foregroundColor: const Color(0xFF0B1F3B),
                   padding: EdgeInsets.zero),
               child: const Text('Complete Now →',
                   style: TextStyle(fontWeight: FontWeight.bold)),
@@ -595,7 +595,7 @@ class _StatsRow extends StatelessWidget {
               value: _inr.format(dash.totalInvested),
               icon: Icons.savings_rounded,
               iconBg: const Color(0xFFE3F2FD),
-              iconColor: const Color(0xFF1565C0),
+              iconColor: const Color(0xFF1E3A8A),
             ),
           ),
           const SizedBox(width: 10),
@@ -711,7 +711,7 @@ class _QuickActions extends StatelessWidget {
                   icon: Icons.payments_rounded,
                   label: 'Pay\nInstallment',
                   iconBg: const Color(0xFFE3F2FD),
-                  iconColor: const Color(0xFF1565C0),
+                  iconColor: const Color(0xFF1E3A8A),
                   onTap: () => switchTab(3),
                 ),
               ),
@@ -917,7 +917,7 @@ class _ChitCard extends StatelessWidget {
   });
 
   static const _gradients = [
-    [Color(0xFF0D47A1), Color(0xFF1976D2)],
+    [Color(0xFF071428), Color(0xFF0B1F3B)],
     [Color(0xFF1B5E20), Color(0xFF388E3C)],
     [Color(0xFF4A148C), Color(0xFF7B1FA2)],
     [Color(0xFFBF360C), Color(0xFFE64A19)],

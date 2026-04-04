@@ -359,7 +359,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1976D2), Color(0xFF0D47A1)],
+          colors: [Color(0xFF0B1F3B), Color(0xFF071428)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

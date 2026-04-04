@@ -95,26 +95,26 @@ const Layout = () => {
   const toggleGroup = (label) => setCollapsed(p => ({ ...p, [label]: !p[label] }));
 
   const drawer = (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <Toolbar sx={{ bgcolor: 'primary.main' }}>
-        <Box display="flex" alignItems="center" gap={1}>
-          <Box component="img" src="/logo.png" alt="Assure" sx={{ width: 32, height: 32 }} />
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#0B1F3B' }}>
+      <Toolbar sx={{ bgcolor: '#071428', borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          <Box component="img" src="/logo.png" alt="Assure" sx={{ width: 34, height: 34 }} />
           <Box>
-            <Typography variant="h6" noWrap fontWeight={700} color="white">Assure ChitFunds</Typography>
-            <Typography variant="caption" color="rgba(255,255,255,0.7)">Admin Panel</Typography>
+            <Typography variant="h6" noWrap fontWeight={700} color="white" sx={{ fontSize: 16, letterSpacing: '-0.3px' }}>Assure ChitFunds</Typography>
+            <Typography variant="caption" sx={{ color: '#D4AF37', fontWeight: 500, fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' }}>Admin Panel</Typography>
           </Box>
         </Box>
       </Toolbar>
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', py: 1.5 }}>
         {navGroups.map((group, gi) => (
           <Box key={group.label}>
-            {gi > 0 && <Divider sx={{ my: 0.5 }} />}
+            {gi > 0 && <Divider sx={{ my: 0.5, borderColor: 'rgba(255,255,255,0.06)' }} />}
             <ListItemButton onClick={() => toggleGroup(group.label)} sx={{ py: 0.5, px: 2 }}>
               <ListItemText
                 primary={group.label}
-                primaryTypographyProps={{ variant: 'caption', fontWeight: 700, color: 'text.secondary', letterSpacing: 1, textTransform: 'uppercase' }}
+                primaryTypographyProps={{ variant: 'caption', fontWeight: 700, color: 'rgba(212,175,55,0.7)', letterSpacing: 1.5, textTransform: 'uppercase', fontSize: 10 }}
               />
-              {collapsed[group.label] ? <ExpandMore fontSize="small" sx={{ color: 'text.disabled' }} /> : <ExpandLess fontSize="small" sx={{ color: 'text.disabled' }} />}
+              {collapsed[group.label] ? <ExpandMore fontSize="small" sx={{ color: 'rgba(255,255,255,0.3)' }} /> : <ExpandLess fontSize="small" sx={{ color: 'rgba(255,255,255,0.3)' }} />}
             </ListItemButton>
             <Collapse in={!collapsed[group.label]} timeout="auto">
               <List disablePadding>
@@ -126,12 +126,15 @@ const Layout = () => {
                         onClick={() => handleMenuClick(item.path)}
                         selected={isActive}
                         sx={{
-                          pl: 3, py: 0.75,
-                          '&.Mui-selected': { bgcolor: 'primary.50', color: 'primary.main', borderRight: '3px solid', borderColor: 'primary.main' },
-                          '&.Mui-selected .MuiListItemIcon-root': { color: 'primary.main' },
+                          pl: 3, py: 0.75, mx: 1, borderRadius: 1.5,
+                          color: 'rgba(255,255,255,0.65)',
+                          '&:hover': { bgcolor: 'rgba(255,255,255,0.06)', color: 'white' },
+                          '&.Mui-selected': { bgcolor: 'rgba(212,175,55,0.15)', color: '#D4AF37', borderRight: 'none' },
+                          '&.Mui-selected:hover': { bgcolor: 'rgba(212,175,55,0.2)' },
+                          '&.Mui-selected .MuiListItemIcon-root': { color: '#D4AF37' },
                         }}
                       >
-                        <ListItemIcon sx={{ minWidth: 36, color: isActive ? 'primary.main' : 'text.secondary' }}>
+                        <ListItemIcon sx={{ minWidth: 34, color: isActive ? '#D4AF37' : 'rgba(255,255,255,0.4)' }}>
                           {item.icon}
                         </ListItemIcon>
                         <ListItemText primary={item.text} primaryTypographyProps={{ fontSize: 13, fontWeight: isActive ? 600 : 400 }} />
@@ -149,16 +152,16 @@ const Layout = () => {
 
   return (
     <Box sx={{ display: 'flex' }}>
-      <AppBar position="fixed" sx={{ width: { sm: `calc(100% - ${drawerWidth}px)` }, ml: { sm: `${drawerWidth}px` } }}>
+      <AppBar position="fixed" sx={{ width: { sm: `calc(100% - ${drawerWidth}px)` }, ml: { sm: `${drawerWidth}px` }, bgcolor: 'white', color: '#0B1F3B' }}>
         <Toolbar>
           <IconButton color="inherit" edge="start" onClick={handleDrawerToggle} sx={{ mr: 2, display: { sm: 'none' } }}>
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
+          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600, color: '#0B1F3B' }}>
             Assure Chit Funds — Admin
           </Typography>
           <Tooltip title={user?.full_name || 'Admin'}>
-            <Avatar sx={{ cursor: 'pointer', bgcolor: 'secondary.main' }} onClick={(e) => setAnchorEl(e.currentTarget)}>
+            <Avatar sx={{ cursor: 'pointer', bgcolor: '#D4AF37', color: '#0B1F3B', fontWeight: 700 }} onClick={(e) => setAnchorEl(e.currentTarget)}>
               {(user?.full_name || 'A').charAt(0).toUpperCase()}
             </Avatar>
           </Tooltip>

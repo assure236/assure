@@ -679,7 +679,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isLive
-              ? (isUrgent ? [const Color(0xFFB71C1C), const Color(0xFFD32F2F)] : [const Color(0xFF0D47A1), const Color(0xFF1976D2)])
+              ? (isUrgent ? [const Color(0xFFB71C1C), const Color(0xFFD32F2F)] : [const Color(0xFF071428), const Color(0xFF0B1F3B)])
               : [const Color(0xFF616161), const Color(0xFF424242)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

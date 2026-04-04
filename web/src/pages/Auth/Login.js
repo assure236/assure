@@ -152,7 +152,7 @@ export default function Login() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f0f4f8', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: '#F8F9FB', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
       <Paper elevation={6} sx={{ width: '100%', maxWidth: 900, borderRadius: 3, overflow: 'hidden' }}>
         <Box sx={{ bgcolor: 'primary.main', color: 'white', py: 2.5, px: 3, textAlign: 'center' }}>
           <Box component="img" src="/logo.png" alt="Assure ChitFunds" sx={{ width: 56, height: 56, mb: 1 }} />
