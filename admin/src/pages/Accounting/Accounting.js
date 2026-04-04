@@ -172,7 +172,10 @@ export default function Accounting() {
   useEffect(() => {
     fetchSummary();
     axios.get(`${API}/admin/erpnext/status`).then(r => setErpConfigured(r.data.data?.configured)).catch(() => {});
-    axios.get(`${API}/admin/chit-groups?limit=200`).then(r => setGroups(r.data.data?.groups || r.data.data || [])).catch(() => {});
+    axios.get(`${API}/admin/chit-groups?limit=200`).then(r => {
+      const d = r.data.data;
+      setGroups(Array.isArray(d) ? d : (d?.chit_groups || d?.groups || []));
+    }).catch(() => {});
   }, [fetchSummary]);
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container, Typography, Box, Card, CardContent, Grid, TextField,
-  Button, CircularProgress, Alert, Divider, Switch, FormControlLabel, Paper
+  Button, CircularProgress, Alert, Divider, Switch, FormControlLabel, Paper, Chip
 } from '@mui/material';
 import { Save as SaveIcon, Cloud as CloudIcon, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import axios from 'axios';
@@ -193,16 +193,16 @@ const Settings = () => {
           </Card>
         </Grid>
 
-        {/* ERPNext Integration */}
+        {/* ERPNext Integration (Optional) */}
         <Grid item xs={12}>
           <Card sx={{ borderRadius: 3, border: erpStatus?.connected ? '1px solid #4caf50' : '1px solid #e0e0e0' }}>
             <CardContent>
               <Box display="flex" alignItems="center" gap={2} mb={2}>
-                <CloudIcon sx={{ fontSize: 32, color: erpStatus?.connected ? '#4caf50' : '#1976d2' }} />
+                <CloudIcon sx={{ fontSize: 32, color: erpStatus?.connected ? '#4caf50' : '#9e9e9e' }} />
                 <Box flex={1}>
-                  <Typography variant="h6">ERPNext Integration</Typography>
+                  <Typography variant="h6">ERPNext Integration <Chip label="Optional" size="small" variant="outlined" sx={{ ml: 1, fontSize: 11 }} /></Typography>
                   <Typography variant="body2" color="text.secondary">
-                    Sync members, payments, and chit groups with your ERPNext instance for accounting and financial reports.
+                    Optionally sync members, payments, and chit groups with an external ERPNext instance. Your built-in accounting system works independently.
                   </Typography>
                 </Box>
                 {erpStatus?.connected && (
@@ -224,8 +224,11 @@ const Settings = () => {
               </Box>
               <Divider sx={{ mb: 2 }} />
               {!erpStatus?.configured ? (
-                <Alert severity="warning">
-                  ERPNext is not configured. Set <code>ERPNEXT_URL</code>, <code>ERPNEXT_API_KEY</code>, and <code>ERPNEXT_API_SECRET</code> in your backend <code>.env</code> file, then restart the server.
+                <Alert severity="info" icon={false}>
+                  <Typography variant="body2"><strong>Not configured</strong> — This is optional. Your built-in Accounting &amp; Finance module (Accounting page) handles all double-entry bookkeeping, P&amp;L, Balance Sheet, and Cash Flow reports without ERPNext.</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    To enable external ERPNext sync, set <code>ERPNEXT_URL</code>, <code>ERPNEXT_API_KEY</code>, and <code>ERPNEXT_API_SECRET</code> in your backend <code>.env</code> file.
+                  </Typography>
                 </Alert>
               ) : (
                 <Box display="flex" gap={2} alignItems="center">
@@ -243,9 +246,6 @@ const Settings = () => {
                   </Button>
                 </Box>
               )}
-              <Alert severity="info" sx={{ mt: 2, fontSize: 12 }}>
-                Go to <strong>Accounting → ERPNext</strong> tab to sync data and fetch financial reports from ERPNext.
-              </Alert>
             </CardContent>
           </Card>
         </Grid>
