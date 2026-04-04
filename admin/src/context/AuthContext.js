@@ -15,6 +15,8 @@ if (_storedToken) {
   axios.defaults.headers.common['Authorization'] = `Bearer ${_storedToken}`;
 }
 
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try { const u = localStorage.getItem('adminUser'); return u ? JSON.parse(u) : null; } catch { return null; }
@@ -29,6 +31,51 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(false);
     }
   }, []);
+
+  // ─── Inactivity auto-logout (15 min) ───
+  useEffect(() => {
+    if (!token) return;
+
+    let timer;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      localStorage.setItem('adminLastActivity', Date.now().toString());
+      timer = setTimeout(() => {
+        toast.warning('Session expired due to inactivity');
+        logout();
+      }, INACTIVITY_TIMEOUT);
+    };
+
+    const lastActivity = parseInt(localStorage.getItem('adminLastActivity') || '0');
+    if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
+      toast.warning('Session expired due to inactivity');
+      logout();
+      return;
+    }
+
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    const onVisibility = () => {
+      if (!document.hidden) {
+        const last = parseInt(localStorage.getItem('adminLastActivity') || '0');
+        if (last && Date.now() - last > INACTIVITY_TIMEOUT) {
+          toast.warning('Session expired due to inactivity');
+          logout();
+        } else {
+          resetTimer();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [token]);
 
   const login = async (email, password) => {
     try {
@@ -67,6 +114,7 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     localStorage.removeItem('adminToken');
     localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminLastActivity');
     delete axios.defaults.headers.common['Authorization'];
     toast.info('Logged out successfully');
   };

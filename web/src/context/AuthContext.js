@@ -20,6 +20,8 @@ const restoreUser = () => {
   } catch { return null; }
 };
 
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(restoreUser);
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -33,6 +35,53 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
+  }, [token]);
+
+  // ─── Inactivity auto-logout (15 min) ───
+  useEffect(() => {
+    if (!token) return;
+
+    let timer;
+    const resetTimer = () => {
+      clearTimeout(timer);
+      localStorage.setItem('lastActivity', Date.now().toString());
+      timer = setTimeout(() => {
+        toast.warning('Session expired due to inactivity');
+        logout();
+      }, INACTIVITY_TIMEOUT);
+    };
+
+    // Check if already expired (e.g. tab was in background)
+    const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0');
+    if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
+      toast.warning('Session expired due to inactivity');
+      logout();
+      return;
+    }
+
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer(); // start the timer
+
+    // Also check on visibility change (tab refocus)
+    const onVisibility = () => {
+      if (!document.hidden) {
+        const last = parseInt(localStorage.getItem('lastActivity') || '0');
+        if (last && Date.now() - last > INACTIVITY_TIMEOUT) {
+          toast.warning('Session expired due to inactivity');
+          logout();
+        } else {
+          resetTimer();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [token]);
 
   const fetchUserProfile = async () => {
@@ -108,6 +157,7 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('lastActivity');
     delete axios.defaults.headers.common['Authorization'];
     toast.info('Logged out successfully');
   };
