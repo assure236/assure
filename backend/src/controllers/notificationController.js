@@ -105,12 +105,61 @@ exports.registerFcmToken = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'fcm_token is required' });
     }
     const userId = req.user._id || req.user.id;
+
+    // Check if this user already had a token (to decide if welcome push is needed)
+    const existingUser = await User.findById(userId).select('fcm_token full_name kyc_status');
+    const isFirstToken = !existingUser?.fcm_token;
+
     // Clear this token from any other user (device switched accounts)
     await User.updateMany(
       { fcm_token, _id: { $ne: userId } },
       { $unset: { fcm_token: 1 } }
     );
     await User.findByIdAndUpdate(userId, { fcm_token });
+
+    // Send welcome push notification on first FCM registration
+    if (isFirstToken && existingUser) {
+      try {
+        const name = existingUser.full_name || 'there';
+        await Notification.create({
+          user_id: userId,
+          title: '🙏 Welcome to Assure ChitFunds!',
+          message: `Hi ${name}, thank you for joining! Explore chit groups, track payments, participate in auctions, and grow your savings with us.`,
+          type: 'general',
+          data: { screen: 'dashboard' },
+          sent_at: new Date(),
+          delivery_method: ['push', 'in_app'],
+        });
+        await sendPushNotification(fcm_token,
+          '🙏 Welcome to Assure ChitFunds!',
+          `Hi ${name}, thank you for joining! Explore chit groups, track payments, participate in auctions, and grow your savings with us.`,
+          { type: 'general', screen: 'dashboard' }
+        );
+
+        // If KYC is pending, send a follow-up after a short delay
+        if (existingUser.kyc_status !== 'verified') {
+          setTimeout(async () => {
+            try {
+              await Notification.create({
+                user_id: userId,
+                title: '📋 Complete Your KYC to Get Started',
+                message: `Hi ${name}, complete your KYC verification to unlock bidding, payments, and dividends. It only takes 2 minutes!`,
+                type: 'kyc_update',
+                data: { screen: 'kyc' },
+                sent_at: new Date(),
+                delivery_method: ['push', 'in_app'],
+              });
+              await sendPushNotification(fcm_token,
+                '📋 Complete Your KYC to Get Started',
+                `Hi ${name}, complete your KYC verification to unlock bidding, payments, and dividends. It only takes 2 minutes!`,
+                { type: 'kyc_update', screen: 'kyc' }
+              );
+            } catch (_) { /* ignore */ }
+          }, 30000); // 30 seconds after welcome
+        }
+      } catch (_) { /* don't fail registration if welcome push fails */ }
+    }
+
     res.json({ success: true, message: 'FCM token registered' });
   } catch (err) { next(err); }
 };
