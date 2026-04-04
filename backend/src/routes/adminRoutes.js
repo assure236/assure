@@ -809,16 +809,31 @@ router.post('/communications/send', adminOnly, async (req, res, next) => {
           await CommunicationLog.create({ user_id: user._id, channel: 'sms', type: 'sms', subject, message, status: 'sent', sent_by: adminId, recipient_type: recipientType, sent_at: new Date() });
           sent++;
         } else if (type === 'email' && user.email) {
-          const htmlBody = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
-            <div style="background:linear-gradient(135deg,#1a237e,#1976d2);padding:24px;border-radius:12px 12px 0 0;text-align:center">
-              <h1 style="color:white;margin:0;font-size:24px">Assure ChitFunds</h1>
-            </div>
-            <div style="background:white;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 12px 12px">
-              ${subject ? `<h2 style="color:#1a237e;margin-top:0">${subject}</h2>` : ''}
-              <p style="color:#333;line-height:1.6">${message.replace(/\n/g, '<br>')}</p>
-            </div>
-            <div style="text-align:center;padding:12px;color:#999;font-size:11px">© 2026 Assure ChitFunds. All rights reserved.</div>
-          </div>`;
+          const htmlBody = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f5f5f5">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5">
+<tr><td align="center" style="padding:20px 0">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%">
+  <tr><td style="background-color:#1a237e;padding:24px;text-align:center;border-radius:8px 8px 0 0">
+    <h1 style="color:#ffffff;margin:0;font-size:22px;font-family:Arial,sans-serif">Assure ChitFunds</h1>
+  </td></tr>
+  <tr><td style="background-color:#ffffff;padding:24px 24px 32px;font-family:Arial,sans-serif;border:1px solid #e0e0e0;border-top:none">
+    <p style="color:#333333;margin:0 0 8px;font-size:15px">Dear ${user.full_name || 'Member'},</p>
+    ${subject ? `<h2 style="color:#1a237e;margin:16px 0 12px;font-size:18px">${subject}</h2>` : ''}
+    <p style="color:#333333;line-height:1.6;font-size:14px;margin:0">${message.replace(/\n/g, '<br>')}</p>
+    <p style="color:#333333;margin:24px 0 0;font-size:14px">Regards,<br>Team Assure ChitFunds</p>
+  </td></tr>
+  <tr><td style="padding:16px;text-align:center;font-family:Arial,sans-serif;border-radius:0 0 8px 8px">
+    <p style="color:#999999;font-size:11px;margin:0">Assure ChitFunds, Hyderabad, India</p>
+    <p style="color:#999999;font-size:11px;margin:4px 0 0">You are receiving this because you are a registered member of Assure ChitFunds.</p>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
           await notificationService.sendEmail(user.email, subject || 'Message from Assure ChitFunds', htmlBody);
           await CommunicationLog.create({ user_id: user._id, channel: 'email', type: 'email', subject, message, status: 'sent', sent_by: adminId, recipient_type: recipientType, sent_at: new Date() });
           sent++;

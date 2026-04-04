@@ -95,12 +95,20 @@ exports.sendEmail = async (to, subject, body) => {
     return;
   }
 
+  // Strip HTML tags for plain text version (improves spam score)
+  const textBody = body.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+
   try {
     const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM || 'Assure ChitFunds <noreply@assure.fund>',
+      reply_to: 'support@assure.fund',
       to: Array.isArray(to) ? to : [to],
       subject,
       html: body,
+      text: textBody,
+      headers: {
+        'X-Entity-Ref-ID': `assure-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      },
     });
 
     if (error) {
