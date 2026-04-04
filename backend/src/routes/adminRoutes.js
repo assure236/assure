@@ -6,10 +6,12 @@ const {
   User, ChitGroup, ChitMember, Auction, Bid, Payment,
   Document, Referral, Notification, AppSetting, Branch,
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
+  Account, JournalEntry, FiscalYear,
 } = require('../models');
 const notificationService = require('../services/notificationService');
 const { sendPushNotification, sendPushToMultiple } = require('../config/firebase');
 const erpnextService = require('../services/erpnextService');
+const accountingService = require('../services/accountingService');
 const logger = require('../utils/logger');
 
 const adminOnly = [authMiddleware, authorizeRoles('admin', 'manager')];
@@ -937,37 +939,243 @@ router.put('/settings', superAdminOnly, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ============ ACCOUNTING ============
+// ============ ACCOUNTING (Double-Entry Bookkeeping) ============
+
+// Seed chart of accounts on first load
+router.get('/accounting/seed', adminOnly, async (req, res, next) => {
+  try {
+    const result = await accountingService.seedChartOfAccounts();
+    res.json({ success: true, data: result });
+  } catch (err) { next(err); }
+});
+
+// Accounting dashboard summary
+router.get('/accounting/summary', adminOnly, async (req, res, next) => {
+  try {
+    await accountingService.seedChartOfAccounts(); // auto-seed if empty
+    const data = await accountingService.getAccountingSummary();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Chart of Accounts — tree structure
+router.get('/accounting/chart-of-accounts', adminOnly, async (req, res, next) => {
+  try {
+    await accountingService.seedChartOfAccounts();
+    const accounts = await Account.find({ is_active: true }).sort({ account_number: 1, name: 1 }).lean();
+    res.json({ success: true, data: accounts });
+  } catch (err) { next(err); }
+});
+
+// Create new account
+router.post('/accounting/accounts', adminOnly, async (req, res, next) => {
+  try {
+    const { name, account_number, parent_account, root_type, account_type, is_group, description } = req.body;
+    if (!name || !root_type) return res.status(400).json({ success: false, message: 'name and root_type required' });
+    if (parent_account) {
+      const parent = await Account.findOne({ name: parent_account });
+      if (!parent) return res.status(400).json({ success: false, message: `Parent account "${parent_account}" not found` });
+      if (!parent.is_group) return res.status(400).json({ success: false, message: 'Parent must be a group account' });
+    }
+    const account = await Account.create({ name, account_number, parent_account, root_type, account_type, is_group: is_group || false, description });
+    res.json({ success: true, data: account });
+  } catch (err) {
+    if (err.code === 11000) return res.status(400).json({ success: false, message: 'Account name already exists' });
+    next(err);
+  }
+});
+
+// Update account
+router.put('/accounting/accounts/:name', adminOnly, async (req, res, next) => {
+  try {
+    const { description, is_active, account_number } = req.body;
+    const update = {};
+    if (description !== undefined) update.description = description;
+    if (is_active !== undefined) update.is_active = is_active;
+    if (account_number !== undefined) update.account_number = account_number;
+    const account = await Account.findOneAndUpdate({ name: decodeURIComponent(req.params.name) }, update, { new: true });
+    if (!account) return res.status(404).json({ success: false, message: 'Account not found' });
+    res.json({ success: true, data: account });
+  } catch (err) { next(err); }
+});
+
+// Journal Entries — list
+router.get('/accounting/journal-entries', adminOnly, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 50, from, to, voucher_type, group_id } = req.query;
+    const filter = { is_cancelled: false };
+    if (from || to) {
+      filter.posting_date = {};
+      if (from) filter.posting_date.$gte = new Date(from);
+      if (to) filter.posting_date.$lte = new Date(to + 'T23:59:59');
+    }
+    if (voucher_type && voucher_type !== 'all') filter.voucher_type = voucher_type;
+    if (group_id) filter.chit_group_id = group_id;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [entries, total] = await Promise.all([
+      JournalEntry.find(filter).populate('chit_group_id', 'group_name').sort({ posting_date: -1, created_at: -1 }).skip(skip).limit(parseInt(limit)),
+      JournalEntry.countDocuments(filter),
+    ]);
+    res.json({ success: true, data: entries, total });
+  } catch (err) { next(err); }
+});
+
+// Create manual journal entry
+router.post('/accounting/journal-entries', adminOnly, async (req, res, next) => {
+  try {
+    const { voucher_type, posting_date, items, user_remark, title, chit_group_id } = req.body;
+    if (!items?.length) return res.status(400).json({ success: false, message: 'items required' });
+    const entry = await accountingService.createJournalEntry({
+      voucher_type: voucher_type || 'Journal Entry',
+      posting_date: posting_date || new Date(),
+      items,
+      user_remark,
+      title,
+      chit_group_id,
+      posted_by: req.user._id || req.user.id,
+    });
+    res.json({ success: true, data: entry });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// Cancel journal entry
+router.post('/accounting/journal-entries/:id/cancel', adminOnly, async (req, res, next) => {
+  try {
+    const entry = await JournalEntry.findById(req.params.id);
+    if (!entry) return res.status(404).json({ success: false, message: 'Not found' });
+    if (entry.is_cancelled) return res.status(400).json({ success: false, message: 'Already cancelled' });
+    // Reverse account balances
+    const accounts = await Account.find({ name: { $in: entry.items.map(i => i.account) } }).lean();
+    const accountMap = {};
+    accounts.forEach(a => { accountMap[a.name] = a; });
+    for (const item of entry.items) {
+      const acc = accountMap[item.account];
+      if (!acc) continue;
+      const isDebitNature = ['Asset', 'Expense'].includes(acc.root_type);
+      const reverseChange = isDebitNature
+        ? -((item.debit || 0) - (item.credit || 0))
+        : -((item.credit || 0) - (item.debit || 0));
+      await Account.findOneAndUpdate({ name: item.account }, { $inc: { balance: reverseChange } });
+    }
+    entry.is_cancelled = true;
+    entry.cancelled_at = new Date();
+    await entry.save();
+    res.json({ success: true, message: 'Journal entry cancelled', data: entry });
+  } catch (err) { next(err); }
+});
+
+// General Ledger
+router.get('/accounting/general-ledger', adminOnly, async (req, res, next) => {
+  try {
+    const { from, to, account, party, page = 1, limit = 100 } = req.query;
+    const data = await accountingService.getGeneralLedger({
+      from_date: from, to_date: to, account, party,
+      page: parseInt(page), limit: parseInt(limit),
+    });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Trial Balance
+router.get('/accounting/trial-balance', adminOnly, async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const data = await accountingService.getTrialBalance({ from_date: from, to_date: to });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Profit & Loss
 router.get('/accounting/pl', adminOnly, async (req, res, next) => {
   try {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const [revenueAgg, monthlyAgg] = await Promise.all([
+    await accountingService.seedChartOfAccounts();
+    const { from, to, group_id } = req.query;
+    const data = await accountingService.getProfitAndLoss({ from_date: from, to_date: to, group_id });
+
+    // Also include legacy summary for backward compat
+    const [revenueAgg] = await Promise.all([
       Payment.aggregate([
         { $match: { payment_status: 'success' } },
         { $group: { _id: null, total: { $sum: '$total_amount' }, count: { $sum: 1 } } }
       ]),
-      Payment.aggregate([
-        { $match: { payment_status: 'success', payment_date: { $gte: startOfMonth } } },
-        { $group: { _id: null, total: { $sum: '$total_amount' } } }
-      ]),
     ]);
     const totalRevenue = revenueAgg[0]?.total || 0;
-    const monthlyRevenue = monthlyAgg[0]?.total || 0;
     const totalCount = revenueAgg[0]?.count || 0;
-    // Build monthly P&L breakdown for admin BarChart
     const months = buildMonths(6);
     const monthlyPL = await getMonthlyCollections(months);
     const monthly = monthlyPL.map(m => ({ month: m.month, collection: m.amount, profit: Math.round(m.amount * 0.05) }));
-    res.json({ success: true, data: {
-      totalRevenue, monthlyRevenue, expenses: 0, netProfit: totalRevenue, totalTransactions: totalCount,
-      // Structured format expected by admin Accounting.js
-      summary: { total_collected: totalRevenue, total_commission: Math.round(totalRevenue * 0.05), total_late_fees: 0, successful_payments: totalCount },
-      monthly,
-    } });
+
+    res.json({
+      success: true,
+      data: {
+        ...data,
+        // Legacy fields
+        summary: {
+          total_collected: totalRevenue,
+          total_commission: data.total_income > 0 ? data.total_income : Math.round(totalRevenue * 0.05),
+          total_late_fees: 0,
+          successful_payments: totalCount,
+        },
+        monthly: data.monthly.length > 0 ? data.monthly : monthly,
+      },
+    });
   } catch (err) { next(err); }
 });
 
+// Balance Sheet
+router.get('/accounting/balance-sheet', adminOnly, async (req, res, next) => {
+  try {
+    const { as_of_date } = req.query;
+    const data = await accountingService.getBalanceSheet({ as_of_date });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Cash Flow Statement
+router.get('/accounting/cash-flow', adminOnly, async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const data = await accountingService.getCashFlow({ from_date: from, to_date: to });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Accounts Receivable
+router.get('/accounting/receivable', adminOnly, async (req, res, next) => {
+  try {
+    const data = await accountingService.getAccountsReceivable();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Group-wise P&L
+router.get('/accounting/group-pl', adminOnly, async (req, res, next) => {
+  try {
+    const { from, to } = req.query;
+    const data = await accountingService.getGroupWisePL({ from_date: from, to_date: to });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Bulk post historical payments
+router.post('/accounting/bulk-post', adminOnly, async (req, res, next) => {
+  try {
+    const data = await accountingService.bulkPostHistoricalPayments();
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Fiscal Years
+router.get('/accounting/fiscal-years', adminOnly, async (req, res, next) => {
+  try {
+    const data = await FiscalYear.find().sort({ start_date: -1 });
+    res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Payment Ledger (legacy — enhanced)
 router.get('/accounting/ledger', adminOnly, async (req, res, next) => {
   try {
     const { page = 1, limit = 50, from, to, type } = req.query;
@@ -1399,7 +1607,7 @@ router.get('/risk/assessment', adminOnly, async (req, res, next) => {
 
 // Check ERPNext config status
 router.get('/erpnext/status', adminOnly, async (req, res) => {
-  res.json({ success: true, data: { configured: erpnextService.isConfigured() } });
+  res.json({ success: true, data: { configured: erpnextService.isConfigured(), local_accounting: true } });
 });
 
 // Test connection

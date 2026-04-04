@@ -14,10 +14,14 @@ const CommunicationLog = require('./CommunicationLog');
 const SupportTicket = require('./SupportTicket');
 const Wallet = require('./Wallet');
 const WalletTransaction = require('./WalletTransaction');
+const Account = require('./Account');
+const JournalEntry = require('./JournalEntry');
+const FiscalYear = require('./FiscalYear');
 
 module.exports = {
   mongoose,
   User, ChitGroup, ChitMember, Auction, Bid, Payment,
   Document, Referral, Notification, AppSetting, Branch,
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
+  Account, JournalEntry, FiscalYear,
 };

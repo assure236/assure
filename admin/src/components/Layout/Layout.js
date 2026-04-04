@@ -44,6 +44,7 @@ const navGroups = [
     label: 'Finance',
     items: [
       { text: 'Accounting', icon: <AccountBalanceIcon />, path: '/accounting' },
+      { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
       { text: 'Defaulters', icon: <WarningIcon />, path: '/defaulters' },
       { text: 'Disbursals', icon: <DisbursalIcon />, path: '/disbursals' },
     ]
@@ -61,7 +62,6 @@ const navGroups = [
     items: [
       { text: 'Branches', icon: <BranchIcon />, path: '/branches' },
       { text: 'Support', icon: <SupportIcon />, path: '/support' },
-      { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
     ]
   },
   {
