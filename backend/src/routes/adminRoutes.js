@@ -8,6 +8,7 @@ const {
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
 } = require('../models');
 const notificationService = require('../services/notificationService');
+const { sendPushNotification, sendPushToMultiple } = require('../config/firebase');
 const erpnextService = require('../services/erpnextService');
 const logger = require('../utils/logger');
 
@@ -778,43 +779,73 @@ router.get('/communications', adminOnly, async (req, res, next) => {
 router.post('/communications/send', adminOnly, async (req, res, next) => {
   try {
     const { user_ids, subject, message } = req.body;
-    // Accept both 'type' and 'channel' (admin sends channel)
     const type = req.body.type || req.body.channel;
-    // Accept both 'send_to_all' and 'recipient_type' (admin sends recipient_type)
-    const send_to_all = req.body.send_to_all === true || req.body.recipient_type === 'all';
+    const recipientType = req.body.recipient_type || 'all';
+    const send_to_all = req.body.send_to_all === true || recipientType === 'all';
     if (!message) return res.status(400).json({ success: false, message: 'message required' });
     const adminId = req.user._id || req.user.id;
 
     let targets = [];
-    if (send_to_all) {
-      targets = await User.find({ role: 'member', is_active: true }).select('_id mobile email full_name');
-    } else if (user_ids?.length) {
-      targets = await User.find({ _id: { $in: user_ids } }).select('_id mobile email full_name');
+    if (user_ids?.length) {
+      // Individual send
+      targets = await User.find({ _id: { $in: user_ids } }).select('_id mobile email full_name fcm_token');
+    } else if (recipientType === 'overdue') {
+      // Overdue members — members with pending payments
+      const overdueMemberIds = await Payment.distinct('user_id', { status: 'pending' });
+      targets = await User.find({ _id: { $in: overdueMemberIds }, is_active: true }).select('_id mobile email full_name fcm_token');
+    } else if (recipientType === 'kyc_pending') {
+      targets = await User.find({ role: 'member', is_active: true, kyc_status: { $ne: 'verified' } }).select('_id mobile email full_name fcm_token');
+    } else {
+      // All active members
+      targets = await User.find({ role: 'member', is_active: true }).select('_id mobile email full_name fcm_token');
     }
-    if (!targets.length) return res.status(400).json({ success: false, message: 'No recipients' });
+    if (!targets.length) return res.status(400).json({ success: false, message: 'No recipients found' });
 
     let sent = 0, failed = 0;
     for (const user of targets) {
       try {
         if (type === 'sms' && user.mobile) {
           await notificationService.sendSMS(user.mobile, message);
-          await CommunicationLog.create({ user_id: user._id, channel: 'sms', type: 'sms', subject, message, status: 'sent', sent_by: adminId });
+          await CommunicationLog.create({ user_id: user._id, channel: 'sms', type: 'sms', subject, message, status: 'sent', sent_by: adminId, recipient_type: recipientType, sent_at: new Date() });
           sent++;
         } else if (type === 'email' && user.email) {
-          await notificationService.sendEmail(user.email, subject || 'Message from Assure ChitFunds', '<p>' + message + '</p>');
-          await CommunicationLog.create({ user_id: user._id, channel: 'email', type: 'email', subject, message, status: 'sent', sent_by: adminId });
+          const htmlBody = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+            <div style="background:linear-gradient(135deg,#1a237e,#1976d2);padding:24px;border-radius:12px 12px 0 0;text-align:center">
+              <h1 style="color:white;margin:0;font-size:24px">Assure ChitFunds</h1>
+            </div>
+            <div style="background:white;padding:24px;border:1px solid #e0e0e0;border-top:none;border-radius:0 0 12px 12px">
+              ${subject ? `<h2 style="color:#1a237e;margin-top:0">${subject}</h2>` : ''}
+              <p style="color:#333;line-height:1.6">${message.replace(/\n/g, '<br>')}</p>
+            </div>
+            <div style="text-align:center;padding:12px;color:#999;font-size:11px">© 2026 Assure ChitFunds. All rights reserved.</div>
+          </div>`;
+          await notificationService.sendEmail(user.email, subject || 'Message from Assure ChitFunds', htmlBody);
+          await CommunicationLog.create({ user_id: user._id, channel: 'email', type: 'email', subject, message, status: 'sent', sent_by: adminId, recipient_type: recipientType, sent_at: new Date() });
+          sent++;
+        } else if (type === 'push') {
+          // Create in-app notification
+          await Notification.create({ user_id: user._id, title: subject || 'Notification', message, type: 'general', is_read: false, sent_at: new Date() });
+          // Send FCM push if token exists
+          if (user.fcm_token) {
+            const pushResult = await sendPushNotification(user.fcm_token, subject || 'Notification', message, { type: 'general' });
+            if (pushResult === 'INVALID_TOKEN') {
+              await User.findByIdAndUpdate(user._id, { $unset: { fcm_token: 1 } });
+            }
+          }
+          await CommunicationLog.create({ user_id: user._id, channel: 'push', type: 'notification', subject, message, status: 'sent', sent_by: adminId, recipient_type: recipientType, sent_at: new Date() });
           sent++;
         } else {
-          await Notification.create({ user_id: user._id, title: subject || 'Notification', message, type: 'general', is_read: false });
-          await CommunicationLog.create({ user_id: user._id, channel: 'push', type: 'notification', subject, message, status: 'sent', sent_by: adminId });
+          // Default: in-app notification
+          await Notification.create({ user_id: user._id, title: subject || 'Notification', message, type: 'general', is_read: false, sent_at: new Date() });
+          await CommunicationLog.create({ user_id: user._id, channel: type || 'push', type: type || 'notification', subject, message, status: 'sent', sent_by: adminId, recipient_type: recipientType, sent_at: new Date() });
           sent++;
         }
       } catch (e) {
         failed++;
-        await CommunicationLog.create({ user_id: user._id, channel: type || 'push', type, subject, message, status: 'failed', sent_by: adminId, error_message: e.message });
+        await CommunicationLog.create({ user_id: user._id, channel: type || 'push', type, subject, message, status: 'failed', sent_by: adminId, error_message: e.message, recipient_type: recipientType, sent_at: new Date() });
       }
     }
-    res.json({ success: true, message: 'Communication sent', data: { sent, failed, total: targets.length } });
+    res.json({ success: true, message: `Communication sent: ${sent} delivered, ${failed} failed`, data: { sent, failed, total: targets.length } });
   } catch (err) { next(err); }
 });
 
