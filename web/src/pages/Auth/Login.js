@@ -206,8 +206,7 @@ export default function Login() {
               </Box>
             </Box>
           </Grid>
-          <Grid item xs={12} md={6}>
-            <Divider sx={{ display: { md: 'none' } }}><Chip label="OR scan with mobile app" /></Divider>
+          <Grid item xs={12} md={6} sx={{ display: { xs: 'none', md: 'block' } }}>
             <QrPanel onLoginSuccess={handleQrLoginSuccess} />
           </Grid>
         </Grid>

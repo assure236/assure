@@ -1,7 +1,9 @@
 'use strict';
 
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const logger = require('../utils/logger');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Fast2SMS OTP (DLT Route) ────────────────────────────────────────────────
 
@@ -82,46 +84,34 @@ exports.sendSMS = async (mobile, message) => {
   }
 };
 
-// ─── EMAIL (Outlook SMTP) ─────────────────────────────────────────────────────
-
-let _transporter = null;
-function getTransporter() {
-  if (!_transporter) {
-    _transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: parseInt(process.env.SMTP_PORT) || 587,
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD
-      },
-      tls: { rejectUnauthorized: false }
-    });
-  }
-  return _transporter;
-}
+// ─── EMAIL (Resend) ───────────────────────────────────────────────────────────
 
 /**
- * Send email via Outlook SMTP
+ * Send email via Resend
  */
 exports.sendEmail = async (to, subject, body) => {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) {
-    logger.warn('SMTP_USER or SMTP_PASSWORD not set — skipping email');
+  if (!process.env.RESEND_API_KEY) {
+    logger.warn('RESEND_API_KEY not set — skipping email');
     return;
   }
 
   try {
-    const transporter = getTransporter();
-    await transporter.sendMail({
-      from: `"Assure ChitFunds" <${process.env.SMTP_USER}>`,
-      to,
+    const { data, error } = await resend.emails.send({
+      from: process.env.RESEND_FROM || 'Assure ChitFunds <noreply@assure.fund>',
+      to: Array.isArray(to) ? to : [to],
       subject,
-      html: body
+      html: body,
     });
-    logger.info(`Email sent via Outlook SMTP to ${to}`);
-    return { status: 'success' };
+
+    if (error) {
+      logger.error('Resend email error:', JSON.stringify(error));
+      throw new Error(error.message || 'Resend email failed');
+    }
+
+    logger.info(`Email sent via Resend to ${to} (id: ${data?.id})`);
+    return { status: 'success', id: data?.id };
   } catch (err) {
-    logger.error('Outlook SMTP error:', err.message);
+    logger.error('Resend email exception:', err.message);
     throw err;
   }
 };

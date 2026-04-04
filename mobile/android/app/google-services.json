@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "382899763463",
-    "project_id": "assure-chitfunds",
-    "storage_bucket": "assure-chitfunds.firebasestorage.app"
+    "project_number": "986227481477",
+    "project_id": "assure-chitfunds-babbd",
+    "storage_bucket": "assure-chitfunds-babbd.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:382899763463:android:f5d73034b758fdebac6da2",
+        "mobilesdk_app_id": "1:986227481477:android:07b02be828089716d502ec",
         "android_client_info": {
           "package_name": "com.assure.chitfunds.assure_chitfunds"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDAC1cgScd7KoFzBVZuR4YVxIL8YOY7ToI"
+          "current_key": "AIzaSyCApNCXFausaL6ocudMRjuLQoM0UnCrWNQ"
         }
       ],
       "services": {

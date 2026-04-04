@@ -1,4 +1,4 @@
-const { User, Referral } = require('../models');
+const { User, Referral, Wallet, WalletTransaction, Notification } = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
@@ -78,8 +78,44 @@ exports.register = async (req, res, next) => {
     await user.save();
 
     if (referred_by) {
-      const referrer = await User.findById(referred_by);
-      await Referral.create({ referrer_id: referred_by, referred_id: user._id, referral_code_used: referral_code });
+      const bonusAmount = parseInt(process.env.REFERRAL_BONUS_AMOUNT) || 500;
+      const referral = await Referral.create({
+        referrer_id: referred_by,
+        referred_id: user._id,
+        referral_code_used: referral_code,
+        bonus_amount: bonusAmount,
+        bonus_credited: true,
+        credited_at: new Date(),
+        status: 'credited',
+      });
+
+      // Credit bonus to referrer's wallet
+      let wallet = await Wallet.findOne({ user_id: referred_by });
+      if (!wallet) {
+        wallet = await Wallet.create({ user_id: referred_by, balance: 0 });
+      }
+      wallet.balance += bonusAmount;
+      await wallet.save();
+
+      await WalletTransaction.create({
+        user_id: referred_by,
+        wallet_id: wallet._id,
+        type: 'reward',
+        amount: bonusAmount,
+        balance_after: wallet.balance,
+        description: `Referral bonus — ${user.full_name} joined using your code`,
+        reference_id: String(referral._id),
+      });
+
+      // Notify referrer
+      try {
+        await Notification.create({
+          user_id: referred_by,
+          type: 'referral_bonus',
+          title: 'Referral Bonus Credited! 🎉',
+          message: `₹${bonusAmount} credited to your wallet! ${user.full_name} joined Assure ChitFunds using your referral code.`,
+        });
+      } catch (_) { /* ignore notification errors */ }
     }
 
     otpStore.delete('mobile:' + mobile);

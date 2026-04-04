@@ -1,35 +1,43 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ToastContainer } from 'react-toastify';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 import 'react-toastify/dist/ReactToastify.css';
 
 // Context Providers
 import { AuthProvider } from './context/AuthContext';
 
-// Pages
+// Eagerly loaded (always needed on first paint)
 import Login from './pages/Auth/Login';
-import Register from './pages/Auth/Register';
-import ForgotPassword from './pages/Auth/ForgotPassword';
-import Dashboard from './pages/Dashboard/Dashboard';
-import ChitGroups from './pages/ChitGroups/ChitGroups';
-import ChitGroupDetails from './pages/ChitGroups/ChitGroupDetails';
-import Auctions from './pages/Auctions/Auctions';
-import AuctionRoom from './pages/Auctions/AuctionRoom';
-import Payments from './pages/Payments/Payments';
-import Profile from './pages/Profile/Profile';
-import Documents from './pages/Documents/Documents';
-import Referrals from './pages/Referrals/Referrals';
-import Help from './pages/Help/Help';
 import Landing from './pages/Landing/Landing';
-import Notifications from './pages/Notifications/Notifications';
-import Analytics from './pages/Analytics/Analytics';
-
-// Components
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout/Layout';
+
+// Lazy-loaded pages (code-split for smaller initial bundle)
+const Register = lazy(() => import('./pages/Auth/Register'));
+const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'));
+const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
+const ChitGroups = lazy(() => import('./pages/ChitGroups/ChitGroups'));
+const ChitGroupDetails = lazy(() => import('./pages/ChitGroups/ChitGroupDetails'));
+const Auctions = lazy(() => import('./pages/Auctions/Auctions'));
+const AuctionRoom = lazy(() => import('./pages/Auctions/AuctionRoom'));
+const Payments = lazy(() => import('./pages/Payments/Payments'));
+const Profile = lazy(() => import('./pages/Profile/Profile'));
+const Documents = lazy(() => import('./pages/Documents/Documents'));
+const Referrals = lazy(() => import('./pages/Referrals/Referrals'));
+const Help = lazy(() => import('./pages/Help/Help'));
+const Notifications = lazy(() => import('./pages/Notifications/Notifications'));
+const Analytics = lazy(() => import('./pages/Analytics/Analytics'));
+
+const PageLoader = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+    <CircularProgress />
+  </Box>
+);
 
 // Ensure API base URL is always set (fallback for when .env is not loaded)
 axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
@@ -81,6 +89,7 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
@@ -107,6 +116,7 @@ function App() {
             {/* Redirect /dashboard root if not authenticated handled by PrivateRoute */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </Suspense>
         </Router>
         <ToastContainer
           position="top-right"

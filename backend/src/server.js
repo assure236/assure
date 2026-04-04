@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const http = require('http');
 const socketIO = require('socket.io');
 const rateLimit = require('express-rate-limit');
+const compression = require('compression');
 
 const logger = require('./utils/logger');
 const { connectDB } = require('./config/database');
@@ -22,31 +23,68 @@ initFirebase();
 
 const app = express();
 app.set('trust proxy', 1);
+
+// ─── Performance: Gzip compression (70%+ smaller responses) ─────────────────
+app.use(compression({
+  level: 6,
+  threshold: 1024,
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
+
 const server = http.createServer(app);
+
+// ─── Performance: Socket.IO with optimized settings ─────────────────────────
 const io = socketIO(server, {
-  cors: { origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, process.env.MOBILE_CLIENT_URL || '*'], credentials: true }
+  cors: { origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, process.env.MOBILE_CLIENT_URL || '*'], credentials: true },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  maxHttpBufferSize: 1e6,
+  perMessageDeflate: { threshold: 2048 },
+  transports: ['websocket', 'polling'],
 });
 
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginEmbedderPolicy: false,
 }));
-app.use(cors({ origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, 'https://www.assure.fund'].filter(Boolean), credentials: true }));
+app.use(cors({ origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, 'https://www.assure.fund', 'https://assure.fund'].filter(Boolean), credentials: true }));
 
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000,
-  message: 'Too many requests from this IP, please try again later.',
+// ─── Rate Limiting: scaled for 50K concurrent users ─────────────────────────
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5000,
+  message: { success: false, message: 'Too many requests, please try again in a minute.' },
+  standardHeaders: true,
+  legacyHeaders: false,
   skip: () => process.env.NODE_ENV === 'development'
 });
-app.use('/api', limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 50,
+  message: { success: false, message: 'Too many login attempts, please try after 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use('/api', apiLimiter);
+app.use('/api/v1/auth/login', authLimiter);
+app.use('/api/v1/auth/send-otp', authLimiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
+
+// ─── Logging: Skip health checks, reduce noise in production ────────────────
+app.use(morgan('combined', {
+  stream: { write: (msg) => logger.info(msg.trim()) },
+  skip: (req) => req.url === '/health'
+}));
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString(), uptime: process.uptime() });
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString(), uptime: process.uptime(), pid: process.pid });
 });
 
 const pathModule = require('path');
@@ -71,9 +109,14 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 
+// ─── Performance: Increase Node.js event loop limits ────────────────────────
+server.maxConnections = 0; // unlimited
+server.keepAliveTimeout = 65000; // slightly above nginx's 60s
+server.headersTimeout = 66000;
+
 const startServer = async () => {
   server.listen(PORT, () => {
-    logger.info('Server running on port ' + PORT + ' in ' + process.env.NODE_ENV + ' mode');
+    logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode (PID: ${process.pid})`);
     logger.info('API at http://localhost:' + PORT + '/api/' + process.env.API_VERSION);
   });
   try {

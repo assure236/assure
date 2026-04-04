@@ -49,5 +49,11 @@ userSchema.methods.validatePassword = async function (password) {
   return bcrypt.compare(password, this.password_hash);
 };
 
+// Performance indexes for 50K+ user queries
+userSchema.index({ is_active: 1, role: 1 });
+userSchema.index({ referral_code: 1 });
+userSchema.index({ fcm_token: 1 }, { sparse: true });
+userSchema.index({ created_at: -1 });
+
 const User = mongoose.model('User', userSchema);
 module.exports = User;

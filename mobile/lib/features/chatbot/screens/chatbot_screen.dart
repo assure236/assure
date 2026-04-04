@@ -136,7 +136,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             child: ListView(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 12),
-              children: ['Active chits', 'My payments', 'Next auction']
+              children: ['My payments', 'Wallet balance', 'Next auction', 'My profile', 'KYC status', 'Referral code', 'Active chits', 'Help']
                   .map((q) => Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ActionChip(

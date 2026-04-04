@@ -35,11 +35,64 @@ class _QrScanScreenState extends State<QrScanScreen> {
     await _controller.stop();
 
     if (!mounted) return;
-    final auth = context.read<AuthProvider>();
-    final res = await auth.confirmQrLogin(sessionId);
+    _showConfirmDialog(sessionId);
+  }
 
-    if (!mounted) return;
-    _showResult(res['success'] == true, res['message'] ?? 'Unknown error');
+  void _showConfirmDialog(String sessionId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        icon: const Icon(Icons.computer, color: Color(0xFF1976D2), size: 52),
+        title: const Text('Login to Web Portal?'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'You are about to log in to the Assure ChitFunds web portal using your account.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.black54),
+            ),
+            SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.shield, color: Colors.green, size: 16),
+                SizedBox(width: 4),
+                Text('Secure login via QR code', style: TextStyle(fontSize: 12, color: Colors.green)),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              setState(() => _isProcessing = false);
+              _controller.start();
+            },
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.of(context).pop();
+              final auth = context.read<AuthProvider>();
+              final res = await auth.confirmQrLogin(sessionId);
+              if (!mounted) return;
+              _showResult(res['success'] == true, res['message'] ?? 'Unknown error');
+            },
+            icon: const Icon(Icons.check_circle, size: 18),
+            label: const Text('Confirm Login'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1976D2),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showResult(bool success, String message) {
