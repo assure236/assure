@@ -8,8 +8,7 @@ import {
 } from '@mui/material';
 import {
   AccountBalance, TrendingUp, Receipt, MoneyOff, Download, Add,
-  Sync as SyncIcon, Cloud as CloudIcon,
-  People as PeopleIcon, Payments as PaymentsIcon, Business as BusinessIcon,
+  Sync as SyncIcon,
   AccountTree, MenuBook, Assessment, PieChart,
   BarChart as BarChartIcon, Cancel, Print, ArrowUpward, ArrowDownward,
 } from '@mui/icons-material';
@@ -74,11 +73,6 @@ export default function Accounting() {
 
   // Groups for filter
   const [groups, setGroups] = useState([]);
-
-  // ERPNext sync
-  const [erpConfigured, setErpConfigured] = useState(false);
-  const [erpSyncing, setErpSyncing] = useState(null);
-  const [erpSyncResult, setErpSyncResult] = useState(null);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -171,7 +165,6 @@ export default function Accounting() {
 
   useEffect(() => {
     fetchSummary();
-    axios.get(`${API}/admin/erpnext/status`).then(r => setErpConfigured(r.data.data?.configured)).catch(() => {});
     axios.get(`${API}/admin/chit-groups?limit=200`).then(r => {
       const d = r.data.data;
       setGroups(Array.isArray(d) ? d : (d?.chit_groups || d?.groups || []));
@@ -232,15 +225,6 @@ export default function Accounting() {
     finally { setLoading(false); }
   };
 
-  const handleErpSync = async (type) => {
-    setErpSyncing(type); setErpSyncResult(null);
-    try {
-      const res = await axios.post(`${API}/admin/erpnext/sync/${type}`);
-      if (res.data.success) setErpSyncResult({ type, ...res.data.data });
-    } catch (e) { setError(e.response?.data?.message || 'Sync failed'); }
-    finally { setErpSyncing(null); }
-  };
-
   const exportCSV = (headers, rows, filename) => {
     const csv = [headers, ...rows].map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
@@ -278,7 +262,6 @@ export default function Accounting() {
         <Tab icon={<TrendingUp />} label="Profit & Loss" iconPosition="start" />
         <Tab icon={<AccountBalance />} label="Balance Sheet" iconPosition="start" />
         <Tab icon={<PieChart />} label="Cash Flow" iconPosition="start" />
-        {erpConfigured && <Tab icon={<CloudIcon />} label="ERPNext Sync" iconPosition="start" />}
       </Tabs>
 
       {/* DASHBOARD */}
@@ -818,41 +801,6 @@ export default function Accounting() {
             </Paper>
           )}
         </>
-      )}
-
-      {/* ERPNEXT SYNC */}
-      {tab === 8 && erpConfigured && (
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" fontWeight={600} gutterBottom>
-            <CloudIcon sx={{ mr: 1, verticalAlign: 'middle' }} />ERPNext External Sync
-          </Typography>
-          <Alert severity="info" sx={{ mb: 3 }}>Sync your local data to an external ERPNext instance for advanced ERP features.</Alert>
-          <Grid container spacing={2}>
-            {[
-              { key: 'members', label: 'Sync Members to Customers', icon: <PeopleIcon /> },
-              { key: 'payments', label: 'Sync Payments to Journal Entries', icon: <PaymentsIcon /> },
-              { key: 'groups', label: 'Sync Groups to Projects', icon: <BusinessIcon /> },
-            ].map(s => (
-              <Grid item xs={12} md={4} key={s.key}>
-                <Card variant="outlined">
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>{s.icon}<Typography fontWeight={600}>{s.label}</Typography></Box>
-                    <Button fullWidth variant="contained"
-                      startIcon={erpSyncing === s.key ? <CircularProgress size={16} color="inherit" /> : <SyncIcon />}
-                      onClick={() => handleErpSync(s.key)} disabled={!!erpSyncing}>
-                      {erpSyncing === s.key ? 'Syncing...' : 'Sync Now'}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-          {erpSyncResult && (
-            <Alert severity={erpSyncResult.failed > 0 ? 'warning' : 'success'} sx={{ mt: 2 }}>
-              <strong>{erpSyncResult.type}:</strong> {erpSyncResult.synced} synced, {erpSyncResult.failed} failed
-            </Alert>
-          )}
-        </Paper>
       )}
 
       {/* NEW ACCOUNT DIALOG */}

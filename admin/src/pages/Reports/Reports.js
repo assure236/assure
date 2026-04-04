@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import {
   Container, Typography, Box, Card, CardContent, Grid, Button,
   CircularProgress, Alert, Paper, Table, TableBody, TableCell,
-  TableHead, TableRow, Divider, TextField, MenuItem, Tabs, Tab, Chip,
+  TableHead, TableRow, Divider, TextField, MenuItem, Tabs, Tab,
 } from '@mui/material';
 import {
   Download as DownloadIcon, Refresh as RefreshIcon, Print as PrintIcon,
-  Assessment, AccountBalance, TrendingUp, Receipt,
+  Assessment, AccountBalance,
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -198,21 +198,18 @@ const Reports = () => {
                 <Table size="small">
                   <TableHead sx={{ bgcolor: 'grey.100' }}>
                     <TableRow>
-                      {['Member', 'Total Due', 'Total Paid', 'Outstanding', 'Last Payment'].map(h => (
+                      {['Member / Party', 'Outstanding'].map(h => (
                         <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
                       ))}
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {(finData.members || []).length === 0 ? (
-                      <TableRow><TableCell colSpan={5} align="center" sx={{ py: 6 }}>No receivables</TableCell></TableRow>
-                    ) : (finData.members || []).map((m, i) => (
+                    {(finData.entries || []).length === 0 ? (
+                      <TableRow><TableCell colSpan={2} align="center" sx={{ py: 6 }}>No receivables</TableCell></TableRow>
+                    ) : (finData.entries || []).map((m, i) => (
                       <TableRow key={i} hover>
-                        <TableCell>{m.member_name || '-'}</TableCell>
-                        <TableCell>{fmt(m.total_due)}</TableCell>
-                        <TableCell>{fmt(m.total_paid)}</TableCell>
+                        <TableCell>{m.party || '-'}</TableCell>
                         <TableCell><Typography fontWeight={600} color={m.outstanding > 0 ? 'error.main' : 'success.main'}>{fmt(m.outstanding)}</Typography></TableCell>
-                        <TableCell>{m.last_payment ? new Date(m.last_payment).toLocaleDateString('en-IN') : '-'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -240,11 +237,11 @@ const Reports = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {(finData.groups || []).length === 0 ? (
+                    {(Array.isArray(finData) ? finData : (finData.groups || [])).length === 0 ? (
                       <TableRow><TableCell colSpan={4} align="center" sx={{ py: 6 }}>No data</TableCell></TableRow>
-                    ) : (finData.groups || []).map((g, i) => (
+                    ) : (Array.isArray(finData) ? finData : (finData.groups || [])).map((g, i) => (
                       <TableRow key={i} hover>
-                        <TableCell><Typography fontWeight={500}>{g.group_name}</Typography></TableCell>
+                        <TableCell><Typography fontWeight={500}>{g.group?.group_name || g.group_name || '-'}</Typography></TableCell>
                         <TableCell><Typography color="success.main" fontWeight={600}>{fmt(g.income)}</Typography></TableCell>
                         <TableCell><Typography color="warning.main" fontWeight={600}>{fmt(g.expense)}</Typography></TableCell>
                         <TableCell><Typography fontWeight={700} color={g.profit >= 0 ? 'success.main' : 'error.main'}>{fmt(g.profit)}</Typography></TableCell>
