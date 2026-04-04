@@ -11,6 +11,7 @@ import {
   Sync as SyncIcon,
   AccountTree, MenuBook, Assessment, PieChart,
   BarChart as BarChartIcon, Cancel, Print, ArrowUpward, ArrowDownward,
+  Payments as PaymentsIcon,
 } from '@mui/icons-material';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend,
