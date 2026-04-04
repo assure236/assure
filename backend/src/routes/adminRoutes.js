@@ -6,7 +6,7 @@ const {
   User, ChitGroup, ChitMember, Auction, Bid, Payment,
   Document, Referral, Notification, AppSetting, Branch,
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
-  Account, JournalEntry, FiscalYear,
+  Account, JournalEntry, FiscalYear, DefaulterAction,
 } = require('../models');
 const notificationService = require('../services/notificationService');
 const { sendPushNotification, sendPushToMultiple } = require('../config/firebase');
@@ -1199,13 +1199,13 @@ router.get('/accounting/ledger', adminOnly, async (req, res, next) => {
 // ============ DEFAULTERS ============
 router.get('/defaulters', adminOnly, async (req, res, next) => {
   try {
-    const { page = 1, limit = 50, risk } = req.query;
+    const { page = 1, limit = 50, risk, group_id, reminders_filter, search } = req.query;
     const now = new Date();
 
     // 1. Get overdue Payment records
     const overdueFilter = { payment_status: { $in: ['pending', 'overdue'] }, due_date: { $lt: now } };
     const overduePayments = await Payment.find(overdueFilter)
-      .populate('user_id', 'full_name mobile member_id credit_score')
+      .populate('user_id', 'full_name mobile member_id credit_score fcm_token')
       .populate('chit_group_id', 'group_name group_number chit_value commencement_date duration_months')
       .sort({ due_date: 1 }).lean();
 
@@ -1213,7 +1213,7 @@ router.get('/defaulters', adminOnly, async (req, res, next) => {
     const activeGroups = await ChitGroup.find({ status: { $in: ['active', 'started'] } })
       .select('group_name group_number chit_value commencement_date duration_months').lean();
     const members = await ChitMember.find({ is_active: true, chit_group_id: { $in: activeGroups.map(g => g._id) } })
-      .populate('user_id', 'full_name mobile member_id credit_score').lean();
+      .populate('user_id', 'full_name mobile member_id credit_score fcm_token').lean();
     const paidPayments = await Payment.find({ payment_status: 'success' }).select('user_id chit_group_id month_number').lean();
     const paidSet = new Set(paidPayments.map(p => String(p.user_id) + '-' + String(p.chit_group_id) + '-' + p.month_number));
     const existingSet = new Set(overduePayments.map(p => String(p.user_id?._id || p.user_id) + '-' + String(p.chit_group_id?._id || p.chit_group_id) + '-' + p.month_number));
@@ -1230,7 +1230,7 @@ router.get('/defaulters', adminOnly, async (req, res, next) => {
         for (let mo = 1; mo <= group.duration_months; mo++) {
           const dueDate = new Date(start);
           dueDate.setMonth(dueDate.getMonth() + (mo - 1));
-          if (dueDate >= now) break; // not yet due
+          if (dueDate >= now) break;
           const key = String(mem.user_id._id) + '-' + String(group._id) + '-' + mo;
           if (paidSet.has(key) || existingSet.has(key)) continue;
           virtualEntries.push({
@@ -1245,18 +1245,52 @@ router.get('/defaulters', adminOnly, async (req, res, next) => {
       }
     }
 
+    // 3. Get all defaulter actions for reminder counts
+    const allActions = await DefaulterAction.find({
+      action_type: { $in: ['reminder_1', 'reminder_2', 'reminder_3', 'legal_notice'] }
+    }).select('user_id chit_group_id action_type created_at').lean();
+
+    const actionMap = {};
+    for (const a of allActions) {
+      const key = String(a.user_id) + '-' + String(a.chit_group_id);
+      if (!actionMap[key]) actionMap[key] = { reminders_sent: 0, last_reminder_at: null, legal_notice_sent: false, legal_notice_at: null };
+      if (a.action_type.startsWith('reminder_')) {
+        const num = parseInt(a.action_type.split('_')[1]);
+        actionMap[key].reminders_sent = Math.max(actionMap[key].reminders_sent, num);
+        if (!actionMap[key].last_reminder_at || a.created_at > actionMap[key].last_reminder_at) {
+          actionMap[key].last_reminder_at = a.created_at;
+        }
+      }
+      if (a.action_type === 'legal_notice') {
+        actionMap[key].legal_notice_sent = true;
+        actionMap[key].legal_notice_at = a.created_at;
+      }
+    }
+
     let allRows = [...overduePayments, ...virtualEntries];
-    // Compute days_overdue and risk
     allRows = allRows.map(r => {
       const days = r.due_date ? Math.ceil((now - new Date(r.due_date)) / 86400000) : 0;
       const riskLevel = days > 21 ? 'high' : days >= 14 ? 'medium' : 'low';
-      const alerts = days >= 21 ? 3 : days >= 14 ? 2 : days >= 7 ? 1 : 0;
-      return { ...r, days_overdue: days, risk: riskLevel, alerts };
+      const uid = String(r.user_id?._id || r.user_id);
+      const gid = String(r.chit_group_id?._id || r.chit_group_id);
+      const actions = actionMap[uid + '-' + gid] || { reminders_sent: 0, last_reminder_at: null, legal_notice_sent: false, legal_notice_at: null };
+      return { ...r, days_overdue: days, risk: riskLevel, ...actions };
     });
 
-    // Risk filter
-    if (risk && risk !== 'all') {
-      allRows = allRows.filter(r => r.risk === risk);
+    // Filters
+    if (risk && risk !== 'all') allRows = allRows.filter(r => r.risk === risk);
+    if (group_id && group_id !== 'all') allRows = allRows.filter(r => String(r.chit_group_id?._id || r.chit_group_id) === group_id);
+    if (reminders_filter && reminders_filter !== 'all') {
+      const rf = parseInt(reminders_filter);
+      allRows = allRows.filter(r => r.reminders_sent === rf);
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      allRows = allRows.filter(r =>
+        (r.user_id?.full_name || '').toLowerCase().includes(s) ||
+        (r.user_id?.mobile || '').includes(s) ||
+        (r.user_id?.member_id || '').toLowerCase().includes(s)
+      );
     }
 
     allRows.sort((a, b) => b.days_overdue - a.days_overdue);
@@ -1267,25 +1301,190 @@ router.get('/defaulters', adminOnly, async (req, res, next) => {
     const high = allRows.filter(r => r.risk === 'high').length;
     const medium = allRows.filter(r => r.risk === 'medium').length;
     const low = allRows.filter(r => r.risk === 'low').length;
+    const noReminder = allRows.filter(r => r.reminders_sent === 0).length;
+    const legalSent = allRows.filter(r => r.legal_notice_sent).length;
 
-    res.json({ success: true, data: paged, total, stats: { high, medium, low, total }, page: parseInt(page) });
+    // Get groups list for filter dropdown
+    const groups = activeGroups.map(g => ({ _id: g._id, group_name: g.group_name }));
+
+    res.json({
+      success: true, data: paged, total,
+      stats: { high, medium, low, total, noReminder, legalSent },
+      groups, page: parseInt(page)
+    });
   } catch (err) { next(err); }
 });
 
-// Send alert SMS to a defaulter
-router.post('/defaulters/send-alert', adminOnly, async (req, res, next) => {
+// Send reminder (push + SMS) to a defaulter — tracks action
+router.post('/defaulters/send-reminder', adminOnly, async (req, res, next) => {
   try {
-    const { user_id, mobile, name, days_overdue, amount, group_name, alert_number } = req.body;
-    if (!mobile) return res.status(400).json({ success: false, message: 'Mobile number required' });
+    const { user_id, chit_group_id, payment_id, mobile, name, days_overdue, amount, group_name, reminder_number, channels } = req.body;
+    if (!user_id) return res.status(400).json({ success: false, message: 'User ID required' });
+
+    const rn = Math.min(Math.max(parseInt(reminder_number) || 1, 1), 3);
+    const sendChannels = channels || ['sms', 'push'];
+
+    // Check if this reminder was already sent
+    const existing = await DefaulterAction.findOne({
+      user_id, chit_group_id, action_type: `reminder_${rn}`
+    });
+    if (existing) {
+      return res.status(400).json({ success: false, message: `Reminder ${rn} already sent to this member for this group on ${new Date(existing.created_at).toLocaleDateString('en-IN')}` });
+    }
+
+    // Ensure reminders are sent in order
+    if (rn > 1) {
+      const prev = await DefaulterAction.findOne({ user_id, chit_group_id, action_type: `reminder_${rn - 1}` });
+      if (!prev) return res.status(400).json({ success: false, message: `Must send reminder ${rn - 1} first` });
+    }
+
     const msgs = {
-      1: `Dear ${name}, this is a reminder that your chit fund installment of ₹${amount} for ${group_name} is overdue by ${days_overdue} days. Please pay immediately to avoid penalties. - Assure ChitFunds`,
-      2: `URGENT: Dear ${name}, your payment of ₹${amount} for ${group_name} is now ${days_overdue} days overdue. This is your 2nd reminder. Continued default will affect your credit score. - Assure ChitFunds`,
-      3: `FINAL NOTICE: Dear ${name}, your overdue amount of ₹${amount} for ${group_name} (${days_overdue} days) requires immediate payment. Legal action will be initiated if not paid within 7 days. - Assure ChitFunds`,
+      1: `Dear ${name}, this is a reminder that your chit fund installment of Rs.${amount} for ${group_name} is overdue by ${days_overdue} days. Please pay immediately to avoid penalties. - Assure ChitFunds`,
+      2: `URGENT: Dear ${name}, your payment of Rs.${amount} for ${group_name} is now ${days_overdue} days overdue. This is your 2nd reminder. Continued default will affect your credit score. - Assure ChitFunds`,
+      3: `FINAL NOTICE: Dear ${name}, your overdue amount of Rs.${amount} for ${group_name} (${days_overdue} days) requires immediate payment. Legal action will be initiated if not paid within 7 days. - Assure ChitFunds`,
     };
-    const msg = msgs[alert_number] || msgs[1];
-    const notificationService = require('../services/notificationService');
-    await notificationService.sendSMS(mobile, msg).catch(() => {});
-    res.json({ success: true, message: `Alert ${alert_number} sent to ${name}` });
+    const msg = msgs[rn];
+
+    const pushTitle = rn === 3 ? '⚠️ FINAL NOTICE - Payment Overdue' : rn === 2 ? '🔴 URGENT - Payment Overdue' : '🔔 Payment Reminder';
+    const pushBody = rn === 3
+      ? `Your payment of Rs.${amount} for ${group_name} is ${days_overdue} days overdue. Legal action will follow if not paid within 7 days.`
+      : rn === 2
+        ? `Your payment of Rs.${amount} for ${group_name} is ${days_overdue} days overdue. Your credit score will be affected.`
+        : `Your chit fund installment of Rs.${amount} for ${group_name} is overdue by ${days_overdue} days. Please pay now.`;
+
+    const channelsUsed = [];
+    let smsOk = false, pushOk = false;
+
+    // Send SMS
+    if (sendChannels.includes('sms') && mobile) {
+      try {
+        await notificationService.sendSMS(mobile, msg);
+        smsOk = true;
+        channelsUsed.push('sms');
+      } catch (e) { logger.warn('Defaulter SMS failed:', e.message); }
+    }
+
+    // Send Push Notification
+    if (sendChannels.includes('push')) {
+      const user = await User.findById(user_id).select('fcm_token').lean();
+      if (user?.fcm_token) {
+        try {
+          const pushResult = await sendPushNotification(user.fcm_token, pushTitle, pushBody, {
+            type: 'defaulter_reminder', reminder_number: String(rn), group_name: group_name || '',
+          });
+          if (pushResult === 'INVALID_TOKEN') {
+            await User.findByIdAndUpdate(user_id, { $unset: { fcm_token: 1 } });
+          } else if (pushResult) {
+            pushOk = true;
+            channelsUsed.push('push');
+          }
+        } catch (e) { logger.warn('Defaulter push failed:', e.message); }
+      }
+    }
+
+    // Create in-app notification
+    await Notification.create({
+      user_id, type: 'payment_reminder',
+      title: pushTitle.replace(/[⚠️🔴🔔]\s?/g, ''),
+      message: pushBody,
+      data: { reminder_number: rn, group_name, amount, days_overdue },
+      delivery_method: channelsUsed.length ? channelsUsed : ['push'],
+      sent_at: new Date(),
+    });
+
+    // Track the action
+    await DefaulterAction.create({
+      user_id, chit_group_id, payment_id: payment_id || undefined,
+      action_type: `reminder_${rn}`,
+      channels: channelsUsed.length ? channelsUsed : sendChannels,
+      message: msg,
+      details: { days_overdue, amount, group_name, sms_sent: smsOk, push_sent: pushOk },
+      performed_by: req.user._id || req.user.id,
+    });
+
+    // Auto-penalize credit on 3rd reminder
+    if (rn === 3) {
+      await User.findByIdAndUpdate(user_id, { $inc: { credit_score: -25 } });
+    }
+
+    res.json({
+      success: true,
+      message: `Reminder ${rn} sent to ${name}`,
+      channels_used: channelsUsed,
+      sms_sent: smsOk, push_sent: pushOk,
+    });
+  } catch (err) { next(err); }
+});
+
+// Bulk send reminders to filtered defaulters
+router.post('/defaulters/bulk-remind', adminOnly, async (req, res, next) => {
+  try {
+    const { targets, reminder_number, channels } = req.body;
+    if (!Array.isArray(targets) || !targets.length) return res.status(400).json({ success: false, message: 'No targets' });
+
+    const rn = Math.min(Math.max(parseInt(reminder_number) || 1, 1), 3);
+    let sent = 0, skipped = 0, failed = 0;
+
+    for (const t of targets) {
+      // Check if already sent
+      const existing = await DefaulterAction.findOne({
+        user_id: t.user_id, chit_group_id: t.chit_group_id, action_type: `reminder_${rn}`
+      });
+      if (existing) { skipped++; continue; }
+
+      // Check ordering
+      if (rn > 1) {
+        const prev = await DefaulterAction.findOne({
+          user_id: t.user_id, chit_group_id: t.chit_group_id, action_type: `reminder_${rn - 1}`
+        });
+        if (!prev) { skipped++; continue; }
+      }
+
+      const msgs = {
+        1: `Dear ${t.name}, your chit fund installment of Rs.${t.amount} for ${t.group_name} is overdue by ${t.days_overdue} days. Please pay immediately. - Assure ChitFunds`,
+        2: `URGENT: Dear ${t.name}, your payment of Rs.${t.amount} for ${t.group_name} is ${t.days_overdue} days overdue. 2nd reminder. Credit score will be affected. - Assure ChitFunds`,
+        3: `FINAL NOTICE: Dear ${t.name}, your overdue amount of Rs.${t.amount} for ${t.group_name} (${t.days_overdue} days) requires immediate payment. Legal action to follow. - Assure ChitFunds`,
+      };
+      const pushTitle = rn === 3 ? 'FINAL NOTICE - Payment Overdue' : rn === 2 ? 'URGENT - Payment Overdue' : 'Payment Reminder';
+      const pushBody = `Your payment of Rs.${t.amount} for ${t.group_name} is ${t.days_overdue} days overdue.`;
+
+      const channelsUsed = [];
+      const sendCh = channels || ['sms', 'push'];
+
+      if (sendCh.includes('sms') && t.mobile) {
+        try { await notificationService.sendSMS(t.mobile, msgs[rn]); channelsUsed.push('sms'); } catch (e) {}
+      }
+      if (sendCh.includes('push')) {
+        const user = await User.findById(t.user_id).select('fcm_token').lean();
+        if (user?.fcm_token) {
+          try {
+            const r = await sendPushNotification(user.fcm_token, pushTitle, pushBody, { type: 'defaulter_reminder', reminder_number: String(rn) });
+            if (r === 'INVALID_TOKEN') await User.findByIdAndUpdate(t.user_id, { $unset: { fcm_token: 1 } });
+            else if (r) channelsUsed.push('push');
+          } catch (e) {}
+        }
+      }
+
+      await Notification.create({
+        user_id: t.user_id, type: 'payment_reminder',
+        title: pushTitle, message: pushBody,
+        data: { reminder_number: rn, group_name: t.group_name, amount: t.amount },
+        delivery_method: channelsUsed.length ? channelsUsed : ['push'], sent_at: new Date(),
+      });
+
+      await DefaulterAction.create({
+        user_id: t.user_id, chit_group_id: t.chit_group_id,
+        action_type: `reminder_${rn}`, channels: channelsUsed.length ? channelsUsed : sendCh,
+        message: msgs[rn],
+        details: { days_overdue: t.days_overdue, amount: t.amount, group_name: t.group_name },
+        performed_by: req.user._id || req.user.id,
+      });
+
+      if (rn === 3) await User.findByIdAndUpdate(t.user_id, { $inc: { credit_score: -25 } });
+      sent++;
+    }
+
+    res.json({ success: true, message: `Reminder ${rn} sent to ${sent} members, ${skipped} skipped`, sent, skipped, failed });
   } catch (err) { next(err); }
 });
 
@@ -1294,29 +1493,86 @@ router.post('/defaulters/send-legal-notice', adminOnly, async (req, res, next) =
   try {
     const { defaulters: targets } = req.body;
     if (!Array.isArray(targets) || !targets.length) return res.status(400).json({ success: false, message: 'No defaulters selected' });
-    const notificationService = require('../services/notificationService');
-    let sent = 0;
+    let sent = 0, skipped = 0;
     for (const t of targets) {
-      if (!t.mobile) continue;
-      const msg = `LEGAL NOTICE: Dear ${t.name}, you are hereby notified that legal proceedings will be initiated against you for non-payment of ₹${t.amount} towards ${t.group_name} chit fund (overdue ${t.days_overdue} days). Please settle immediately. Ref: ${t.user_id || 'N/A'}. - Assure ChitFunds (Legal Dept)`;
-      await notificationService.sendSMS(t.mobile, msg).catch(() => {});
-      // Penalize credit score for legal action
+      // Check if legal notice already sent
+      const existing = await DefaulterAction.findOne({
+        user_id: t.user_id, chit_group_id: t.chit_group_id, action_type: 'legal_notice'
+      });
+      if (existing) { skipped++; continue; }
+
+      const msg = `LEGAL NOTICE: Dear ${t.name}, legal proceedings will be initiated against you for non-payment of Rs.${t.amount} towards ${t.group_name} chit fund (overdue ${t.days_overdue} days). Settle immediately. Ref: ${t.user_id || 'N/A'}. - Assure ChitFunds (Legal Dept)`;
+      const pushTitle = '⚖️ Legal Notice Issued';
+      const pushBody = `Legal proceedings initiated for non-payment of Rs.${t.amount} for ${t.group_name}. Please settle immediately.`;
+
+      const channelsUsed = [];
+      if (t.mobile) {
+        try { await notificationService.sendSMS(t.mobile, msg); channelsUsed.push('sms'); } catch (e) {}
+      }
       if (t.user_id) {
-        await User.findByIdAndUpdate(t.user_id, { $inc: { credit_score: -100 } }).catch(() => {});
+        const user = await User.findById(t.user_id).select('fcm_token').lean();
+        if (user?.fcm_token) {
+          try {
+            const r = await sendPushNotification(user.fcm_token, pushTitle, pushBody, { type: 'legal_notice' });
+            if (r === 'INVALID_TOKEN') await User.findByIdAndUpdate(t.user_id, { $unset: { fcm_token: 1 } });
+            else if (r) channelsUsed.push('push');
+          } catch (e) {}
+        }
+        // Penalize credit score
+        await User.findByIdAndUpdate(t.user_id, { $inc: { credit_score: -100 } });
+
+        await Notification.create({
+          user_id: t.user_id, type: 'payment_reminder',
+          title: 'Legal Notice Issued',
+          message: pushBody,
+          data: { type: 'legal_notice', group_name: t.group_name, amount: t.amount },
+          delivery_method: channelsUsed.length ? channelsUsed : ['push'], sent_at: new Date(),
+        });
+
+        await DefaulterAction.create({
+          user_id: t.user_id, chit_group_id: t.chit_group_id,
+          action_type: 'legal_notice', channels: channelsUsed.length ? channelsUsed : ['sms'],
+          message: msg,
+          details: { days_overdue: t.days_overdue, amount: t.amount, group_name: t.group_name, credit_deducted: 100 },
+          performed_by: req.user._id || req.user.id,
+        });
       }
       sent++;
     }
-    res.json({ success: true, message: `Legal notices sent to ${sent} members` });
+    res.json({ success: true, message: `Legal notices sent to ${sent} members${skipped ? `, ${skipped} already had notices` : ''}`, sent, skipped });
+  } catch (err) { next(err); }
+});
+
+// Get action history for a specific defaulter
+router.get('/defaulters/:userId/actions', adminOnly, async (req, res, next) => {
+  try {
+    const { chit_group_id } = req.query;
+    const filter = { user_id: req.params.userId };
+    if (chit_group_id) filter.chit_group_id = chit_group_id;
+    const actions = await DefaulterAction.find(filter)
+      .populate('performed_by', 'full_name')
+      .sort({ created_at: -1 }).lean();
+    res.json({ success: true, data: actions });
   } catch (err) { next(err); }
 });
 
 router.put('/defaulters/:userId/penalize', adminOnly, async (req, res, next) => {
   try {
-    const { credit_deduction } = req.body;
+    const { credit_deduction, chit_group_id } = req.body;
     const user = await User.findById(req.params.userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     user.credit_score = Math.max(0, (user.credit_score || 500) - (parseInt(credit_deduction) || 0));
     await user.save();
+
+    // Track penalty action
+    await DefaulterAction.create({
+      user_id: req.params.userId,
+      chit_group_id: chit_group_id || undefined,
+      action_type: 'penalty',
+      details: { credit_deduction: parseInt(credit_deduction), new_score: user.credit_score },
+      performed_by: req.user._id || req.user.id,
+    });
+
     res.json({ success: true, message: 'Credit score updated', data: { credit_score: user.credit_score } });
   } catch (err) { next(err); }
 });
@@ -1325,6 +1581,16 @@ router.put('/defaulters/:paymentId/waive-fee', adminOnly, async (req, res, next)
   try {
     const payment = await Payment.findByIdAndUpdate(req.params.paymentId, { late_fee: 0 }, { new: true });
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+
+    await DefaulterAction.create({
+      user_id: payment.user_id,
+      chit_group_id: payment.chit_group_id,
+      payment_id: payment._id,
+      action_type: 'waiver',
+      details: { waived_amount: payment.late_fee },
+      performed_by: req.user._id || req.user.id,
+    });
+
     res.json({ success: true, message: 'Late fee waived', data: payment });
   } catch (err) { next(err); }
 });

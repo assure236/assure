@@ -17,11 +17,12 @@ const WalletTransaction = require('./WalletTransaction');
 const Account = require('./Account');
 const JournalEntry = require('./JournalEntry');
 const FiscalYear = require('./FiscalYear');
+const DefaulterAction = require('./DefaulterAction');
 
 module.exports = {
   mongoose,
   User, ChitGroup, ChitMember, Auction, Bid, Payment,
   Document, Referral, Notification, AppSetting, Branch,
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
-  Account, JournalEntry, FiscalYear,
+  Account, JournalEntry, FiscalYear, DefaulterAction,
 };
