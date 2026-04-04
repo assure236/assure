@@ -62,11 +62,13 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
     return response;
   } catch (err) {
     logger.error(`Push send failed for token ${fcmToken.substring(0, 10)}...: ${err.message}`);
-    // If token is invalid, return special marker so caller can clean up
-    if (
-      err.code === 'messaging/invalid-registration-token' ||
-      err.code === 'messaging/registration-token-not-registered'
-    ) {
+    // If token is invalid/stale, return special marker so caller can clean up
+    const staleTokenCodes = [
+      'messaging/invalid-registration-token',
+      'messaging/registration-token-not-registered',
+      'messaging/mismatched-credential',
+    ];
+    if (staleTokenCodes.includes(err.code)) {
       return 'INVALID_TOKEN';
     }
     return null;
@@ -108,17 +110,22 @@ const sendPushToMultiple = async (fcmTokens, title, body, data = {}) => {
     });
 
     const invalidTokens = [];
+    const staleTokenCodes = [
+      'messaging/invalid-registration-token',
+      'messaging/registration-token-not-registered',
+      'messaging/mismatched-credential',
+    ];
     response.responses.forEach((resp, idx) => {
-      if (
-        !resp.success &&
-        (resp.error?.code === 'messaging/invalid-registration-token' ||
-          resp.error?.code === 'messaging/registration-token-not-registered')
-      ) {
-        invalidTokens.push(fcmTokens[idx]);
+      if (!resp.success) {
+        const code = resp.error?.code || 'unknown';
+        logger.warn(`Push failed for token ${fcmTokens[idx].substring(0, 10)}...: ${code}`);
+        if (staleTokenCodes.includes(code)) {
+          invalidTokens.push(fcmTokens[idx]);
+        }
       }
     });
 
-    logger.info(`Push multicast: ${response.successCount} sent, ${response.failureCount} failed`);
+    logger.info(`Push multicast: ${response.successCount} sent, ${response.failureCount} failed, ${invalidTokens.length} stale tokens cleaned`);
     return {
       successCount: response.successCount,
       failureCount: response.failureCount,
