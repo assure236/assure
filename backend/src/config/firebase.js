@@ -53,7 +53,9 @@ const sendPushNotification = async (fcmToken, title, body, data = {}) => {
         notification: {
           channelId: 'assure_chitfunds',
           sound: 'default',
+          tag: data.type ? `${data.type}_${Date.now()}` : undefined,
         },
+        collapseKey: data.type || 'general',
       },
     };
 

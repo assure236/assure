@@ -469,7 +469,7 @@ class _KycProfileBanner extends StatelessWidget {
                       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                 ),
                 TextButton(
-                  onPressed: () => switchTab(4),
+                  onPressed: () => context.push('/kyc'),
                   style: TextButton.styleFrom(
                       foregroundColor: const Color(0xFFD4AF37),
                       padding: EdgeInsets.zero,
@@ -484,7 +484,7 @@ class _KycProfileBanner extends StatelessWidget {
             const Divider(height: 16),
           if (profileIncomplete)
             InkWell(
-              onTap: () => switchTab(4),
+              onTap: () => context.push('/profile'),
               child: Row(
                 children: [
                   const Icon(Icons.person_outline_rounded,
@@ -563,15 +563,7 @@ class _StatsRow extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: GestureDetector(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Loan feature coming soon!'),
-                    behavior: SnackBarBehavior.floating,
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
+              onTap: () => context.push('/apply-loan'),
               child: _StatCard(
                 label: 'Loan',
                 value: 'Apply',

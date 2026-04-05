@@ -66,7 +66,7 @@ export default function Support() {
       const payload = {};
       if (updateStatus) payload.status = updateStatus;
       if (resolution) payload.resolution = resolution;
-      await axios.put(`${process.env.REACT_APP_API_URL}/admin/support/tickets/${updateDialog.ticket.id}`, payload);
+      await axios.put(`${process.env.REACT_APP_API_URL}/admin/support/tickets/${updateDialog.ticket._id}`, payload);
       setSuccess('Ticket updated');
       setUpdateDialog({ open: false, ticket: null });
       setResolution('');

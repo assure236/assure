@@ -31,7 +31,7 @@ function generateCodeChallenge(verifier) {
 exports.getAuthUrl = async (req, res, next) => {
   try {
     if (!DL_CLIENT_ID || DL_CLIENT_ID.startsWith('your_')) {
-      return res.status(503).json({ success: false, message: 'DigiLocker integration not configured yet. Please contact admin.' });
+      return res.status(503).json({ success: false, message: 'DigiLocker verification will be available soon. Please verify your identity using PAN and Aadhaar upload.' });
     }
 
     const userId = String(req.user._id || req.user.id);

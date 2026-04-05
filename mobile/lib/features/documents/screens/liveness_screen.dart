@@ -153,11 +153,22 @@ class _LivenessScreenState extends State<LivenessScreen> {
 
   Future<void> _captureAndFinish() async {
     try {
-      await _camCtrl?.stopImageStream();
+      // Stop the image stream first, then wait for it to fully stop
+      try {
+        await _camCtrl?.stopImageStream();
+      } catch (_) {}
+      // Small delay to allow the camera to stabilize after stopping the stream
+      await Future.delayed(const Duration(milliseconds: 300));
       final file = await _camCtrl?.takePicture();
       _capturedPath = file?.path;
+      debugPrint('Captured selfie: $_capturedPath');
     } catch (e) {
       debugPrint('Capture error: $e');
+      // Fallback: try capturing without stopping stream
+      try {
+        final file = await _camCtrl?.takePicture();
+        _capturedPath = file?.path;
+      } catch (_) {}
     }
     await Future.delayed(const Duration(milliseconds: 800));
     if (mounted) Navigator.pop(context, _capturedPath);
@@ -227,21 +238,24 @@ class _LivenessScreenState extends State<LivenessScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                // Camera preview in an oval
+                // Camera preview in an oval (mirrored for front camera)
                 Expanded(
                   child: Center(
                     child: SizedBox(
                       width: 280,
                       height: 360,
                       child: ClipOval(
-                        child: OverflowBox(
-                          alignment: Alignment.center,
-                          child: FittedBox(
-                            fit: BoxFit.cover,
-                            child: SizedBox(
-                              width: _camCtrl!.value.previewSize!.height,
-                              height: _camCtrl!.value.previewSize!.width,
-                              child: CameraPreview(_camCtrl!),
+                        child: Transform.flip(
+                          flipX: true,
+                          child: OverflowBox(
+                            alignment: Alignment.center,
+                            child: FittedBox(
+                              fit: BoxFit.cover,
+                              child: SizedBox(
+                                width: _camCtrl!.value.previewSize!.height,
+                                height: _camCtrl!.value.previewSize!.width,
+                                child: CameraPreview(_camCtrl!),
+                              ),
                             ),
                           ),
                         ),

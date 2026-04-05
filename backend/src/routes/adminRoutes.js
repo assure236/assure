@@ -256,8 +256,9 @@ router.get('/users/:id', adminOnly, async (req, res, next) => {
 
 router.put('/users/:id', adminOnly, async (req, res, next) => {
   try {
-    const { full_name, email, mobile, role, is_active, kyc_status, kyc_rejection_reason } = req.body;
+    const { full_name, email, mobile, role, is_active, kyc_status, kyc_rejection_reason, clear_fields } = req.body;
     const update = {};
+    const unset = {};
     if (full_name !== undefined) update.full_name = full_name;
     if (email !== undefined) update.email = email;
     if (mobile !== undefined) update.mobile = mobile;
@@ -266,7 +267,16 @@ router.put('/users/:id', adminOnly, async (req, res, next) => {
     if (kyc_status !== undefined) update.kyc_status = kyc_status;
     if (kyc_rejection_reason !== undefined) update.kyc_rejection_reason = kyc_rejection_reason;
     if (kyc_status === 'verified') update.kyc_verified_at = new Date();
-    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true }).select('-password_hash');
+    // Allow admin to clear specific fields (e.g. pan_number, aadhaar_number, email)
+    if (Array.isArray(clear_fields)) {
+      const allowed = ['pan_number', 'aadhaar_number', 'email', 'address', 'city', 'state', 'pincode', 'nominee_name', 'nominee_relation', 'nominee_phone', 'bank_account_number', 'bank_ifsc', 'bank_name'];
+      for (const f of clear_fields) {
+        if (allowed.includes(f)) unset[f] = 1;
+      }
+    }
+    const ops = { $set: update };
+    if (Object.keys(unset).length > 0) ops.$unset = unset;
+    const user = await User.findByIdAndUpdate(req.params.id, ops, { new: true }).select('-password_hash');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     // Notify user of KYC status change
     if (kyc_status === 'verified' && user.mobile) {

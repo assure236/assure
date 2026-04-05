@@ -12,6 +12,7 @@ import {
   PersonOff as BanIcon, PersonAdd as UnbanIcon,
   VerifiedUser as KycIcon, Payment as PaymentIcon,
   Group as GroupIcon, Description as DocIcon,
+  DeleteOutline as ClearIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -203,20 +204,36 @@ const Users = () => {
                   {[
                     { label: 'Full Name', value: detailData.full_name },
                     { label: 'Phone', value: detailData.mobile },
-                    { label: 'Email', value: detailData.email || '—' },
+                    { label: 'Email', value: detailData.email || '—', field: 'email' },
                     { label: 'KYC Status', value: detailData.kyc_status },
                     { label: 'Credit Score', value: detailData.credit_score ?? '—' },
                     { label: 'Referral Code', value: detailData.referral_code || '—' },
                     { label: 'Status', value: detailData.is_active ? 'Active' : 'Inactive' },
-                    { label: 'PAN', value: detailData.pan_number || '—' },
-                    { label: 'Aadhaar', value: detailData.aadhaar_number ? '****' + detailData.aadhaar_number.slice(-4) : '—' },
-                    { label: 'City', value: detailData.city || '—' },
-                    { label: 'State', value: detailData.state || '—' },
+                    { label: 'PAN', value: detailData.pan_number || '—', field: 'pan_number' },
+                    { label: 'Aadhaar', value: detailData.aadhaar_number ? '****' + detailData.aadhaar_number.slice(-4) : '—', field: 'aadhaar_number' },
+                    { label: 'City', value: detailData.city || '—', field: 'city' },
+                    { label: 'State', value: detailData.state || '—', field: 'state' },
                     { label: 'Joined', value: detailData.created_at ? new Date(detailData.created_at).toLocaleDateString('en-IN') : '—' },
-                  ].map(({ label, value }) => (
+                  ].map(({ label, value, field }) => (
                     <Grid item xs={6} key={label}>
-                      <Typography variant="caption" color="text.secondary">{label}</Typography>
-                      <Typography variant="body2" fontWeight={500} sx={{ textTransform: 'capitalize' }}>{value}</Typography>
+                      <Box display="flex" alignItems="center" justifyContent="space-between">
+                        <Box>
+                          <Typography variant="caption" color="text.secondary">{label}</Typography>
+                          <Typography variant="body2" fontWeight={500} sx={{ textTransform: 'capitalize' }}>{value}</Typography>
+                        </Box>
+                        {field && value !== '—' && (
+                          <Tooltip title={`Clear ${label}`}>
+                            <IconButton size="small" color="error" onClick={async () => {
+                              if (!window.confirm(`Clear ${label} for this user?`)) return;
+                              try {
+                                await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${selectedUser._id || selectedUser.id}`, { clear_fields: [field] });
+                                toast.success(`${label} cleared`);
+                                openDetail(selectedUser);
+                              } catch (e) { toast.error('Failed to clear field'); }
+                            }}><ClearIcon fontSize="small" /></IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </Grid>
                   ))}
                 </Grid>

@@ -74,21 +74,7 @@ router.get('/my-loans', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// @route   GET /api/v1/loans/:id
-// @desc    Get single loan details
-router.get('/:id', async (req, res, next) => {
-  try {
-    const userId = req.user._id || req.user.id;
-    const loan = await Loan.findOne({ _id: req.params.id, user_id: userId })
-      .populate('chit_group_id', 'group_name chit_value')
-      .populate('reviewed_by', 'full_name')
-      .populate('approved_by', 'full_name');
-    if (!loan) return res.status(404).json({ success: false, message: 'Loan not found' });
-    res.json({ success: true, data: loan });
-  } catch (err) { next(err); }
-});
-
-// ─── Admin Routes ────────────────────────────────────────────────────────────
+// ─── Admin Routes (MUST be before /:id to avoid route conflict) ──────────────
 
 // @route   GET /api/v1/loans/admin/all
 // @desc    Get all loans (admin)
@@ -96,7 +82,7 @@ router.get('/admin/all', authorizeRoles('admin', 'super_admin'), async (req, res
   try {
     const { status, page = 1, limit = 20 } = req.query;
     const filter = {};
-    if (status) filter.status = status;
+    if (status && status !== 'all') filter.status = status;
 
     const total = await Loan.countDocuments(filter);
     const loans = await Loan.find(filter)
@@ -106,7 +92,7 @@ router.get('/admin/all', authorizeRoles('admin', 'super_admin'), async (req, res
       .skip((page - 1) * limit)
       .limit(Number(limit));
 
-    res.json({ success: true, data: loans, total, page: Number(page), pages: Math.ceil(total / limit) });
+    res.json({ success: true, data: { loans, total, page: Number(page), pages: Math.ceil(total / limit) } });
   } catch (err) { next(err); }
 });
 
@@ -190,6 +176,20 @@ router.put('/admin/:id/review', authorizeRoles('admin', 'super_admin'), async (r
 
     await loan.save();
     res.json({ success: true, message: `Loan ${action}d successfully`, data: loan });
+  } catch (err) { next(err); }
+});
+
+// @route   GET /api/v1/loans/:id  (MUST be after /admin/* routes)
+// @desc    Get single loan details
+router.get('/:id', async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const loan = await Loan.findOne({ _id: req.params.id, user_id: userId })
+      .populate('chit_group_id', 'group_name chit_value')
+      .populate('reviewed_by', 'full_name')
+      .populate('approved_by', 'full_name');
+    if (!loan) return res.status(404).json({ success: false, message: 'Loan not found' });
+    res.json({ success: true, data: loan });
   } catch (err) { next(err); }
 });
 

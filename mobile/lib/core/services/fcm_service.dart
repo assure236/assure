@@ -137,7 +137,7 @@ class FcmService {
     );
 
     _localNotifications.show(
-      message.hashCode,
+      notification.hashCode,
       notification.title,
       notification.body,
       const NotificationDetails(android: androidDetails),

@@ -187,9 +187,9 @@ exports.verifyAadhaar = async (req, res, next) => {
 };
 
 exports.initiateDigiLocker = async (req, res) => {
-  res.status(503).json({ success: false, message: 'DigiLocker integration not configured. Please set DIGILOCKER_CLIENT_ID and DIGILOCKER_CLIENT_SECRET in .env' });
+  res.status(503).json({ success: false, message: 'DigiLocker verification will be available soon. Please verify your identity using PAN and Aadhaar upload.' });
 };
 
 exports.digiLockerCallback = async (req, res) => {
-  res.status(503).json({ success: false, message: 'DigiLocker integration not configured.' });
+  res.status(503).json({ success: false, message: 'DigiLocker verification will be available soon.' });
 };
