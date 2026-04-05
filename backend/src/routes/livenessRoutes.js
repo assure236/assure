@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const FormData = require('form-data');
 const { authMiddleware } = require('../middleware/auth');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -19,15 +18,14 @@ router.post('/check', authMiddleware, upload.single('photo'), async (req, res) =
       return res.status(500).json({ success: false, message: 'Liveness service not configured' });
     }
 
+    // Use Node 20 native FormData + Blob (npm form-data doesn't work with native fetch)
     const form = new FormData();
-    form.append('photo', req.file.buffer, {
-      filename: req.file.originalname || 'photo.jpg',
-      contentType: req.file.mimetype || 'image/jpeg',
-    });
+    const blob = new Blob([req.file.buffer], { type: req.file.mimetype || 'image/jpeg' });
+    form.append('photo', blob, req.file.originalname || 'photo.jpg');
 
     const response = await fetch(`${LUXAND_API}/photo/liveness`, {
       method: 'POST',
-      headers: { token: LUXAND_TOKEN, ...form.getHeaders() },
+      headers: { token: LUXAND_TOKEN },
       body: form,
     });
 
