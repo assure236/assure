@@ -1,5 +1,28 @@
 const { Document } = require('../models');
 const { uploadToGridFS, deleteFromGridFS } = require('../utils/gridfs');
+const sharp = require('sharp');
+
+// Target sizes per document type (bytes)
+const DOC_SIZE_LIMITS = {
+  aadhaar_card: 500 * 1024,     // 500 KB
+  pan_card: 200 * 1024,         // 200 KB
+  cancelled_cheque: 400 * 1024, // 400 KB
+  selfie_photo: 300 * 1024,     // 300 KB
+};
+
+async function compressImage(buffer, targetSize) {
+  let quality = 85;
+  let result = buffer;
+  // Resize to max 1200px and progressively lower quality until within target
+  while (result.length > targetSize && quality > 15) {
+    result = await sharp(buffer)
+      .resize(1200, 1200, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer();
+    quality -= 10;
+  }
+  return result;
+}
 
 exports.getMyDocuments = async (req, res, next) => {
   try {
@@ -30,7 +53,16 @@ exports.uploadDocument = async (req, res, next) => {
       await Document.findByIdAndDelete(existingDoc._id);
     }
 
-    const { fileId, fileUrl } = await uploadToGridFS(req.file.buffer, req.file.originalname, req.file.mimetype, {
+    // Auto-compress image to fit within target size
+    const targetSize = DOC_SIZE_LIMITS[document_type] || 500 * 1024;
+    let fileBuffer = req.file.buffer;
+    let fileMime = req.file.mimetype;
+    if (fileBuffer.length > targetSize) {
+      fileBuffer = await compressImage(fileBuffer, targetSize);
+      fileMime = 'image/jpeg';
+    }
+
+    const { fileId, fileUrl } = await uploadToGridFS(fileBuffer, req.file.originalname, fileMime, {
       userId: userId.toString(), category: 'documents', documentType: document_type,
     });
 
@@ -42,8 +74,8 @@ exports.uploadDocument = async (req, res, next) => {
       file_name: req.file.originalname,
       file_url: fileUrl,
       gridfs_id: fileId,
-      file_size: req.file.size,
-      mime_type: req.file.mimetype,
+      file_size: fileBuffer.length,
+      mime_type: fileMime,
     });
     res.status(201).json({ success: true, message: 'Document uploaded', data: doc });
   } catch (err) { next(err); }

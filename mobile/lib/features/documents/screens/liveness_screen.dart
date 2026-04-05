@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 
-/// Liveness verification using Luxand Cloud API.
-/// Flow: Capture face → API liveness check → Smile & capture → API check → Verified.
-/// Returns the captured image path on success, or null if cancelled.
+/// Liveness verification using Luxand Cloud API + ML Kit smile auto-detection.
+/// Flow: Tap capture → Luxand liveness → auto-detect smile → auto-capture → Luxand verify → done.
 class LivenessScreen extends StatefulWidget {
   const LivenessScreen({super.key});
 
@@ -20,12 +20,18 @@ enum _Step { ready, checking, smile, checkingSmile, done }
 
 class _LivenessScreenState extends State<LivenessScreen> {
   CameraController? _camCtrl;
+  CameraDescription? _frontCamera;
   bool _disposed = false;
   _Step _currentStep = _Step.ready;
   String _instruction = 'Position your face in the circle\nand tap Capture';
   double _progress = 0.0;
   String? _capturedPath;
   String? _errorMsg;
+
+  // Smile auto-detection
+  FaceDetector? _faceDetector;
+  bool _isProcessingFrame = false;
+  bool _isStreaming = false;
 
   @override
   void initState() {
@@ -36,11 +42,11 @@ class _LivenessScreenState extends State<LivenessScreen> {
   Future<void> _initCamera() async {
     try {
       final cameras = await availableCameras();
-      final front = cameras.firstWhere(
+      _frontCamera = cameras.firstWhere(
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
-      _camCtrl = CameraController(front, ResolutionPreset.high,
+      _camCtrl = CameraController(_frontCamera!, ResolutionPreset.high,
           enableAudio: false);
       await _camCtrl!.initialize();
       if (!_disposed && mounted) setState(() {});
@@ -50,97 +56,188 @@ class _LivenessScreenState extends State<LivenessScreen> {
     }
   }
 
+  // --- Step 1: User taps Capture for face liveness ---
   Future<void> _onCapture() async {
     if (_camCtrl == null || !_camCtrl!.value.isInitialized) return;
+    if (_currentStep != _Step.ready) return;
 
-    if (_currentStep == _Step.ready) {
-      // Step 1: Capture face photo → check liveness
-      setState(() {
-        _currentStep = _Step.checking;
-        _instruction = 'Checking liveness...';
-        _errorMsg = null;
-      });
-      await _captureAndCheck(isSmileStep: false);
-    } else if (_currentStep == _Step.smile) {
-      // Step 2: Capture smile photo → check liveness again
-      setState(() {
-        _currentStep = _Step.checkingSmile;
-        _instruction = 'Verifying smile...';
-        _errorMsg = null;
-      });
-      await _captureAndCheck(isSmileStep: true);
-    }
-  }
+    setState(() {
+      _currentStep = _Step.checking;
+      _instruction = 'Checking liveness...';
+      _errorMsg = null;
+    });
 
-  Future<void> _captureAndCheck({required bool isSmileStep}) async {
     try {
       final file = await _camCtrl!.takePicture();
       final path = file.path;
 
-      // Send to backend → Luxand liveness API
       final result = await ApiService.uploadFile(
-        '/liveness/check',
-        path,
-        fieldName: 'photo',
-      );
-
+        '/liveness/check', path, fieldName: 'photo');
       if (!mounted) return;
 
-      debugPrint('Luxand result: $result');
+      debugPrint('Luxand face result: $result');
       final isLive = result['live'] == true;
 
       if (!isLive) {
-        // Failed — show error, let user retry
-        final score = result['score'];
         final msg = result['message'] ?? 'Not a real face detected';
         setState(() {
-          _currentStep = isSmileStep ? _Step.smile : _Step.ready;
-          _errorMsg = score != null ? '$msg (score: $score)' : msg;
-          _instruction = isSmileStep
-              ? 'Smile and tap Capture again'
-              : 'Position your face and tap Capture';
+          _currentStep = _Step.ready;
+          _errorMsg = msg;
+          _instruction = 'Position your face and tap Capture';
         });
-        // Clean up failed photo
         try { await File(path).delete(); } catch (_) {}
         return;
       }
 
-      if (!isSmileStep) {
-        // Face liveness passed → save path, move to smile step
-        _capturedPath = path;
-        setState(() {
-          _currentStep = _Step.smile;
-          _instruction = 'Great! Now smile 😊\nand tap Capture';
-          _progress = 0.5;
-          _errorMsg = null;
-        });
-      } else {
-        // Smile liveness also passed → verified!
-        // Use the smile photo as the final selfie
-        // Delete the first capture, keep the smiling one
-        if (_capturedPath != null && _capturedPath != path) {
-          try { await File(_capturedPath!).delete(); } catch (_) {}
-        }
-        _capturedPath = path;
-        setState(() {
-          _currentStep = _Step.done;
-          _instruction = 'Verified! ✅';
-          _progress = 1.0;
-          _errorMsg = null;
-        });
-        await Future.delayed(const Duration(milliseconds: 800));
-        if (mounted) Navigator.pop(context, _capturedPath);
-      }
+      // Face is real → save path, start smile detection
+      _capturedPath = path;
+      setState(() {
+        _currentStep = _Step.smile;
+        _instruction = 'Now smile! 😊';
+        _progress = 0.5;
+        _errorMsg = null;
+      });
+      _startSmileDetection();
     } catch (e) {
       debugPrint('Liveness check error: $e');
       if (mounted) {
         setState(() {
-          _currentStep = isSmileStep ? _Step.smile : _Step.ready;
+          _currentStep = _Step.ready;
           _errorMsg = 'Connection error. Please try again.';
-          _instruction = isSmileStep
-              ? 'Smile and tap Capture again'
-              : 'Position your face and tap Capture';
+          _instruction = 'Position your face and tap Capture';
         });
+      }
+    }
+  }
+
+  // --- Step 2: Auto-detect smile via ML Kit image stream ---
+  void _startSmileDetection() {
+    if (_disposed || _camCtrl == null || !_camCtrl!.value.isInitialized) return;
+
+    _faceDetector ??= FaceDetector(options: FaceDetectorOptions(
+      enableClassification: true,
+      performanceMode: FaceDetectorMode.fast,
+    ));
+
+    _isProcessingFrame = false;
+    _isStreaming = true;
+
+    _camCtrl!.startImageStream((CameraImage image) {
+      if (_isProcessingFrame || _currentStep != _Step.smile || _disposed) return;
+      _isProcessingFrame = true;
+      _processSmileFrame(image);
+    });
+  }
+
+  Future<void> _stopStream() async {
+    if (_isStreaming && _camCtrl != null) {
+      try { await _camCtrl!.stopImageStream(); } catch (_) {}
+      _isStreaming = false;
+    }
+  }
+
+  Future<void> _processSmileFrame(CameraImage image) async {
+    try {
+      final inputImage = _buildInputImage(image);
+      if (inputImage == null) { _isProcessingFrame = false; return; }
+
+      final faces = await _faceDetector!.processImage(inputImage);
+      if (_disposed || _currentStep != _Step.smile) {
+        _isProcessingFrame = false;
+        return;
+      }
+
+      if (faces.isNotEmpty && (faces.first.smilingProbability ?? 0) > 0.5) {
+        // Smile detected → stop stream, capture, verify
+        await _stopStream();
+        if (!mounted) return;
+
+        setState(() {
+          _currentStep = _Step.checkingSmile;
+          _instruction = 'Smile detected! Verifying...';
+          _errorMsg = null;
+        });
+
+        // Brief delay so camera settles after stopping stream
+        await Future.delayed(const Duration(milliseconds: 300));
+        await _captureSmileAndVerify();
+        return; // don't reset _isProcessingFrame
+      }
+    } catch (e) {
+      debugPrint('Smile frame error: $e');
+    }
+    _isProcessingFrame = false;
+  }
+
+  InputImage? _buildInputImage(CameraImage image) {
+    if (_frontCamera == null) return null;
+    final rotation = InputImageRotationValue.fromRawValue(
+        _frontCamera!.sensorOrientation);
+    if (rotation == null) return null;
+
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (format == null) return null;
+
+    final plane = image.planes.first;
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
+  }
+
+  // --- Smile capture + Luxand verification ---
+  Future<void> _captureSmileAndVerify() async {
+    try {
+      final file = await _camCtrl!.takePicture();
+      final path = file.path;
+
+      final result = await ApiService.uploadFile(
+        '/liveness/check', path, fieldName: 'photo');
+      if (!mounted) return;
+
+      debugPrint('Luxand smile result: $result');
+      final isLive = result['live'] == true;
+
+      if (!isLive) {
+        // Rare: face was real before but not now. Restart smile detection.
+        setState(() {
+          _currentStep = _Step.smile;
+          _errorMsg = result['message'] ?? 'Verification failed, keep smiling';
+          _instruction = 'Smile again! 😊';
+        });
+        try { await File(path).delete(); } catch (_) {}
+        _startSmileDetection();
+        return;
+      }
+
+      // Success! Delete first capture, keep smiling selfie
+      if (_capturedPath != null && _capturedPath != path) {
+        try { await File(_capturedPath!).delete(); } catch (_) {}
+      }
+      _capturedPath = path;
+
+      setState(() {
+        _currentStep = _Step.done;
+        _instruction = 'Verified! ✅';
+        _progress = 1.0;
+        _errorMsg = null;
+      });
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (mounted) Navigator.pop(context, _capturedPath);
+    } catch (e) {
+      debugPrint('Smile verify error: $e');
+      if (mounted) {
+        setState(() {
+          _currentStep = _Step.smile;
+          _errorMsg = 'Connection error. Keep smiling!';
+          _instruction = 'Smile again! 😊';
+        });
+        _startSmileDetection();
       }
     }
   }
@@ -148,15 +245,19 @@ class _LivenessScreenState extends State<LivenessScreen> {
   @override
   void dispose() {
     _disposed = true;
+    _stopStream();
+    _faceDetector?.close();
     _camCtrl?.dispose();
     super.dispose();
   }
 
-  bool get _canCapture =>
-      _currentStep == _Step.ready || _currentStep == _Step.smile;
-
   @override
   Widget build(BuildContext context) {
+    final bool showCapture = _currentStep == _Step.ready;
+    final bool showSpinner = _currentStep == _Step.checking ||
+        _currentStep == _Step.checkingSmile;
+    // Smile step: no button needed — auto-detection in progress
+
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -231,8 +332,7 @@ class _LivenessScreenState extends State<LivenessScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                // Capture button or loading spinner
-                if (_currentStep == _Step.checking || _currentStep == _Step.checkingSmile)
+                if (showSpinner)
                   const Padding(
                     padding: EdgeInsets.only(bottom: 30),
                     child: SizedBox(
@@ -241,7 +341,7 @@ class _LivenessScreenState extends State<LivenessScreen> {
                           color: Colors.white, strokeWidth: 3),
                     ),
                   )
-                else if (_canCapture)
+                else if (showCapture)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 30),
                     child: GestureDetector(
@@ -263,6 +363,12 @@ class _LivenessScreenState extends State<LivenessScreen> {
                         ),
                       ),
                     ),
+                  )
+                else if (_currentStep == _Step.smile)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 38),
+                    child: Text('Detecting smile...',
+                        style: TextStyle(color: Colors.white54, fontSize: 13)),
                   )
                 else
                   const SizedBox(height: 100),
