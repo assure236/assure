@@ -35,7 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return PopScope(
       canPop: _currentIndex == 0,
-      onPopInvoked: (didPop) {
+      onPopInvokedWithResult: (didPop, _) {
         if (!didPop) setState(() => _currentIndex = 0);
       },
       child: Listener(
@@ -92,6 +92,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         _DraggableFab(onTap: () => context.push('/chatbot')),
         ],
+        ),
       ),
     );
   }
