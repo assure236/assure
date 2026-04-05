@@ -30,8 +30,10 @@ router.post('/check', authMiddleware, upload.single('photo'), async (req, res) =
     });
 
     const data = await response.json();
+    console.log('Luxand liveness response:', JSON.stringify(data));
 
-    // Luxand returns: { status: "success", liveness: "real" | "spoof" } or { status: "failure", message: "..." }
+    // Luxand returns: { status: "success", liveness: "real" | "spoof", score: 0.xx }
+    // or { status: "failure", message: "..." }
     if (data.status === 'failure') {
       return res.json({ success: false, live: false, message: data.message || 'No face detected' });
     }
@@ -41,6 +43,7 @@ router.post('/check', authMiddleware, upload.single('photo'), async (req, res) =
       success: true,
       live: isLive,
       liveness: data.liveness,
+      score: data.score,
       message: isLive ? 'Real face detected' : 'Spoof detected — use a real face',
     });
   } catch (err) {

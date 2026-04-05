@@ -40,7 +40,7 @@ class _LivenessScreenState extends State<LivenessScreen> {
         (c) => c.lensDirection == CameraLensDirection.front,
         orElse: () => cameras.first,
       );
-      _camCtrl = CameraController(front, ResolutionPreset.medium,
+      _camCtrl = CameraController(front, ResolutionPreset.high,
           enableAudio: false);
       await _camCtrl!.initialize();
       if (!_disposed && mounted) setState(() {});
@@ -86,13 +86,16 @@ class _LivenessScreenState extends State<LivenessScreen> {
 
       if (!mounted) return;
 
+      debugPrint('Luxand result: $result');
       final isLive = result['live'] == true;
 
       if (!isLive) {
         // Failed — show error, let user retry
+        final score = result['score'];
+        final msg = result['message'] ?? 'Not a real face detected';
         setState(() {
           _currentStep = isSmileStep ? _Step.smile : _Step.ready;
-          _errorMsg = result['message'] ?? 'Not a real face detected';
+          _errorMsg = score != null ? '$msg (score: $score)' : msg;
           _instruction = isSmileStep
               ? 'Smile and tap Capture again'
               : 'Position your face and tap Capture';
