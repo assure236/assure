@@ -8,6 +8,7 @@ router.use(authMiddleware);
 router.get('/', notificationController.getMyNotifications);
 router.get('/unread-count', notificationController.getUnreadCount);
 router.put('/:id/mark-read', notificationController.markAsRead);
+router.put('/:id/mark-unread', notificationController.markAsUnread);
 router.put('/mark-all-read', notificationController.markAllAsRead);
 router.delete('/:id', notificationController.deleteNotification);
 router.post('/register-token', notificationController.registerFcmToken);

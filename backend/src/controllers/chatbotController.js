@@ -24,9 +24,29 @@ const INTENTS = {
 
 function detectIntent(message) {
   const msg = message.trim();
+  // Exact regex match first
   for (const [intent, pattern] of Object.entries(INTENTS)) {
     const match = msg.match(pattern);
     if (match) return { intent, match };
+  }
+  // Fuzzy keyword matching as fallback
+  const lower = msg.toLowerCase();
+  const fuzzyMap = {
+    payment_info: ['pay', 'payment', 'due', 'installment', 'emi', 'pending'],
+    auction_info: ['auction', 'bid', 'bidding'],
+    profile_info: ['profile', 'account', 'details', 'member'],
+    kyc_info: ['kyc', 'verification', 'document', 'aadhaar', 'pan', 'identity'],
+    wallet_info: ['wallet', 'balance', 'money'],
+    referral_info: ['refer', 'invite', 'bonus', 'friend'],
+    support_info: ['support', 'ticket', 'complaint', 'issue', 'problem'],
+    my_chits: ['my chit', 'my group', 'enrolled'],
+    list_chits: ['available', 'list', 'all chit', 'all group', 'show chit'],
+    help: ['help', 'menu', 'options', 'what can'],
+  };
+  for (const [intent, keywords] of Object.entries(fuzzyMap)) {
+    if (keywords.some(k => lower.includes(k))) {
+      return { intent, match: null };
+    }
   }
   return { intent: 'unknown', match: null };
 }
@@ -54,7 +74,10 @@ exports.chat = async (req, res, next) => {
     switch (intent) {
       case 'greeting': {
         const user = await User.findById(userId).select('full_name');
-        reply = `Hello ${user?.full_name || 'there'}! 👋 I'm Assure Bot. How can I help you today?\n\nHere's what I can do:\n• 🔍 "Show chits for 20 months" or "5 lakh chit groups"\n• 💰 "My payments" or "My wallet balance"\n• 🔨 "Next auction" or "Live auctions"\n• 👤 "My profile" or "My KYC status"\n• 🎁 "My referral code" or "Referral bonus"\n• 📊 "Calculate EMI for 5 lakh"\n• 🎓 "How do chit funds work?"\n• 📋 "Help" for full feature list`;
+        const name = user?.full_name?.split(' ')[0] || 'there';
+        const hour = new Date().getHours();
+        const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+        reply = `${greet}, ${name}! 😊 Welcome to Assure ChitFunds.\nI'm here to assist you with anything you need.\n\nHere's what I can help with:\n• 🔍 Find chit groups — "Show chits for 20 months"\n• 💰 Payments — "My payments" or "Pending dues"\n• 🔨 Auctions — "Next auction" or "Live auctions"\n• 👤 Account — "My profile" or "KYC status"\n• 🎁 Referrals — "My referral code"\n• 📋 "Help" for the full list\n\nJust type what you need!`;
         break;
       }
 
@@ -418,7 +441,7 @@ exports.chat = async (req, res, next) => {
         }
 
         if (!reply) {
-          reply = `I'm not sure how to help with that. Try asking me:\n• "Show chits for 20 months"\n• "Available chit groups"\n• "My pending payments"\n• "Next auction"`;
+          reply = `I'm not sure I understood that. Here are some things you can try:\n• "Show chits for 20 months"\n• "My pending payments"\n• "Next auction"\n\n💬 If you need help from a real person, type **"raise ticket"** or go to **Support Chat** and our team will assist you within 24 hours.`;
         }
         break;
       }

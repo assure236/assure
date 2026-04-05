@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
@@ -48,8 +49,10 @@ class _PaymentsScreenState extends State<PaymentsScreen>
           IconButton(
             icon: const Icon(Icons.receipt_long_rounded),
             tooltip: 'Account Statement',
-            onPressed: () {
-              final url = '${ApiService.baseUrl}/payments/statement?format=html';
+            onPressed: () async {
+              const storage = FlutterSecureStorage();
+              final token = await storage.read(key: 'access_token');
+              final url = '${ApiService.baseUrl}/payments/statement?format=html&token=$token';
               launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
             },
           ),

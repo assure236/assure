@@ -13,7 +13,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-// Step 0 = enter phone, Step 1 = verify OTP, Step 2 = enter MPIN
+// Step 0 = enter phone, Step 1 = verify OTP (logs in directly)
 class _LoginScreenState extends State<LoginScreen> {
   int _step = 0;
   final _phoneCtrl = TextEditingController();
@@ -61,63 +61,94 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  // Step 1 → verify OTP
+  // Step 1 → verify OTP & login directly
   Future<void> _verifyOtp() async {
     if (_otp.length != 6) return _showError('Enter the 6-digit OTP');
     setState(() => _isLoading = true);
-    final res = await context.read<AuthProvider>().verifyPhoneOtp(_mobile, _otp);
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-    if (res['success'] == true) {
-      setState(() { _step = 2; _otp = ''; });
-    } else {
-      _showError(res['message'] ?? 'Invalid OTP');
-    }
-  }
-
-  // Step 2 → login with MPIN
-  Future<void> _loginWithMpin(String mpin) async {
-    if (mpin.length != 6) return;
-    setState(() => _isLoading = true);
-    final res = await context.read<AuthProvider>().loginWithPhoneAndMpin(
+    final res = await context.read<AuthProvider>().loginWithOtp(
           mobile: _mobile,
-          mpin: mpin,
+          otp: _otp,
         );
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (res['success'] == true) {
       context.go('/dashboard');
     } else {
-      _showError(res['message'] ?? 'Invalid MPIN');
+      _showError(res['message'] ?? 'Invalid OTP');
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () {
-            if (_step > 0) {
-              setState(() { _step--; _otp = ''; });
-            } else {
-              context.go('/welcome');
-            }
-          },
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFF0B1F3B), // navy
+              Color(0xFF1E3A8A), // deep blue
+            ],
+          ),
         ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: _step == 0
-              ? _buildPhoneStep()
-              : _step == 1
-                  ? _buildOtpStep()
-                  : _buildMpinStep(),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            child: Column(
+              children: [
+                // Back button row
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: Colors.white),
+                    onPressed: () {
+                      if (_step > 0) {
+                        setState(() { _step--; _otp = ''; });
+                      } else {
+                        context.go('/welcome');
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Logo
+                Container(
+                  width: 90,
+                  height: 90,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(30),
+                    shape: BoxShape.circle,
+                  ),
+                  child: ClipOval(
+                    child: Image.asset('assets/images/logo.png', width: 70, height: 70),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Card form
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(25),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                  ),
+                  child: _step == 0
+                      ? _buildPhoneStep()
+                      : _buildOtpStep(),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -231,29 +262,6 @@ class _LoginScreenState extends State<LoginScreen> {
             child: const Text('Resend OTP'),
           ),
         ),
-      ],
-    );
-  }
-
-  // ── Step 2: Enter MPIN ──────────────────────────────────────────────────────
-  Widget _buildMpinStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Enter MPIN', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
-        const Text('Enter your 6-digit MPIN to login',
-            style: TextStyle(fontSize: 14, color: Colors.black54)),
-        const SizedBox(height: 40),
-
-        PinInputRow(
-          key: const ValueKey('login_mpin'),
-          onCompleted: _loginWithMpin,
-        ),
-        const SizedBox(height: 16),
-
-        if (_isLoading)
-          const Center(child: CircularProgressIndicator()),
       ],
     );
   }

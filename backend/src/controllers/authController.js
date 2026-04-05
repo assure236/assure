@@ -24,8 +24,24 @@ exports.resendOtp = async (req, res, next) => {
     if (type === 'email' && email) {
       const otp = genOtp();
       otpStore.set('email:' + email, { otp, expires: Date.now() + OTP_TTL_MS, verified: false });
-      await sendEmail(email, 'Your Assure ChitFunds OTP',
-        '<p>Your OTP is: <b style="font-size:20px">' + otp + '</b>.</p><p>Valid for 10 minutes.</p>');
+      await sendEmail(email, 'Your Assure ChitFunds Verification Code',
+        `<div style="font-family:'Segoe UI',Arial,sans-serif;max-width:480px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+          <div style="background:#0B1F3B;padding:28px;text-align:center">
+            <h1 style="color:#D4AF37;margin:0;font-size:22px;letter-spacing:0.5px">Assure ChitFunds</h1>
+            <p style="color:#ffffffb3;margin:6px 0 0;font-size:13px">Secure. Transparent. Rewarding.</p>
+          </div>
+          <div style="padding:32px 28px">
+            <p style="color:#333;font-size:15px;margin:0 0 20px">Your one-time verification code is:</p>
+            <div style="background:#F8F9FB;border:2px dashed #D4AF37;border-radius:10px;padding:18px;text-align:center;margin:0 0 20px">
+              <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#0B1F3B">${otp}</span>
+            </div>
+            <p style="color:#666;font-size:13px;margin:0 0 8px">This code is valid for <b>10 minutes</b>.</p>
+            <p style="color:#b91c1c;font-size:13px;margin:0 0 20px">⚠ Do not share this code with anyone. Assure ChitFunds will never ask for your OTP.</p>
+          </div>
+          <div style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb;text-align:center">
+            <p style="color:#999;font-size:11px;margin:0">© ${new Date().getFullYear()} Assure ChitFunds. All rights reserved.</p>
+          </div>
+        </div>`);
       return res.json({ success: true, message: 'OTP sent to ' + email });
     }
     if (mobile) {
@@ -166,6 +182,42 @@ exports.login = async (req, res, next) => {
 };
 
 exports.adminLogin = exports.login;
+
+// ── Login with OTP (no MPIN required) ─────────────────────────────────────────
+exports.loginWithOtp = async (req, res, next) => {
+  try {
+    const { mobile, otp } = req.body;
+    if (!mobile || !otp) return res.status(400).json({ success: false, message: 'Mobile and OTP required' });
+
+    const key = 'mobile:' + mobile;
+    const record = otpStore.get(key);
+    if (!record) return res.status(400).json({ success: false, message: 'OTP not sent or already used.' });
+    if (Date.now() > record.expires) {
+      otpStore.delete(key);
+      return res.status(400).json({ success: false, message: 'OTP expired.' });
+    }
+    if (record.otp !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP' });
+
+    const user = await User.findOne({ mobile });
+    if (!user) return res.status(401).json({ success: false, message: 'No account found with this mobile number' });
+    if (!user.is_active) return res.status(403).json({ success: false, message: 'Account deactivated' });
+
+    user.last_login_at = new Date();
+    await user.save();
+    otpStore.delete(key);
+
+    const token = generateToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    res.json({
+      success: true,
+      data: {
+        token, refreshToken,
+        user: { id: user._id, full_name: user.full_name, email: user.email, mobile: user.mobile, role: user.role, kyc_status: user.kyc_status, member_id: user.member_id, credit_score: user.credit_score, pan_number: user.pan_number, aadhaar_number: user.aadhaar_number, referral_code: user.referral_code, address: user.address, city: user.city, state: user.state, pincode: user.pincode, date_of_birth: user.date_of_birth, gender: user.gender, nominee_name: user.nominee_name, nominee_relationship: user.nominee_relationship, bank_account_number: user.bank_account_number, bank_ifsc_code: user.bank_ifsc_code, bank_name: user.bank_name }
+      }
+    });
+  } catch (error) { next(error); }
+};
 
 exports.refreshToken = async (req, res, next) => {
   try {

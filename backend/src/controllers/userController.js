@@ -11,12 +11,16 @@ exports.getProfile = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { full_name, email, address, date_of_birth, city, state, pincode, pan_number, bank_account_number, bank_ifsc_code } = req.body;
+    const { full_name, email, address, date_of_birth, city, state, pincode, pan_number, bank_account_number, bank_ifsc_code, bank_name, gender, nominee_name, nominee_relationship } = req.body;
     const update = { full_name, email, address, date_of_birth, city, state, pincode };
     // Only set optional fields if provided
     if (pan_number !== undefined) update.pan_number = pan_number;
     if (bank_account_number !== undefined) update.bank_account_number = bank_account_number;
     if (bank_ifsc_code !== undefined) update.bank_ifsc_code = bank_ifsc_code;
+    if (bank_name !== undefined) update.bank_name = bank_name;
+    if (gender !== undefined) update.gender = gender;
+    if (nominee_name !== undefined) update.nominee_name = nominee_name;
+    if (nominee_relationship !== undefined) update.nominee_relationship = nominee_relationship;
     const user = await User.findByIdAndUpdate(
       req.user._id || req.user.id,
       update,

@@ -16,6 +16,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _panCtrl;
+  late TextEditingController _addressCtrl;
+  late TextEditingController _cityCtrl;
+  late TextEditingController _stateCtrl;
+  late TextEditingController _pincodeCtrl;
+  late TextEditingController _dobCtrl;
+  late TextEditingController _nomineeNameCtrl;
+  late TextEditingController _nomineeRelCtrl;
+  late TextEditingController _bankAccCtrl;
+  late TextEditingController _bankIfscCtrl;
+  late TextEditingController _bankNameCtrl;
+  String? _selectedGender;
   bool _saving = false;
 
   @override
@@ -25,6 +36,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameCtrl = TextEditingController(text: user?.fullName ?? '');
     _emailCtrl = TextEditingController(text: user?.email ?? '');
     _panCtrl = TextEditingController(text: user?.panNumber ?? '');
+    _addressCtrl = TextEditingController(text: user?.address ?? '');
+    _cityCtrl = TextEditingController(text: user?.city ?? '');
+    _stateCtrl = TextEditingController(text: user?.state ?? '');
+    _pincodeCtrl = TextEditingController(text: user?.pincode ?? '');
+    _dobCtrl = TextEditingController(text: user?.dateOfBirth ?? '');
+    _nomineeNameCtrl = TextEditingController(text: user?.nomineeName ?? '');
+    _nomineeRelCtrl = TextEditingController(text: user?.nomineeRelationship ?? '');
+    _bankAccCtrl = TextEditingController(text: user?.bankAccountNumber ?? '');
+    _bankIfscCtrl = TextEditingController(text: user?.bankIfscCode ?? '');
+    _bankNameCtrl = TextEditingController(text: user?.bankName ?? '');
+    _selectedGender = user?.gender;
   }
 
   @override
@@ -32,6 +54,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _panCtrl.dispose();
+    _addressCtrl.dispose();
+    _cityCtrl.dispose();
+    _stateCtrl.dispose();
+    _pincodeCtrl.dispose();
+    _dobCtrl.dispose();
+    _nomineeNameCtrl.dispose();
+    _nomineeRelCtrl.dispose();
+    _bankAccCtrl.dispose();
+    _bankIfscCtrl.dispose();
+    _bankNameCtrl.dispose();
     super.dispose();
   }
 
@@ -43,6 +75,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'full_name': _nameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
         if (_panCtrl.text.trim().isNotEmpty) 'pan_number': _panCtrl.text.trim().toUpperCase(),
+        'address': _addressCtrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
+        'state': _stateCtrl.text.trim(),
+        'pincode': _pincodeCtrl.text.trim(),
+        if (_dobCtrl.text.trim().isNotEmpty) 'date_of_birth': _dobCtrl.text.trim(),
+        if (_selectedGender != null) 'gender': _selectedGender,
+        'nominee_name': _nomineeNameCtrl.text.trim(),
+        'nominee_relationship': _nomineeRelCtrl.text.trim(),
+        'bank_account_number': _bankAccCtrl.text.trim(),
+        'bank_ifsc_code': _bankIfscCtrl.text.trim().toUpperCase(),
+        'bank_name': _bankNameCtrl.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -165,7 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ]),
             const SizedBox(height: 16),
 
-            // Read-only info
+            // Read-only + PAN
             _buildFormCard([
               _ReadOnlyField(
                 label: 'Mobile Number',
@@ -181,10 +224,130 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 textCapitalization: TextCapitalization.characters,
                 hint: 'ABCDE1234F',
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null; // Optional
+                  if (v == null || v.trim().isEmpty) return null;
                   if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
                       .hasMatch(v.trim().toUpperCase())) {
                     return 'Invalid PAN format';
+                  }
+                  return null;
+                },
+              ),
+            ]),
+            const SizedBox(height: 16),
+
+            // Personal Details
+            _buildSectionLabel('Personal Details'),
+            _buildFormCard([
+              _FormField(
+                controller: _dobCtrl,
+                label: 'Date of Birth',
+                icon: Icons.cake_outlined,
+                hint: 'DD/MM/YYYY',
+                keyboardType: TextInputType.datetime,
+              ),
+              const Divider(height: 1),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: DropdownButtonFormField<String>(
+                  value: _selectedGender,
+                  decoration: const InputDecoration(
+                    labelText: 'Gender',
+                    prefixIcon: Icon(Icons.wc, size: 20),
+                    border: InputBorder.none,
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'male', child: Text('Male')),
+                    DropdownMenuItem(value: 'female', child: Text('Female')),
+                    DropdownMenuItem(value: 'other', child: Text('Other')),
+                  ],
+                  onChanged: (v) => setState(() => _selectedGender = v),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 16),
+
+            // Address
+            _buildSectionLabel('Address'),
+            _buildFormCard([
+              _FormField(
+                controller: _addressCtrl,
+                label: 'Address',
+                icon: Icons.home_outlined,
+                hint: 'Street / Area / Locality',
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _cityCtrl,
+                label: 'City',
+                icon: Icons.location_city_outlined,
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _stateCtrl,
+                label: 'State',
+                icon: Icons.map_outlined,
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _pincodeCtrl,
+                label: 'Pincode',
+                icon: Icons.pin_drop_outlined,
+                keyboardType: TextInputType.number,
+                hint: '500001',
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  if (!RegExp(r'^\d{6}$').hasMatch(v.trim())) return 'Enter 6-digit pincode';
+                  return null;
+                },
+              ),
+            ]),
+            const SizedBox(height: 16),
+
+            // Nominee Details
+            _buildSectionLabel('Nominee Details'),
+            _buildFormCard([
+              _FormField(
+                controller: _nomineeNameCtrl,
+                label: 'Nominee Name',
+                icon: Icons.person_add_outlined,
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _nomineeRelCtrl,
+                label: 'Relationship',
+                icon: Icons.people_outline,
+                hint: 'e.g. Spouse, Parent, Sibling',
+              ),
+            ]),
+            const SizedBox(height: 16),
+
+            // Bank Details
+            _buildSectionLabel('Bank Details'),
+            _buildFormCard([
+              _FormField(
+                controller: _bankNameCtrl,
+                label: 'Bank Name',
+                icon: Icons.account_balance_outlined,
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _bankAccCtrl,
+                label: 'Account Number',
+                icon: Icons.numbers_outlined,
+                keyboardType: TextInputType.number,
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _bankIfscCtrl,
+                label: 'IFSC Code',
+                icon: Icons.code_outlined,
+                textCapitalization: TextCapitalization.characters,
+                hint: 'SBIN0001234',
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$')
+                      .hasMatch(v.trim().toUpperCase())) {
+                    return 'Invalid IFSC format';
                   }
                   return null;
                 },
@@ -223,6 +386,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       elevation: 1,
       child: Column(children: children),
+    );
+  }
+
+  Widget _buildSectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(text,
+          style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: Colors.black54)),
     );
   }
 }

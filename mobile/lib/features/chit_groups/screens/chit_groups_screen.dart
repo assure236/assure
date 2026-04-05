@@ -22,7 +22,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChitGroupProvider>().fetchMyChitGroups();
     });
@@ -46,7 +46,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
             pinned: true,
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
-            title: const Text('My Chit Groups',
+            title: const Text('Chit Groups',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             centerTitle: true,
             bottom: TabBar(
@@ -55,9 +55,12 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
               indicatorWeight: 3,
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white60,
+              isScrollable: true,
               tabs: const [
-                Tab(text: 'My Groups'),
-                Tab(text: 'Available'),
+                Tab(text: 'New'),
+                Tab(text: 'Vacant'),
+                Tab(text: 'Completed'),
+                Tab(text: 'Cancelled'),
               ],
             ),
           ),
@@ -72,8 +75,10 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _MyGroupsTab(searchQuery: _searchQuery),
-                  _AvailableGroupsTab(searchQuery: _searchQuery),
+                  _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
+                  _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'vacant'),
+                  _StatusGroupsTab(searchQuery: _searchQuery, status: 'completed'),
+                  _StatusGroupsTab(searchQuery: _searchQuery, status: 'cancelled'),
                 ],
               ),
             ),
@@ -123,9 +128,10 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-class _MyGroupsTab extends StatelessWidget {
+class _StatusGroupsTab extends StatelessWidget {
   final String searchQuery;
-  const _MyGroupsTab({required this.searchQuery});
+  final String status;
+  const _StatusGroupsTab({required this.searchQuery, required this.status});
 
   @override
   Widget build(BuildContext context) {
@@ -137,29 +143,20 @@ class _MyGroupsTab extends StatelessWidget {
 
         final groups = provider.chitGroups
             .where((g) =>
-                g.groupName.toLowerCase().contains(searchQuery.toLowerCase()) ||
-                g.groupNumber.toLowerCase().contains(searchQuery.toLowerCase()))
+                g.status == status &&
+                (g.groupName.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                g.groupNumber.toLowerCase().contains(searchQuery.toLowerCase())))
             .toList();
 
         if (groups.isEmpty) {
           return _EmptyState(
-            icon: Icons.account_balance_wallet_outlined,
+            icon: status == 'completed' ? Icons.check_circle_outline : Icons.cancel_outlined,
             title: searchQuery.isNotEmpty
                 ? 'No groups match "$searchQuery"'
-                : 'No Active Chit Groups',
+                : 'No ${status[0].toUpperCase()}${status.substring(1)} Groups',
             subtitle: searchQuery.isNotEmpty
                 ? 'Try a different search'
-                : 'You have not enrolled in any chit group yet.\nBrowse available groups to get started.',
-            actionLabel: searchQuery.isEmpty ? 'Browse Groups' : null,
-            onAction: searchQuery.isEmpty
-                ? () {
-                    // Switch to Available tab
-                    final tabController = context
-                        .findAncestorStateOfType<_ChitGroupsScreenState>()
-                        ?._tabController;
-                    tabController?.animateTo(1);
-                  }
-                : null,
+                : 'You have no ${status} chit groups.',
           );
         }
 
@@ -181,7 +178,8 @@ class _MyGroupsTab extends StatelessWidget {
 
 class _AvailableGroupsTab extends StatefulWidget {
   final String searchQuery;
-  const _AvailableGroupsTab({required this.searchQuery});
+  final String filter; // 'new' or 'vacant'
+  const _AvailableGroupsTab({required this.searchQuery, required this.filter});
 
   @override
   State<_AvailableGroupsTab> createState() => _AvailableGroupsTabState();
@@ -225,9 +223,20 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
     }
 
     final filtered = _available
-        .where((g) =>
-            (g['group_name'] ?? '').toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
-            (g['group_number'] ?? '').toLowerCase().contains(widget.searchQuery.toLowerCase()))
+        .where((g) {
+          final matchesSearch =
+              (g['group_name'] ?? '').toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
+              (g['group_number'] ?? '').toLowerCase().contains(widget.searchQuery.toLowerCase());
+          if (!matchesSearch) return false;
+          if (widget.filter == 'vacant') {
+            final total = (g['total_members'] ?? 0) as int;
+            final enrolled = (g['enrolled_members'] ?? g['current_members'] ?? 0) as int;
+            return enrolled < total;
+          }
+          // 'new' filter: show groups with current_month == 0 or 1
+          final currentMonth = (g['current_month'] ?? 0) as int;
+          return currentMonth <= 1;
+        })
         .toList();
 
     if (filtered.isEmpty) {

@@ -38,12 +38,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onPopInvoked: (didPop) {
         if (!didPop) setState(() => _currentIndex = 0);
       },
-      child: Scaffold(
-        floatingActionButton: FloatingActionButton(
-          onPressed: () => context.push('/chatbot'),
-          backgroundColor: const Color(0xFF0B1F3B),
-          child: const Icon(Icons.smart_toy_rounded, color: Colors.white),
-        ),
+      child: Listener(
+        onPointerDown: (_) => context.read<AuthProvider>().resetInactivityTimer(),
+        onPointerMove: (_) => context.read<AuthProvider>().resetInactivityTimer(),
+        child: Stack(
+        children: [
+        Scaffold(
         body: IndexedStack(
           index: _currentIndex,
           children: [
@@ -68,9 +68,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Home',
             ),
             NavigationDestination(
-              icon: Icon(Icons.groups_outlined),
-              selectedIcon: Icon(Icons.groups_rounded),
-              label: 'My Chits',
+              icon: Icon(Icons.add_circle_outline),
+              selectedIcon: Icon(Icons.add_circle_rounded),
+              label: 'New Chits',
             ),
             NavigationDestination(
               icon: Icon(Icons.gavel_outlined),
@@ -83,12 +83,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Payments',
             ),
             NavigationDestination(
-              icon: Icon(Icons.person_outline_rounded),
-              selectedIcon: Icon(Icons.person_rounded),
-              label: 'Profile',
+              icon: Icon(Icons.menu_rounded),
+              selectedIcon: Icon(Icons.menu_rounded),
+              label: 'More',
             ),
           ],
         ),
+        ),
+        _DraggableFab(onTap: () => context.push('/chatbot')),
+        ],
       ),
     );
   }
@@ -208,16 +211,12 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
                 SliverToBoxAdapter(
                   child: _HeaderSection(user: user, dash: dash, loading: false),
                 ),
-                if (dash.kycStatus != 'verified')
-                  SliverToBoxAdapter(child: _KycBanner(switchTab: widget.switchTab)),
-                if (!dash.isProfileComplete)
-                  SliverToBoxAdapter(child: _ProfileTracker(dash: dash, switchTab: widget.switchTab)),
-                SliverToBoxAdapter(child: _StatsRow(dash: dash)),
-                SliverToBoxAdapter(child: _QuickActions(switchTab: widget.switchTab)),
+                if (dash.kycStatus != 'verified' || !dash.isProfileComplete)
+                  SliverToBoxAdapter(child: _KycProfileBanner(dash: dash, switchTab: widget.switchTab)),
+                SliverToBoxAdapter(child: _StatsRow(dash: dash, switchTab: widget.switchTab)),
                 SliverToBoxAdapter(child: _ActiveChits(dash: dash, switchTab: widget.switchTab)),
                 if (dash.upcomingAuctions.isNotEmpty)
                   SliverToBoxAdapter(child: _UpcomingAuctions(dash: dash, switchTab: widget.switchTab)),
-                SliverToBoxAdapter(child: _RecentPayments(dash: dash, switchTab: widget.switchTab)),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
               ],
             ),
@@ -304,12 +303,6 @@ class _HeaderSection extends StatelessWidget {
                   ),
                   Row(
                     children: [
-                      IconButton(
-                        onPressed: () => context.push('/qr-scan'),
-                        icon: const Icon(Icons.qr_code_scanner,
-                            color: Colors.white, size: 26),
-                        tooltip: 'Scan web QR',
-                      ),
                       Consumer<NotificationProvider>(
                         builder: (context, notifProvider, _) {
                           final unread = notifProvider.unreadCount;
@@ -342,71 +335,77 @@ class _HeaderSection extends StatelessWidget {
                           );
                         },
                       ),
+                      IconButton(
+                        onPressed: () => context.push('/support'),
+                        icon: const Icon(Icons.support_agent_rounded,
+                            color: Colors.white, size: 26),
+                        tooltip: 'Support',
+                      ),
                     ],
                   ),
                 ],
               ),
               const SizedBox(height: 14),
-              Row(
-                children: [
-                  // KYC badge
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: kycVerified
-                          ? Colors.green.withAlpha(51)
-                          : Colors.orange.withAlpha(51),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color:
-                            kycVerified ? Colors.greenAccent : Colors.orangeAccent,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          kycVerified
-                              ? Icons.verified_rounded
-                              : Icons.pending_rounded,
-                          color: kycVerified
-                              ? Colors.greenAccent
-                              : Colors.orangeAccent,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          kycVerified ? 'KYC Verified' : 'KYC Pending',
-                          style: TextStyle(
-                            color: kycVerified
-                                ? Colors.greenAccent
-                                : Colors.orangeAccent,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+              // KYC badge
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: kycVerified
+                      ? Colors.green.withAlpha(51)
+                      : Colors.orange.withAlpha(51),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color:
+                        kycVerified ? Colors.greenAccent : Colors.orangeAccent,
+                    width: 1,
                   ),
-                  const SizedBox(width: 10),
-                  // Member ID
-                  if (user?.memberId != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        'ID: ${user!.memberId}',
-                        style:
-                            const TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      kycVerified
+                          ? Icons.verified_rounded
+                          : Icons.pending_rounded,
+                      color: kycVerified
+                          ? Colors.greenAccent
+                          : Colors.orangeAccent,
+                      size: 14,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      kycVerified ? 'KYC Verified' : 'KYC Pending',
+                      style: TextStyle(
+                        color: kycVerified
+                            ? Colors.greenAccent
+                            : Colors.orangeAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              // QR Scan button
+              GestureDetector(
+                onTap: () => context.push('/qr-scan'),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white12,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.qr_code_scanner, color: Colors.white70, size: 14),
+                      SizedBox(width: 4),
+                      Text('Scan QR', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                    ],
+                  ),
+                ),
               ),
             ],
           ),
@@ -416,16 +415,21 @@ class _HeaderSection extends StatelessWidget {
   }
 }
 
-// ─── KYC Banner ───────────────────────────────────────────────────────────────
-class _KycBanner extends StatelessWidget {
+// ─── Combined KYC + Profile Banner ────────────────────────────────────────────
+class _KycProfileBanner extends StatelessWidget {
+  final DashboardProvider dash;
   final void Function(int) switchTab;
-  const _KycBanner({required this.switchTab});
+  const _KycProfileBanner({required this.dash, required this.switchTab});
 
   @override
   Widget build(BuildContext context) {
+    final kycPending = dash.kycStatus != 'verified';
+    final profileIncomplete = !dash.isProfileComplete;
+    final pct = dash.profilePercentage;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF8E1),
         borderRadius: BorderRadius.circular(12),
@@ -437,140 +441,67 @@ class _KycBanner extends StatelessWidget {
               offset: const Offset(0, 2)),
         ],
       ),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              color: Color(0xFFD4AF37), size: 26),
-          const SizedBox(width: 12),
-          const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          if (kycPending)
+            Row(
               children: [
-                Text('Complete Your KYC',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                SizedBox(height: 2),
-                Text('Verify your identity to unlock all features',
-                    style: TextStyle(fontSize: 12, color: Colors.black54)),
+                const Icon(Icons.warning_amber_rounded,
+                    color: Color(0xFFD4AF37), size: 22),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('Complete Your KYC to unlock all features',
+                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ),
+                TextButton(
+                  onPressed: () => switchTab(4),
+                  style: TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFD4AF37),
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  child: const Text('Verify',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
               ],
             ),
-          ),
-          TextButton(
-            onPressed: () => switchTab(4),
-            style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFD4AF37),
-                padding: EdgeInsets.zero),
-            child: const Text('Verify Now',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─── Profile Tracker ──────────────────────────────────────────────────────────
-class _ProfileTracker extends StatelessWidget {
-  final DashboardProvider dash;
-  final void Function(int) switchTab;
-  const _ProfileTracker({required this.dash, required this.switchTab});
-
-  @override
-  Widget build(BuildContext context) {
-    final pct = dash.profilePercentage;
-    final missing = dash.missingFields;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF0B1F3B), width: 1),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.blue.withAlpha(20),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.person_outline_rounded,
-                  color: Color(0xFF0B1F3B), size: 24),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text('Complete Your Profile',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-              ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text('$pct%',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                        color: Color(0xFF0B1F3B))),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: pct / 100,
-              minHeight: 8,
-              backgroundColor: const Color(0xFFE3F2FD),
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(Color(0xFF0B1F3B)),
-            ),
-          ),
-          if (missing.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: missing
-                  .map<Widget>((f) => Chip(
-                        label: Text(
-                          f['label'] as String? ?? (f['key'] as String? ?? '')
-                              .replaceAll('_', ' ')
-                              .split(' ')
-                              .map((w) =>
-                                  w.isNotEmpty
-                                      ? '${w[0].toUpperCase()}${w.substring(1)}'
-                                      : w)
-                              .join(' '),
-                          style: const TextStyle(fontSize: 11),
+          if (kycPending && profileIncomplete)
+            const Divider(height: 16),
+          if (profileIncomplete)
+            InkWell(
+              onTap: () => switchTab(4),
+              child: Row(
+                children: [
+                  const Icon(Icons.person_outline_rounded,
+                      color: Color(0xFF0B1F3B), size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Profile $pct% complete',
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: pct / 100,
+                            minHeight: 6,
+                            backgroundColor: const Color(0xFFE3F2FD),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                Color(0xFF0B1F3B)),
+                          ),
                         ),
-                        materialTapTargetSize:
-                            MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                        backgroundColor: const Color(0xFFFFF3E0),
-                        side: BorderSide.none,
-                      ))
-                  .toList(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(Icons.chevron_right, color: Color(0xFF0B1F3B), size: 20),
+                ],
+              ),
             ),
-          ],
-          const SizedBox(height: 10),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              onPressed: () => switchTab(4),
-              style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF0B1F3B),
-                  padding: EdgeInsets.zero),
-              child: const Text('Complete Now →',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ),
         ],
       ),
     );
@@ -580,8 +511,9 @@ class _ProfileTracker extends StatelessWidget {
 // ─── Stats Row ────────────────────────────────────────────────────────────────
 class _StatsRow extends StatelessWidget {
   final DashboardProvider dash;
+  final void Function(int) switchTab;
 
-  const _StatsRow({required this.dash});
+  const _StatsRow({required this.dash, required this.switchTab});
 
   @override
   Widget build(BuildContext context) {
@@ -590,22 +522,28 @@ class _StatsRow extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: _StatCard(
-              label: 'Total Invested',
-              value: _inr.format(dash.totalInvested),
-              icon: Icons.savings_rounded,
-              iconBg: const Color(0xFFE3F2FD),
-              iconColor: const Color(0xFF1E3A8A),
+            child: GestureDetector(
+              onTap: () => switchTab(1),
+              child: _StatCard(
+                label: 'Total Invested',
+                value: _inr.format(dash.totalInvested),
+                icon: Icons.savings_rounded,
+                iconBg: const Color(0xFFE3F2FD),
+                iconColor: const Color(0xFF1E3A8A),
+              ),
             ),
           ),
           const SizedBox(width: 10),
           Expanded(
-            child: _StatCard(
-              label: 'Active Chits',
-              value: '${dash.activeGroups}',
-              icon: Icons.group_work_rounded,
-              iconBg: const Color(0xFFE8F5E9),
-              iconColor: const Color(0xFF2E7D32),
+            child: GestureDetector(
+              onTap: () => switchTab(1),
+              child: _StatCard(
+                label: 'Active Chits',
+                value: '${dash.activeGroups}',
+                icon: Icons.group_work_rounded,
+                iconBg: const Color(0xFFE8F5E9),
+                iconColor: const Color(0xFF2E7D32),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -684,123 +622,6 @@ class _StatCard extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─── Quick Actions ────────────────────────────────────────────────────────────
-class _QuickActions extends StatelessWidget {
-  final void Function(int) switchTab;
-  const _QuickActions({required this.switchTab});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Quick Actions',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.payments_rounded,
-                  label: 'Pay\nInstallment',
-                  iconBg: const Color(0xFFE3F2FD),
-                  iconColor: const Color(0xFF1E3A8A),
-                  onTap: () => switchTab(3),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.gavel_rounded,
-                  label: 'My\nAuctions',
-                  iconBg: const Color(0xFFF3E5F5),
-                  iconColor: const Color(0xFF6A1B9A),
-                  onTap: () => switchTab(2),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.verified_user_rounded,
-                  label: 'KYC &\nDocs',
-                  iconBg: const Color(0xFFE0F2F1),
-                  iconColor: const Color(0xFF00695C),
-                  onTap: () => context.push('/kyc'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ActionButton(
-                  icon: Icons.person_add_rounded,
-                  label: 'Refer &\nEarn',
-                  iconBg: const Color(0xFFFBE9E7),
-                  iconColor: const Color(0xFFBF360C),
-                  onTap: () => context.push('/referrals'),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color iconBg;
-  final Color iconColor;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.iconBg,
-    required this.iconColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withAlpha(15),
-                blurRadius: 8,
-                offset: const Offset(0, 2)),
-          ],
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration:
-                  BoxDecoration(color: iconBg, shape: BoxShape.circle),
-              child: Icon(icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: const TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.w600),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -1141,107 +962,6 @@ class _UpcomingAuctions extends StatelessWidget {
   }
 }
 
-// ─── Recent Payments ──────────────────────────────────────────────────────────
-class _RecentPayments extends StatelessWidget {
-  final DashboardProvider dash;
-  final void Function(int) switchTab;
-
-  const _RecentPayments({required this.dash, required this.switchTab});
-
-  @override
-  Widget build(BuildContext context) {
-    final payments = dash.recentPayments;
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Recent Payments',
-                  style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              TextButton(
-                onPressed: () => switchTab(3),
-                child: const Text('View All'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          payments.isEmpty
-              ? _EmptyCard(
-                  icon: Icons.receipt_long_outlined,
-                  message: 'No payment history yet',
-                )
-              : Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withAlpha(13),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2)),
-                    ],
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: payments.length.clamp(0, 5),
-                    separatorBuilder: (_, __) =>
-                        const Divider(height: 1, indent: 60, endIndent: 16),
-                    itemBuilder: (context, i) {
-                      final p = payments[i] as Map<String, dynamic>;
-                      final amount = double.tryParse(
-                              p['amount']?.toString() ?? '0') ??
-                          0;
-                      final dateRaw = p['payment_date'];
-                      String dateStr = '';
-                      if (dateRaw != null) {
-                        try {
-                          dateStr = _dtFmt
-                              .format(DateTime.parse(dateRaw.toString()));
-                        } catch (_) {}
-                      }
-                      return ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                              color: Color(0xFFE8F5E9),
-                              shape: BoxShape.circle),
-                          child: const Icon(Icons.check_circle_rounded,
-                              color: Color(0xFF2E7D32), size: 20),
-                        ),
-                        title: Text(
-                          p['description']?.toString() ??
-                              ((p['chit_group_id'] as Map?)?['group_name']?.toString()) ??
-                              'Installment Payment',
-                          style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w500),
-                        ),
-                        subtitle: dateStr.isNotEmpty
-                            ? Text(dateStr,
-                                style: const TextStyle(fontSize: 12))
-                            : null,
-                        trailing: Text(
-                          _inr.format(amount),
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2E7D32),
-                              fontSize: 14),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-}
-
 // ─── Empty State ──────────────────────────────────────────────────────────────
 class _EmptyCard extends StatelessWidget {
   final IconData icon;
@@ -1286,4 +1006,49 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
+// ─── Draggable Chatbot FAB ────────────────────────────────────────────────────
+class _DraggableFab extends StatefulWidget {
+  final VoidCallback onTap;
+  const _DraggableFab({required this.onTap});
 
+  @override
+  State<_DraggableFab> createState() => _DraggableFabState();
+}
+
+class _DraggableFabState extends State<_DraggableFab> {
+  Offset? _offset;
+
+  @override
+  Widget build(BuildContext context) {
+    final screen = MediaQuery.of(context).size;
+    _offset ??= Offset(screen.width - 72, screen.height - 160);
+
+    return Positioned(
+      left: _offset!.dx,
+      top: _offset!.dy,
+      child: GestureDetector(
+        onPanUpdate: (d) {
+          setState(() {
+            _offset = Offset(
+              (_offset!.dx + d.delta.dx).clamp(0.0, screen.width - 56),
+              (_offset!.dy + d.delta.dy).clamp(0.0, screen.height - 56),
+            );
+          });
+        },
+        onTap: widget.onTap,
+        child: Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0B1F3B),
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(color: Colors.black.withAlpha(60), blurRadius: 8, offset: const Offset(0, 3)),
+            ],
+          ),
+          child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 28),
+        ),
+      ),
+    );
+  }
+}

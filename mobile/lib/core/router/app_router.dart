@@ -22,8 +22,12 @@ import '../../features/help/screens/help_screen.dart';
 import '../../features/support/screens/support_screen.dart';
 import '../../features/profile/screens/edit_profile_screen.dart';
 import '../../features/profile/screens/change_password_screen.dart';
+import '../../features/profile/screens/family_members_screen.dart';
 import '../../features/auth/screens/qr_scan_screen.dart';
 import '../../features/chatbot/screens/chatbot_screen.dart';
+import '../../features/legal/screens/terms_screen.dart';
+import '../../features/legal/screens/privacy_policy_screen.dart';
+import '../../features/loans/screens/apply_loan_screen.dart';
 
 class AppRouter {
   static GoRouter router(AuthProvider authProvider) {
@@ -141,6 +145,22 @@ class AppRouter {
         GoRoute(
           path: '/chatbot',
           builder: (context, state) => const ChatbotScreen(),
+        ),
+        GoRoute(
+          path: '/family-members',
+          builder: (context, state) => const FamilyMembersScreen(),
+        ),
+        GoRoute(
+          path: '/terms',
+          builder: (context, state) => const TermsScreen(),
+        ),
+        GoRoute(
+          path: '/privacy-policy',
+          builder: (context, state) => const PrivacyPolicyScreen(),
+        ),
+        GoRoute(
+          path: '/apply-loan',
+          builder: (context, state) => const ApplyLoanScreen(),
         ),
       ],
     );

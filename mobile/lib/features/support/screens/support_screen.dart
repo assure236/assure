@@ -1,5 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -15,26 +16,49 @@ class _SupportScreenState extends State<SupportScreen> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   bool _sending = false;
+  static const _storageKey = 'support_chat_messages';
+  static const _maxAgeDays = 7;
 
-  final List<_ChatMessage> _messages = [
-    _ChatMessage(
-      text: 'Hello! Welcome to Assure ChitFunds support. How can I help you today?',
-      isBot: true,
-      time: DateTime.now(),
-    ),
-    _ChatMessage(
-      text: 'Please choose a topic or type your question:',
-      isBot: true,
-      time: DateTime.now(),
-      quickReplies: [
-        'Payment issue',
-        'KYC help',
-        'Auction query',
-        'Account problem',
-        'Other',
-      ],
-    ),
-  ];
+  List<_ChatMessage> _messages = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+  }
+
+  Future<void> _loadMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_storageKey);
+    if (stored != null) {
+      try {
+        final list = jsonDecode(stored) as List;
+        final cutoff = DateTime.now().subtract(const Duration(days: _maxAgeDays));
+        final restored = list
+            .map((m) => _ChatMessage.fromJson(m as Map<String, dynamic>))
+            .where((m) => m.time.isAfter(cutoff))
+            .toList();
+        if (restored.isNotEmpty) {
+          setState(() => _messages = restored);
+          _scrollToBottom();
+          return;
+        }
+      } catch (_) {}
+    }
+    // Default welcome messages
+    setState(() {
+      _messages = [
+        _ChatMessage(text: 'Hello! Welcome to Assure ChitFunds support. How can I help you today?', isBot: true, time: DateTime.now()),
+        _ChatMessage(text: 'Please choose a topic or type your question:', isBot: true, time: DateTime.now(), quickReplies: ['Payment issue', 'KYC help', 'Auction query', 'Account problem', 'Other']),
+      ];
+    });
+  }
+
+  Future<void> _saveMessages() async {
+    final prefs = await SharedPreferences.getInstance();
+    final json = _messages.map((m) => m.toJson()).toList();
+    await prefs.setString(_storageKey, jsonEncode(json));
+  }
 
   static const _autoResponses = {
     'payment issue': 'For payment issues, please check your internet connection and try again. If the problem persists, contact your branch or email support@assurechitfunds.com.',
@@ -82,6 +106,7 @@ class _SupportScreenState extends State<SupportScreen> {
         _messages.add(_ChatMessage(text: botReply, isBot: true, time: DateTime.now()));
         _sending = false;
       });
+      _saveMessages();
       _scrollToBottom();
     }
   }
@@ -178,6 +203,20 @@ class _ChatMessage {
     required this.time,
     this.quickReplies,
   });
+
+  Map<String, dynamic> toJson() => {
+    'text': text,
+    'isBot': isBot,
+    'time': time.toIso8601String(),
+    if (quickReplies != null) 'quickReplies': quickReplies,
+  };
+
+  factory _ChatMessage.fromJson(Map<String, dynamic> json) => _ChatMessage(
+    text: json['text'] ?? '',
+    isBot: json['isBot'] ?? false,
+    time: DateTime.tryParse(json['time'] ?? '') ?? DateTime.now(),
+    quickReplies: (json['quickReplies'] as List?)?.cast<String>(),
+  );
 }
 
 class _ChatBubble extends StatelessWidget {

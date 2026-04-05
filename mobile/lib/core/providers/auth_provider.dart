@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -12,7 +13,9 @@ class AuthProvider with ChangeNotifier {
   String? _token;
   bool _isAuthenticated = false;
   bool _isLoading = false;
-  bool _hasLocalAccount = false; // true if user has previously logged in on this device
+  bool _hasLocalAccount = false;
+  Timer? _inactivityTimer;
+  static const _inactivityDuration = Duration(minutes: 2);
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -24,10 +27,33 @@ class AuthProvider with ChangeNotifier {
 
   AuthProvider() {
     _loadFromStorage();
-    // Auto-logout when API returns 401 (token expired)
     ApiService.onUnauthorized = () async {
       await logout();
     };
+  }
+
+  /// Call this on any user interaction (tap, scroll, type) to reset idle timer
+  void resetInactivityTimer() {
+    _inactivityTimer?.cancel();
+    if (_isAuthenticated) {
+      _inactivityTimer = Timer(_inactivityDuration, () {
+        debugPrint('Inactivity timeout — auto-logout');
+        logout();
+      });
+    }
+  }
+
+  void _startInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = Timer(_inactivityDuration, () {
+      debugPrint('Inactivity timeout — auto-logout');
+      logout();
+    });
+  }
+
+  void _stopInactivityTimer() {
+    _inactivityTimer?.cancel();
+    _inactivityTimer = null;
   }
 
   Future<void> _loadFromStorage() async {
@@ -171,6 +197,32 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
+  // ─── Login with OTP directly (no MPIN) ─────────────────────────────────────
+
+  Future<Map<String, dynamic>> loginWithOtp({
+    required String mobile,
+    required String otp,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final res = await ApiService.post('/auth/login-otp', {
+        'mobile': mobile,
+        'otp': otp,
+      });
+
+      if (res['success'] == true) {
+        await _persistSession(res);
+      }
+      return res;
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // ─── Login with Phone + OTP then MPIN (fresh install) ─────────────────────
 
   Future<Map<String, dynamic>> loginWithPhoneAndMpin({
@@ -214,6 +266,9 @@ class AuthProvider with ChangeNotifier {
 
     // Register FCM token for push notifications
     FcmService().registerTokenWithBackend();
+
+    // Start inactivity timer
+    _startInactivityTimer();
   }
 
   // ─── QR Login — confirm a web QR session from the mobile app ──────────────
@@ -222,8 +277,8 @@ class AuthProvider with ChangeNotifier {
   void authenticateFromBiometric() {
     _isAuthenticated = true;
     notifyListeners();
-    // Register FCM token on biometric login too
     FcmService().registerTokenWithBackend();
+    _startInactivityTimer();
   }
 
   Future<Map<String, dynamic>> confirmQrLogin(String sessionId) async {
@@ -241,7 +296,7 @@ class AuthProvider with ChangeNotifier {
     _user = null;
     _token = null;
     _isAuthenticated = false;
-    // Keep hasLocalAccount true so returning user sees MPIN screen
+    _stopInactivityTimer();
 
     // Clear FCM token
     await FcmService().clearToken();

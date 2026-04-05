@@ -28,6 +28,10 @@ const userSchema = new mongoose.Schema({
   kyc_rejection_reason: String,
   bank_account_number: String,
   bank_ifsc_code: String,
+  bank_name: String,
+  gender: { type: String, enum: ['male', 'female', 'other'] },
+  nominee_name: String,
+  nominee_relationship: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 userSchema.pre('save', async function () {

@@ -11,6 +11,17 @@ class User {
   final int creditScore;
   final String? profileImageUrl;
   final String? referralCode;
+  final String? address;
+  final String? city;
+  final String? state;
+  final String? pincode;
+  final String? dateOfBirth;
+  final String? gender;
+  final String? nomineeName;
+  final String? nomineeRelationship;
+  final String? bankAccountNumber;
+  final String? bankIfscCode;
+  final String? bankName;
 
   User({
     required this.id,
@@ -25,6 +36,17 @@ class User {
     required this.creditScore,
     this.profileImageUrl,
     this.referralCode,
+    this.address,
+    this.city,
+    this.state,
+    this.pincode,
+    this.dateOfBirth,
+    this.gender,
+    this.nomineeName,
+    this.nomineeRelationship,
+    this.bankAccountNumber,
+    this.bankIfscCode,
+    this.bankName,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -41,6 +63,17 @@ class User {
       creditScore: json['credit_score'] ?? 500,
       profileImageUrl: json['profile_image_url'],
       referralCode: json['referral_code'],
+      address: json['address'],
+      city: json['city'],
+      state: json['state'],
+      pincode: json['pincode'],
+      dateOfBirth: json['date_of_birth'],
+      gender: json['gender'],
+      nomineeName: json['nominee_name'],
+      nomineeRelationship: json['nominee_relationship'],
+      bankAccountNumber: json['bank_account_number'],
+      bankIfscCode: json['bank_ifsc_code'],
+      bankName: json['bank_name'],
     );
   }
 
@@ -58,6 +91,17 @@ class User {
       'credit_score': creditScore,
       'profile_image_url': profileImageUrl,
       'referral_code': referralCode,
+      'address': address,
+      'city': city,
+      'state': state,
+      'pincode': pincode,
+      'date_of_birth': dateOfBirth,
+      'gender': gender,
+      'nominee_name': nomineeName,
+      'nominee_relationship': nomineeRelationship,
+      'bank_account_number': bankAccountNumber,
+      'bank_ifsc_code': bankIfscCode,
+      'bank_name': bankName,
     };
   }
 }

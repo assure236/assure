@@ -71,48 +71,43 @@ class _MpinScreenState extends State<MpinScreen> {
         localizedReason: 'Unlock Assure ChitFunds',
         options: AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: hasFinger, // fingerprint only if available, else allow device PIN
+          biometricOnly: hasFinger,
           useErrorDialogs: true,
           sensitiveTransaction: false,
         ),
       );
       if (authenticated && mounted) {
-        // Try saved MPIN first
+        setState(() => _isLoading = true);
         final prefs = await SharedPreferences.getInstance();
+        final token = prefs.getString('token');
+
+        if (token != null) {
+          // Token exists — validate it by refreshing profile
+          final auth = context.read<AuthProvider>();
+          try {
+            await auth.refreshProfile();
+            if (auth.user != null && mounted) {
+              auth.authenticateFromBiometric();
+              context.go('/dashboard');
+              return;
+            }
+          } catch (_) {}
+        }
+
+        // Token missing or invalid — try saved MPIN as fallback
         final storedMpin = prefs.getString('saved_mpin');
         if (storedMpin != null && storedMpin.length == 6) {
           _login(storedMpin);
-        } else {
-          // No saved MPIN — use stored token to validate session directly
-          final token = prefs.getString('token');
-          if (token != null) {
-            // Token exists, try to refresh profile to validate it's still good
-            if (mounted) {
-              setState(() => _isLoading = true);
-              final auth = context.read<AuthProvider>();
-              try {
-                await auth.refreshProfile();
-                if (auth.user != null && mounted) {
-                  // Token is valid — let them through
-                  auth.authenticateFromBiometric();
-                  context.go('/dashboard');
-                  return;
-                }
-              } catch (_) {}
-              if (mounted) {
-                setState(() => _isLoading = false);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('Session expired. Please enter your MPIN'),
-                  behavior: SnackBarBehavior.floating,
-                ));
-              }
-            }
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text('Enter MPIN once to enable quick biometric login'),
-              behavior: SnackBarBehavior.floating,
-            ));
-          }
+          return;
+        }
+
+        // Nothing works — ask for MPIN
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Session expired. Please enter your MPIN'),
+            behavior: SnackBarBehavior.floating,
+          ));
         }
       }
     } catch (e) {

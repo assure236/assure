@@ -92,7 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Your Trusted Chit Partner',
+                  'Secure. Transparent. Rewarding.',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 15,

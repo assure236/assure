@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
 
@@ -32,36 +34,42 @@ class _HelpScreenState extends State<HelpScreen>
       'desc': 'Learn how to create your account, complete KYC, and enroll in your first chit.',
       'duration': '5 min',
       'icon': Icons.play_circle_outline,
+      'url': 'https://www.youtube.com/watch?v=demo_getting_started',
     },
     {
       'title': 'How Chit Funds Work',
       'desc': 'Understand the chit fund mechanism — monthly auctions, dividends, and payouts.',
       'duration': '7 min',
       'icon': Icons.play_circle_outline,
+      'url': 'https://www.youtube.com/watch?v=demo_how_chits_work',
     },
     {
       'title': 'How to Bid in an Auction',
       'desc': 'Step-by-step guide on entering a live auction room and placing your bid.',
       'duration': '4 min',
       'icon': Icons.play_circle_outline,
+      'url': 'https://www.youtube.com/watch?v=demo_auction_bidding',
     },
     {
       'title': 'Making Payments',
       'desc': 'Learn how to make monthly installment payments and view payment history.',
       'duration': '3 min',
       'icon': Icons.play_circle_outline,
+      'url': 'https://www.youtube.com/watch?v=demo_payments',
     },
     {
-      'title': 'Understanding Your Credit Score',
-      'desc': 'How your credit score is calculated and how timely payments improve it.',
+      'title': 'Understanding Dividends',
+      'desc': 'How dividends are calculated and distributed to members each month.',
       'duration': '4 min',
       'icon': Icons.play_circle_outline,
+      'url': 'https://www.youtube.com/watch?v=demo_dividends',
     },
     {
       'title': 'Refer & Earn Program',
       'desc': 'How to refer friends and earn rewards through your referral code.',
       'duration': '3 min',
       'icon': Icons.play_circle_outline,
+      'url': 'https://www.youtube.com/watch?v=demo_referrals',
     },
   ];
 
@@ -145,6 +153,7 @@ class _HelpScreenState extends State<HelpScreen>
               desc: t['desc'] as String,
               duration: t['duration'] as String,
               icon: t['icon'] as IconData,
+              url: t['url'] as String,
             )),
         const SizedBox(height: 20),
         _ContactCard(),
@@ -238,12 +247,14 @@ class _TutorialCard extends StatelessWidget {
   final String desc;
   final String duration;
   final IconData icon;
+  final String url;
 
   const _TutorialCard({
     required this.title,
     required this.desc,
     required this.duration,
     required this.icon,
+    required this.url,
   });
 
   @override
@@ -284,15 +295,22 @@ class _TutorialCard extends StatelessWidget {
             ]),
           ],
         ),
-        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
-        onTap: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Video: $title'),
-              behavior: SnackBarBehavior.floating,
-              action: SnackBarAction(label: 'OK', onPressed: () {}),
-            ),
-          );
+        trailing: const Icon(Icons.play_arrow_rounded,
+            color: AppTheme.primaryColor, size: 28),
+        onTap: () async {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Video coming soon'),
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
+            }
+          }
         },
       ),
     );
@@ -402,7 +420,7 @@ class _ContactCard extends StatelessWidget {
         const SizedBox(height: 12),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           ElevatedButton.icon(
-            onPressed: () => Navigator.pushNamed(context, '/support'),
+            onPressed: () => context.push('/support'),
             icon: const Icon(Icons.chat_bubble_outline, size: 16),
             label: const Text('Chat with Us'),
             style: ElevatedButton.styleFrom(

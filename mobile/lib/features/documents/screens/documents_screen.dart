@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -26,10 +27,10 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   bool _digilockerLoading = false;
 
   static const List<Map<String, dynamic>> _docTypes = [
-    {'key': 'aadhaar_card', 'label': 'Aadhaar Card (Front & Back)', 'icon': 'badge', 'maxSizeKB': 500},
-    {'key': 'pan_card', 'label': 'PAN Card', 'icon': 'credit_card', 'maxSizeKB': 200},
-    {'key': 'cancelled_cheque', 'label': 'Cancelled Cheque / Bank Proof', 'icon': 'account_balance', 'maxSizeKB': 400},
-    {'key': 'selfie_photo', 'label': 'Live Selfie Photo', 'icon': 'camera_alt', 'maxSizeKB': 150},
+    {'key': 'aadhaar_card', 'label': 'Aadhaar Card (Front & Back)', 'icon': 'badge'},
+    {'key': 'pan_card', 'label': 'PAN Card', 'icon': 'credit_card'},
+    {'key': 'cancelled_cheque', 'label': 'Cancelled Cheque / Bank Proof', 'icon': 'account_balance'},
+    {'key': 'selfie_photo', 'label': 'Live Selfie Photo', 'icon': 'camera_alt'},
   ];
 
   @override
@@ -152,10 +153,40 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     final XFile? photo = await picker.pickImage(
       source: ImageSource.camera,
       preferredCameraDevice: useFrontCamera ? CameraDevice.front : CameraDevice.rear,
-      imageQuality: 85,
+      imageQuality: 50,
+      maxWidth: 1200,
+      maxHeight: 1200,
     );
     if (photo == null) return;
+
+    // Face detection for selfie
+    if (docType == 'selfie_photo') {
+      final hasFace = await _detectFace(photo.path);
+      if (!hasFace) {
+        _showSnackBar('No face detected. Please take a clear selfie with your face visible.');
+        return;
+      }
+    }
+
     await _processAndUpload(docType, photo.path, File(photo.path).lengthSync());
+  }
+
+  Future<bool> _detectFace(String imagePath) async {
+    final inputImage = InputImage.fromFilePath(imagePath);
+    final faceDetector = FaceDetector(options: FaceDetectorOptions(
+      enableClassification: false,
+      enableLandmarks: false,
+      performanceMode: FaceDetectorMode.fast,
+    ));
+    try {
+      final faces = await faceDetector.processImage(inputImage);
+      return faces.isNotEmpty;
+    } catch (_) {
+      // If detection fails, allow upload anyway
+      return true;
+    } finally {
+      faceDetector.close();
+    }
   }
 
   Future<void> _pickFromGallery(String docType) async {
@@ -173,14 +204,6 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   }
 
   Future<void> _processAndUpload(String docType, String filePath, int fileSize) async {
-    // Per-type size validation
-    final docConfig = _docTypes.firstWhere((t) => t['key'] == docType, orElse: () => {});
-    final maxSizeKB = (docConfig['maxSizeKB'] as int?) ?? 500;
-    if (fileSize > maxSizeKB * 1024) {
-      _showSnackBar('File too large. Max size for ${docConfig['label'] ?? docType}: $maxSizeKB KB');
-      return;
-    }
-
     setState(() => _uploadingType = docType);
     try {
       final res = await ApiService.uploadFile(
@@ -281,7 +304,15 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
             const Text('Required Documents (JPG/JPEG/PNG only)',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            ...(_docTypes.map((dt) => _buildDocCard(dt)).toList()),
+            GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 10,
+              mainAxisSpacing: 10,
+              childAspectRatio: 0.72,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              children: _docTypes.map((dt) => _buildDocCard(dt)).toList(),
+            ),
           ],
         ),
       ),
@@ -455,11 +486,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   Widget _buildDocCard(Map<String, dynamic> docType) {
     final key = docType['key'] as String;
     final label = docType['label'] as String;
-    final maxSizeKB = docType['maxSizeKB'] as int? ?? 500;
     final doc = _docForType(key);
     final isUploading = _uploadingType == key;
     final status = doc?['verification_status'] ?? doc?['status'] ?? 'not_uploaded';
-    final uploadedAt = doc?['created_at'];
 
     Color statusColor;
     String statusLabel;
@@ -474,7 +503,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         break;
       case 'pending':
         statusColor = AppTheme.secondaryColor;
-        statusLabel = 'Under Review';
+        statusLabel = 'Review';
         statusIcon = Icons.hourglass_empty;
         break;
       case 'rejected':
@@ -484,136 +513,103 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         break;
       default:
         statusColor = Colors.grey;
-        statusLabel = 'Not Uploaded';
+        statusLabel = 'Upload';
         statusIcon = Icons.upload_file;
     }
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: doc?['file_url'] != null
+            ? () => _viewDocument(doc!['file_url'])
+            : (!isUploading ? () => _showUploadOptions(key) : null),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Status badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: statusColor.withAlpha(26),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(statusIcon, color: statusColor, size: 12),
+                    const SizedBox(width: 3),
+                    Text(statusLabel,
+                        style: TextStyle(color: statusColor, fontSize: 10,
+                            fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Icon or thumbnail
+              if (doc?['file_url'] != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    doc!['file_url'],
+                    height: 60,
+                    width: 60,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 60, width: 60,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withAlpha(26),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(_iconForType(docType['icon'] as String? ?? 'badge'),
+                          color: AppTheme.primaryColor, size: 28),
+                    ),
+                  ),
+                )
+              else
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  height: 60,
+                  width: 60,
                   decoration: BoxDecoration(
                     color: AppTheme.primaryColor.withAlpha(26),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(_iconForType(docType['icon'] as String? ?? 'badge'),
-                      color: AppTheme.primaryColor, size: 22),
+                      color: AppTheme.primaryColor, size: 28),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(label,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                      Text('Max: $maxSizeKB KB · JPG/JPEG/PNG only',
-                          style: const TextStyle(color: Colors.grey, fontSize: 11)),
-                      if (uploadedAt != null)
-                        Text(
-                          'Uploaded ${DateFormat('dd MMM yyyy').format(DateTime.parse(uploadedAt))}',
-                          style: const TextStyle(color: Colors.grey, fontSize: 11),
-                        ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: statusColor.withAlpha(26),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(statusIcon, color: statusColor, size: 14),
-                      const SizedBox(width: 4),
-                      Text(statusLabel,
-                          style: TextStyle(color: statusColor, fontSize: 11,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            if (doc != null || status == 'rejected') ...[
-              if (doc?['file_url'] != null) ...[
-                const SizedBox(height: 10),
-                GestureDetector(
-                  onTap: () => _viewDocument(doc!['file_url']),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.network(
-                      doc!['file_url'],
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 60,
-                        color: Colors.grey.shade100,
-                        child: const Center(child: Icon(Icons.broken_image, color: Colors.grey)),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  if (doc?['file_url'] != null)
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _viewDocument(doc!['file_url']),
-                        icon: const Icon(Icons.visibility, size: 16),
-                        label: const Text('View'),
-                        style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.primaryColor),
-                      ),
-                    ),
-                  if (doc?['file_url'] != null) const SizedBox(width: 8),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: isUploading ? null : () => _showUploadOptions(key),
-                      icon: isUploading
-                          ? const SizedBox(height: 14, width: 14,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.upload, size: 16),
-                      label: Text(status == 'not_uploaded' ? 'Upload' : 'Re-upload'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: status == 'rejected'
-                            ? AppTheme.errorColor
-                            : AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ] else ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              // Label
+              Text(label,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 8),
+              // Action button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton.icon(
+                height: 30,
+                child: ElevatedButton(
                   onPressed: isUploading ? null : () => _showUploadOptions(key),
-                  icon: isUploading
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: status == 'rejected'
+                        ? AppTheme.errorColor
+                        : AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: EdgeInsets.zero,
+                    textStyle: const TextStyle(fontSize: 11),
+                  ),
+                  child: isUploading
                       ? const SizedBox(height: 14, width: 14,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.upload, size: 16),
-                  label: const Text('Upload Document'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                  ),
+                      : Text(status == 'not_uploaded' ? 'Upload' : 'Re-upload'),
                 ),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );

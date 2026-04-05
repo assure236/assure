@@ -204,8 +204,18 @@ exports.getUpcomingPayments = async (req, res, next) => {
       dividendMap[key] = (dividendMap[key] || 0) + (a.dividend_per_member || 0);
     });
 
-    const LATE_FEE_RATE = 0.02; // 2% of installment
     const schedule = [];
+
+    // Tiered late fee calculation
+    const calcLateFee = (baseAmount, daysOverdue) => {
+      if (daysOverdue <= 0) return 0;
+      let rate;
+      if (daysOverdue <= 7) rate = 0.01;        // 1% for 1-7 days
+      else if (daysOverdue <= 15) rate = 0.02;   // 2% for 8-15 days
+      else if (daysOverdue <= 30) rate = 0.03;   // 3% for 16-30 days
+      else rate = 0.05;                           // 5% for 30+ days
+      return Math.round(baseAmount * rate * 100) / 100;
+    };
 
     for (const m of memberships) {
       const g = m.chit_group_id;
@@ -229,7 +239,7 @@ exports.getUpcomingPayments = async (req, res, next) => {
 
         const isOverdue = dueDate < now;
         const daysOverdue = isOverdue ? Math.floor((now - dueDate) / (1000 * 60 * 60 * 24)) : 0;
-        const lateFee = isOverdue ? Math.round(baseAmount * LATE_FEE_RATE * 100) / 100 : 0;
+        const lateFee = calcLateFee(baseAmount, daysOverdue);
         const isFuture = dueDate > now && !isOverdue;
 
         // Determine if this is the current payable month (first unpaid month that's due)

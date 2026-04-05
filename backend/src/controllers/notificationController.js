@@ -35,6 +35,16 @@ exports.markAllAsRead = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+exports.markAsUnread = async (req, res, next) => {
+  try {
+    await Notification.findOneAndUpdate(
+      { _id: req.params.id, user_id: req.user._id || req.user.id },
+      { is_read: false, $unset: { read_at: 1 } }
+    );
+    res.json({ success: true, message: 'Notification marked as unread' });
+  } catch (err) { next(err); }
+};
+
 exports.deleteNotification = async (req, res, next) => {
   try {
     await Notification.findOneAndDelete({ _id: req.params.id, user_id: req.user._id || req.user.id });
@@ -49,6 +59,15 @@ exports.sendNotification = async (req, res, next) => {
     if (!user_id || !title || !message) {
       return res.status(400).json({ success: false, message: 'user_id, title, message required' });
     }
+    // Dedup: skip if same notification sent to this user within last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const existing = await Notification.findOne({
+      user_id, title, message, created_at: { $gte: oneHourAgo },
+    });
+    if (existing) {
+      return res.status(200).json({ success: true, data: existing, deduplicated: true });
+    }
+
     const notification = await Notification.create({ user_id, title, message, type, data, sent_at: new Date() });
 
     // Send FCM push notification

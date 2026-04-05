@@ -80,12 +80,13 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   Future<void> _markRead(String id) async {
+    // Update local state immediately
+    setState(() {
+      final idx = _notifications.indexWhere((n) => (n['_id'] ?? n['id']).toString() == id);
+      if (idx != -1) _notifications[idx] = {..._notifications[idx], 'is_read': true};
+    });
     try {
       await ApiService.put('/notifications/$id/mark-read', {});
-      setState(() {
-        final idx = _notifications.indexWhere((n) => n['id'].toString() == id);
-        if (idx != -1) _notifications[idx] = {..._notifications[idx], 'is_read': true};
-      });
     } catch (_) {}
   }
 
@@ -107,10 +108,11 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     try {
       await ApiService.delete('/notifications/$id');
       setState(() {
-        _notifications.removeWhere((n) => n['id'].toString() == id);
+        _notifications.removeWhere((n) => (n['_id'] ?? n['id']).toString() == id);
       });
     } catch (e) {
       _showSnackBar('Failed to delete notification');
+      _fetchNotifications(reset: true); // Re-fetch on failure
     }
   }
 
@@ -257,7 +259,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
   }
 
   Widget _buildNotificationTile(Map<String, dynamic> n) {
-    final id = n['id'].toString();
+    final id = (n['_id'] ?? n['id'] ?? '').toString();
     final isRead = n['is_read'] == true;
     final type = n['type'] ?? 'system';
     final title = n['title'] ?? '';
@@ -265,8 +267,21 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     final createdAt = n['created_at'];
 
     return Dismissible(
-      key: Key(id),
+      key: ValueKey('notif_$id'),
       direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Delete Notification'),
+            content: const Text('Are you sure you want to delete this notification?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.red))),
+            ],
+          ),
+        ) ?? false;
+      },
       background: Container(
         color: AppTheme.errorColor,
         alignment: Alignment.centerRight,
@@ -277,6 +292,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       child: InkWell(
         onTap: () {
           if (!isRead) _markRead(id);
+          _showNotificationPopup(n);
         },
         child: Container(
           color: isRead ? Colors.transparent : AppTheme.primaryColor.withAlpha(10),
@@ -358,6 +374,107 @@ class _NotificationsScreenState extends State<NotificationsScreen>
       case 'kyc': return const Color(0xFF9C27B0);
       default: return Colors.grey;
     }
+  }
+
+  Future<void> _markUnread(String id) async {
+    setState(() {
+      final idx = _notifications.indexWhere((n) => (n['_id'] ?? n['id']).toString() == id);
+      if (idx != -1) _notifications[idx] = {..._notifications[idx], 'is_read': false};
+    });
+    try {
+      await ApiService.put('/notifications/$id/mark-unread', {});
+    } catch (_) {}
+  }
+
+  void _showNotificationPopup(Map<String, dynamic> n) {
+    final id = (n['_id'] ?? n['id'] ?? '').toString();
+    final title = n['title'] ?? '';
+    final message = n['message'] ?? '';
+    final type = n['type'] ?? 'system';
+    final createdAt = n['created_at'];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: _typeColor(type).withAlpha(38),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(_typeIcon(type), color: _typeColor(type), size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(title,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(message, style: const TextStyle(fontSize: 14, height: 1.5)),
+            if (createdAt != null) ...[
+              const SizedBox(height: 12),
+              Text(_timeAgo(createdAt),
+                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      _markUnread(id);
+                      Navigator.pop(ctx);
+                    },
+                    child: const Text('Mark as Unread'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Close'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _timeAgo(String isoDate) {

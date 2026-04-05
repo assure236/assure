@@ -19,13 +19,6 @@ exports.uploadDocument = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid document type. Allowed: ' + VALID_TYPES.join(', ') });
     }
 
-    const DOC_SIZE_LIMITS = { aadhaar_card: 500 * 1024, pan_card: 200 * 1024, cancelled_cheque: 400 * 1024, selfie_photo: 150 * 1024 };
-    const maxSize = DOC_SIZE_LIMITS[document_type];
-    if (maxSize && req.file.size > maxSize) {
-      const limitKB = Math.round(maxSize / 1024);
-      return res.status(400).json({ success: false, message: `File too large for ${document_type.replace(/_/g, ' ')}. Maximum allowed: ${limitKB} KB` });
-    }
-
     const userId = req.user._id || req.user.id;
 
     // Remove previous document of the same type for this user

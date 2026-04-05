@@ -20,6 +20,11 @@ router.post('/login', validate(loginSchema), authController.login);
 // @access  Public
 router.post('/admin-login', authController.adminLogin);
 
+// @route   POST /api/v1/auth/login-otp
+// @desc    Login with OTP (no MPIN required)
+// @access  Public
+router.post('/login-otp', authController.loginWithOtp);
+
 // @route   POST /api/v1/auth/verify-otp
 // @desc    Verify OTP for login/registration
 // @access  Public

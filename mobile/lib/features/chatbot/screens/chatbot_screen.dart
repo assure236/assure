@@ -86,7 +86,11 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.smart_toy_rounded, size: 24),
+            CircleAvatar(
+              radius: 14,
+              backgroundColor: Colors.white24,
+              child: Text('A', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+            ),
             SizedBox(width: 8),
             Text('Assure Bot'),
           ],

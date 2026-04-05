@@ -50,11 +50,17 @@ const authMiddleware = async (req, res, next) => {
     }
 
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    let token;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    } else if (req.query.token) {
+      // Allow token via query param for browser-opened URLs (statements, receipts)
+      token = req.query.token;
+    }
+    if (!token) {
       return res.status(401).json({ success: false, message: 'No token provided.' });
     }
 
-    const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     // Try cache first, then DB

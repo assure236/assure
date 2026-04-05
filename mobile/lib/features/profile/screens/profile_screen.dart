@@ -94,26 +94,13 @@ class ProfileScreen extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(children: [
-                  // KYC + Credit Score row
-                  Row(children: [
-                    Expanded(
-                      child: _StatCard(
-                        label: 'KYC Status',
-                        value: _kycLabel(user?.kycStatus),
-                        color: _kycColor(user?.kycStatus),
-                        icon: Icons.verified_user,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _StatCard(
-                        label: 'Credit Score',
-                        value: '${user?.creditScore ?? 500}',
-                        color: _creditColor(user?.creditScore ?? 500),
-                        icon: Icons.star_rounded,
-                      ),
-                    ),
-                  ]),
+                  // KYC Status
+                  _StatCard(
+                    label: 'KYC Status',
+                    value: _kycLabel(user?.kycStatus),
+                    color: _kycColor(user?.kycStatus),
+                    icon: Icons.verified_user,
+                  ),
                   const SizedBox(height: 16),
 
                   // Personal Info
@@ -142,8 +129,64 @@ class ProfileScreen extends StatelessWidget {
                           value: user?.aadhaarNumber != null
                               ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)}'
                               : 'Not added'),
+                      if (user?.gender != null)
+                        _ProfileRow(
+                            icon: Icons.wc,
+                            label: 'Gender',
+                            value: user!.gender![0].toUpperCase() + user.gender!.substring(1)),
+                      if (user?.dateOfBirth != null)
+                        _ProfileRow(
+                            icon: Icons.cake_outlined,
+                            label: 'Date of Birth',
+                            value: user!.dateOfBirth!),
+                      if (user?.address != null && user!.address!.isNotEmpty)
+                        _ProfileRow(
+                            icon: Icons.home_outlined,
+                            label: 'Address',
+                            value: [user!.address, user.city, user.state, user.pincode]
+                                .where((s) => s != null && s.isNotEmpty)
+                                .join(', ')),
                     ],
                   ),
+                  if (user?.nomineeName != null && user!.nomineeName!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: 'Nominee Details',
+                      children: [
+                        _ProfileRow(
+                            icon: Icons.person_add_outlined,
+                            label: 'Nominee',
+                            value: user!.nomineeName!),
+                        if (user.nomineeRelationship != null)
+                          _ProfileRow(
+                              icon: Icons.people_outline,
+                              label: 'Relationship',
+                              value: user.nomineeRelationship!),
+                      ],
+                    ),
+                  ],
+                  if (user?.bankAccountNumber != null && user!.bankAccountNumber!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: 'Bank Details',
+                      children: [
+                        if (user!.bankName != null)
+                          _ProfileRow(
+                              icon: Icons.account_balance_outlined,
+                              label: 'Bank',
+                              value: user.bankName!),
+                        _ProfileRow(
+                            icon: Icons.numbers_outlined,
+                            label: 'Account',
+                            value: 'XXXX${user.bankAccountNumber!.substring(user.bankAccountNumber!.length > 4 ? user.bankAccountNumber!.length - 4 : 0)}'),
+                        if (user.bankIfscCode != null)
+                          _ProfileRow(
+                              icon: Icons.code_outlined,
+                              label: 'IFSC',
+                              value: user.bankIfscCode!),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   // Account
@@ -186,13 +229,13 @@ class ProfileScreen extends StatelessWidget {
                         icon: Icons.family_restroom,
                         label: 'Family Members',
                         subtitle: 'Manage family accounts',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Family mapping coming soon'),
-                                behavior: SnackBarBehavior.floating),
-                          );
-                        },
+                        onTap: () => context.push('/family-members'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.account_balance_wallet,
+                        label: 'Apply for Loan',
+                        subtitle: 'Loan against chit holdings',
+                        onTap: () => context.push('/apply-loan'),
                       ),
                     ],
                   ),
@@ -217,38 +260,21 @@ class ProfileScreen extends StatelessWidget {
                       _MenuItem(
                         icon: Icons.description_outlined,
                         label: 'Terms & Conditions',
-                        onTap: () {},
+                        onTap: () => context.push('/terms'),
                       ),
                       _MenuItem(
                         icon: Icons.privacy_tip_outlined,
                         label: 'Privacy Policy',
-                        onTap: () {},
+                        onTap: () => context.push('/privacy-policy'),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
 
-                  // Danger zone
+                  // Account Actions
                   _SectionCard(
                     title: 'Account Actions',
                     children: [
-                      _MenuItem(
-                        icon: Icons.lock_reset,
-                        label: 'Change Password',
-                        subtitle: 'Update login password',
-                        onTap: () => context.push('/change-password'),
-                      ),
-                      _MenuItem(
-                        icon: Icons.lock_outline,
-                        label: 'Change MPIN',
-                        onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Change MPIN coming soon'),
-                                behavior: SnackBarBehavior.floating),
-                          );
-                        },
-                      ),
                       _MenuItem(
                         icon: Icons.logout,
                         label: 'Logout',
@@ -316,12 +342,6 @@ class ProfileScreen extends StatelessWidget {
       case 'rejected': return AppTheme.errorColor;
       default: return Colors.grey;
     }
-  }
-
-  Color _creditColor(int score) {
-    if (score >= 750) return AppTheme.successColor;
-    if (score >= 600) return Colors.orange;
-    return AppTheme.errorColor;
   }
 }
 
