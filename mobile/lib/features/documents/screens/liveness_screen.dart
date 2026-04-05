@@ -28,15 +28,28 @@ class _LivenessScreenState extends State<LivenessScreen> {
   String? _capturedPath;
   bool _disposed = false;
 
+  // Stability counters — require consecutive hits before advancing
+  int _faceDetectedCount = 0;
+  int _smileDetectedCount = 0;
+  int _blinkDetectedCount = 0;
+  int _faceMissCount = 0;
+
+  // How many consecutive frames needed to confirm each step
+  static const int _faceFramesNeeded = 5;
+  static const int _smileFramesNeeded = 3;
+  static const int _blinkFramesNeeded = 2;
+  static const int _missToleranceFrames = 8; // ignore up to 8 frames of no face
+
   @override
   void initState() {
     super.initState();
     _faceDetector = FaceDetector(
       options: FaceDetectorOptions(
         enableClassification: true,
-        enableLandmarks: true,
+        enableLandmarks: false,
         enableTracking: true,
-        performanceMode: FaceDetectorMode.accurate,
+        performanceMode: FaceDetectorMode.fast,
+        minFaceSize: 0.25,
       ),
     );
     _initCamera();
@@ -79,14 +92,27 @@ class _LivenessScreenState extends State<LivenessScreen> {
       }
 
       final faces = await _faceDetector.processImage(inputImage);
+
       if (faces.isEmpty) {
-        _updateInstruction('Position your face in the circle', 0.0);
-        if (_currentStep != _Step.detectFace) {
+        _faceMissCount++;
+        // Only reset to detectFace if we haven't confirmed face yet
+        // and we've had many misses in a row
+        if (_currentStep == _Step.detectFace) {
+          _faceDetectedCount = 0;
+        } else if (_faceMissCount > _missToleranceFrames) {
+          // Face lost for too long — reset to detectFace
           _currentStep = _Step.detectFace;
+          _faceDetectedCount = 0;
+          _smileDetectedCount = 0;
+          _blinkDetectedCount = 0;
+          _updateInstruction('Position your face in the circle', 0.0);
         }
         _isProcessing = false;
         return;
       }
+
+      // Face found — reset miss counter
+      _faceMissCount = 0;
 
       final face = faces.first;
       final smileProb = face.smilingProbability ?? 0;
@@ -95,23 +121,37 @@ class _LivenessScreenState extends State<LivenessScreen> {
 
       switch (_currentStep) {
         case _Step.detectFace:
-          // Face detected, move to smile step
-          _currentStep = _Step.smile;
-          _updateInstruction('Please smile 😊', 0.33);
+          _faceDetectedCount++;
+          if (_faceDetectedCount >= _faceFramesNeeded) {
+            // Face confirmed stable — advance to smile
+            _currentStep = _Step.smile;
+            _updateInstruction('Great! Now smile 😊', 0.33);
+          }
           break;
 
         case _Step.smile:
-          if (smileProb > 0.7) {
-            _currentStep = _Step.blink;
-            _updateInstruction('Now blink your eyes 👁️', 0.66);
+          if (smileProb > 0.55) {
+            _smileDetectedCount++;
+            if (_smileDetectedCount >= _smileFramesNeeded) {
+              _currentStep = _Step.blink;
+              _updateInstruction('Now blink your eyes 👁️', 0.66);
+            }
+          } else {
+            // Reset smile counter if not smiling, but stay on smile step
+            _smileDetectedCount = 0;
           }
           break;
 
         case _Step.blink:
-          if (leftEyeOpen < 0.3 && rightEyeOpen < 0.3) {
-            _currentStep = _Step.done;
-            _updateInstruction('Verified! ✅', 1.0);
-            await _captureAndFinish();
+          if (leftEyeOpen < 0.4 && rightEyeOpen < 0.4) {
+            _blinkDetectedCount++;
+            if (_blinkDetectedCount >= _blinkFramesNeeded) {
+              _currentStep = _Step.done;
+              _updateInstruction('Verified! ✅', 1.0);
+              await _captureAndFinish();
+            }
+          } else {
+            _blinkDetectedCount = 0;
           }
           break;
 
