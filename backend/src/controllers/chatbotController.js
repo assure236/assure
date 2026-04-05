@@ -5,7 +5,7 @@ const INTENTS = {
   greeting: /^(?:hi|hello|hey|good\s*(?:morning|afternoon|evening)|namaste|yo|sup)/i,
   search_chit: /(?:want|need|looking|search|find|show|get|chit|group).*?(\d+)\s*(?:month|months|mon|lakh|lakhs|lac|k|thousand)/i,
   search_value: /(?:chit|group|plan).*?(?:₹|rs\.?|inr)?\s*(\d[\d,]*)/i,
-  list_chits: /(?:all|available|list|show|active)\s*(?:chits?|groups?|plans?)/i,
+  list_chits: /(?:all|available|list|show|active)\s*(?:chits?|groups?|plans?|schemes?)/i,
   my_chits: /(?:my|enrolled|joined)\s*(?:chits?|groups?)/i,
   payment_info: /(?:payment|pay|due|upcoming|pending|installment|emi)/i,
   auction_info: /(?:auction|bid|bidding|next auction|live auction)/i,
@@ -40,7 +40,7 @@ function detectIntent(message) {
     referral_info: ['refer', 'invite', 'bonus', 'friend'],
     support_info: ['support', 'ticket', 'complaint', 'issue', 'problem'],
     my_chits: ['my chit', 'my group', 'enrolled'],
-    list_chits: ['available', 'list', 'all chit', 'all group', 'show chit'],
+    list_chits: ['available', 'list', 'all chit', 'all group', 'show chit', 'scheme', 'schemes', 'all scheme'],
     help: ['help', 'menu', 'options', 'what can'],
   };
   for (const [intent, keywords] of Object.entries(fuzzyMap)) {
@@ -77,7 +77,7 @@ exports.chat = async (req, res, next) => {
         const name = user?.full_name?.split(' ')[0] || 'there';
         const hour = new Date().getHours();
         const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-        reply = `${greet}, ${name}! 😊 Welcome to Assure ChitFunds.\nI'm here to assist you with anything you need.\n\nHere's what I can help with:\n• 🔍 Find chit groups — "Show chits for 20 months"\n• 💰 Payments — "My payments" or "Pending dues"\n• 🔨 Auctions — "Next auction" or "Live auctions"\n• 👤 Account — "My profile" or "KYC status"\n• 🎁 Referrals — "My referral code"\n• 📋 "Help" for the full list\n\nJust type what you need!`;
+        reply = `${greet}, ${name}! 😊 Welcome to Assure ChitFunds — we're delighted to have you here!\n\nYour trust means the world to us. I'm your personal assistant, ready to help you make the most of your chit journey.\n\nHere's what I can do for you:\n• 🔍 Find schemes — "Show chits for 20 months"\n• 💰 Payments — "My payments" or "Pending dues"\n• 🔨 Auctions — "Next auction" or "Live auctions"\n• 👤 Account — "My profile" or "KYC status"\n• 🎁 Referrals — "My referral code"\n• 📋 Type "Help" anytime for the full list\n\nHow can I help you today?`;
         break;
       }
 

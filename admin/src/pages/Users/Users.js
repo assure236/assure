@@ -177,14 +177,43 @@ const Users = () => {
       {/* User Detail Dialog */}
       <Dialog open={!!selectedUser} onClose={() => setSelectedUser(null)} maxWidth="md" fullWidth>
         <DialogTitle>
-          <Box display="flex" alignItems="center" gap={2}>
-            <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48 }}>
-              {(selectedUser?.full_name || 'U')[0].toUpperCase()}
-            </Avatar>
-            <Box>
-              <Typography variant="h6">{selectedUser?.full_name}</Typography>
-              <Typography variant="caption" color="text.secondary">{selectedUser?.member_id || selectedUser?.mobile}</Typography>
+          <Box display="flex" alignItems="center" justifyContent="space-between">
+            <Box display="flex" alignItems="center" gap={2}>
+              <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48 }}>
+                {(selectedUser?.full_name || 'U')[0].toUpperCase()}
+              </Avatar>
+              <Box>
+                <Typography variant="h6">{selectedUser?.full_name}</Typography>
+                <Typography variant="caption" color="text.secondary">{selectedUser?.member_id || selectedUser?.mobile}</Typography>
+              </Box>
             </Box>
+            {detailData && (() => {
+              const requiredDocs = ['aadhaar_card', 'pan_card', 'cancelled_cheque', 'selfie_photo'];
+              const uploadedTypes = (detailData.documents || []).map(d => d.document_type);
+              const completedDocs = requiredDocs.filter(t => uploadedTypes.includes(t));
+              const hasDigilocker = !!detailData.digilocker_id;
+              const allDocsReady = completedDocs.length === 4;
+              const isFullyReady = allDocsReady && hasDigilocker;
+              return (
+                <Box display="flex" flexDirection="column" alignItems="flex-end" gap={0.5}>
+                  <Chip
+                    icon={isFullyReady ? <KycIcon /> : undefined}
+                    label={isFullyReady ? 'KYC Ready' : `Docs: ${completedDocs.length}/4${hasDigilocker ? ' + DigiLocker ✓' : ''}`}
+                    size="small"
+                    color={isFullyReady ? 'success' : allDocsReady ? 'warning' : 'error'}
+                    variant={isFullyReady ? 'filled' : 'outlined'}
+                  />
+                  {!allDocsReady && (
+                    <Typography variant="caption" color="error.main">
+                      Missing: {requiredDocs.filter(t => !uploadedTypes.includes(t)).map(t => t.replace(/_/g, ' ')).join(', ')}
+                    </Typography>
+                  )}
+                  {allDocsReady && !hasDigilocker && (
+                    <Typography variant="caption" color="warning.main">DigiLocker not linked</Typography>
+                  )}
+                </Box>
+              );
+            })()}
           </Box>
         </DialogTitle>
         <Tabs value={detailTab} onChange={(_, v) => setDetailTab(v)} sx={{ px: 3, borderBottom: 1, borderColor: 'divider' }}>

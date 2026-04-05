@@ -32,6 +32,10 @@ const userSchema = new mongoose.Schema({
   gender: { type: String, enum: ['male', 'female', 'other'] },
   nominee_name: String,
   nominee_relationship: String,
+  current_address: String,
+  current_city: String,
+  current_state: String,
+  current_pincode: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 userSchema.pre('save', async function () {

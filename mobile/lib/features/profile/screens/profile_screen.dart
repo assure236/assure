@@ -242,12 +242,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       if (user?.address != null && user!.address!.isNotEmpty)
                         _ProfileRow(
                             icon: Icons.home_outlined,
-                            label: 'Address',
+                            label: 'Permanent Address',
                             value: [user!.address, user.city, user.state, user.pincode]
+                                .where((s) => s != null && s.isNotEmpty)
+                                .join(', ')),
+                      if (user?.currentAddress != null && user!.currentAddress!.isNotEmpty)
+                        _ProfileRow(
+                            icon: Icons.location_on_outlined,
+                            label: 'Current Address',
+                            value: [user!.currentAddress, user.currentCity, user.currentState, user.currentPincode]
                                 .where((s) => s != null && s.isNotEmpty)
                                 .join(', ')),
                     ],
                   ),
+                  const SizedBox(height: 16),
+
+                  // Upgrade Eligibility
+                  _StatCard(
+                    label: 'Upgrade Eligibility',
+                    value: _upgradeLabel(user?.kycStatus, user?.creditScore ?? 0),
+                    color: _upgradeColor(user?.kycStatus, user?.creditScore ?? 0),
+                    icon: Icons.trending_up_rounded,
+                  ),
+                  const SizedBox(height: 16),
                   if (user?.nomineeName != null && user!.nomineeName!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _SectionCard(
@@ -442,6 +459,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
       case 'rejected': return AppTheme.errorColor;
       default: return Colors.grey;
     }
+  }
+
+  String _upgradeLabel(String? kycStatus, int creditScore) {
+    if (kycStatus != 'verified') return 'Complete KYC First';
+    if (creditScore >= 700) return 'Eligible for Premium';
+    if (creditScore >= 600) return 'Eligible for Standard';
+    return 'Build Credit Score';
+  }
+
+  Color _upgradeColor(String? kycStatus, int creditScore) {
+    if (kycStatus != 'verified') return Colors.grey;
+    if (creditScore >= 700) return AppTheme.successColor;
+    if (creditScore >= 600) return Colors.orange;
+    return AppTheme.errorColor;
   }
 }
 

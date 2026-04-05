@@ -22,6 +22,10 @@ class User {
   final String? bankAccountNumber;
   final String? bankIfscCode;
   final String? bankName;
+  final String? currentAddress;
+  final String? currentCity;
+  final String? currentState;
+  final String? currentPincode;
 
   User({
     required this.id,
@@ -47,6 +51,10 @@ class User {
     this.bankAccountNumber,
     this.bankIfscCode,
     this.bankName,
+    this.currentAddress,
+    this.currentCity,
+    this.currentState,
+    this.currentPincode,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -74,6 +82,10 @@ class User {
       bankAccountNumber: json['bank_account_number'],
       bankIfscCode: json['bank_ifsc_code'],
       bankName: json['bank_name'],
+      currentAddress: json['current_address'],
+      currentCity: json['current_city'],
+      currentState: json['current_state'],
+      currentPincode: json['current_pincode'],
     );
   }
 
@@ -102,6 +114,10 @@ class User {
       'bank_account_number': bankAccountNumber,
       'bank_ifsc_code': bankIfscCode,
       'bank_name': bankName,
+      'current_address': currentAddress,
+      'current_city': currentCity,
+      'current_state': currentState,
+      'current_pincode': currentPincode,
     };
   }
 }
