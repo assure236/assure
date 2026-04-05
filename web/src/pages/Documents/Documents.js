@@ -40,6 +40,8 @@ const Documents = () => {
   const [pendingDocType, setPendingDocType] = useState(null);
   const [webcamOpen, setWebcamOpen] = useState(false);
   const [webcamDocType, setWebcamDocType] = useState(null);
+  const [webcamStatus, setWebcamStatus] = useState('ready'); // ready | checking | done | error
+  const [webcamMsg, setWebcamMsg] = useState('');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -100,6 +102,8 @@ const Documents = () => {
   const openWebcam = useCallback(async (docType) => {
     setWebcamDocType(docType);
     setWebcamOpen(true);
+    setWebcamStatus('ready');
+    setWebcamMsg('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
@@ -120,6 +124,8 @@ const Documents = () => {
     }
     setWebcamOpen(false);
     setWebcamDocType(null);
+    setWebcamStatus('ready');
+    setWebcamMsg('');
   }, []);
 
   const capturePhoto = useCallback(async () => {
@@ -135,19 +141,32 @@ const Documents = () => {
     canvas.toBlob(async (blob) => {
       if (!blob) { toast.error('Failed to capture photo'); return; }
 
-      const docConfig = DOC_TYPES.find(d => d.key === webcamDocType);
-      const maxSizeKB = docConfig?.maxSizeKB || 500;
-      if (blob.size > maxSizeKB * 1024) {
-        toast.error(`Photo is too large (${(blob.size/1024).toFixed(0)} KB). Max: ${maxSizeKB} KB. Try better lighting.`);
-        return;
-      }
+      setWebcamStatus('checking');
+      setWebcamMsg('Checking liveness...');
 
-      const localUrl = URL.createObjectURL(blob);
-      setLocalPreviews(prev => ({ ...prev, [webcamDocType]: localUrl }));
-      closeWebcam();
-
-      setUploading(webcamDocType);
       try {
+        // Step 1: Liveness check
+        const livenessForm = new FormData();
+        livenessForm.append('photo', blob, 'selfie.jpg');
+        const livenessRes = await axios.post('/liveness/check', livenessForm, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (!livenessRes.data.live) {
+          setWebcamStatus('error');
+          setWebcamMsg(livenessRes.data.message || 'Not a real face detected. Please try again.');
+          return;
+        }
+
+        // Step 2: Liveness passed - upload document
+        setWebcamMsg('Verified! Uploading...');
+        setWebcamStatus('done');
+
+        const localUrl = URL.createObjectURL(blob);
+        setLocalPreviews(prev => ({ ...prev, [webcamDocType]: localUrl }));
+        closeWebcam();
+
+        setUploading(webcamDocType);
         const form = new FormData();
         form.append('document', blob, 'selfie.jpg');
         form.append('document_type', webcamDocType);
@@ -155,11 +174,13 @@ const Documents = () => {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         if (res.data.success) {
-          toast.success('Selfie uploaded successfully!');
+          toast.success('Selfie verified & uploaded!');
           fetchDocuments();
         }
       } catch (err) {
-        toast.error(err.response?.data?.message || 'Upload failed.');
+        const msg = err.response?.data?.message || 'Liveness check failed. Try again.';
+        setWebcamStatus('error');
+        setWebcamMsg(msg);
         setLocalPreviews(prev => { const n = { ...prev }; delete n[webcamDocType]; return n; });
       } finally {
         setUploading(null);
@@ -331,8 +352,8 @@ const Documents = () => {
       </Grid>
 
       {/* Webcam Selfie Dialog */}
-      <Dialog open={webcamOpen} onClose={closeWebcam} maxWidth="sm" fullWidth>
-        <DialogTitle>Take Selfie</DialogTitle>
+      <Dialog open={webcamOpen} onClose={webcamStatus === 'checking' ? undefined : closeWebcam} maxWidth="sm" fullWidth>
+        <DialogTitle>Liveness Verification</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
           <Box sx={{ position: 'relative', width: '100%', maxWidth: 480, borderRadius: 3, overflow: 'hidden', bgcolor: '#000', mb: 2 }}>
             <video ref={(el) => { videoRef.current = el; if (el && streamRef.current) el.srcObject = streamRef.current; }}
@@ -342,12 +363,29 @@ const Documents = () => {
               width: 200, height: 260, border: '2px dashed rgba(255,255,255,0.5)', borderRadius: '50%', pointerEvents: 'none' }} />
           </Box>
           <canvas ref={canvasRef} style={{ display: 'none' }} />
-          <Typography variant="caption" color="text.secondary" mb={1}>Position your face inside the oval</Typography>
+          {webcamStatus === 'ready' && (
+            <Typography variant="body2" color="text.secondary">Position your face inside the oval and tap Capture</Typography>
+          )}
+          {webcamStatus === 'checking' && (
+            <Box display="flex" alignItems="center" gap={1}>
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="primary">{webcamMsg}</Typography>
+            </Box>
+          )}
+          {webcamStatus === 'error' && (
+            <Alert severity="error" sx={{ width: '100%' }}>{webcamMsg}</Alert>
+          )}
+          {webcamStatus === 'done' && (
+            <Alert severity="success" sx={{ width: '100%' }}>{webcamMsg}</Alert>
+          )}
         </DialogContent>
         <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-          <Button onClick={closeWebcam} color="inherit">Cancel</Button>
+          <Button onClick={closeWebcam} color="inherit" disabled={webcamStatus === 'checking'}>Cancel</Button>
           <Button onClick={capturePhoto} variant="contained" startIcon={<CameraIcon />}
-            sx={{ borderRadius: 8, px: 4 }}>Capture</Button>
+            disabled={webcamStatus === 'checking' || webcamStatus === 'done'}
+            sx={{ borderRadius: 8, px: 4 }}>
+            {webcamStatus === 'error' ? 'Retry' : 'Capture'}
+          </Button>
         </DialogActions>
       </Dialog>
 
