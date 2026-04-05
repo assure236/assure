@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -128,25 +129,33 @@ class _LivenessScreenState extends State<LivenessScreen> {
     final camera = _camCtrl!.description;
     final sensorOrientation = camera.sensorOrientation;
 
-    InputImageRotation? rotation;
-    if (Platform.isAndroid) {
-      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
-    } else {
-      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
-    }
+    final rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
     if (rotation == null) return null;
 
-    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    // Get format; fallback to nv21 on Android (some devices report YUV_420_888 raw=35)
+    final format = InputImageFormatValue.fromRawValue(image.format.raw) ??
+        (Platform.isAndroid ? InputImageFormat.nv21 : null);
     if (format == null) return null;
 
-    final plane = image.planes.first;
+    // Concatenate all image planes for full frame data
+    int totalBytes = 0;
+    for (final plane in image.planes) {
+      totalBytes += plane.bytes.length;
+    }
+    final bytes = Uint8List(totalBytes);
+    int offset = 0;
+    for (final plane in image.planes) {
+      bytes.setRange(offset, offset + plane.bytes.length, plane.bytes);
+      offset += plane.bytes.length;
+    }
+
     return InputImage.fromBytes(
-      bytes: plane.bytes,
+      bytes: bytes,
       metadata: InputImageMetadata(
         size: Size(image.width.toDouble(), image.height.toDouble()),
         rotation: rotation,
         format: format,
-        bytesPerRow: plane.bytesPerRow,
+        bytesPerRow: image.planes.first.bytesPerRow,
       ),
     );
   }

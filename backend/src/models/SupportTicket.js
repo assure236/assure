@@ -12,12 +12,11 @@ const supportTicketSchema = new mongoose.Schema({
   resolved_at: Date,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-supportTicketSchema.pre('save', async function (next) {
+supportTicketSchema.pre('save', async function () {
   if (this.isNew && !this.ticket_number) {
     const count = await mongoose.model('SupportTicket').countDocuments();
     this.ticket_number = 'TKT' + String(count + 1).padStart(4, '0');
   }
-  next();
 });
 
 const SupportTicket = mongoose.model('SupportTicket', supportTicketSchema);

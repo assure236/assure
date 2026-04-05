@@ -42,7 +42,7 @@ const loanSchema = new mongoose.Schema({
   purpose: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
-loanSchema.pre('save', async function (next) {
+loanSchema.pre('save', async function () {
   if (this.isNew && !this.loan_number) {
     const count = await mongoose.model('Loan').countDocuments();
     this.loan_number = 'LN' + String(count + 1).padStart(5, '0');
@@ -58,7 +58,6 @@ loanSchema.pre('save', async function (next) {
       this.emi_amount = Math.round(P / n);
     }
   }
-  next();
 });
 
 const Loan = mongoose.model('Loan', loanSchema);
