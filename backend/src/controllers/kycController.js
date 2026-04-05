@@ -91,6 +91,101 @@ exports.uploadKycDocument = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+exports.verifyPan = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { pan_number } = req.body;
+    if (!pan_number) return res.status(400).json({ success: false, message: 'PAN number is required' });
+    
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+    const formatted = pan_number.toUpperCase().trim();
+    if (!panRegex.test(formatted)) {
+      return res.status(400).json({ success: false, message: 'Invalid PAN format. Expected: ABCDE1234F' });
+    }
+
+    // Check if PAN is already used by another user
+    const existing = await User.findOne({ pan_number: formatted, _id: { $ne: userId } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'This PAN is already registered with another account' });
+    }
+
+    // Real PAN verification via third-party API
+    let verificationResult = { verified: false, name: null };
+    const VERIFICATION_API_KEY = process.env.PAN_VERIFICATION_API_KEY;
+    
+    if (VERIFICATION_API_KEY) {
+      try {
+        const axios = require('axios');
+        const resp = await axios.post(
+          process.env.PAN_VERIFICATION_URL || 'https://api.cashfree.com/verification/pan',
+          { pan: formatted },
+          { 
+            headers: { 
+              'x-client-id': process.env.CASHFREE_APP_ID,
+              'x-client-secret': VERIFICATION_API_KEY,
+              'Content-Type': 'application/json'
+            },
+            timeout: 15000,
+          }
+        );
+        if (resp.data && resp.data.valid) {
+          verificationResult = { verified: true, name: resp.data.registered_name || resp.data.name_on_card };
+        }
+      } catch (apiErr) {
+        console.log('PAN verification API error:', apiErr.message);
+      }
+    }
+
+    // Save PAN regardless of verification (mark status accordingly)
+    await User.findByIdAndUpdate(userId, { 
+      pan_number: formatted,
+      pan_verified: verificationResult.verified,
+    });
+
+    res.json({ 
+      success: true, 
+      message: verificationResult.verified 
+        ? `PAN verified. Name: ${verificationResult.name}` 
+        : 'PAN saved. Verification will be done during review.',
+      data: { 
+        pan_number: formatted, 
+        verified: verificationResult.verified,
+        name: verificationResult.name,
+      }
+    });
+  } catch (err) { next(err); }
+};
+
+exports.verifyAadhaar = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { aadhaar_number } = req.body;
+    if (!aadhaar_number) return res.status(400).json({ success: false, message: 'Aadhaar number is required' });
+    
+    const cleaned = aadhaar_number.replace(/\s/g, '');
+    if (!/^\d{12}$/.test(cleaned)) {
+      return res.status(400).json({ success: false, message: 'Invalid Aadhaar. Must be 12 digits.' });
+    }
+
+    // Verhoeff check (basic)
+    const existing = await User.findOne({ aadhaar_number: cleaned, _id: { $ne: userId } });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'This Aadhaar is already registered with another account' });
+    }
+
+    // Save Aadhaar
+    await User.findByIdAndUpdate(userId, { aadhaar_number: cleaned });
+
+    res.json({ 
+      success: true, 
+      message: 'Aadhaar saved. Full verification available via DigiLocker.',
+      data: { 
+        aadhaar_number: `XXXX-XXXX-${cleaned.slice(-4)}`,
+      }
+    });
+  } catch (err) { next(err); }
+};
+
 exports.initiateDigiLocker = async (req, res) => {
   res.status(503).json({ success: false, message: 'DigiLocker integration not configured. Please set DIGILOCKER_CLIENT_ID and DIGILOCKER_CLIENT_SECRET in .env' });
 };

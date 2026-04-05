@@ -16,6 +16,7 @@ const adminRoutes = require('./adminRoutes');
 const walletRoutes = require('./walletRoutes');
 const chatbotRoutes = require('./chatbotRoutes');
 const digilockerRoutes = require('./digilockerRoutes');
+const loanRoutes = require('./loanRoutes');
 const fileRoutes = require('./fileRoutes');
 
 // Public routes
@@ -38,6 +39,7 @@ router.use('/kyc', kycRoutes);
 router.use('/wallet', walletRoutes);
 router.use('/chatbot', chatbotRoutes);
 router.use('/digilocker', digilockerRoutes);
+router.use('/loans', loanRoutes);
 
 // API info endpoint
 router.get('/', (req, res) => {

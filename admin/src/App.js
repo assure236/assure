@@ -28,6 +28,7 @@ import Branches from './pages/Branches/Branches';
 import Support from './pages/Support/Support';
 import Disbursals from './pages/Disbursals/Disbursals';
 import PushNotifications from './pages/PushNotifications/PushNotifications';
+import Loans from './pages/Loans/Loans';
 
 const theme = createTheme({
   palette: {
@@ -113,6 +114,7 @@ function App() {
               <Route path="/branches" element={<Branches />} />
               <Route path="/support" element={<Support />} />
               <Route path="/disbursals" element={<Disbursals />} />
+              <Route path="/loans" element={<Loans />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/dashboard" replace />} />

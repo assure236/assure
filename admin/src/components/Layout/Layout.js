@@ -18,6 +18,7 @@ import {
   AccountBalance as AccountBalanceIcon,
   Warning as WarningIcon,
   MoneyOff as DisbursalIcon,
+  AccountBalanceWallet as LoanIcon,
   Description as DocumentIcon,
   Campaign as CommunicationsIcon,
   Business as BranchIcon,
@@ -47,6 +48,7 @@ const navGroups = [
       { text: 'Reports', icon: <AssessmentIcon />, path: '/reports' },
       { text: 'Defaulters', icon: <WarningIcon />, path: '/defaulters' },
       { text: 'Disbursals', icon: <DisbursalIcon />, path: '/disbursals' },
+      { text: 'Loans', icon: <LoanIcon />, path: '/loans' },
     ]
   },
   {

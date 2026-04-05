@@ -10,6 +10,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import 'liveness_screen.dart';
 
 class DocumentsScreen extends StatefulWidget {
   const DocumentsScreen({super.key});
@@ -102,11 +103,11 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
     }
   }
 
-  /// Show picker: selfie_photo = camera only, others = camera + file upload
+  /// Show picker: selfie_photo = liveness screen, others = camera + file upload
   void _showUploadOptions(String docType) {
     if (docType == 'selfie_photo') {
-      // Selfie: camera only, no choice needed
-      _captureFromCamera(docType, useFrontCamera: true);
+      // Selfie: open liveness verification screen
+      _openLivenessScreen();
       return;
     }
     showModalBottomSheet(
@@ -146,6 +147,16 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openLivenessScreen() async {
+    final capturedPath = await Navigator.push<String?>(
+      context,
+      MaterialPageRoute(builder: (_) => const LivenessScreen()),
+    );
+    if (capturedPath != null && capturedPath.isNotEmpty) {
+      await _processAndUpload('selfie_photo', capturedPath, File(capturedPath).lengthSync());
+    }
   }
 
   Future<void> _captureFromCamera(String docType, {bool useFrontCamera = false}) async {

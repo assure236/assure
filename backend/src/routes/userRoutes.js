@@ -52,9 +52,41 @@ router.get('/payment-history', userController.getPaymentHistory);
 // @access  Private
 router.post('/update-fcm-token', userController.updateFcmToken);
 
-// Support request (stub — email integration in Phase 4)
-router.post('/support', async (req, res) => {
-  res.json({ success: true, message: 'Support request received. We will respond within 24 hours.' });
+// Support tickets — user-facing endpoints
+const SupportTicket = require('../models/SupportTicket');
+
+router.post('/support', async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { subject, description, priority } = req.body;
+    if (!subject || !description) {
+      return res.status(400).json({ success: false, message: 'Subject and description are required' });
+    }
+    const ticket = await SupportTicket.create({
+      user_id: userId,
+      subject,
+      description,
+      priority: priority || 'medium',
+    });
+    res.json({ success: true, message: 'Support ticket created', data: ticket });
+  } catch (err) { next(err); }
+});
+
+router.get('/support/tickets', async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const tickets = await SupportTicket.find({ user_id: userId }).sort({ created_at: -1 });
+    res.json({ success: true, data: tickets });
+  } catch (err) { next(err); }
+});
+
+router.get('/support/tickets/:id', async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const ticket = await SupportTicket.findOne({ _id: req.params.id, user_id: userId });
+    if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
+    res.json({ success: true, data: ticket });
+  } catch (err) { next(err); }
 });
 
 // Admin only routes

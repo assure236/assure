@@ -63,12 +63,19 @@ class _KycScreenState extends State<KycScreen> {
       _loading = true;
     });
     try {
-      final res = await ApiService.post('/kyc/submit-pan', {'pan_number': pan});
+      final res = await ApiService.post('/kyc/verify-pan', {'pan_number': pan});
       if (res['success'] == true) {
-        _showSnackBar('PAN submitted successfully', isError: false);
+        final verified = res['data']?['verified'] == true;
+        final name = res['data']?['name'];
+        _showSnackBar(
+          verified 
+            ? 'PAN verified! Name: $name' 
+            : 'PAN saved. Will be verified during review.',
+          isError: false,
+        );
         await _fetchKycStatus();
       } else {
-        _showSnackBar(res['message'] ?? 'PAN submission failed');
+        _showSnackBar(res['message'] ?? 'PAN verification failed');
       }
     } catch (e) {
       _showSnackBar('Could not connect to server');

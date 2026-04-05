@@ -267,9 +267,17 @@ class _HeaderSection extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
+                  GestureDetector(
+                    onTap: () => context.push('/profile'),
+                    child: Row(
                     children: [
-                      CircleAvatar(
+                      (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
+                          ? CircleAvatar(
+                              radius: 24,
+                              backgroundColor: Colors.white24,
+                              backgroundImage: NetworkImage(user.profileImageUrl!),
+                            )
+                          : CircleAvatar(
                         radius: 24,
                         backgroundColor: Colors.white24,
                         child: Text(
@@ -301,6 +309,7 @@ class _HeaderSection extends StatelessWidget {
                         ],
                       ),
                     ],
+                  ),
                   ),
                   Row(
                     children: [
@@ -347,7 +356,9 @@ class _HeaderSection extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 14),
-              // KYC badge
+              // KYC badge + QR
+              Row(
+                children: [
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -407,6 +418,8 @@ class _HeaderSection extends StatelessWidget {
                     ],
                   ),
                 ),
+              ),
+                ],
               ),
             ],
           ),

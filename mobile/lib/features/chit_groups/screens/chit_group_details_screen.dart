@@ -97,7 +97,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
       flexibleSpace: FlexibleSpaceBar(
         title: Text(
           group?.groupName ?? 'Chit Group Details',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         background: Container(
           decoration: const BoxDecoration(

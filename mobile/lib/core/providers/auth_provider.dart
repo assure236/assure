@@ -37,8 +37,8 @@ class AuthProvider with ChangeNotifier {
     _inactivityTimer?.cancel();
     if (_isAuthenticated) {
       _inactivityTimer = Timer(_inactivityDuration, () {
-        debugPrint('Inactivity timeout — auto-logout');
-        logout();
+        debugPrint('Inactivity timeout — soft lock (keep token for biometric)');
+        _softLock();
       });
     }
   }
@@ -46,8 +46,8 @@ class AuthProvider with ChangeNotifier {
   void _startInactivityTimer() {
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer(_inactivityDuration, () {
-      debugPrint('Inactivity timeout — auto-logout');
-      logout();
+      debugPrint('Inactivity timeout — soft lock (keep token for biometric)');
+      _softLock();
     });
   }
 
@@ -258,7 +258,11 @@ class AuthProvider with ChangeNotifier {
     _hasLocalAccount = true;
 
     final prefs = await SharedPreferences.getInstance();
-    if (_token != null) await prefs.setString('token', _token!);
+    if (_token != null) {
+      await prefs.setString('token', _token!);
+      // Also store in secure storage for statement/WebView access
+      await _secureStorage.write(key: 'access_token', value: _token!);
+    }
     await prefs.setString('user', jsonEncode(_user!.toJson()));
     await prefs.setBool('hasLocalAccount', true);
     await prefs.setString('mobile', _user!.mobile);
@@ -292,6 +296,13 @@ class AuthProvider with ChangeNotifier {
 
   // ─── Logout ────────────────────────────────────────────────────────────────
 
+  /// Soft lock — keeps token so biometric can re-authenticate quickly
+  void _softLock() {
+    _isAuthenticated = false;
+    _stopInactivityTimer();
+    notifyListeners();
+  }
+
   Future<void> logout() async {
     _user = null;
     _token = null;
@@ -304,6 +315,7 @@ class AuthProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
     await prefs.remove('user');
+    await _secureStorage.delete(key: 'access_token');
 
     notifyListeners();
   }

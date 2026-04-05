@@ -28,6 +28,12 @@ router.post('/submit', authMiddleware, upload.array('documents', 5), kycControll
 // @desc    Upload a single KYC document
 router.post('/upload-document', authMiddleware, upload.single('document'), kycController.uploadKycDocument);
 
+// @route   POST /api/v1/kyc/verify-pan
+router.post('/verify-pan', authMiddleware, kycController.verifyPan);
+
+// @route   POST /api/v1/kyc/verify-aadhaar
+router.post('/verify-aadhaar', authMiddleware, kycController.verifyAadhaar);
+
 // @route   GET /api/v1/kyc/digilocker/init
 router.get('/digilocker/init', authMiddleware, kycController.initiateDigiLocker);
 

@@ -43,7 +43,7 @@ class NotificationProvider with ChangeNotifier {
   Future<void> markRead(String id) async {
     try {
       await ApiService.put('/notifications/$id/mark-read', {});
-      final idx = _notifications.indexWhere((n) => n['id'].toString() == id);
+      final idx = _notifications.indexWhere((n) => (n['_id'] ?? n['id']).toString() == id);
       if (idx != -1) {
         _notifications[idx] = {..._notifications[idx], 'is_read': true};
         notifyListeners();

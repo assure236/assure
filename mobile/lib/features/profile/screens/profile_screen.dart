@@ -1,12 +1,96 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  bool _uploadingPhoto = false;
+
+  Future<void> _pickAndUploadPhoto() async {
+    final picker = ImagePicker();
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Change Profile Photo',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 16),
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: AppTheme.primaryColor),
+                title: const Text('Take Photo'),
+                onTap: () => Navigator.pop(ctx, ImageSource.camera),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: AppTheme.primaryColor),
+                title: const Text('Choose from Gallery'),
+                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final XFile? photo = await picker.pickImage(
+      source: source,
+      imageQuality: 70,
+      maxWidth: 800,
+      maxHeight: 800,
+    );
+    if (photo == null) return;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final res = await ApiService.uploadFile(
+        '/users/upload-profile-image',
+        photo.path,
+        fieldName: 'image',
+      );
+      if (res['success'] == true && mounted) {
+        await context.read<AuthProvider>().refreshProfile();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Profile photo updated'),
+          backgroundColor: AppTheme.successColor,
+          behavior: SnackBarBehavior.floating,
+        ));
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(res['message'] ?? 'Upload failed'),
+          backgroundColor: AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to upload photo'),
+          backgroundColor: AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,29 +125,45 @@ class ProfileScreen extends StatelessWidget {
                         const SizedBox(height: 16),
                         // Avatar
                         GestureDetector(
-                          onTap: () => context.push('/edit-profile'),
+                          onTap: _uploadingPhoto ? null : _pickAndUploadPhoto,
                           child: Stack(
                           alignment: Alignment.bottomRight,
                           children: [
-                            CircleAvatar(
-                              radius: 44,
-                              backgroundColor: Colors.white24,
-                              child: Text(
-                                user != null && user.fullName.isNotEmpty
-                                    ? user.fullName[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 36,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ),
+                            _uploadingPhoto
+                                ? const CircleAvatar(
+                                    radius: 44,
+                                    backgroundColor: Colors.white24,
+                                    child: SizedBox(
+                                      width: 30, height: 30,
+                                      child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2),
+                                    ),
+                                  )
+                                : (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
+                                    ? CircleAvatar(
+                                        radius: 44,
+                                        backgroundColor: Colors.white24,
+                                        backgroundImage: NetworkImage(user.profileImageUrl!),
+                                      )
+                                    : CircleAvatar(
+                                        radius: 44,
+                                        backgroundColor: Colors.white24,
+                                        child: Text(
+                                          user != null && user.fullName.isNotEmpty
+                                              ? user.fullName[0].toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 36,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
                             Container(
                               padding: const EdgeInsets.all(4),
                               decoration: const BoxDecoration(
                                   color: AppTheme.secondaryColor,
                                   shape: BoxShape.circle),
-                              child: const Icon(Icons.edit,
+                              child: const Icon(Icons.camera_alt,
                                   size: 14, color: Colors.white),
                             ),
                           ],

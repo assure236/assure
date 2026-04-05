@@ -97,6 +97,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: const [
             Tab(text: 'Overview'),
             Tab(text: 'Dividends'),
@@ -528,7 +530,7 @@ class _AccountStatementTabState extends State<_AccountStatementTab> {
   Future<void> _fetchStatement() async {
     setState(() { _loading = true; _error = null; });
     try {
-      final res = await ApiService.get('/payments/my');
+      final res = await ApiService.get('/payments/my-payments');
       if (res['success'] == true) {
         setState(() => _payments = List<Map<String, dynamic>>.from(res['data'] ?? []));
       } else {
@@ -559,7 +561,7 @@ class _AccountStatementTabState extends State<_AccountStatementTab> {
 
     final fmt = NumberFormat.currency(locale: 'en_IN', symbol: '\u20B9', decimalDigits: 0);
     final totalAmount = _payments.fold<double>(0, (s, p) => s + ((p['total_amount'] ?? p['amount'] ?? 0).toDouble()));
-    final successful = _payments.where((p) => p['payment_status'] == 'completed').length;
+    final successful = _payments.where((p) => p['payment_status'] == 'success' || p['payment_status'] == 'completed').length;
     final pending = _payments.where((p) => p['payment_status'] == 'pending' || p['payment_status'] == 'overdue').length;
 
     return RefreshIndicator(
