@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Container, Grid, Card, CardContent, CardActions, Typography, Box, Chip,
   CircularProgress, Button, Alert, IconButton, Tooltip, Dialog,
@@ -38,6 +38,11 @@ const Documents = () => {
   const fileInputRef = useRef();
   const cameraInputRef = useRef();
   const [pendingDocType, setPendingDocType] = useState(null);
+  const [webcamOpen, setWebcamOpen] = useState(false);
+  const [webcamDocType, setWebcamDocType] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
   const [dlStatus, setDlStatus] = useState(null);
   const [dlLoading, setDlLoading] = useState(false);
   const [localPreviews, setLocalPreviews] = useState({});
@@ -91,6 +96,76 @@ const Documents = () => {
     setPendingDocType(docType);
     cameraInputRef.current.click();
   };
+
+  const openWebcam = useCallback(async (docType) => {
+    setWebcamDocType(docType);
+    setWebcamOpen(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+    } catch (err) {
+      toast.error('Could not access camera. Please allow camera permission.');
+      closeWebcam();
+    }
+  }, []);
+
+  const closeWebcam = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setWebcamOpen(false);
+    setWebcamDocType(null);
+  }, []);
+
+  const capturePhoto = useCallback(async () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || !webcamDocType) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob(async (blob) => {
+      if (!blob) { toast.error('Failed to capture photo'); return; }
+
+      const docConfig = DOC_TYPES.find(d => d.key === webcamDocType);
+      const maxSizeKB = docConfig?.maxSizeKB || 500;
+      if (blob.size > maxSizeKB * 1024) {
+        toast.error(`Photo is too large (${(blob.size/1024).toFixed(0)} KB). Max: ${maxSizeKB} KB. Try better lighting.`);
+        return;
+      }
+
+      const localUrl = URL.createObjectURL(blob);
+      setLocalPreviews(prev => ({ ...prev, [webcamDocType]: localUrl }));
+      closeWebcam();
+
+      setUploading(webcamDocType);
+      try {
+        const form = new FormData();
+        form.append('document', blob, 'selfie.jpg');
+        form.append('document_type', webcamDocType);
+        const res = await axios.post('/documents/upload', form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        if (res.data.success) {
+          toast.success('Selfie uploaded successfully!');
+          fetchDocuments();
+        }
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Upload failed.');
+        setLocalPreviews(prev => { const n = { ...prev }; delete n[webcamDocType]; return n; });
+      } finally {
+        setUploading(null);
+      }
+    }, 'image/jpeg', 0.85);
+  }, [webcamDocType, closeWebcam]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -233,7 +308,7 @@ const Documents = () => {
                   )}
                   {docType.key === 'selfie_photo' ? (
                     <Button size="small" startIcon={isUploading ? <CircularProgress size={14} /> : <CameraIcon />}
-                      onClick={() => triggerCamera(docType.key)} disabled={!!uploading || isDocApproved(doc)}>
+                      onClick={() => openWebcam(docType.key)} disabled={!!uploading || isDocApproved(doc)}>
                       {doc ? (isDocApproved(doc) ? 'Approved' : 'Retake Selfie') : 'Take Selfie'}
                     </Button>
                   ) : (
@@ -254,6 +329,27 @@ const Documents = () => {
           );
         })}
       </Grid>
+
+      {/* Webcam Selfie Dialog */}
+      <Dialog open={webcamOpen} onClose={closeWebcam} maxWidth="sm" fullWidth>
+        <DialogTitle>Take Selfie</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', p: 2 }}>
+          <Box sx={{ position: 'relative', width: '100%', maxWidth: 480, borderRadius: 3, overflow: 'hidden', bgcolor: '#000', mb: 2 }}>
+            <video ref={(el) => { videoRef.current = el; if (el && streamRef.current) el.srcObject = streamRef.current; }}
+              autoPlay playsInline muted
+              style={{ width: '100%', display: 'block', transform: 'scaleX(-1)' }} />
+            <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)',
+              width: 200, height: 260, border: '2px dashed rgba(255,255,255,0.5)', borderRadius: '50%', pointerEvents: 'none' }} />
+          </Box>
+          <canvas ref={canvasRef} style={{ display: 'none' }} />
+          <Typography variant="caption" color="text.secondary" mb={1}>Position your face inside the oval</Typography>
+        </DialogContent>
+        <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
+          <Button onClick={closeWebcam} color="inherit">Cancel</Button>
+          <Button onClick={capturePhoto} variant="contained" startIcon={<CameraIcon />}
+            sx={{ borderRadius: 8, px: 4 }}>Capture</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Preview Dialog */}
       <Dialog open={!!previewDoc} onClose={() => setPreviewDoc(null)} maxWidth="md" fullWidth>
