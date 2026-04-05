@@ -32,6 +32,7 @@ const Referrals = lazy(() => import('./pages/Referrals/Referrals'));
 const Help = lazy(() => import('./pages/Help/Help'));
 const Notifications = lazy(() => import('./pages/Notifications/Notifications'));
 const Analytics = lazy(() => import('./pages/Analytics/Analytics'));
+const FamilyMembers = lazy(() => import('./pages/FamilyMembers/FamilyMembers'));
 
 const PageLoader = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -117,6 +118,7 @@ function App() {
               <Route path="/profile" element={<Profile />} />
               <Route path="/documents" element={<Documents />} />
               <Route path="/referrals" element={<Referrals />} />
+              <Route path="/family-members" element={<FamilyMembers />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/help" element={<Help />} />
               <Route path="/analytics" element={<Analytics />} />

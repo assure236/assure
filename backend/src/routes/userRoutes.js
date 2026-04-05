@@ -55,6 +55,13 @@ router.post('/update-fcm-token', userController.updateFcmToken);
 // Support tickets — user-facing endpoints
 const SupportTicket = require('../models/SupportTicket');
 
+// Family Members CRUD
+const familyMemberController = require('../controllers/familyMemberController');
+router.get('/family-members', familyMemberController.list);
+router.post('/family-members', familyMemberController.create);
+router.put('/family-members/:id', familyMemberController.update);
+router.delete('/family-members/:id', familyMemberController.remove);
+
 router.post('/support', async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;

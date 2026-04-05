@@ -213,6 +213,8 @@ router.get('/users/:id', adminOnly, async (req, res, next) => {
       Document.find({ user_id: user._id }).sort({ created_at: -1 }),
       Payment.find({ user_id: user._id }).populate('chit_group_id', 'group_name').sort({ created_at: -1 }).limit(10),
     ]);
+    const FamilyMember = require('../models/FamilyMember');
+    const familyMembers = await FamilyMember.find({ user_id: user._id, is_active: true }).sort({ created_at: -1 });
 
     // Build full payment schedule per group
     const groupSchedules = [];
@@ -251,7 +253,7 @@ router.get('/users/:id', adminOnly, async (req, res, next) => {
       });
     }
 
-    res.json({ success: true, data: { user, memberships, documents, recentPayments: payments, groupSchedules } });
+    res.json({ success: true, data: { user, memberships, documents, recentPayments: payments, groupSchedules, familyMembers } });
   } catch (err) { next(err); }
 });
 

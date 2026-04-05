@@ -70,6 +70,10 @@ const Profile = () => {
     city: user?.city || '',
     state: user?.state || '',
     pincode: user?.pincode || '',
+    current_address: user?.current_address || '',
+    current_city: user?.current_city || '',
+    current_state: user?.current_state || '',
+    current_pincode: user?.current_pincode || '',
   });
   const [pwDialog, setPwDialog] = useState(false);
   const [pwData, setPwData] = useState({ current_password: '', new_password: '', confirm: '' });
@@ -96,6 +100,10 @@ const Profile = () => {
       city: user?.city || '',
       state: user?.state || '',
       pincode: user?.pincode || '',
+      current_address: user?.current_address || '',
+      current_city: user?.current_city || '',
+      current_state: user?.current_state || '',
+      current_pincode: user?.current_pincode || '',
     });
     setEditing(false);
   };
@@ -160,6 +168,16 @@ const Profile = () => {
 
               <Divider sx={{ my: 2 }} />
 
+              {/* Upgrade Eligibility */}
+              <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: kycStatus !== 'verified' ? 'grey.100' : (user?.credit_score || 0) >= 700 ? 'success.50' : (user?.credit_score || 0) >= 600 ? 'warning.50' : 'error.50' }}>
+                <Typography variant="caption" color="text.secondary" display="block">Upgrade Eligibility</Typography>
+                <Typography variant="body2" fontWeight={700} color={kycStatus !== 'verified' ? 'text.secondary' : (user?.credit_score || 0) >= 700 ? 'success.main' : (user?.credit_score || 0) >= 600 ? 'warning.main' : 'error.main'}>
+                  {kycStatus !== 'verified' ? 'Complete KYC First' : (user?.credit_score || 0) >= 700 ? 'Eligible for Premium' : (user?.credit_score || 0) >= 600 ? 'Eligible for Standard' : 'Build Credit Score'}
+                </Typography>
+              </Box>
+
+              <Divider sx={{ my: 2 }} />
+
               <Box sx={{ bgcolor: 'grey.50', p: 1.5, borderRadius: 2, mb: 2 }}>
                 <Typography variant="caption" color="text.secondary" display="block">Member ID</Typography>
                 <Typography variant="body2" fontWeight={700}>{user?.member_id || '—'}</Typography>
@@ -204,10 +222,14 @@ const Profile = () => {
                   { field: 'full_name', label: 'Full Name', xs: 12, sm: 6 },
                   { field: 'mobile', label: 'Mobile Number', xs: 12, sm: 6, disabled: true },
                   { field: 'email', label: 'Email', xs: 12, sm: 6 },
-                  { field: 'address', label: 'Address', xs: 12 },
+                  { field: 'address', label: 'Permanent Address', xs: 12 },
                   { field: 'city', label: 'City', xs: 12, sm: 4 },
                   { field: 'state', label: 'State', xs: 12, sm: 4 },
                   { field: 'pincode', label: 'Pincode', xs: 12, sm: 4 },
+                  { field: 'current_address', label: 'Current Address', xs: 12 },
+                  { field: 'current_city', label: 'Current City', xs: 12, sm: 4 },
+                  { field: 'current_state', label: 'Current State', xs: 12, sm: 4 },
+                  { field: 'current_pincode', label: 'Current Pincode', xs: 12, sm: 4 },
                 ].map(({ field, label, xs, sm, disabled }) => (
                   <Grid item xs={xs} sm={sm} key={field}>
                     {editing

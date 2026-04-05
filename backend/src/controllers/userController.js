@@ -11,7 +11,7 @@ exports.getProfile = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    const { full_name, email, address, date_of_birth, city, state, pincode, pan_number, bank_account_number, bank_ifsc_code, bank_name, gender, nominee_name, nominee_relationship } = req.body;
+    const { full_name, email, address, date_of_birth, city, state, pincode, pan_number, bank_account_number, bank_ifsc_code, bank_name, gender, nominee_name, nominee_relationship, current_address, current_city, current_state, current_pincode } = req.body;
     const update = { full_name, email, address, date_of_birth, city, state, pincode };
     // Only set optional fields if provided
     if (pan_number !== undefined) update.pan_number = pan_number;
@@ -21,6 +21,10 @@ exports.updateProfile = async (req, res, next) => {
     if (gender !== undefined) update.gender = gender;
     if (nominee_name !== undefined) update.nominee_name = nominee_name;
     if (nominee_relationship !== undefined) update.nominee_relationship = nominee_relationship;
+    if (current_address !== undefined) update.current_address = current_address;
+    if (current_city !== undefined) update.current_city = current_city;
+    if (current_state !== undefined) update.current_state = current_state;
+    if (current_pincode !== undefined) update.current_pincode = current_pincode;
     const user = await User.findByIdAndUpdate(
       req.user._id || req.user.id,
       update,

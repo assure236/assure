@@ -26,6 +26,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _bankAccCtrl;
   late TextEditingController _bankIfscCtrl;
   late TextEditingController _bankNameCtrl;
+  late TextEditingController _currentAddressCtrl;
+  late TextEditingController _currentCityCtrl;
+  late TextEditingController _currentStateCtrl;
+  late TextEditingController _currentPincodeCtrl;
   String? _selectedGender;
   bool _saving = false;
 
@@ -46,6 +50,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _bankAccCtrl = TextEditingController(text: user?.bankAccountNumber ?? '');
     _bankIfscCtrl = TextEditingController(text: user?.bankIfscCode ?? '');
     _bankNameCtrl = TextEditingController(text: user?.bankName ?? '');
+    _currentAddressCtrl = TextEditingController(text: user?.currentAddress ?? '');
+    _currentCityCtrl = TextEditingController(text: user?.currentCity ?? '');
+    _currentStateCtrl = TextEditingController(text: user?.currentState ?? '');
+    _currentPincodeCtrl = TextEditingController(text: user?.currentPincode ?? '');
     _selectedGender = user?.gender;
   }
 
@@ -64,6 +72,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _bankAccCtrl.dispose();
     _bankIfscCtrl.dispose();
     _bankNameCtrl.dispose();
+    _currentAddressCtrl.dispose();
+    _currentCityCtrl.dispose();
+    _currentStateCtrl.dispose();
+    _currentPincodeCtrl.dispose();
     super.dispose();
   }
 
@@ -86,6 +98,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'bank_account_number': _bankAccCtrl.text.trim(),
         'bank_ifsc_code': _bankIfscCtrl.text.trim().toUpperCase(),
         'bank_name': _bankNameCtrl.text.trim(),
+        if (_currentAddressCtrl.text.trim().isNotEmpty) 'current_address': _currentAddressCtrl.text.trim(),
+        if (_currentCityCtrl.text.trim().isNotEmpty) 'current_city': _currentCityCtrl.text.trim(),
+        if (_currentStateCtrl.text.trim().isNotEmpty) 'current_state': _currentStateCtrl.text.trim(),
+        if (_currentPincodeCtrl.text.trim().isNotEmpty) 'current_pincode': _currentPincodeCtrl.text.trim(),
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -290,6 +306,43 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               const Divider(height: 1),
               _FormField(
                 controller: _pincodeCtrl,
+                label: 'Pincode',
+                icon: Icons.pin_drop_outlined,
+                keyboardType: TextInputType.number,
+                hint: '500001',
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return null;
+                  if (!RegExp(r'^\d{6}$').hasMatch(v.trim())) return 'Enter 6-digit pincode';
+                  return null;
+                },
+              ),
+            ]),
+            const SizedBox(height: 16),
+
+            // Current Address
+            _buildSectionLabel('Current Address'),
+            _buildFormCard([
+              _FormField(
+                controller: _currentAddressCtrl,
+                label: 'Current Address',
+                icon: Icons.location_on_outlined,
+                hint: 'Street / Area / Locality',
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _currentCityCtrl,
+                label: 'City',
+                icon: Icons.location_city_outlined,
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _currentStateCtrl,
+                label: 'State',
+                icon: Icons.map_outlined,
+              ),
+              const Divider(height: 1),
+              _FormField(
+                controller: _currentPincodeCtrl,
                 label: 'Pincode',
                 icon: Icons.pin_drop_outlined,
                 keyboardType: TextInputType.number,

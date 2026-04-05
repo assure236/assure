@@ -159,7 +159,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
             backgroundColor: const Color(0xFFF0F4F8),
             body: Column(
               children: [
-                _HeaderSection(user: user, dash: dash, loading: true),
+                _HeaderSection(user: user, dash: dash, loading: true, onProfileTap: () => widget.switchTab(4)),
                 const Expanded(child: Center(child: CircularProgressIndicator())),
               ],
             ),
@@ -171,7 +171,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
             backgroundColor: const Color(0xFFF0F4F8),
             body: Column(
               children: [
-                _HeaderSection(user: user, dash: dash, loading: false),
+                _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => widget.switchTab(4)),
                 Expanded(
                   child: Center(
                     child: Column(
@@ -210,7 +210,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
-                  child: _HeaderSection(user: user, dash: dash, loading: false),
+                  child: _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => widget.switchTab(4)),
                 ),
                 if (dash.kycStatus != 'verified' || !dash.isProfileComplete)
                   SliverToBoxAdapter(child: _KycProfileBanner(dash: dash, switchTab: widget.switchTab)),
@@ -233,9 +233,10 @@ class _HeaderSection extends StatelessWidget {
   final dynamic user;
   final DashboardProvider dash;
   final bool loading;
+  final VoidCallback? onProfileTap;
 
   const _HeaderSection(
-      {required this.user, required this.dash, required this.loading});
+      {required this.user, required this.dash, required this.loading, this.onProfileTap});
 
   String _greeting() {
     final h = DateTime.now().hour;
@@ -268,7 +269,7 @@ class _HeaderSection extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   GestureDetector(
-                    onTap: () => context.push('/profile'),
+                    onTap: () => onProfileTap?.call(),
                     child: Row(
                     children: [
                       (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)

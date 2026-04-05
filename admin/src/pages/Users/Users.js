@@ -13,6 +13,7 @@ import {
   VerifiedUser as KycIcon, Payment as PaymentIcon,
   Group as GroupIcon, Description as DocIcon,
   DeleteOutline as ClearIcon, Edit as EditIcon,
+  FamilyRestroom as FamilyIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -41,8 +42,8 @@ const Users = () => {
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_URL}/admin/users/${user._id || user.id}`);
       if (res.data.success) {
-        const { user: userData, memberships, documents, recentPayments } = res.data.data;
-        setDetailData({ ...userData, memberships: memberships || [], documents: documents || [], recentPayments: recentPayments || [], groupSchedules: res.data.data.groupSchedules || [] });
+        const { user: userData, memberships, documents, recentPayments, familyMembers } = res.data.data;
+        setDetailData({ ...userData, memberships: memberships || [], documents: documents || [], recentPayments: recentPayments || [], groupSchedules: res.data.data.groupSchedules || [], familyMembers: familyMembers || [] });
       }
     } catch {
       toast.error('Could not load member details');
@@ -221,6 +222,7 @@ const Users = () => {
           <Tab label="Payments" />
           <Tab label="Chit Groups" />
           <Tab label="Documents" />
+          <Tab label="Family" />
         </Tabs>
         <DialogContent sx={{ minHeight: 300, pt: 2 }}>
           {detailLoading ? (
@@ -242,6 +244,10 @@ const Users = () => {
                     { label: 'Aadhaar', value: detailData.aadhaar_number ? '****' + detailData.aadhaar_number.slice(-4) : '—', field: 'aadhaar_number' },
                     { label: 'City', value: detailData.city || '—', field: 'city' },
                     { label: 'State', value: detailData.state || '—', field: 'state' },
+                    { label: 'Current Address', value: detailData.current_address || '—', field: 'current_address' },
+                    { label: 'Current City', value: detailData.current_city || '—', field: 'current_city' },
+                    { label: 'Current State', value: detailData.current_state || '—', field: 'current_state' },
+                    { label: 'Current Pincode', value: detailData.current_pincode || '—', field: 'current_pincode' },
                     { label: 'Joined', value: detailData.created_at ? new Date(detailData.created_at).toLocaleDateString('en-IN') : '—' },
                   ].map(({ label, value, field }) => (
                     <Grid item xs={6} key={label}>
@@ -369,6 +375,37 @@ const Users = () => {
                           </TableCell>
                           <TableCell><Chip label={d.status || 'pending'} size="small" color={d.status === 'approved' ? 'success' : d.status === 'rejected' ? 'error' : 'warning'} /></TableCell>
                           <TableCell>{new Date(d.created_at).toLocaleDateString('en-IN')}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )
+              )}
+              {/* Family Members Tab */}
+              {detailTab === 4 && (
+                detailData.familyMembers?.length === 0 ? (
+                  <Box textAlign="center" py={4}><FamilyIcon sx={{ fontSize: 48, color: 'grey.300' }} /><Typography color="text.secondary">No family members linked</Typography></Box>
+                ) : (
+                  <Table size="small">
+                    <TableHead><TableRow>
+                      {['Name', 'Relationship', 'Mobile', 'Nominee', 'Added'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}
+                    </TableRow></TableHead>
+                    <TableBody>
+                      {(detailData.familyMembers || []).map(fm => (
+                        <TableRow key={fm._id || fm.id}>
+                          <TableCell>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Avatar sx={{ width: 28, height: 28, bgcolor: 'primary.light', fontSize: 14 }}>{(fm.full_name || '?')[0].toUpperCase()}</Avatar>
+                              <Box>
+                                <Typography variant="body2" fontWeight={600}>{fm.full_name}</Typography>
+                                {fm.email && <Typography variant="caption" color="text.secondary">{fm.email}</Typography>}
+                              </Box>
+                            </Box>
+                          </TableCell>
+                          <TableCell sx={{ textTransform: 'capitalize' }}>{fm.relationship}</TableCell>
+                          <TableCell>{fm.mobile || '—'}</TableCell>
+                          <TableCell>{fm.is_nominee ? <Chip label="Nominee" size="small" color="success" /> : '—'}</TableCell>
+                          <TableCell>{new Date(fm.created_at).toLocaleDateString('en-IN')}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

@@ -31,7 +31,8 @@ import {
   Help as HelpIcon,
   Notifications as NotifIcon,
   Logout as LogoutIcon,
-  BarChart as AnalyticsIcon
+  BarChart as AnalyticsIcon,
+  FamilyRestroom as FamilyIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import Chatbot from '../Chatbot/Chatbot';
@@ -47,6 +48,7 @@ const menuItems = [
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
   { text: 'Documents', icon: <DescriptionIcon />, path: '/documents' },
   { text: 'Notifications', icon: <NotifIcon />, path: '/notifications' },
+  { text: 'Family Members', icon: <FamilyIcon />, path: '/family-members' },
   { text: 'Referrals', icon: <CardGiftcardIcon />, path: '/referrals' },
   { text: 'Help & Support', icon: <HelpIcon />, path: '/help' }
 ];

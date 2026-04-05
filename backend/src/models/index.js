@@ -19,6 +19,7 @@ const JournalEntry = require('./JournalEntry');
 const FiscalYear = require('./FiscalYear');
 const DefaulterAction = require('./DefaulterAction');
 const Loan = require('./Loan');
+const FamilyMember = require('./FamilyMember');
 
 module.exports = {
   mongoose,
@@ -26,4 +27,5 @@ module.exports = {
   Document, Referral, Notification, AppSetting, Branch,
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
   Account, JournalEntry, FiscalYear, DefaulterAction, Loan,
+  FamilyMember,
 };
