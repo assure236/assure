@@ -7,7 +7,8 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import '../../../core/theme/app_theme.dart';
 
-/// Angel-Broking-style liveness check: asks user to smile, blink, turn head.
+/// Liveness check: Face → capture → Smile → Blink → Verified.
+/// Mirrors the proven Python MediaPipe approach.
 /// Returns the captured image path on success, or null if cancelled.
 class LivenessScreen extends StatefulWidget {
   const LivenessScreen({super.key});
@@ -28,28 +29,31 @@ class _LivenessScreenState extends State<LivenessScreen> {
   String? _capturedPath;
   bool _disposed = false;
 
-  // Stability counters — require consecutive hits before advancing
-  int _faceDetectedCount = 0;
-  int _smileDetectedCount = 0;
-  int _blinkDetectedCount = 0;
-  int _faceMissCount = 0;
+  // ── Stability tracking (mirrors Python script) ──
+  int _smileCounter = 0;
+  int _blinkCounter = 0;
+  bool _blinkDone = false;
+  bool _eyesWereOpen = true; // track open→close→open transition
+  DateTime _lastFaceTime = DateTime.now();
 
-  // How many consecutive frames needed to confirm each step
-  static const int _faceFramesNeeded = 5;
-  static const int _smileFramesNeeded = 3;
-  static const int _blinkFramesNeeded = 2;
-  static const int _missToleranceFrames = 8; // ignore up to 8 frames of no face
+  // Thresholds (tuned for google_mlkit)
+  static const double _smileThreshold = 0.45;    // smilingProbability > this
+  static const int _smileFramesRequired = 6;      // consecutive frames smiling
+  static const double _eyeClosedThreshold = 0.3;  // eyeOpenProbability < this = closed
+  static const double _eyeOpenThreshold = 0.6;    // eyeOpenProbability > this = open
+  static const int _blinkFramesRequired = 2;       // consecutive closed frames
+  static const Duration _faceLostTimeout = Duration(seconds: 2);
 
   @override
   void initState() {
     super.initState();
     _faceDetector = FaceDetector(
       options: FaceDetectorOptions(
-        enableClassification: true,
+        enableClassification: true,   // needed for smile + eye probabilities
         enableLandmarks: false,
         enableTracking: true,
         performanceMode: FaceDetectorMode.fast,
-        minFaceSize: 0.25,
+        minFaceSize: 0.15,
       ),
     );
     _initCamera();
@@ -94,64 +98,79 @@ class _LivenessScreenState extends State<LivenessScreen> {
       final faces = await _faceDetector.processImage(inputImage);
 
       if (faces.isEmpty) {
-        _faceMissCount++;
-        // Only reset to detectFace if we haven't confirmed face yet
-        // and we've had many misses in a row
-        if (_currentStep == _Step.detectFace) {
-          _faceDetectedCount = 0;
-        } else if (_faceMissCount > _missToleranceFrames) {
-          // Face lost for too long — reset to detectFace
-          _currentStep = _Step.detectFace;
-          _faceDetectedCount = 0;
-          _smileDetectedCount = 0;
-          _blinkDetectedCount = 0;
-          _updateInstruction('Position your face in the circle', 0.0);
+        // No face — check if lost for > 2 seconds then reset
+        if (DateTime.now().difference(_lastFaceTime) > _faceLostTimeout &&
+            _currentStep != _Step.detectFace) {
+          _resetToStart();
         }
         _isProcessing = false;
         return;
       }
 
-      // Face found — reset miss counter
-      _faceMissCount = 0;
+      // Face present — update timestamp
+      _lastFaceTime = DateTime.now();
 
       final face = faces.first;
-      final smileProb = face.smilingProbability ?? 0;
-      final leftEyeOpen = face.leftEyeOpenProbability ?? 1;
-      final rightEyeOpen = face.rightEyeOpenProbability ?? 1;
+      final smileProb = face.smilingProbability ?? -1;
+      final leftEyeOpen = face.leftEyeOpenProbability ?? -1;
+      final rightEyeOpen = face.rightEyeOpenProbability ?? -1;
+
+      // Skip frame if classification data unavailable
+      if (smileProb < 0 || leftEyeOpen < 0 || rightEyeOpen < 0) {
+        _isProcessing = false;
+        return;
+      }
+
+      final avgEyeOpen = (leftEyeOpen + rightEyeOpen) / 2.0;
 
       switch (_currentStep) {
         case _Step.detectFace:
-          _faceDetectedCount++;
-          if (_faceDetectedCount >= _faceFramesNeeded) {
-            // Face confirmed stable — advance to smile
-            _currentStep = _Step.smile;
-            _updateInstruction('Great! Now smile 😊', 0.33);
-          }
+          // Face detected! Capture photo immediately, then move to smile
+          await _capturePhoto();
+          _currentStep = _Step.smile;
+          _smileCounter = 0;
+          _updateInstruction('Great! Now smile 😊', 0.33);
           break;
 
         case _Step.smile:
-          if (smileProb > 0.55) {
-            _smileDetectedCount++;
-            if (_smileDetectedCount >= _smileFramesNeeded) {
-              _currentStep = _Step.blink;
-              _updateInstruction('Now blink your eyes 👁️', 0.66);
-            }
+          if (smileProb > _smileThreshold) {
+            _smileCounter++;
           } else {
-            // Reset smile counter if not smiling, but stay on smile step
-            _smileDetectedCount = 0;
+            _smileCounter = 0;
+          }
+          if (_smileCounter >= _smileFramesRequired) {
+            _currentStep = _Step.blink;
+            _blinkCounter = 0;
+            _blinkDone = false;
+            _eyesWereOpen = true;
+            _updateInstruction('Now blink your eyes 👁️', 0.66);
           }
           break;
 
         case _Step.blink:
-          if (leftEyeOpen < 0.4 && rightEyeOpen < 0.4) {
-            _blinkDetectedCount++;
-            if (_blinkDetectedCount >= _blinkFramesNeeded) {
-              _currentStep = _Step.done;
-              _updateInstruction('Verified! ✅', 1.0);
-              await _captureAndFinish();
-            }
-          } else {
-            _blinkDetectedCount = 0;
+          // Detect blink as: eyes open → eyes close (N frames) → eyes open
+          if (_eyesWereOpen && avgEyeOpen < _eyeClosedThreshold) {
+            // Eyes just closed
+            _blinkCounter++;
+          } else if (avgEyeOpen < _eyeClosedThreshold) {
+            // Eyes still closed
+            _blinkCounter++;
+          } else if (_blinkCounter >= _blinkFramesRequired &&
+                     avgEyeOpen > _eyeOpenThreshold) {
+            // Eyes opened after being closed = BLINK detected
+            _blinkDone = true;
+          } else if (avgEyeOpen > _eyeOpenThreshold) {
+            // Eyes open, no blink yet — reset counter
+            _blinkCounter = 0;
+          }
+          _eyesWereOpen = avgEyeOpen > _eyeOpenThreshold;
+
+          if (_blinkDone) {
+            _currentStep = _Step.done;
+            _updateInstruction('Verified! ✅', 1.0);
+            // Brief pause to show the verified state
+            await Future.delayed(const Duration(milliseconds: 600));
+            if (mounted) Navigator.pop(context, _capturedPath);
           }
           break;
 
@@ -164,11 +183,38 @@ class _LivenessScreenState extends State<LivenessScreen> {
     _isProcessing = false;
   }
 
+  void _resetToStart() {
+    _currentStep = _Step.detectFace;
+    _smileCounter = 0;
+    _blinkCounter = 0;
+    _blinkDone = false;
+    _eyesWereOpen = true;
+    _capturedPath = null;
+    _updateInstruction('Position your face in the circle', 0.0);
+  }
+
+  /// Capture a still photo (used at face-detection step).
+  Future<void> _capturePhoto() async {
+    try {
+      await _camCtrl?.stopImageStream();
+      await Future.delayed(const Duration(milliseconds: 200));
+      final file = await _camCtrl?.takePicture();
+      _capturedPath = file?.path;
+      debugPrint('Captured selfie: $_capturedPath');
+      // Restart stream for smile/blink detection
+      _startDetection();
+    } catch (e) {
+      debugPrint('Capture error: $e');
+      // If capture failed, restart stream anyway
+      try { _startDetection(); } catch (_) {}
+    }
+  }
+
   InputImage? _convertToInputImage(CameraImage image) {
     final camera = _camCtrl!.description;
     final sensorOrientation = camera.sensorOrientation;
 
-    // For front camera, mirror the rotation compensation
+    // For front camera, mirror the rotation
     final int rotationDegrees;
     if (camera.lensDirection == CameraLensDirection.front) {
       rotationDegrees = (360 - sensorOrientation) % 360;
@@ -188,7 +234,6 @@ class _LivenessScreenState extends State<LivenessScreen> {
       format = f;
     }
 
-    // For NV21, all data is in the first plane
     final plane = image.planes.first;
     return InputImage.fromBytes(
       bytes: plane.bytes,
@@ -199,29 +244,6 @@ class _LivenessScreenState extends State<LivenessScreen> {
         bytesPerRow: plane.bytesPerRow,
       ),
     );
-  }
-
-  Future<void> _captureAndFinish() async {
-    try {
-      // Stop the image stream first, then wait for it to fully stop
-      try {
-        await _camCtrl?.stopImageStream();
-      } catch (_) {}
-      // Small delay to allow the camera to stabilize after stopping the stream
-      await Future.delayed(const Duration(milliseconds: 300));
-      final file = await _camCtrl?.takePicture();
-      _capturedPath = file?.path;
-      debugPrint('Captured selfie: $_capturedPath');
-    } catch (e) {
-      debugPrint('Capture error: $e');
-      // Fallback: try capturing without stopping stream
-      try {
-        final file = await _camCtrl?.takePicture();
-        _capturedPath = file?.path;
-      } catch (_) {}
-    }
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (mounted) Navigator.pop(context, _capturedPath);
   }
 
   void _updateInstruction(String text, double progress) {
@@ -255,13 +277,11 @@ class _LivenessScreenState extends State<LivenessScreen> {
           : Column(
               children: [
                 const SizedBox(height: 20),
-                // Instructions
                 Text(_instruction,
                     style: const TextStyle(
                         color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center),
                 const SizedBox(height: 8),
-                // Progress bar
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 40),
                   child: ClipRRect(
@@ -276,7 +296,6 @@ class _LivenessScreenState extends State<LivenessScreen> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Step indicators
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -288,7 +307,6 @@ class _LivenessScreenState extends State<LivenessScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                // Camera preview in an oval (mirrored for front camera)
                 Expanded(
                   child: Center(
                     child: SizedBox(
