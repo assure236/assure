@@ -485,7 +485,7 @@ class _KycProfileBanner extends StatelessWidget {
             const Divider(height: 16),
           if (profileIncomplete)
             InkWell(
-              onTap: () => context.push('/profile'),
+              onTap: () => context.push('/edit-profile'),
               child: Row(
                 children: [
                   const Icon(Icons.person_outline_rounded,

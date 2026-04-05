@@ -62,5 +62,20 @@ class NotificationProvider with ChangeNotifier {
       debugPrint('NotificationProvider markAllRead error: $e');
     }
   }
+
+  /// Update local state only (when API was already called externally)
+  void markReadLocal(String id) {
+    final idx = _notifications.indexWhere((n) => (n['_id'] ?? n['id']).toString() == id);
+    if (idx != -1) {
+      _notifications[idx] = {..._notifications[idx], 'is_read': true};
+      notifyListeners();
+    }
+  }
+
+  /// Update local state only (when API was already called externally)
+  void markAllReadLocal() {
+    _notifications = _notifications.map((n) => {...n, 'is_read': true}).toList();
+    notifyListeners();
+  }
 }
 

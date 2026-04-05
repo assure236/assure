@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/providers/notification_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -87,6 +89,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     });
     try {
       await ApiService.put('/notifications/$id/mark-read', {});
+      if (mounted) context.read<NotificationProvider>().markReadLocal(id);
     } catch (_) {}
   }
 
@@ -98,6 +101,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
             .map((n) => {...n, 'is_read': true})
             .toList();
       });
+      if (mounted) context.read<NotificationProvider>().markAllReadLocal();
       _showSnackBar('All notifications marked as read', isError: false);
     } catch (e) {
       _showSnackBar('Failed to mark all as read');

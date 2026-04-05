@@ -194,15 +194,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(children: [
-                  // KYC Status
-                  _StatCard(
-                    label: 'KYC Status',
-                    value: _kycLabel(user?.kycStatus),
-                    color: _kycColor(user?.kycStatus),
-                    icon: Icons.verified_user,
-                  ),
-                  const SizedBox(height: 16),
-
                   // Personal Info
                   _SectionCard(
                     title: 'Personal Information',
@@ -256,15 +247,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Upgrade Eligibility
-                  _StatCard(
-                    label: 'Upgrade Eligibility',
-                    value: _upgradeLabel(user?.kycStatus, user?.creditScore ?? 0),
-                    color: _upgradeColor(user?.kycStatus, user?.creditScore ?? 0),
-                    icon: Icons.trending_up_rounded,
-                  ),
-                  const SizedBox(height: 16),
                   if (user?.nomineeName != null && user!.nomineeName!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _SectionCard(
@@ -310,6 +292,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _SectionCard(
                     title: 'Account',
                     children: [
+                      _MenuItem(
+                        icon: Icons.edit_outlined,
+                        label: 'Edit Profile',
+                        subtitle: 'Update your personal details',
+                        onTap: () => context.push('/edit-profile'),
+                      ),
                       _MenuItem(
                         icon: Icons.shield_outlined,
                         label: 'KYC & Documents',
@@ -461,19 +449,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  String _upgradeLabel(String? kycStatus, int creditScore) {
-    if (kycStatus != 'verified') return 'Complete KYC First';
-    if (creditScore >= 700) return 'Eligible for Premium';
-    if (creditScore >= 600) return 'Eligible for Standard';
-    return 'Build Credit Score';
-  }
-
-  Color _upgradeColor(String? kycStatus, int creditScore) {
-    if (kycStatus != 'verified') return Colors.grey;
-    if (creditScore >= 700) return AppTheme.successColor;
-    if (creditScore >= 600) return Colors.orange;
-    return AppTheme.errorColor;
-  }
 }
 
 class _StatCard extends StatelessWidget {

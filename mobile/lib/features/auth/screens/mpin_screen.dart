@@ -149,10 +149,11 @@ class _MpinScreenState extends State<MpinScreen> {
         elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
-          TextButton(
+          TextButton.icon(
             onPressed: () => context.go('/login'),
-            child: Text(
-              'Login differently',
+            icon: Icon(Icons.swap_horiz, size: 18, color: AppTheme.primaryColor),
+            label: Text(
+              'Switch User',
               style: TextStyle(color: AppTheme.primaryColor, fontSize: 13),
             ),
           ),
