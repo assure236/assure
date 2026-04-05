@@ -159,7 +159,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
             backgroundColor: const Color(0xFFF0F4F8),
             body: Column(
               children: [
-                _HeaderSection(user: user, dash: dash, loading: true, onProfileTap: () => widget.switchTab(4)),
+                _HeaderSection(user: user, dash: dash, loading: true, onProfileTap: () => context.push('/edit-profile')),
                 const Expanded(child: Center(child: CircularProgressIndicator())),
               ],
             ),
@@ -171,7 +171,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
             backgroundColor: const Color(0xFFF0F4F8),
             body: Column(
               children: [
-                _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => widget.switchTab(4)),
+                _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => context.push('/edit-profile')),
                 Expanded(
                   child: Center(
                     child: Column(
@@ -210,7 +210,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
-                  child: _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => widget.switchTab(4)),
+                  child: _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => context.push('/edit-profile')),
                 ),
                 if (dash.kycStatus != 'verified' || !dash.isProfileComplete)
                   SliverToBoxAdapter(child: _KycProfileBanner(dash: dash, switchTab: widget.switchTab)),
