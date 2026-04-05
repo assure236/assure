@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -129,33 +128,35 @@ class _LivenessScreenState extends State<LivenessScreen> {
     final camera = _camCtrl!.description;
     final sensorOrientation = camera.sensorOrientation;
 
-    final rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+    // For front camera, mirror the rotation compensation
+    final int rotationDegrees;
+    if (camera.lensDirection == CameraLensDirection.front) {
+      rotationDegrees = (360 - sensorOrientation) % 360;
+    } else {
+      rotationDegrees = sensorOrientation;
+    }
+    final rotation = InputImageRotationValue.fromRawValue(rotationDegrees);
     if (rotation == null) return null;
 
-    // Get format; fallback to nv21 on Android (some devices report YUV_420_888 raw=35)
-    final format = InputImageFormatValue.fromRawValue(image.format.raw) ??
-        (Platform.isAndroid ? InputImageFormat.nv21 : null);
-    if (format == null) return null;
-
-    // Concatenate all image planes for full frame data
-    int totalBytes = 0;
-    for (final plane in image.planes) {
-      totalBytes += plane.bytes.length;
-    }
-    final bytes = Uint8List(totalBytes);
-    int offset = 0;
-    for (final plane in image.planes) {
-      bytes.setRange(offset, offset + plane.bytes.length, plane.bytes);
-      offset += plane.bytes.length;
+    // Hard-code NV21 for Android since we request ImageFormatGroup.nv21
+    final InputImageFormat format;
+    if (Platform.isAndroid) {
+      format = InputImageFormat.nv21;
+    } else {
+      final f = InputImageFormatValue.fromRawValue(image.format.raw);
+      if (f == null) return null;
+      format = f;
     }
 
+    // For NV21, all data is in the first plane
+    final plane = image.planes.first;
     return InputImage.fromBytes(
-      bytes: bytes,
+      bytes: plane.bytes,
       metadata: InputImageMetadata(
         size: Size(image.width.toDouble(), image.height.toDouble()),
         rotation: rotation,
         format: format,
-        bytesPerRow: image.planes.first.bytesPerRow,
+        bytesPerRow: plane.bytesPerRow,
       ),
     );
   }

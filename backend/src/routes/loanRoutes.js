@@ -3,6 +3,7 @@ const router = express.Router();
 const { authMiddleware, authorizeRoles } = require('../middleware/auth');
 const Loan = require('../models/Loan');
 const { ChitMember } = require('../models');
+const { notifyUser } = require('../utils/notifyUser');
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -57,6 +58,8 @@ router.post('/apply', async (req, res, next) => {
       purpose: purpose || '',
       outstanding_amount: requested_amount,
     });
+
+    notifyUser(userId, 'Loan Application Submitted 📋', `Your loan application for ₹${requested_amount} has been submitted. We'll review it shortly.`, 'loan_update', { loan_id: String(loan._id) }).catch(() => {});
 
     res.status(201).json({ success: true, message: 'Loan application submitted', data: loan });
   } catch (err) { next(err); }
@@ -175,6 +178,17 @@ router.put('/admin/:id/review', authorizeRoles('admin', 'super_admin'), async (r
     if (admin_notes) loan.admin_notes = admin_notes;
 
     await loan.save();
+
+    // Send push notification for loan status change
+    const notifMap = {
+      approve: { title: 'Loan Approved ✅', msg: `Your loan of ₹${loan.approved_amount} has been approved! EMI: ₹${loan.emi_amount}/month for ${loan.tenure_months} months.` },
+      reject: { title: 'Loan Rejected ❌', msg: `Your loan application was rejected. Reason: ${rejection_reason || 'Contact support for details.'}` },
+      disburse: { title: 'Loan Disbursed 💰', msg: `Your loan of ₹${loan.approved_amount} has been disbursed to your account.` },
+      close: { title: 'Loan Closed ✅', msg: 'Your loan has been successfully closed. Thank you!' },
+    };
+    const n = notifMap[action];
+    if (n) notifyUser(loan.user_id, n.title, n.msg, 'loan_update', { loan_id: String(loan._id) }).catch(() => {});
+
     res.json({ success: true, message: `Loan ${action}d successfully`, data: loan });
   } catch (err) { next(err); }
 });
