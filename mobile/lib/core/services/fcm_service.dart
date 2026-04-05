@@ -119,30 +119,16 @@ class FcmService {
     await registerTokenWithBackend();
   }
 
-  /// Show a local notification when app is in foreground
+  /// Handle foreground message — DO NOT show local notification here.
+  /// Firebase automatically shows the push notification in the system tray.
+  /// We only update the last notification check time so the polling service
+  /// doesn't re-show it.
   void _handleForegroundMessage(RemoteMessage message) {
     debugPrint('Foreground message: ${message.notification?.title}');
-
-    final notification = message.notification;
-    if (notification == null) return;
-
-    const androidDetails = AndroidNotificationDetails(
-      'assure_chitfunds',
-      'Assure ChitFunds',
-      channelDescription: 'Payment reminders, auction alerts, and more',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: '@mipmap/ic_launcher',
-      showWhen: true,
-    );
-
-    _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      const NotificationDetails(android: androidDetails),
-      payload: jsonEncode(message.data),
-    );
+    // Update last check time so LocalNotificationService doesn't duplicate
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.setString('last_notification_check', DateTime.now().toUtc().toIso8601String());
+    });
   }
 
   /// Handle notification tap (app opened from notification)

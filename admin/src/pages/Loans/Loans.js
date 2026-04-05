@@ -90,8 +90,8 @@ export default function Loans() {
 
   const statCards = [
     { label: 'Total Applications', value: stats.total || 0, icon: <AccountBalanceWallet />, color: '#0B1F3B' },
-    { label: 'Pending Review', value: (stats.by_status?.requested || 0) + (stats.by_status?.under_review || 0), icon: <HourglassEmpty />, color: '#F59E0B' },
-    { label: 'Active Loans', value: (stats.by_status?.active || 0) + (stats.by_status?.disbursed || 0), icon: <TrendingUp />, color: '#16A34A' },
+    { label: 'Pending Review', value: stats.pending || 0, icon: <HourglassEmpty />, color: '#F59E0B' },
+    { label: 'Active Loans', value: stats.active || 0, icon: <TrendingUp />, color: '#16A34A' },
     { label: 'Total Disbursed', value: fmt(stats.total_disbursed || 0), icon: <AttachMoney />, color: '#1E3A8A' },
   ];
 
@@ -165,7 +165,7 @@ export default function Loans() {
                     {loan.loan_number}
                   </TableCell>
                   <TableCell>
-                    {loan.user_id?.name || loan.user_id?.phone || '—'}
+                    {loan.user_id?.full_name || loan.user_id?.mobile || '—'}
                   </TableCell>
                   <TableCell>
                     <Chip size="small" label={LOAN_TYPES[loan.loan_type] || loan.loan_type} variant="outlined" />
@@ -231,7 +231,7 @@ export default function Loans() {
         <DialogContent>
           <Box sx={{ mt: 1 }}>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              <b>Member:</b> {reviewDialog.loan?.user_id?.name || '—'} &nbsp;|&nbsp;
+              <b>Member:</b> {reviewDialog.loan?.user_id?.full_name || reviewDialog.loan?.user_id?.mobile || '—'} &nbsp;|&nbsp;
               <b>Amount:</b> {fmt(reviewDialog.loan?.requested_amount)} &nbsp;|&nbsp;
               <b>Tenure:</b> {reviewDialog.loan?.tenure_months} months
             </Typography>
@@ -294,7 +294,7 @@ export default function Loans() {
                 ['EMI', detailDialog.loan.emi_amount ? fmt(detailDialog.loan.emi_amount) : '—'],
                 ['Outstanding', detailDialog.loan.outstanding_amount ? fmt(detailDialog.loan.outstanding_amount) : '—'],
                 ['Applied', new Date(detailDialog.loan.created_at).toLocaleDateString('en-IN')],
-                ['Member', detailDialog.loan.user_id?.name || detailDialog.loan.user_id?.phone || '—'],
+                ['Member', detailDialog.loan.user_id?.full_name || detailDialog.loan.user_id?.mobile || '—'],
               ].map(([label, value]) => (
                 <Box key={label}>
                   <Typography variant="caption" color="text.secondary">{label}</Typography>

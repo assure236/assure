@@ -532,7 +532,17 @@ class _AccountStatementTabState extends State<_AccountStatementTab> {
     try {
       final res = await ApiService.get('/payments/my-payments');
       if (res['success'] == true) {
-        setState(() => _payments = List<Map<String, dynamic>>.from(res['data'] ?? []));
+        final data = res['data'];
+        // Backend returns { paid: [...], upcoming: [...], all: [...] }
+        List rawList;
+        if (data is Map && data['all'] is List) {
+          rawList = data['all'];
+        } else if (data is List) {
+          rawList = data;
+        } else {
+          rawList = [];
+        }
+        setState(() => _payments = List<Map<String, dynamic>>.from(rawList));
       } else {
         setState(() => _error = res['message'] ?? 'Failed to load statement');
       }

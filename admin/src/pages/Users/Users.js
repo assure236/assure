@@ -12,7 +12,7 @@ import {
   PersonOff as BanIcon, PersonAdd as UnbanIcon,
   VerifiedUser as KycIcon, Payment as PaymentIcon,
   Group as GroupIcon, Description as DocIcon,
-  DeleteOutline as ClearIcon,
+  DeleteOutline as ClearIcon, Edit as EditIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -202,7 +202,7 @@ const Users = () => {
               {detailTab === 0 && (
                 <Grid container spacing={1.5}>
                   {[
-                    { label: 'Full Name', value: detailData.full_name },
+                    { label: 'Full Name', value: detailData.full_name, field: 'full_name' },
                     { label: 'Phone', value: detailData.mobile },
                     { label: 'Email', value: detailData.email || '—', field: 'email' },
                     { label: 'KYC Status', value: detailData.kyc_status },
@@ -221,17 +221,39 @@ const Users = () => {
                           <Typography variant="caption" color="text.secondary">{label}</Typography>
                           <Typography variant="body2" fontWeight={500} sx={{ textTransform: 'capitalize' }}>{value}</Typography>
                         </Box>
-                        {field && value !== '—' && (
-                          <Tooltip title={`Clear ${label}`}>
-                            <IconButton size="small" color="error" onClick={async () => {
-                              if (!window.confirm(`Clear ${label} for this user?`)) return;
-                              try {
-                                await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${selectedUser._id || selectedUser.id}`, { clear_fields: [field] });
-                                toast.success(`${label} cleared`);
-                                openDetail(selectedUser);
-                              } catch (e) { toast.error('Failed to clear field'); }
-                            }}><ClearIcon fontSize="small" /></IconButton>
-                          </Tooltip>
+                        {field && (
+                          <Box display="flex" gap={0.5}>
+                            <Tooltip title={`Edit ${label}`}>
+                              <IconButton size="small" color="primary" onClick={() => {
+                                const currentVal = field === 'aadhaar_number' ? (detailData.aadhaar_number || '') : (value === '—' ? '' : String(value));
+                                const newVal = window.prompt(`Edit ${label}:`, currentVal);
+                                if (newVal === null) return;
+                                if (newVal.trim() === '') {
+                                  toast.error(`${label} cannot be empty. Use the delete button to clear.`);
+                                  return;
+                                }
+                                (async () => {
+                                  try {
+                                    await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${selectedUser._id || selectedUser.id}`, { [field]: newVal.trim() });
+                                    toast.success(`${label} updated`);
+                                    openDetail(selectedUser);
+                                  } catch (e) { toast.error('Failed to update field'); }
+                                })();
+                              }}><EditIcon fontSize="small" /></IconButton>
+                            </Tooltip>
+                            {value !== '—' && (
+                              <Tooltip title={`Clear ${label}`}>
+                                <IconButton size="small" color="error" onClick={async () => {
+                                  if (!window.confirm(`Clear ${label} for this user?`)) return;
+                                  try {
+                                    await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${selectedUser._id || selectedUser.id}`, { clear_fields: [field] });
+                                    toast.success(`${label} cleared`);
+                                    openDetail(selectedUser);
+                                  } catch (e) { toast.error('Failed to clear field'); }
+                                }}><ClearIcon fontSize="small" /></IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
                         )}
                       </Box>
                     </Grid>

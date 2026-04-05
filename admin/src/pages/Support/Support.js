@@ -158,7 +158,7 @@ export default function Support() {
                   ) : rows.map(ticket => (
                     <TableRow key={ticket._id || ticket.id} hover sx={{ opacity: ticket.status === 'closed' ? 0.7 : 1 }}>
                       <TableCell>
-                        <Typography variant="body2" fontWeight={700} color="primary.main">{ticket.id}</Typography>
+                        <Typography variant="body2" fontWeight={700} color="primary.main">{ticket.ticket_number || ticket._id?.slice(-6)}</Typography>
                       </TableCell>
                       <TableCell sx={{ maxWidth: 220 }}>
                         <Typography variant="body2" fontWeight={500}>{ticket.subject}</Typography>

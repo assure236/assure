@@ -66,39 +66,8 @@ class LocalNotificationService {
       final token = prefs.getString('token');
       if (token == null) return; // Not logged in
 
-      final lastCheck = prefs.getString('last_notification_check') ?? '2000-01-01T00:00:00Z';
-      
-      final res = await ApiService.get('/notifications?unread=true&limit=10');
-      if (res['success'] != true) return;
-
-      final rawData = res['data'];
-      final List<Map<String, dynamic>> notifications;
-      if (rawData is Map && rawData['notifications'] is List) {
-        notifications = List<Map<String, dynamic>>.from(rawData['notifications']);
-      } else if (rawData is List) {
-        notifications = List<Map<String, dynamic>>.from(rawData);
-      } else {
-        return;
-      }
-
-      // Filter only notifications newer than last check
-      final lastCheckTime = DateTime.tryParse(lastCheck) ?? DateTime(2000);
-      int shown = 0;
-      for (final n in notifications) {
-        final createdAt = DateTime.tryParse(n['created_at']?.toString() ?? '');
-        if (createdAt != null && createdAt.isAfter(lastCheckTime)) {
-          await _showNotification(
-            id: n['_id'].hashCode,
-            title: n['title']?.toString() ?? 'Assure ChitFunds',
-            body: n['message']?.toString() ?? '',
-            payload: jsonEncode(n),
-          );
-          shown++;
-          if (shown >= 3) break; // Don't spam — max 3 at a time
-        }
-      }
-
-      // Update last check time
+      // Just update the last check timestamp — push notifications are handled by FCM
+      // This service only tracks unread count for the badge, not for showing popups
       await prefs.setString('last_notification_check', DateTime.now().toUtc().toIso8601String());
     } catch (e) {
       debugPrint('Notification poll error: $e');

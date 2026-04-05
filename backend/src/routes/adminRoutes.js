@@ -256,7 +256,10 @@ router.get('/users/:id', adminOnly, async (req, res, next) => {
 
 router.put('/users/:id', adminOnly, async (req, res, next) => {
   try {
-    const { full_name, email, mobile, role, is_active, kyc_status, kyc_rejection_reason, clear_fields } = req.body;
+    const { full_name, email, mobile, role, is_active, kyc_status, kyc_rejection_reason, clear_fields,
+            pan_number, aadhaar_number, city, state, address, pincode,
+            nominee_name, nominee_relation, nominee_phone,
+            bank_account_number, bank_ifsc, bank_name } = req.body;
     const update = {};
     const unset = {};
     if (full_name !== undefined) update.full_name = full_name;
@@ -267,6 +270,19 @@ router.put('/users/:id', adminOnly, async (req, res, next) => {
     if (kyc_status !== undefined) update.kyc_status = kyc_status;
     if (kyc_rejection_reason !== undefined) update.kyc_rejection_reason = kyc_rejection_reason;
     if (kyc_status === 'verified') update.kyc_verified_at = new Date();
+    // Editable profile fields
+    if (pan_number !== undefined) update.pan_number = pan_number;
+    if (aadhaar_number !== undefined) update.aadhaar_number = aadhaar_number;
+    if (city !== undefined) update.city = city;
+    if (state !== undefined) update.state = state;
+    if (address !== undefined) update.address = address;
+    if (pincode !== undefined) update.pincode = pincode;
+    if (nominee_name !== undefined) update.nominee_name = nominee_name;
+    if (nominee_relation !== undefined) update.nominee_relation = nominee_relation;
+    if (nominee_phone !== undefined) update.nominee_phone = nominee_phone;
+    if (bank_account_number !== undefined) update.bank_account_number = bank_account_number;
+    if (bank_ifsc !== undefined) update.bank_ifsc = bank_ifsc;
+    if (bank_name !== undefined) update.bank_name = bank_name;
     // Allow admin to clear specific fields (e.g. pan_number, aadhaar_number, email)
     if (Array.isArray(clear_fields)) {
       const allowed = ['pan_number', 'aadhaar_number', 'email', 'address', 'city', 'state', 'pincode', 'nominee_name', 'nominee_relation', 'nominee_phone', 'bank_account_number', 'bank_ifsc', 'bank_name'];

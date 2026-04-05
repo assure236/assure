@@ -183,6 +183,10 @@ class _KycScreenState extends State<KycScreen> {
               _buildPanCard(),
               const SizedBox(height: 20),
             ],
+            if (panVerified) ...[
+              _buildPanVerifiedCard(),
+              const SizedBox(height: 20),
+            ],
             if (panVerified && !aadhaarVerified) ...[
               _buildDigilockerCard(),
               const SizedBox(height: 20),
@@ -352,6 +356,58 @@ class _KycScreenState extends State<KycScreen> {
                     ? const SizedBox(height: 20, width: 20,
                         child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Text('Verify PAN'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPanVerifiedCard() {
+    final pan = _kycStatus?['pan_number'] ?? '';
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle, color: AppTheme.successColor),
+                const SizedBox(width: 8),
+                const Text('PAN Card Verified',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: () {
+                    _panController.text = pan;
+                    setState(() {
+                      _kycStatus?['pan_verified'] = false;
+                    });
+                  },
+                  icon: const Icon(Icons.edit, size: 16),
+                  label: const Text('Edit'),
+                  style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.successColor.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.successColor.withAlpha(76)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.badge, color: AppTheme.successColor, size: 20),
+                  const SizedBox(width: 8),
+                  Text(pan, style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 16, letterSpacing: 1.5)),
+                ],
               ),
             ),
           ],

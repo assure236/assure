@@ -146,6 +146,14 @@ class _SupportScreenState extends State<SupportScreen> {
                             ));
                           }
                           _fetchTickets();
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(res['message'] ?? 'Failed to create ticket'),
+                              backgroundColor: AppTheme.errorColor,
+                              behavior: SnackBarBehavior.floating,
+                            ));
+                          }
                         }
                       } catch (e) {
                         if (mounted) {
