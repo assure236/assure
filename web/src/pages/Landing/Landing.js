@@ -88,27 +88,33 @@ const INCOME_PLANS = [
 // Animated counter hook
 const useCounter = (end, duration = 2000) => {
   const [count, setCount] = useState(0);
+  const match = end.match(/(\d+(\.\d+)?)/);
   useEffect(() => {
-    const num = parseInt(end.replace(/[^\d]/g, ''));
+    if (!match) return;
+    const num = parseFloat(match[1]);
     if (!num) return;
+    const isDecimal = match[1].includes('.');
     let start = 0;
     const increment = num / (duration / 16);
     const timer = setInterval(() => {
       start += increment;
       if (start >= num) { setCount(num); clearInterval(timer); }
-      else setCount(Math.floor(start));
+      else setCount(isDecimal ? parseFloat(start.toFixed(1)) : Math.floor(start));
     }, 16);
     return () => clearInterval(timer);
   }, [end, duration]);
-  const suffix = end.replace(/[\d,]/g, '');
-  return count ? `${count.toLocaleString('en-IN')}${suffix}` : end;
+  if (!match || !count) return end;
+  const prefix = end.substring(0, match.index);
+  const suffix = end.substring(match.index + match[1].length);
+  const display = match[1].includes('.') ? count.toFixed(1) : count.toLocaleString('en-IN');
+  return `${prefix}${display}${suffix}`;
 };
 
 const StatCard = ({ label, value }) => {
   const display = useCounter(value);
   return (
     <Card sx={{
-      borderRadius: 3, textAlign: 'center', py: 3, px: 2,
+      borderRadius: 3, textAlign: 'center', py: 3.5, px: 2.5,
       bgcolor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)',
       border: '1px solid rgba(212,175,55,0.2)',
       transition: 'transform 0.3s, box-shadow 0.3s',
@@ -290,7 +296,7 @@ const Landing = () => {
         <Box sx={{ position: 'absolute', top: -100, right: -100, width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, rgba(212,175,55,0.12) 0%, transparent 70%)` }} />
         <Box sx={{ position: 'absolute', bottom: -80, left: -80, width: 300, height: 300, borderRadius: '50%', background: `radial-gradient(circle, rgba(30,58,138,0.25) 0%, transparent 70%)` }} />
         <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
-          <Grid container spacing={6} alignItems="center">
+          <Grid container spacing={8} alignItems="center">
             <Grid item xs={12} md={7}>
               <Fade in timeout={800}>
                 <Box>
@@ -327,7 +333,7 @@ const Landing = () => {
               </Fade>
             </Grid>
             <Grid item xs={12} md={5}>
-              <Grid container spacing={2}>
+              <Grid container spacing={2.5}>
                 {STATS.map((stat, i) => (
                   <Grid item xs={6} key={i}><StatCard {...stat} /></Grid>
                 ))}
