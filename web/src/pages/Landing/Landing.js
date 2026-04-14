@@ -221,7 +221,7 @@ const Landing = () => {
         transition: 'all 0.3s ease',
         borderBottom: `1px solid rgba(212,175,55,${scrolled ? '0.15' : '0.08'})`,
       }}>
-        <Toolbar sx={{ justifyContent: 'space-between', maxWidth: 1200, mx: 'auto', width: '100%', px: { xs: 2, md: 3 } }}>
+        <Toolbar sx={{ justifyContent: 'space-between', width: '100%', px: { xs: 2, md: 5, lg: 8 } }}>
           {/* Logo — bigger, clickable to home */}
           <Box display="flex" alignItems="center" gap={1.5} sx={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
             <Box component="img" src="/logo.png" alt="Assure Chit Funds" sx={{ width: 52, height: 52 }} />
@@ -245,7 +245,7 @@ const Landing = () => {
                 onClick={() => document.getElementById('plans')?.scrollIntoView({ behavior: 'smooth' })}>
                 Our Plans
               </Button>
-              <Box sx={{ width: 1, height: 24, bgcolor: 'rgba(255,255,255,0.15)', mx: 1 }} />
+              <Box sx={{ width: '1px', height: 24, bgcolor: 'rgba(255,255,255,0.15)', mx: 1.5, flexShrink: 0 }} />
               <Button variant="outlined" size="small" onClick={() => navigate('/login')}
                 sx={{ borderColor: 'rgba(255,255,255,0.25)', color: 'white', mr: 1, '&:hover': { borderColor: GOLD, color: GOLD } }}>
                 Login
@@ -295,7 +295,7 @@ const Landing = () => {
       }}>
         <Box sx={{ position: 'absolute', top: -100, right: -100, width: 400, height: 400, borderRadius: '50%', background: `radial-gradient(circle, rgba(212,175,55,0.12) 0%, transparent 70%)` }} />
         <Box sx={{ position: 'absolute', bottom: -80, left: -80, width: 300, height: 300, borderRadius: '50%', background: `radial-gradient(circle, rgba(30,58,138,0.25) 0%, transparent 70%)` }} />
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+        <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1, px: { xs: 2, md: 5, lg: 8 } }}>
           <Grid container spacing={8} alignItems="center">
             <Grid item xs={12} md={7}>
               <Fade in timeout={800}>
@@ -345,7 +345,7 @@ const Landing = () => {
 
       {/* ─── TRUST BAR ─── */}
       <Box sx={{ bgcolor: 'white', py: 3, borderBottom: '1px solid #E2E8F0' }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl" sx={{ px: { xs: 2, md: 5, lg: 8 } }}>
           <Box display="flex" justifyContent="center" alignItems="center" gap={4} flexWrap="wrap">
             {['Chit Funds Act 1982', '256-bit SSL Encrypted', '100% Transparent', 'Quick Payouts'].map((t, i) => (
               <Box key={i} display="flex" alignItems="center" gap={0.75}>
@@ -358,7 +358,7 @@ const Landing = () => {
       </Box>
 
       {/* ─── FEATURES ─── */}
-      <Container maxWidth="lg" sx={{ py: { xs: 8, md: 10 } }}>
+      <Container maxWidth="xl" sx={{ py: { xs: 8, md: 10 }, px: { xs: 2, md: 5, lg: 8 } }}>
         <Box textAlign="center" mb={6}>
           <Chip label="WHY CHOOSE US" size="small" sx={{ bgcolor: `${GOLD}15`, color: GOLD, fontWeight: 700, mb: 2, letterSpacing: 1 }} />
           <Typography variant="h3" fontWeight={800} sx={{ color: NAVY, fontSize: { xs: '1.8rem', md: '2.4rem' }, mb: 1 }}>
@@ -432,7 +432,7 @@ const Landing = () => {
 
       {/* ─── CHIT PLANS CAROUSEL ─── */}
       <Box id="plans" sx={{ py: { xs: 8, md: 10 }, bgcolor: 'white' }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl" sx={{ px: { xs: 2, md: 5, lg: 8 } }}>
           <Box textAlign="center" mb={4}>
             <Chip label="OUR PLANS" size="small" sx={{ bgcolor: `${ROYAL}15`, color: ROYAL, fontWeight: 700, mb: 2, letterSpacing: 1 }} />
             <Typography variant="h3" fontWeight={800} sx={{ color: NAVY, fontSize: { xs: '1.8rem', md: '2.4rem' }, mb: 1 }}>
@@ -504,7 +504,7 @@ const Landing = () => {
 
       {/* ─── HOW IT WORKS ─── */}
       <Box id="how" sx={{ py: { xs: 8, md: 10 }, bgcolor: '#F1F5F9' }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl" sx={{ px: { xs: 2, md: 5, lg: 8 } }}>
           <Box textAlign="center" mb={6}>
             <Chip label="SIMPLE STEPS" size="small" sx={{ bgcolor: `${NAVY}10`, color: NAVY, fontWeight: 700, mb: 2, letterSpacing: 1 }} />
             <Typography variant="h3" fontWeight={800} sx={{ color: NAVY, fontSize: { xs: '1.8rem', md: '2.4rem' }, mb: 1 }}>
@@ -532,7 +532,7 @@ const Landing = () => {
 
       {/* ─── TESTIMONIALS CAROUSEL ─── */}
       <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: 'white' }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl" sx={{ px: { xs: 2, md: 5, lg: 8 } }}>
           <Box textAlign="center" mb={5}>
             <Chip label="MEMBER STORIES" size="small" sx={{ bgcolor: `${GOLD}15`, color: GOLD, fontWeight: 700, mb: 2, letterSpacing: 1 }} />
             <Typography variant="h3" fontWeight={800} sx={{ color: NAVY, fontSize: { xs: '1.8rem', md: '2.4rem' }, mb: 1 }}>
@@ -573,7 +573,7 @@ const Landing = () => {
 
       {/* ─── SECURITY & ELIGIBILITY ─── */}
       <Box sx={{ bgcolor: '#F1F5F9', py: { xs: 8, md: 10 } }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl" sx={{ px: { xs: 2, md: 5, lg: 8 } }}>
           <Box textAlign="center" mb={6}>
             <Chip label="SAFE & SECURE" size="small" sx={{ bgcolor: `${NAVY}10`, color: NAVY, fontWeight: 700, mb: 2, letterSpacing: 1 }} />
             <Typography variant="h3" fontWeight={800} sx={{ color: NAVY, fontSize: { xs: '1.8rem', md: '2.4rem' }, mb: 1 }}>
@@ -679,7 +679,7 @@ const Landing = () => {
 
       {/* ─── FOOTER ─── */}
       <Box sx={{ bgcolor: NAV_BG, color: 'white', py: 7 }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl" sx={{ px: { xs: 2, md: 5, lg: 8 } }}>
           <Grid container spacing={4}>
             <Grid item xs={12} md={4}>
               <Box display="flex" alignItems="center" gap={1.5} mb={2} sx={{ cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
