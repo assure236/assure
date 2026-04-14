@@ -33,6 +33,12 @@ const Help = lazy(() => import('./pages/Help/Help'));
 const Notifications = lazy(() => import('./pages/Notifications/Notifications'));
 const Analytics = lazy(() => import('./pages/Analytics/Analytics'));
 const FamilyMembers = lazy(() => import('./pages/FamilyMembers/FamilyMembers'));
+const Loans = lazy(() => import('./pages/Loans/Loans'));
+
+// Public pages
+const About = lazy(() => import('./pages/About/About'));
+const Contact = lazy(() => import('./pages/Contact/Contact'));
+const ChitEducation = lazy(() => import('./pages/ChitEducation/ChitEducation'));
 
 const PageLoader = () => (
   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -103,6 +109,9 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Landing />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/chit-education" element={<ChitEducation />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -122,6 +131,7 @@ function App() {
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/help" element={<Help />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/loans" element={<Loans />} />
             </Route>
 
             {/* Redirect /dashboard root if not authenticated handled by PrivateRoute */}

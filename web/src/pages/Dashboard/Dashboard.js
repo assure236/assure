@@ -12,7 +12,8 @@ import {
   Gavel as GavelIcon,
   ArrowForward as ArrowForwardIcon,
   CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  AccountBalanceWallet as WalletIcon
 } from '@mui/icons-material';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -57,17 +58,19 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [profileCompletion, setProfileCompletion] = useState(null);
+  const [loanData, setLoanData] = useState([]);
 
   useEffect(() => { fetchDashboardData(); }, []);
 
   const fetchDashboardData = async () => {
     try {
       setError(null);
-      const [dashRes, analyticsRes, profileRes, dividendRes] = await Promise.allSettled([
+      const [dashRes, analyticsRes, profileRes, dividendRes, loanRes] = await Promise.allSettled([
         axios.get('/dashboard/member'),
         axios.get('/dashboard/analytics'),
         axios.get('/dashboard/profile-completion'),
         axios.get('/dashboard/dividend-analytics'),
+        axios.get('/loans/my-loans'),
       ]);
       if (dashRes.status === 'fulfilled' && dashRes.value.data.success) {
         setDashboardData(dashRes.value.data.data);
@@ -80,6 +83,9 @@ const Dashboard = () => {
       }
       if (dividendRes.status === 'fulfilled' && dividendRes.value.data.success) {
         setDividendData(dividendRes.value.data.data);
+      }
+      if (loanRes.status === 'fulfilled' && loanRes.value.data.success) {
+        setLoanData(loanRes.value.data.data || []);
       }
     } catch (err) {
       setError('Could not load dashboard data. Please refresh.');
@@ -114,9 +120,12 @@ const Dashboard = () => {
       icon: <TrendingUpIcon />, subtitle: 'total dividends'
     },
     {
-      title: 'Loan', color: '#9c27b0',
-      value: 'Apply',
-      icon: <AccountBalanceIcon />, subtitle: 'chit-backed loan'
+      title: 'Loan Status', color: '#9c27b0',
+      value: loanData.find(l => ['active', 'disbursed'].includes(l.status))
+        ? `₹${(loanData.find(l => ['active', 'disbursed'].includes(l.status))?.outstanding_amount || 0).toLocaleString('en-IN')}`
+        : loanData.find(l => ['requested', 'under_review', 'approved'].includes(l.status)) ? 'Pending' : 'None',
+      icon: <AccountBalanceIcon />,
+      subtitle: loanData.find(l => ['active', 'disbursed'].includes(l.status)) ? 'outstanding' : 'active loans'
     }
   ];
 
@@ -164,6 +173,89 @@ const Dashboard = () => {
           </Grid>
         ))}
       </Grid>
+
+      {/* Consolidated Financial Summary */}
+      {(memberships.length > 0 || loanData.length > 0) && (
+        <Paper sx={{ p: 3, borderRadius: 3, mb: 4, border: '1px solid #E2E8F0' }}>
+          <Box display="flex" alignItems="center" gap={1.5} mb={2}>
+            <WalletIcon sx={{ color: '#D4AF37' }} />
+            <Typography variant="h6" fontWeight={700}>My Financial Summary</Typography>
+          </Box>
+          <Grid container spacing={2}>
+            {/* Chit Groups breakdown */}
+            <Grid item xs={12} sm={6} md={3}>
+              <Box sx={{ p: 2, bgcolor: '#F0FDF4', borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary">Total Chit Value</Typography>
+                <Typography variant="h6" fontWeight={700} sx={{ color: '#16A34A' }}>
+                  ₹{memberships.reduce((s, m) => s + Number((m.chit_group_id || m)?.chit_value || 0), 0).toLocaleString('en-IN')}
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Box sx={{ p: 2, bgcolor: '#FFF8E1', borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary">Total Dividends</Typography>
+                <Typography variant="h6" fontWeight={700} sx={{ color: '#D4AF37' }}>
+                  ₹{((dividendData?.groups || []).reduce((s, g) => s + (g.avg_dividend_per_member * g.completed_auctions || 0), 0)).toLocaleString('en-IN')}
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Box sx={{ p: 2, bgcolor: '#EFF6FF', borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary">Pending Payments</Typography>
+                <Typography variant="h6" fontWeight={700} sx={{ color: '#1E3A8A' }}>
+                  {analytics?.payment_status?.pending || 0}
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Box sx={{ p: 2, bgcolor: '#FAF5FF', borderRadius: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary">Active Loans</Typography>
+                <Typography variant="h6" fontWeight={700} sx={{ color: '#9c27b0' }}>
+                  {loanData.filter(l => ['active', 'disbursed', 'requested', 'under_review', 'approved'].includes(l.status)).length}
+                </Typography>
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* Per-group status */}
+          {memberships.length > 0 && (
+            <Box mt={2}>
+              <Divider sx={{ mb: 2 }} />
+              <Typography variant="body2" fontWeight={600} sx={{ color: '#0B1F3B', mb: 1 }}>Chit-wise Status</Typography>
+              {memberships.slice(0, 5).map((m, i) => {
+                const g = m.chit_group_id || m;
+                const progress = g.duration_months > 0 ? ((g.current_month || 0) / g.duration_months) * 100 : 0;
+                const dGroup = (dividendData?.groups || []).find(dg => dg.group_id === (g._id || g.id));
+                return (
+                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, p: 1.5, bgcolor: 'grey.50', borderRadius: 2, cursor: 'pointer' }}
+                    onClick={() => navigate(`/chit-groups/${g._id || g.id}`)}>
+                    <Box flex={1}>
+                      <Box display="flex" justifyContent="space-between" alignItems="center">
+                        <Typography variant="body2" fontWeight={600}>{g.group_name}</Typography>
+                        <Chip label={g.status?.toUpperCase()} size="small" color={g.status === 'active' ? 'success' : 'default'} />
+                      </Box>
+                      <Box display="flex" gap={2} mt={0.5}>
+                        <Typography variant="caption" color="text.secondary">
+                          ₹{Number(g.monthly_installment || 0).toLocaleString('en-IN')}/mo
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Month {g.current_month || 0}/{g.duration_months}
+                        </Typography>
+                        {dGroup && (
+                          <Typography variant="caption" sx={{ color: '#16A34A' }}>
+                            Dividend: ₹{Math.round(dGroup.avg_dividend_per_member * dGroup.completed_auctions).toLocaleString('en-IN')}
+                          </Typography>
+                        )}
+                      </Box>
+                      <LinearProgress variant="determinate" value={progress} sx={{ mt: 0.5, height: 4, borderRadius: 2 }} />
+                    </Box>
+                  </Box>
+                );
+              })}
+            </Box>
+          )}
+        </Paper>
+      )}
 
       {/* Profile Completion Tracker */}
       {profileCompletion && !profileCompletion.isComplete && (

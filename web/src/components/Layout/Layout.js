@@ -32,7 +32,8 @@ import {
   Notifications as NotifIcon,
   Logout as LogoutIcon,
   BarChart as AnalyticsIcon,
-  FamilyRestroom as FamilyIcon
+  FamilyRestroom as FamilyIcon,
+  AccountBalance as LoanIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import Chatbot from '../Chatbot/Chatbot';
@@ -46,6 +47,7 @@ const menuItems = [
   { text: 'Auctions', icon: <GavelIcon />, path: '/auctions' },
   { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
+  { text: 'Loans', icon: <LoanIcon />, path: '/loans' },
   { text: 'Documents', icon: <DescriptionIcon />, path: '/documents' },
   { text: 'Notifications', icon: <NotifIcon />, path: '/notifications' },
   { text: 'Family Members', icon: <FamilyIcon />, path: '/family-members' },

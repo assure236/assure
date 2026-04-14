@@ -111,7 +111,7 @@ function QrPanel({ onLoginSuccess }) {
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, loginWithToken } = useAuth();
+  const { loginWithToken } = useAuth();
   const [step, setStep] = useState(0);
   const [mobile, setMobile] = useState('');
   const [mobileInput, setMobileInput] = useState('');
@@ -137,18 +137,15 @@ export default function Login() {
   const verifyOtp = async (otp) => {
     setLoading(true);
     try {
-      const res = await axios.post('/auth/verify-otp', { mobile, otp, type: 'mobile' });
-      if (res.data.success) { setStep(2); toast.success('OTP verified!'); }
+      const res = await axios.post('/auth/login-otp', { mobile, otp });
+      if (res.data.success) {
+        const { token, user } = res.data.data;
+        await loginWithToken(token, user);
+        toast.success(`Welcome back, ${user.full_name || 'Member'}!`);
+        navigate('/dashboard');
+      }
     } catch (e) { toast.error(e.response?.data?.message || 'Invalid OTP'); }
     finally { setLoading(false); }
-  };
-
-  const loginWithMpin = async (mpin) => {
-    setLoading(true);
-    try {
-      const result = await login({ mobile, mpin });
-      if (result?.success) navigate('/dashboard');
-    } finally { setLoading(false); }
   };
 
   return (
@@ -163,12 +160,11 @@ export default function Login() {
           <Grid item xs={12} md={6} sx={{ borderRight: { md: '1px solid' }, borderColor: { md: 'divider' } }}>
             <Box sx={{ p: 4 }}>
               <Typography variant="h6" fontWeight={700} gutterBottom>
-                {step === 0 ? 'Enter your mobile number' : step === 1 ? 'Verify OTP' : 'Enter your MPIN'}
+                {step === 0 ? 'Enter your mobile number' : 'Verify OTP'}
               </Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 {step === 0 && "We'll send a 6-digit OTP to your registered number"}
                 {step === 1 && `OTP sent to +91 ${mobile}`}
-                {step === 2 && 'Enter your 6-digit MPIN to access your account'}
               </Typography>
               {step === 0 && (
                 <>
@@ -189,14 +185,6 @@ export default function Login() {
                   <PinInput pinKey="otp" length={6} onComplete={verifyOtp} autoFocus />
                   {loading && <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>}
                   <Button variant="text" size="small" onClick={() => setStep(0)} sx={{ mt: 1 }}>← Change number</Button>
-                </>
-              )}
-              {step === 2 && (
-                <>
-                  <Typography variant="body2" align="center" color="text.secondary">Enter your 6-digit MPIN</Typography>
-                  <PinInput pinKey="mpin" length={6} onComplete={loginWithMpin} autoFocus />
-                  {loading && <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>}
-                  <Button variant="text" size="small" onClick={() => setStep(0)} sx={{ mt: 1 }}>← Back</Button>
                 </>
               )}
               <Box sx={{ mt: 4, textAlign: 'center' }}>

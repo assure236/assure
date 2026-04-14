@@ -13,6 +13,8 @@ import {
   BarChart as BarChartIcon,
   Calculate as CalcIcon,
   Download as DownloadIcon,
+  CompareArrows as CompareIcon,
+  Savings as SavingsIcon,
 } from '@mui/icons-material';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -135,6 +137,198 @@ const DividendCalculator = () => {
   );
 };
 
+// ─── Savings Goal Calculator ──────────────────────────────────────────────────
+const SavingsGoalCalculator = () => {
+  const [goal, setGoal] = useState({ target: 500000, months: 20, has_savings: 0 });
+  const set = (k) => (e) => setGoal(f => ({ ...f, [k]: Number(e.target.value) }));
+
+  const remaining = Math.max(0, goal.target - goal.has_savings);
+  const monthlyNeeded = goal.months > 0 ? remaining / goal.months : 0;
+
+  // Find best matching plan
+  const plans = [
+    { name: 'Silver Plan', value: 50000, monthly: 2500 },
+    { name: 'Gold Plan', value: 100000, monthly: 5000 },
+    { name: 'Diamond Plan', value: 200000, monthly: 10000 },
+    { name: 'Platinum Plan', value: 500000, monthly: 25000 },
+  ];
+  const bestPlan = plans.find(p => p.monthly >= monthlyNeeded) || plans[plans.length - 1];
+  const multiplePlans = monthlyNeeded > 25000;
+
+  const savingsData = Array.from({ length: goal.months }, (_, i) => ({
+    month: i + 1,
+    saved: Math.round(monthlyNeeded * (i + 1)) + goal.has_savings,
+    target: goal.target,
+  }));
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        <CalcIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+        Savings Goal Planner
+      </Typography>
+      <Typography variant="body2" color="text.secondary" mb={3}>
+        Set your savings goal and see which chit plan helps you reach it fastest.
+      </Typography>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={5}>
+          <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Typography variant="subtitle1" fontWeight={700} gutterBottom>Your Goal</Typography>
+            <Grid container spacing={2} mt={0.5}>
+              <Grid item xs={12}>
+                <TextField fullWidth size="small" label="Target Amount (₹)" type="number"
+                  value={goal.target} onChange={set('target')} />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField fullWidth size="small" label="Timeline (months)" type="number"
+                  value={goal.months} onChange={set('months')} />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField fullWidth size="small" label="Existing Savings (₹)" type="number"
+                  value={goal.has_savings} onChange={set('has_savings')} />
+              </Grid>
+            </Grid>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} md={7}>
+          <Grid container spacing={2} mb={2}>
+            {[
+              { label: 'Remaining Amount', value: fmt(remaining), color: '#0B1F3B' },
+              { label: 'Monthly Savings Needed', value: fmt(monthlyNeeded), color: '#4caf50' },
+              { label: 'Recommended Plan', value: multiplePlans ? 'Multiple Plans' : bestPlan.name, color: '#D4AF37' },
+              { label: 'Plan Monthly', value: multiplePlans ? `${Math.ceil(monthlyNeeded / 25000)} × ₹25K` : fmt(bestPlan.monthly), color: '#9c27b0' },
+            ].map(({ label, value, color }) => (
+              <Grid item xs={6} key={label}>
+                <Paper sx={{ p: 2, borderRadius: 2, borderLeft: `4px solid ${color}` }}>
+                  <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
+                  <Typography variant="h6" fontWeight={700} color={color}>{value}</Typography>
+                </Paper>
+              </Grid>
+            ))}
+          </Grid>
+          <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+            <Typography variant="subtitle2" mb={1}>Savings Progress Projection</Typography>
+            <ResponsiveContainer width="100%" height={160}>
+              <AreaChart data={savingsData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="savGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0B1F3B" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#0B1F3B" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
+                <Tooltip formatter={v => [fmt(v)]} />
+                <Area type="monotone" dataKey="saved" stroke="#0B1F3B" fill="url(#savGrad)" strokeWidth={2} name="Savings" />
+                <Line type="monotone" dataKey="target" stroke="#f44336" strokeWidth={1} strokeDasharray="5 5" dot={false} name="Target" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </Paper>
+        </Grid>
+      </Grid>
+    </Box>
+  );
+};
+
+// ─── Chit Comparison Calculator ────────────────────────────────────────────────
+const ChitComparisonCalculator = () => {
+  const [planA, setPlanA] = useState({ chit_value: 100000, duration: 20, members: 20, commission: 5, avg_bid: 25 });
+  const [planB, setPlanB] = useState({ chit_value: 200000, duration: 20, members: 20, commission: 5, avg_bid: 25 });
+
+  const calc = (p) => {
+    const monthly = p.chit_value / p.members;
+    const avgWinBid = p.chit_value * (p.avg_bid / 100);
+    const dividend = avgWinBid / p.members;
+    const totalDiv = dividend * p.duration;
+    const totalPaid = monthly * p.duration;
+    const effectiveReturn = totalPaid > 0 ? ((totalDiv / totalPaid) * 100).toFixed(1) : '0';
+    return { monthly, dividend, totalDiv, totalPaid, effectiveReturn };
+  };
+
+  const a = calc(planA);
+  const b = calc(planB);
+
+  const PlanInput = ({ plan, setPlan, label }) => (
+    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+      <Typography variant="subtitle1" fontWeight={700} gutterBottom>{label}</Typography>
+      <Grid container spacing={1.5}>
+        {[
+          { label: 'Chit Value (₹)', key: 'chit_value', options: [50000, 100000, 200000, 500000] },
+          { label: 'Duration', key: 'duration', options: [12, 18, 20, 24, 30] },
+          { label: 'Members', key: 'members', options: [10, 15, 20, 25, 30] },
+          { label: 'Avg Bid (%)', key: 'avg_bid', options: [10, 15, 20, 25, 30, 35, 40] },
+        ].map(({ label, key, options }) => (
+          <Grid item xs={6} key={key}>
+            <TextField select fullWidth size="small" label={label} value={plan[key]}
+              onChange={e => setPlan(f => ({ ...f, [key]: Number(e.target.value) }))}>
+              {options.map(o => <MenuItem key={o} value={o}>{key === 'chit_value' ? `₹${o.toLocaleString('en-IN')}` : o}</MenuItem>)}
+            </TextField>
+          </Grid>
+        ))}
+      </Grid>
+    </Paper>
+  );
+
+  const metrics = [
+    { label: 'Monthly Installment', a: fmt(a.monthly), b: fmt(b.monthly), betterIsLower: true, va: a.monthly, vb: b.monthly },
+    { label: 'Dividend / Month', a: fmt(a.dividend), b: fmt(b.dividend), betterIsLower: false, va: a.dividend, vb: b.dividend },
+    { label: 'Total Dividends', a: fmt(a.totalDiv), b: fmt(b.totalDiv), betterIsLower: false, va: a.totalDiv, vb: b.totalDiv },
+    { label: 'Total Paid', a: fmt(a.totalPaid), b: fmt(b.totalPaid), betterIsLower: true, va: a.totalPaid, vb: b.totalPaid },
+    { label: 'Return Rate', a: `${a.effectiveReturn}%`, b: `${b.effectiveReturn}%`, betterIsLower: false, va: parseFloat(a.effectiveReturn), vb: parseFloat(b.effectiveReturn) },
+  ];
+
+  return (
+    <Box>
+      <Typography variant="h6" gutterBottom>
+        <CalcIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+        Compare Chit Plans
+      </Typography>
+      <Typography variant="body2" color="text.secondary" mb={3}>
+        Compare two chit plans side by side to see which one gives better returns.
+      </Typography>
+      <Grid container spacing={3} mb={3}>
+        <Grid item xs={12} md={6}>
+          <PlanInput plan={planA} setPlan={setPlanA} label="Plan A" />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <PlanInput plan={planB} setPlan={setPlanB} label="Plan B" />
+        </Grid>
+      </Grid>
+      <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Typography variant="subtitle1" fontWeight={700} mb={2}>Comparison Results</Typography>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 700 }}>Metric</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: '#0B1F3B' }}>Plan A</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: '#1E3A8A' }}>Plan B</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700 }}>Better</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {metrics.map(m => {
+              const aWins = m.betterIsLower ? m.va < m.vb : m.va > m.vb;
+              const bWins = m.betterIsLower ? m.vb < m.va : m.vb > m.va;
+              const tie = m.va === m.vb;
+              return (
+                <TableRow key={m.label}>
+                  <TableCell>{m.label}</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: aWins ? 700 : 400, color: aWins ? '#4caf50' : 'inherit' }}>{m.a}</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: bWins ? 700 : 400, color: bWins ? '#4caf50' : 'inherit' }}>{m.b}</TableCell>
+                  <TableCell align="center">
+                    {tie ? <Chip size="small" label="Tie" /> : <Chip size="small" label={aWins ? 'Plan A' : 'Plan B'} color={aWins ? 'primary' : 'secondary'} />}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Paper>
+    </Box>
+  );
+};
+
 // ─── Main Analytics Page ──────────────────────────────────────────────────────
 const Analytics = () => {
   const [tab, setTab] = useState(0);
@@ -174,7 +368,7 @@ const Analytics = () => {
     finally { setStmtLoading(false); }
   };
 
-  useEffect(() => { if (tab === 3) fetchStatement(); }, [tab]);
+  useEffect(() => { if (tab === 5) fetchStatement(); }, [tab]);
 
   const handleExportStatement = () => {
     if (!statement?.length) return;
@@ -230,6 +424,8 @@ const Analytics = () => {
         <Tab label="My Overview" icon={<BarChartIcon />} iconPosition="start" />
         <Tab label="Dividend Analytics" icon={<WalletIcon />} iconPosition="start" />
         <Tab label="Dividend Calculator" icon={<CalcIcon />} iconPosition="start" />
+        <Tab label="Savings Planner" icon={<SavingsIcon />} iconPosition="start" />
+        <Tab label="Compare Plans" icon={<CompareIcon />} iconPosition="start" />
         <Tab label="Account Statement" icon={<DownloadIcon />} iconPosition="start" />
       </Tabs>
 
@@ -392,8 +588,22 @@ const Analytics = () => {
         </Paper>
       )}
 
-      {/* ── Tab 3: Account Statement ─────────────────────────────────── */}
+      {/* ── Tab 3: Savings Goal Planner ──────────────────────────────── */}
       {tab === 3 && (
+        <Paper sx={{ p: 3, borderRadius: 3 }}>
+          <SavingsGoalCalculator />
+        </Paper>
+      )}
+
+      {/* ── Tab 4: Compare Plans ─────────────────────────────────────── */}
+      {tab === 4 && (
+        <Paper sx={{ p: 3, borderRadius: 3 }}>
+          <ChitComparisonCalculator />
+        </Paper>
+      )}
+
+      {/* ── Tab 5: Account Statement ─────────────────────────────────── */}
+      {tab === 5 && (
         <Paper sx={{ p: 3, borderRadius: 3 }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Account Statement</Typography>
