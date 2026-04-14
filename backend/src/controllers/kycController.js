@@ -186,10 +186,12 @@ exports.verifyAadhaar = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-exports.initiateDigiLocker = async (req, res) => {
-  res.status(503).json({ success: false, message: 'DigiLocker verification will be available soon. Please verify your identity using PAN and Aadhaar upload.' });
+exports.initiateDigiLocker = async (req, res, next) => {
+  const digilockerController = require('./digilockerController');
+  return digilockerController.getAuthUrl(req, res, next);
 };
 
-exports.digiLockerCallback = async (req, res) => {
-  res.status(503).json({ success: false, message: 'DigiLocker verification will be available soon.' });
+exports.digiLockerCallback = async (req, res, next) => {
+  const digilockerController = require('./digilockerController');
+  return digilockerController.handleCallback(req, res, next);
 };
