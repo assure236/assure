@@ -49,7 +49,6 @@ exports.getAuthUrl = async (req, res, next) => {
       state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
-      scope: 'openid',
     });
 
     const authUrl = `${DL_BASE}/public/oauth2/1/authorize?${params.toString()}`;
