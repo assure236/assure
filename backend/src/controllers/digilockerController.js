@@ -143,30 +143,71 @@ exports.handleCallback = async (req, res, next) => {
     }
 
     const accessToken = tokenData.access_token;
-    const digilockerId = tokenData.digilocker_id || tokenData.sub || null;
+    const digilockerId = tokenData.digilockerid || tokenData.digilocker_id || tokenData.sub || null;
 
-    // Save DigiLocker ID on user
-    await User.findByIdAndUpdate(userId, { digilocker_id: digilockerId });
+    // Token response includes user details — save them directly
+    const dlName = tokenData.name || null;
+    const dlDob = tokenData.dob || null; // format: DDMMYYYY
+    const dlGender = tokenData.gender || null; // M/F
+    const dlMobile = tokenData.mobile || null;
+    const dlEaadhaar = tokenData.eaadhaar === 'Y';
 
-    // Fetch Aadhaar eKYC data
+    console.log('DigiLocker user details:', { digilockerId, dlName, dlDob, dlGender, dlMobile, dlEaadhaar });
+
+    // Parse scope to find which documents were consented
+    // e.g. "files.issueddocs issued/in.gov.pan-PANCR-HRVPP2182R userdetails"
+    const scope = tokenData.scope || '';
+    const scopeParts = scope.split(' ');
+    console.log('DigiLocker scope:', scope);
+
+    // Extract PAN number from scope (issued/in.gov.pan-PANCR-XXXXXXXXXX)
+    let panFromScope = null;
+    for (const part of scopeParts) {
+      const panMatch = part.match(/PANCR-([A-Z0-9]+)/i);
+      if (panMatch) panFromScope = panMatch[1];
+    }
+    console.log('PAN from scope:', panFromScope);
+
+    // Build user update: save DigiLocker profile data
+    const userUpdate = { digilocker_id: digilockerId };
+    if (dlName) userUpdate.full_name = dlName; // Update name from DigiLocker
+    if (dlDob) {
+      // Parse DDMMYYYY to Date
+      const day = parseInt(dlDob.substring(0, 2), 10);
+      const month = parseInt(dlDob.substring(2, 4), 10) - 1;
+      const year = parseInt(dlDob.substring(4, 8), 10);
+      userUpdate.date_of_birth = new Date(year, month, day);
+    }
+    if (dlGender) userUpdate.gender = dlGender === 'M' ? 'male' : dlGender === 'F' ? 'female' : 'other';
+    if (panFromScope) userUpdate.pan_number = panFromScope;
+
+    await User.findByIdAndUpdate(userId, userUpdate);
+    console.log('User updated with DigiLocker data:', JSON.stringify(userUpdate));
+
+    // Fetch Aadhaar eKYC data (may return 403 if not in scope)
     let ekyc = null;
-    try {
-      const ekycRes = await fetch(`${DL_BASE}/public/oauth2/1/xml/eaadhaar`, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      console.log('DigiLocker eKYC response:', ekycRes.status);
-      if (ekycRes.ok) {
-        ekyc = await ekycRes.text();
-        console.log('DigiLocker eKYC data length:', ekyc.length);
+    if (dlEaadhaar) {
+      try {
+        const ekycRes = await fetch(`${DL_BASE}/public/oauth2/1/xml/eaadhaar`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        console.log('DigiLocker eKYC response:', ekycRes.status);
+        if (ekycRes.ok) {
+          ekyc = await ekycRes.text();
+          console.log('DigiLocker eKYC data length:', ekyc.length);
+        } else {
+          const ekycErr = await ekycRes.text();
+          console.log('DigiLocker eKYC error body:', ekycErr);
+        }
+      } catch (e) {
+        console.warn('DigiLocker eKYC fetch failed:', e.message);
       }
-    } catch (e) {
-      console.warn('DigiLocker eKYC fetch failed:', e.message);
     }
 
-    // Fetch issued documents list
+    // Fetch issued documents list (v1 API)
     let issuedDocs = [];
     try {
-      const docsRes = await fetch(`${DL_BASE}/public/oauth2/3/files/issued`, {
+      const docsRes = await fetch(`${DL_BASE}/public/oauth2/1/files/issued`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       console.log('DigiLocker issued docs response:', docsRes.status);
@@ -174,17 +215,21 @@ exports.handleCallback = async (req, res, next) => {
         const docsData = await docsRes.json();
         console.log('DigiLocker issued docs:', JSON.stringify(docsData));
         issuedDocs = docsData.items || docsData.documents || [];
+      } else {
+        const docsErr = await docsRes.text();
+        console.log('DigiLocker issued docs error:', docsErr);
       }
     } catch (e) {
       console.warn('DigiLocker docs fetch failed:', e.message);
     }
 
-    // Auto-create document records for Aadhaar/PAN if found
+    // Auto-create document records for Aadhaar/PAN
     const docTypes = {
       ADHAR: 'aadhaar_card',
       PANCR: 'pan_card',
     };
 
+    // From issued docs API response
     for (const doc of issuedDocs) {
       const docType = docTypes[doc.doctype] || docTypes[doc.type];
       if (!docType) continue;
@@ -201,6 +246,43 @@ exports.handleCallback = async (req, res, next) => {
           verified_at: new Date(),
           notes: 'Auto-verified via DigiLocker',
         });
+        console.log('Created document from issued docs:', docType);
+      }
+    }
+
+    // If PAN was in scope but not in issued docs API, create from scope data
+    if (panFromScope) {
+      const panExists = await Document.findOne({ user_id: userId, document_type: 'pan_card', uploaded_from: 'digilocker' });
+      if (!panExists) {
+        await Document.create({
+          user_id: userId,
+          document_type: 'pan_card',
+          document_name: `PAN Card - ${panFromScope}`,
+          file_url: `digilocker://PANCR/${panFromScope}`,
+          uploaded_from: 'digilocker',
+          verification_status: 'verified',
+          verified_at: new Date(),
+          notes: `Auto-verified via DigiLocker. PAN: ${panFromScope}`,
+        });
+        console.log('Created PAN document from scope:', panFromScope);
+      }
+    }
+
+    // If eAadhaar was available (even if XML fetch failed due to scope), mark it
+    if (dlEaadhaar) {
+      const aadhaarExists = await Document.findOne({ user_id: userId, document_type: 'aadhaar_card', uploaded_from: 'digilocker' });
+      if (!aadhaarExists) {
+        await Document.create({
+          user_id: userId,
+          document_type: 'aadhaar_card',
+          document_name: `Aadhaar Card - ${dlName || 'DigiLocker Verified'}`,
+          file_url: `digilocker://eaadhaar/${digilockerId || ''}`,
+          uploaded_from: 'digilocker',
+          verification_status: 'verified',
+          verified_at: new Date(),
+          notes: 'Aadhaar verified via DigiLocker eKYC',
+        });
+        console.log('Created Aadhaar document from eaadhaar flag');
       }
     }
 

@@ -353,6 +353,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
     final status = _kycStatus?['kyc_status'] ?? 'not_started';
     final panVerified = _kycStatus?['pan_verified'] == true;
     final aadhaarVerified = _kycStatus?['aadhaar_verified'] == true;
+    final digilockerConnected = _kycStatus?['digilocker_connected'] == true;
 
     Color statusColor;
     String statusLabel;
@@ -360,6 +361,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
 
     switch (status) {
       case 'approved':
+      case 'verified':
         statusColor = AppTheme.successColor;
         statusLabel = 'KYC Verified';
         statusIcon = Icons.verified_user;
@@ -410,11 +412,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
               children: [
                 _kycStep('PAN', panVerified),
                 const SizedBox(width: 16),
-                _kycStep('Aadhaar (DigiLocker)', aadhaarVerified),
+                _kycStep('Aadhaar', aadhaarVerified),
+                const SizedBox(width: 16),
+                _kycStep('DigiLocker', digilockerConnected),
               ],
             ),
             const SizedBox(height: 12),
-            if (status != 'approved') ...
+            if (status != 'approved' && status != 'verified') ...
               [
                 Row(
                   children: [
@@ -427,7 +431,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
                             foregroundColor: AppTheme.primaryColor),
                       ),
                     ),
-                    if (panVerified && !aadhaarVerified) ...
+                    if (!digilockerConnected) ...
                       [
                         const SizedBox(width: 8),
                         Expanded(
@@ -449,6 +453,25 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
                   ],
                 ),
               ],
+            if (digilockerConnected) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.successColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.successColor.withAlpha(60)),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.verified, color: AppTheme.successColor, size: 16),
+                    SizedBox(width: 6),
+                    Text('DigiLocker Connected',
+                        style: TextStyle(color: AppTheme.successColor, fontSize: 12, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

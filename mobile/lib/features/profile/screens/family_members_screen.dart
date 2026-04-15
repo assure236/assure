@@ -354,6 +354,7 @@ class _FamilyMemberFormState extends State<_FamilyMemberForm> {
                     TextFormField(
                       controller: _dobCtrl,
                       decoration: const InputDecoration(labelText: 'Date of Birth', prefixIcon: Icon(Icons.cake_outlined), hintText: 'DD/MM/YYYY'),
+                      keyboardType: TextInputType.datetime,
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(

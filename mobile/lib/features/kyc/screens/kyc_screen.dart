@@ -179,6 +179,7 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
     final status = _kycStatus?['kyc_status'] ?? 'not_started';
     final panVerified = _kycStatus?['pan_verified'] == true;
     final aadhaarVerified = _kycStatus?['aadhaar_verified'] == true;
+    final digilockerConnected = _kycStatus?['digilocker_connected'] == true;
 
     return RefreshIndicator(
       onRefresh: _fetchKycStatus,
@@ -190,7 +191,7 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
           children: [
             _buildStatusBanner(status),
             const SizedBox(height: 20),
-            _buildStepsCard(panVerified, aadhaarVerified),
+            _buildStepsCard(panVerified, aadhaarVerified, digilockerConnected),
             const SizedBox(height: 20),
             if (!panVerified) ...[
               _buildPanCard(),
@@ -200,8 +201,12 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
               _buildPanVerifiedCard(),
               const SizedBox(height: 20),
             ],
-            if (panVerified && !aadhaarVerified) ...[
+            if (!digilockerConnected) ...[
               _buildDigilockerCard(),
+              const SizedBox(height: 20),
+            ],
+            if (digilockerConnected) ...[
+              _buildDigilockerConnectedCard(),
               const SizedBox(height: 20),
             ],
             _buildInfoCard(),
@@ -218,6 +223,7 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
 
     switch (status) {
       case 'approved':
+      case 'verified':
         color = AppTheme.successColor;
         icon = Icons.verified_user;
         label = 'KYC Verified';
@@ -269,7 +275,7 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildStepsCard(bool panVerified, bool aadhaarVerified) {
+  Widget _buildStepsCard(bool panVerified, bool aadhaarVerified, bool digilockerConnected) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -282,8 +288,8 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
             _buildStep(1, 'PAN Card Verification',
                 'Link your PAN card for identity verification', panVerified),
             const Divider(height: 24),
-            _buildStep(2, 'Aadhaar via DigiLocker',
-                'Verify Aadhaar using official DigiLocker', aadhaarVerified),
+            _buildStep(2, 'DigiLocker Verification',
+                'Verify Aadhaar & PAN using official DigiLocker', digilockerConnected),
           ],
         ),
       ),
@@ -484,6 +490,58 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
                   backgroundColor: const Color(0xFF0066CC),
                   foregroundColor: Colors.white,
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDigilockerConnectedCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.verified, color: AppTheme.successColor),
+                const SizedBox(width: 8),
+                const Text('DigiLocker Connected',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppTheme.successColor.withAlpha(26),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Text('Verified',
+                      style: TextStyle(color: AppTheme.successColor, fontSize: 11,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.successColor.withAlpha(20),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.successColor.withAlpha(60)),
+              ),
+              child: const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Aadhaar & PAN verified via DigiLocker',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  SizedBox(height: 4),
+                  Text('Your identity has been verified using government records',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
               ),
             ),
           ],

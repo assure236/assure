@@ -11,13 +11,13 @@ async function uploadFile(file, userId) {
 exports.getKycStatus = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const user = await User.findById(userId).select('kyc_status kyc_rejection_reason full_name email mobile pan_number aadhaar_number');
+    const user = await User.findById(userId).select('kyc_status kyc_rejection_reason full_name email mobile pan_number aadhaar_number digilocker_id');
     const documents = await Document.find({ user_id: userId }).sort({ created_at: -1 });
     const panVerified = !!user.pan_number || documents.some(d => d.document_type === 'pan_card' && ['verified', 'approved'].includes(d.verification_status));
     const aadhaarVerified = !!user.aadhaar_number || documents.some(d => d.document_type === 'aadhaar_card' && ['verified', 'approved'].includes(d.verification_status));
     const chequeVerified = documents.some(d => d.document_type === 'cancelled_cheque' && ['verified', 'approved'].includes(d.verification_status));
     const selfieVerified = documents.some(d => d.document_type === 'selfie_photo' && ['verified', 'approved'].includes(d.verification_status));
-    res.json({ success: true, data: { kyc_status: user.kyc_status, rejection_reason: user.kyc_rejection_reason, pan_verified: panVerified, aadhaar_verified: aadhaarVerified, cheque_verified: chequeVerified, selfie_verified: selfieVerified, documents, user: { full_name: user.full_name, email: user.email, mobile: user.mobile } } });
+    res.json({ success: true, data: { kyc_status: user.kyc_status, rejection_reason: user.kyc_rejection_reason, pan_verified: panVerified, aadhaar_verified: aadhaarVerified, cheque_verified: chequeVerified, selfie_verified: selfieVerified, digilocker_connected: !!user.digilocker_id, documents, user: { full_name: user.full_name, email: user.email, mobile: user.mobile } } });
   } catch (err) { next(err); }
 };
 
