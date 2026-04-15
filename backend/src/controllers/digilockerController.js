@@ -58,7 +58,7 @@ exports.getAuthUrl = async (req, res, next) => {
       scope: 'openid',
     });
 
-    const authUrl = `${DL_BASE}/public/oauth2/2/authorize?${params.toString()}`;
+    const authUrl = `${DL_BASE}/public/oauth2/1/authorize?${params.toString()}`;
     console.log('DigiLocker auth URL generated:', authUrl);
     console.log('DigiLocker redirect_uri config:', DL_REDIRECT_URI);
     res.json({ success: true, data: { auth_url: authUrl, authUrl, state } });
