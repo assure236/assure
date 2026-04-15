@@ -2,6 +2,8 @@ const crypto = require('crypto');
 const mongoose = require('mongoose');
 const { User, Document } = require('../models');
 const logger = require('../utils/logger');
+const { notifyUser } = require('../utils/notifyUser');
+const notificationService = require('../services/notificationService');
 
 // DigiLocker OAuth2 config — set these in .env
 const DL_BASE = process.env.DIGILOCKER_BASE_URL || 'https://api.digitallocker.gov.in';
@@ -292,6 +294,43 @@ exports.handleCallback = async (req, res, next) => {
 
     if (aadhaarDoc && panDoc) {
       await User.findByIdAndUpdate(userId, { kyc_status: 'verified', kyc_verified_at: new Date() });
+
+      // Send KYC verification notifications (fire-and-forget)
+      try {
+        const verifiedUser = await User.findById(userId).select('full_name email mobile');
+        const userName = verifiedUser?.full_name || dlName || 'User';
+
+        // Push notification + in-app (reaches mobile even if verified on web)
+        notifyUser(userId, 'KYC Verified! ✅', `Congratulations ${userName}! Your identity has been successfully verified via DigiLocker. You can now access all features.`, 'kyc_update', {});
+
+        // SMS notification
+        if (verifiedUser?.mobile) {
+          notificationService.sendSMS(verifiedUser.mobile, `Congratulations ${userName}! Your KYC verification is complete via DigiLocker. You can now access all features on Assure ChitFunds.`).catch(err => console.error('KYC SMS failed:', err.message));
+        }
+
+        // Email notification
+        if (verifiedUser?.email) {
+          const emailHtml = `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <div style="text-align: center; margin-bottom: 20px;">
+                <h1 style="color: #1a73e8;">Assure ChitFunds</h1>
+              </div>
+              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; text-align: center;">
+                <h2 style="color: #16a34a;">✅ KYC Verification Complete</h2>
+                <p style="color: #333; font-size: 16px;">Hello <strong>${userName}</strong>,</p>
+                <p style="color: #555;">Your identity has been successfully verified through DigiLocker. Your Aadhaar and PAN details are now confirmed.</p>
+                <p style="color: #555;">You can now enjoy full access to all features on Assure ChitFunds.</p>
+              </div>
+              <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">This is an automated message from Assure ChitFunds. Please do not reply.</p>
+            </div>
+          `;
+          notificationService.sendEmail(verifiedUser.email, 'KYC Verification Complete - Assure ChitFunds', emailHtml).catch(err => console.error('KYC email failed:', err.message));
+        }
+
+        console.log('KYC verification notifications dispatched for user:', userId);
+      } catch (notifErr) {
+        console.error('KYC notification dispatch error (non-blocking):', notifErr.message);
+      }
     }
 
     // Redirect back to app with success
