@@ -3,10 +3,11 @@ const router = express.Router();
 const digilockerController = require('../controllers/digilockerController');
 const { authMiddleware } = require('../middleware/auth');
 
-// @route   GET /api/v1/digilocker/callback
+// @route   GET/POST /api/v1/digilocker/callback
 // @desc    Handle DigiLocker OAuth callback (browser redirect — NO auth needed)
 // @access  Public (user identified via state param → DLSession)
 router.get('/callback', digilockerController.handleCallback);
+router.post('/callback', digilockerController.handleCallback);
 
 // All routes below require authentication
 router.use(authMiddleware);
