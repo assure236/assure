@@ -303,11 +303,6 @@ exports.handleCallback = async (req, res, next) => {
         // Push notification + in-app (reaches mobile even if verified on web)
         notifyUser(userId, 'KYC Verified! ✅', `Congratulations ${userName}! Your identity has been successfully verified via DigiLocker. You can now access all features.`, 'kyc_update', {});
 
-        // SMS notification
-        if (verifiedUser?.mobile) {
-          notificationService.sendSMS(verifiedUser.mobile, `Congratulations ${userName}! Your KYC verification is complete via DigiLocker. You can now access all features on Assure ChitFunds.`).catch(err => console.error('KYC SMS failed:', err.message));
-        }
-
         // Email notification
         if (verifiedUser?.email) {
           const emailHtml = `
