@@ -13,6 +13,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useSearchParams } from 'react-router-dom';
 
 const DOC_TYPES = [
   { key: 'aadhaar_card', label: 'Aadhaar Card (Front & Back)', required: true, maxSizeKB: 500 },
@@ -50,6 +51,25 @@ const Documents = () => {
   const [localPreviews, setLocalPreviews] = useState({});
 
   useEffect(() => { fetchDocuments(); fetchDlStatus(); }, []);
+
+  // Handle DigiLocker redirect result (user comes back from DigiLocker)
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const dlResult = searchParams.get('digilocker');
+    if (dlResult === 'success') {
+      toast.success('DigiLocker connected successfully! Documents imported.');
+      fetchDlStatus();
+      fetchDocuments();
+      searchParams.delete('digilocker');
+      setSearchParams(searchParams, { replace: true });
+    } else if (dlResult === 'error') {
+      const msg = searchParams.get('message') || 'DigiLocker verification failed';
+      toast.error(msg);
+      searchParams.delete('digilocker');
+      searchParams.delete('message');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, []);
 
   const fetchDlStatus = async () => {
     try {

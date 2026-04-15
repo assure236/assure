@@ -58,18 +58,27 @@ exports.getAuthUrl = async (req, res, next) => {
 };
 
 /**
- * Step 2: Handle DigiLocker callback — exchange code for token & fetch docs
+ * Step 2: Handle DigiLocker callback — browser redirect from DigiLocker (GET)
+ * DigiLocker redirects here with ?code=xxx&state=xxx — no auth token present.
+ * We look up the user via the state parameter stored in DLSession.
  */
 exports.handleCallback = async (req, res, next) => {
+  // Determine where to redirect the user after processing
+  const webAppUrl = process.env.WEB_CLIENT_URL || 'https://assure.fund';
+  const redirectSuccess = `${webAppUrl}/documents?digilocker=success`;
+  const redirectError = (msg) => `${webAppUrl}/documents?digilocker=error&message=${encodeURIComponent(msg)}`;
+
   try {
-    const { code, state } = req.body;
+    // DigiLocker sends code & state as query params (GET redirect)
+    const code = req.query.code || req.body?.code;
+    const state = req.query.state || req.body?.state;
     if (!code || !state) {
-      return res.status(400).json({ success: false, message: 'code and state are required' });
+      return res.redirect(redirectError('Missing authorization code from DigiLocker'));
     }
 
     const stored = await DLSession.findOneAndDelete({ state });
     if (!stored) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired state' });
+      return res.redirect(redirectError('Session expired. Please try again.'));
     }
 
     const userId = stored.user_id;
@@ -160,16 +169,12 @@ exports.handleCallback = async (req, res, next) => {
       await User.findByIdAndUpdate(userId, { kyc_status: 'verified', kyc_verified_at: new Date() });
     }
 
-    res.json({
-      success: true,
-      message: 'DigiLocker connected successfully',
-      data: {
-        digilocker_id: digilockerId,
-        documents_imported: issuedDocs.length,
-        kyc_auto_verified: !!(aadhaarDoc && panDoc),
-      }
-    });
-  } catch (err) { next(err); }
+    // Redirect back to web app with success
+    return res.redirect(redirectSuccess);
+  } catch (err) {
+    logger.error('DigiLocker callback error:', err);
+    return res.redirect(redirectError('Something went wrong. Please try again.'));
+  }
 };
 
 /**
