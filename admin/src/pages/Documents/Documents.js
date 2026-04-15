@@ -8,7 +8,7 @@ import {
 } from '@mui/material';
 import {
   CheckCircle, Cancel, Visibility, Refresh, AssignmentTurnedIn,
-  PendingActions, Block, Delete
+  PendingActions, Block, Delete, VerifiedUser
 } from '@mui/icons-material';
 import axios from 'axios';
 
@@ -144,10 +144,17 @@ export default function Documents() {
                   ) : rows.map(row => (
                     <TableRow key={row._id || row.id} hover>
                       <TableCell sx={{ width: 60 }}>
-                        {row.file_url ? (
+                        {row.file_url && !row.file_url.startsWith('digilocker://') ? (
                           <Box component="img" src={row.file_url} alt="doc"
                             sx={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 1, cursor: 'pointer', border: '1px solid #e0e0e0' }}
                             onClick={() => setPreviewDoc(row)} />
+                        ) : row.uploaded_from === 'digilocker' ? (
+                          <Tooltip title="Verified via DigiLocker">
+                            <Avatar variant="rounded" sx={{ width: 48, height: 48, bgcolor: '#e3f2fd', cursor: 'pointer' }}
+                              onClick={() => setPreviewDoc(row)}>
+                              <VerifiedUser fontSize="small" sx={{ color: '#1565c0' }} />
+                            </Avatar>
+                          </Tooltip>
                         ) : (
                           <Avatar variant="rounded" sx={{ width: 48, height: 48, bgcolor: 'grey.200' }}>
                             <Visibility fontSize="small" color="disabled" />
@@ -238,10 +245,15 @@ export default function Documents() {
               <Typography gutterBottom>Member: <strong>{verifyDialog.doc.user_id?.full_name || '—'}</strong></Typography>
               <Typography gutterBottom>Mobile: <strong>{verifyDialog.doc.user_id?.mobile || '—'}</strong></Typography>
               <Typography gutterBottom>Document: <strong>{(verifyDialog.doc.document_type || '').replace(/_/g, ' ')}</strong></Typography>
-              {verifyDialog.doc.file_url && (
+              {verifyDialog.doc.uploaded_from === 'digilocker' ? (
+                <Box sx={{ textAlign: 'center', py: 2, mt: 1, mb: 1, bgcolor: '#e3f2fd', borderRadius: 1 }}>
+                  <VerifiedUser sx={{ fontSize: 40, color: '#1565c0' }} />
+                  <Typography variant="body2" color="text.secondary">Verified via DigiLocker eKYC</Typography>
+                </Box>
+              ) : verifyDialog.doc.file_url ? (
                 <Box component="img" src={verifyDialog.doc.file_url} alt="doc"
                   sx={{ width: '100%', maxHeight: 300, objectFit: 'contain', borderRadius: 1, mt: 1, mb: 1, border: '1px solid #e0e0e0' }} />
-              )}
+              ) : null}
               <TextField
                 label="Remarks (optional)" multiline rows={3} fullWidth size="small" sx={{ mt: 2 }}
                 value={remarks} onChange={e => setRemarks(e.target.value)}
@@ -270,7 +282,19 @@ export default function Documents() {
           )}
         </DialogTitle>
         <DialogContent>
-          {previewDoc?.file_url ? (
+          {previewDoc?.uploaded_from === 'digilocker' ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <VerifiedUser sx={{ fontSize: 64, color: '#1565c0', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>Verified via DigiLocker</Typography>
+              <Typography color="text.secondary" gutterBottom>
+                This document was automatically verified through DigiLocker eKYC.
+                No physical file was uploaded — the verification is based on the user's DigiLocker-linked records.
+              </Typography>
+              {previewDoc.notes && (
+                <Chip label={previewDoc.notes} size="small" sx={{ mt: 1 }} color="info" variant="outlined" />
+              )}
+            </Box>
+          ) : previewDoc?.file_url ? (
             previewDoc.mime_type === 'application/pdf' ? (
               <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden', height: 500 }}>
                 <iframe src={previewDoc.file_url} title="doc" width="100%" height="100%" style={{ border: 0 }} />
@@ -294,7 +318,7 @@ export default function Documents() {
           </Box>
         </DialogContent>
         <DialogActions>
-          {previewDoc?.file_url && (
+          {previewDoc?.file_url && previewDoc?.uploaded_from !== 'digilocker' && (
             <Button onClick={() => window.open(previewDoc.file_url, '_blank')}>Open in New Tab</Button>
           )}
           <Button onClick={() => setPreviewDoc(null)}>Close</Button>
