@@ -98,23 +98,34 @@ exports.handleCallback = async (req, res, next) => {
     const userId = stored.user_id;
 
     // Exchange code for access token
+    const tokenBody = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      client_id: DL_CLIENT_ID,
+      client_secret: DL_CLIENT_SECRET,
+      redirect_uri: DL_REDIRECT_URI,
+      code_verifier: stored.code_verifier,
+    });
+
+    logger.info('DigiLocker token exchange request:', {
+      url: `${DL_BASE}/public/oauth2/2/token`,
+      body: tokenBody.toString().replace(DL_CLIENT_SECRET, '***'),
+    });
+
     const tokenRes = await fetch(`${DL_BASE}/public/oauth2/2/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        code,
-        client_id: DL_CLIENT_ID,
-        client_secret: DL_CLIENT_SECRET,
-        redirect_uri: DL_REDIRECT_URI,
-        code_verifier: stored.code_verifier,
-      }),
+      body: tokenBody,
     });
-    const tokenData = await tokenRes.json();
+    const tokenText = await tokenRes.text();
+    logger.info('DigiLocker token response:', { status: tokenRes.status, body: tokenText });
+
+    let tokenData;
+    try { tokenData = JSON.parse(tokenText); } catch { tokenData = {}; }
 
     if (!tokenData.access_token) {
-      logger.error('DigiLocker token exchange failed:', tokenData);
-      return res.status(400).json({ success: false, message: 'Failed to authenticate with DigiLocker' });
+      logger.error('DigiLocker token exchange failed:', { status: tokenRes.status, response: tokenText });
+      return res.redirect(redirectError('Failed to authenticate with DigiLocker'));
     }
 
     const accessToken = tokenData.access_token;
