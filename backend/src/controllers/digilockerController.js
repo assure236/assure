@@ -53,6 +53,7 @@ exports.getAuthUrl = async (req, res, next) => {
       state,
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
+      scope: 'openid',
     });
 
     const authUrl = `${DL_BASE}/public/oauth2/1/authorize?${params.toString()}`;
@@ -124,9 +125,9 @@ exports.handleCallback = async (req, res, next) => {
       code_verifier: stored.code_verifier,
     });
 
-    console.log('DigiLocker token exchange request:', `${DL_BASE}/public/oauth2/1/token`, tokenBody.toString().replace(DL_CLIENT_SECRET, '***'));
+    console.log('DigiLocker token exchange request:', `${DL_BASE}/public/oauth2/2/token`, tokenBody.toString().replace(DL_CLIENT_SECRET, '***'));
 
-    const tokenRes = await fetch(`${DL_BASE}/public/oauth2/1/token`, {
+    const tokenRes = await fetch(`${DL_BASE}/public/oauth2/2/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: tokenBody,
@@ -188,7 +189,7 @@ exports.handleCallback = async (req, res, next) => {
     let ekyc = null;
     if (dlEaadhaar) {
       try {
-        const ekycRes = await fetch(`${DL_BASE}/public/oauth2/1/xml/eaadhaar`, {
+        const ekycRes = await fetch(`${DL_BASE}/public/oauth2/2/xml/eaadhaar`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         console.log('DigiLocker eKYC response:', ekycRes.status);
