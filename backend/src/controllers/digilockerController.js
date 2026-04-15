@@ -14,6 +14,7 @@ const dlSessionSchema = new mongoose.Schema({
   state: { type: String, required: true, unique: true },
   code_verifier: { type: String, required: true },
   user_id: { type: String, required: true },
+  platform: { type: String, default: 'web' },
   expires_at: { type: Date, required: true, index: { expireAfterSeconds: 0 } },
 }, { timestamps: true });
 const DLSession = mongoose.models.DLSession || mongoose.model('DLSession', dlSessionSchema);
@@ -39,8 +40,11 @@ exports.getAuthUrl = async (req, res, next) => {
     const codeVerifier = generateCodeVerifier();
     const codeChallenge = generateCodeChallenge(codeVerifier);
 
+    // Detect platform (mobile apps send ?platform=mobile)
+    const platform = req.query.platform || 'web';
+
     // Store verifier in database (expires in 10 min via TTL index)
-    await DLSession.create({ state, code_verifier: codeVerifier, user_id: userId, expires_at: new Date(Date.now() + 10 * 60 * 1000) });
+    await DLSession.create({ state, code_verifier: codeVerifier, user_id: userId, platform, expires_at: new Date(Date.now() + 10 * 60 * 1000) });
 
     const params = new URLSearchParams({
       response_type: 'code',
@@ -62,10 +66,16 @@ exports.getAuthUrl = async (req, res, next) => {
  * We look up the user via the state parameter stored in DLSession.
  */
 exports.handleCallback = async (req, res, next) => {
-  // Determine where to redirect the user after processing
+  // Helper to build redirect URL based on platform
   const webAppUrl = process.env.WEB_CLIENT_URL || 'https://assure.fund';
-  const redirectSuccess = `${webAppUrl}/documents?digilocker=success`;
-  const redirectError = (msg) => `${webAppUrl}/documents?digilocker=error&message=${encodeURIComponent(msg)}`;
+  const buildRedirect = (platform, status, msg) => {
+    const params = msg ? `digilocker=${status}&message=${encodeURIComponent(msg)}` : `digilocker=${status}`;
+    if (platform === 'mobile') {
+      return `assurechitfunds://documents?${params}`;
+    }
+    return `${webAppUrl}/documents?${params}`;
+  };
+  let sessionPlatform = 'web';
 
   try {
     // Log everything DigiLocker sends back for debugging
@@ -79,7 +89,7 @@ exports.handleCallback = async (req, res, next) => {
     if (req.query.error) {
       const errDesc = req.query.error_description || req.query.error;
       logger.error('DigiLocker returned error:', { error: req.query.error, description: errDesc });
-      return res.redirect(redirectError(errDesc));
+      return res.redirect(buildRedirect(sessionPlatform, 'error', errDesc));
     }
 
     // DigiLocker sends code & state as query params (GET redirect)
@@ -87,15 +97,16 @@ exports.handleCallback = async (req, res, next) => {
     const state = req.query.state || req.body?.state;
     if (!code || !state) {
       logger.error('DigiLocker callback missing params:', { code: !!code, state: !!state, allQuery: JSON.stringify(req.query) });
-      return res.redirect(redirectError('Missing authorization code from DigiLocker'));
+      return res.redirect(buildRedirect(sessionPlatform, 'error', 'Missing authorization code from DigiLocker'));
     }
 
     const stored = await DLSession.findOneAndDelete({ state });
     if (!stored) {
-      return res.redirect(redirectError('Session expired. Please try again.'));
+      return res.redirect(buildRedirect(sessionPlatform, 'error', 'Session expired. Please try again.'));
     }
 
     const userId = stored.user_id;
+    sessionPlatform = stored.platform || 'web';
 
     // Exchange code for access token
     const tokenBody = new URLSearchParams({
@@ -125,7 +136,7 @@ exports.handleCallback = async (req, res, next) => {
 
     if (!tokenData.access_token) {
       logger.error('DigiLocker token exchange failed:', { status: tokenRes.status, response: tokenText });
-      return res.redirect(redirectError('Failed to authenticate with DigiLocker'));
+      return res.redirect(buildRedirect(sessionPlatform, 'error', 'Failed to authenticate with DigiLocker'));
     }
 
     const accessToken = tokenData.access_token;
@@ -194,11 +205,11 @@ exports.handleCallback = async (req, res, next) => {
       await User.findByIdAndUpdate(userId, { kyc_status: 'verified', kyc_verified_at: new Date() });
     }
 
-    // Redirect back to web app with success
-    return res.redirect(redirectSuccess);
+    // Redirect back to app with success
+    return res.redirect(buildRedirect(sessionPlatform, 'success'));
   } catch (err) {
     logger.error('DigiLocker callback error:', err);
-    return res.redirect(redirectError('Something went wrong. Please try again.'));
+    return res.redirect(buildRedirect(sessionPlatform, 'error', 'Something went wrong. Please try again.'));
   }
 };
 

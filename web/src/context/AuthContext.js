@@ -51,6 +51,12 @@ export const AuthProvider = ({ children }) => {
       }, INACTIVITY_TIMEOUT);
     };
 
+    // If returning from DigiLocker, refresh the activity timestamp
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('digilocker')) {
+      localStorage.setItem('lastActivity', Date.now().toString());
+    }
+
     // Check if already expired (e.g. tab was in background)
     const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0');
     if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {

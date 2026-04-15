@@ -19,13 +19,14 @@ class DocumentsScreen extends StatefulWidget {
   State<DocumentsScreen> createState() => _DocumentsScreenState();
 }
 
-class _DocumentsScreenState extends State<DocumentsScreen> {
+class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingObserver {
   bool _loading = false;
   List<Map<String, dynamic>> _documents = [];
   String? _error;
   String? _uploadingType;
   Map<String, dynamic>? _kycStatus;
   bool _digilockerLoading = false;
+  bool _awaitingDigilocker = false;
 
   static const List<Map<String, dynamic>> _docTypes = [
     {'key': 'aadhaar_card', 'label': 'Aadhaar Card (Front & Back)', 'icon': 'badge'},
@@ -37,8 +38,25 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchDocuments();
     _fetchKycStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _awaitingDigilocker) {
+      _awaitingDigilocker = false;
+      _fetchDocuments();
+      _fetchKycStatus();
+      _showSnackBar('Checking DigiLocker status...', isError: false);
+    }
   }
 
   Future<void> _fetchKycStatus() async {
@@ -53,12 +71,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> {
   Future<void> _initDigilocker() async {
     setState(() => _digilockerLoading = true);
     try {
-      final res = await ApiService.get('/kyc/digilocker/init');
+      final res = await ApiService.get('/kyc/digilocker/init?platform=mobile');
       if (res['success'] == true) {
         final url = res['data']?['auth_url'] ?? res['auth_url'];
         if (url != null) {
           final uri = Uri.parse(url);
           if (await canLaunchUrl(uri)) {
+            _awaitingDigilocker = true;
             await launchUrl(uri, mode: LaunchMode.externalApplication);
           } else {
             _showSnackBar('Could not open DigiLocker');

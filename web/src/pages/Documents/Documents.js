@@ -83,6 +83,8 @@ const Documents = () => {
     try {
       const res = await axios.get('/digilocker/auth-url');
       if (res.data.success && res.data.data.authUrl) {
+        // Refresh inactivity timer so user isn't logged out while on DigiLocker
+        localStorage.setItem('lastActivity', (Date.now() + 30 * 60 * 1000).toString());
         window.location.href = res.data.data.authUrl;
       } else {
         toast.error(res.data.message || 'DigiLocker not available');

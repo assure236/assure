@@ -11,9 +11,10 @@ class KycScreen extends StatefulWidget {
   State<KycScreen> createState() => _KycScreenState();
 }
 
-class _KycScreenState extends State<KycScreen> {
+class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
   bool _loading = false;
   bool _digilockerLoading = false;
+  bool _awaitingDigilocker = false;
   Map<String, dynamic>? _kycStatus;
   String? _error;
 
@@ -23,13 +24,24 @@ class _KycScreenState extends State<KycScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchKycStatus();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _panController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _awaitingDigilocker) {
+      _awaitingDigilocker = false;
+      _fetchKycStatus();
+      _showSnackBar('Checking DigiLocker status...', isError: false);
+    }
   }
 
   Future<void> _fetchKycStatus() async {
@@ -87,12 +99,13 @@ class _KycScreenState extends State<KycScreen> {
   Future<void> _initDigilocker() async {
     setState(() => _digilockerLoading = true);
     try {
-      final res = await ApiService.get('/kyc/digilocker/init');
+      final res = await ApiService.get('/kyc/digilocker/init?platform=mobile');
       if (res['success'] == true) {
         final url = res['data']?['auth_url'] ?? res['auth_url'];
         if (url != null) {
           final uri = Uri.parse(url);
           if (await canLaunchUrl(uri)) {
+            _awaitingDigilocker = true;
             await launchUrl(uri, mode: LaunchMode.externalApplication);
           } else {
             _showSnackBar('Could not open DigiLocker');
