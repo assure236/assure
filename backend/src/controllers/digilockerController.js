@@ -124,9 +124,9 @@ exports.handleCallback = async (req, res, next) => {
       code_verifier: stored.code_verifier,
     });
 
-    console.log('DigiLocker token exchange request:', `${DL_BASE}/public/oauth2/2/token`, tokenBody.toString().replace(DL_CLIENT_SECRET, '***'));
+    console.log('DigiLocker token exchange request:', `${DL_BASE}/public/oauth2/1/token`, tokenBody.toString().replace(DL_CLIENT_SECRET, '***'));
 
-    const tokenRes = await fetch(`${DL_BASE}/public/oauth2/2/token`, {
+    const tokenRes = await fetch(`${DL_BASE}/public/oauth2/1/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: tokenBody,
@@ -151,11 +151,13 @@ exports.handleCallback = async (req, res, next) => {
     // Fetch Aadhaar eKYC data
     let ekyc = null;
     try {
-      const ekycRes = await fetch(`${DL_BASE}/public/oauth2/2/xml/eaadhaar`, {
+      const ekycRes = await fetch(`${DL_BASE}/public/oauth2/1/xml/eaadhaar`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      console.log('DigiLocker eKYC response:', ekycRes.status);
       if (ekycRes.ok) {
         ekyc = await ekycRes.text();
+        console.log('DigiLocker eKYC data length:', ekyc.length);
       }
     } catch (e) {
       console.warn('DigiLocker eKYC fetch failed:', e.message);
@@ -167,8 +169,10 @@ exports.handleCallback = async (req, res, next) => {
       const docsRes = await fetch(`${DL_BASE}/public/oauth2/3/files/issued`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
+      console.log('DigiLocker issued docs response:', docsRes.status);
       if (docsRes.ok) {
         const docsData = await docsRes.json();
+        console.log('DigiLocker issued docs:', JSON.stringify(docsData));
         issuedDocs = docsData.items || docsData.documents || [];
       }
     } catch (e) {
