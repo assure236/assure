@@ -69,10 +69,25 @@ exports.handleCallback = async (req, res, next) => {
   const redirectError = (msg) => `${webAppUrl}/documents?digilocker=error&message=${encodeURIComponent(msg)}`;
 
   try {
+    // Log everything DigiLocker sends back for debugging
+    logger.info('DigiLocker callback received:', {
+      query: req.query,
+      method: req.method,
+      url: req.originalUrl,
+    });
+
+    // DigiLocker may send error on denial or misconfiguration
+    if (req.query.error) {
+      const errDesc = req.query.error_description || req.query.error;
+      logger.error('DigiLocker returned error:', { error: req.query.error, description: errDesc });
+      return res.redirect(redirectError(errDesc));
+    }
+
     // DigiLocker sends code & state as query params (GET redirect)
     const code = req.query.code || req.body?.code;
     const state = req.query.state || req.body?.state;
     if (!code || !state) {
+      logger.error('DigiLocker callback missing params:', { code: !!code, state: !!state, allQuery: JSON.stringify(req.query) });
       return res.redirect(redirectError('Missing authorization code from DigiLocker'));
     }
 
