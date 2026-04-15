@@ -190,6 +190,11 @@ export default function Documents() {
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
+                          {row.uploaded_from === 'digilocker' ? (
+                            <Chip icon={<VerifiedUser />} label="DigiLocker Verified" size="small"
+                              sx={{ color: '#1565c0', bgcolor: '#e3f2fd', fontWeight: 500 }} />
+                          ) : (
+                          <>
                           {row.file_url && (
                             <Tooltip title="Preview Document">
                               <IconButton size="small" onClick={() => setPreviewDoc(row)}>
@@ -219,6 +224,8 @@ export default function Documents() {
                               <Delete fontSize="small" />
                             </IconButton>
                           </Tooltip>
+                          </>
+                          )}
                         </Box>
                       </TableCell>
                     </TableRow>
