@@ -180,7 +180,7 @@ const ChitGroupDetails = () => {
               { label: 'Chit Value', value: `₹${Number(group.chit_value || 0).toLocaleString('en-IN')}` },
               { label: 'Monthly Installment', value: `₹${Number(group.monthly_installment || 0).toLocaleString('en-IN')}` },
               { label: 'Total Members', value: group.total_members || group.max_members || '—' },
-              { label: 'Start Date', value: group.start_date ? new Date(group.start_date).toLocaleDateString('en-IN') : '—' },
+              { label: 'Start Date', value: group.commencement_date ? new Date(group.commencement_date).toLocaleDateString('en-IN') : '—' },
             ].map(({ label, value }) => (
               <Grid item xs={6} sm={3} key={label}>
                 <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
@@ -256,11 +256,11 @@ const ChitGroupDetails = () => {
                 <React.Fragment key={m._id || i}>
                   <ListItem>
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>{(m.user_id?.full_name || m.full_name || 'M')[0].toUpperCase()}</Avatar>
+                      <Avatar sx={{ bgcolor: 'primary.main' }}>T</Avatar>
                     </ListItemAvatar>
                     <ListItemText
-                      primary={m.user_id?.full_name || m.user?.full_name || m.full_name || `Member #${i + 1}`}
-                      secondary={`Ticket #${m.ticket_number || i + 1} • ${m.user_id?.mobile || m.user?.mobile || m.mobile || ''}`}
+                      primary={`Ticket #${m.ticket_number || i + 1}`}
+                      secondary={m.has_won_auction || m.chit_received ? 'Prized Member' : 'Active Member'}
                     />
                     {(m.has_won_auction || m.chit_received) && <Chip label="Prized" size="small" color="success" />}
                   </ListItem>

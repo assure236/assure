@@ -36,6 +36,16 @@ router.post('/:id/enroll', chitGroupController.enrollInChitGroup);
 // @access  Private
 router.get('/:id/analytics', chitGroupController.getChitGroupAnalytics);
 
+// @route   POST /api/v1/chit-groups/transfer-request
+// @desc    Request chit transfer to another member
+// @access  Private (Members)
+router.post('/transfer-request', chitGroupController.transferChitRequest);
+
+// @route   POST /api/v1/chit-groups/cancel-request
+// @desc    Request chit membership cancellation
+// @access  Private (Members)
+router.post('/cancel-request', chitGroupController.cancelChitRequest);
+
 // Admin only routes
 router.post('/', authorizeRoles('admin', 'super_admin'), chitGroupController.createChitGroup);
 router.put('/:id', authorizeRoles('admin', 'super_admin'), chitGroupController.updateChitGroup);

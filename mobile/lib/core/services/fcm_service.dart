@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
@@ -44,7 +43,7 @@ class FcmService {
     // Set up local notification display for foreground messages
     const androidChannel = AndroidNotificationChannel(
       'assure_chitfunds',
-      'Assure ChitFunds',
+      'Assure Chit Funds',
       description: 'Payment reminders, auction alerts, and more',
       importance: Importance.high,
     );
@@ -52,6 +51,11 @@ class FcmService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(androidChannel);
+
+    // Initialize local notifications plugin
+    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidInit);
+    await _localNotifications.initialize(initSettings);
 
     // Handle foreground messages
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -119,12 +123,33 @@ class FcmService {
     await registerTokenWithBackend();
   }
 
-  /// Handle foreground message — DO NOT show local notification here.
-  /// Firebase automatically shows the push notification in the system tray.
-  /// We only update the last notification check time so the polling service
-  /// doesn't re-show it.
+  /// Handle foreground message — show local notification since Firebase
+  /// does NOT auto-display notifications when the app is in foreground.
   void _handleForegroundMessage(RemoteMessage message) {
     debugPrint('Foreground message: ${message.notification?.title}');
+
+    final notification = message.notification;
+    final android = message.notification?.android;
+
+    if (notification != null) {
+      _localNotifications.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'assure_chitfunds',
+            'Assure Chit Funds',
+            channelDescription: 'Payment reminders, auction alerts, and more',
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+          ),
+        ),
+        payload: message.data['type'],
+      );
+    }
+
     // Update last check time so LocalNotificationService doesn't duplicate
     SharedPreferences.getInstance().then((prefs) {
       prefs.setString('last_notification_check', DateTime.now().toUtc().toIso8601String());

@@ -22,7 +22,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChitGroupProvider>().fetchMyChitGroups();
     });
@@ -44,24 +44,38 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
           SliverAppBar(
             floating: true,
             pinned: true,
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            title: const Text('Chit Groups',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            toolbarHeight: 48,
+            backgroundColor: Colors.white,
+            foregroundColor: AppTheme.primaryColor,
+            elevation: 0,
+            title: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppTheme.primaryColor.withAlpha(40)),
+              ),
+              child: const Text('Chit Groups',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                  )),
+            ),
             centerTitle: true,
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: AppTheme.secondaryColor,
-              indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              isScrollable: true,
-              tabs: const [
-                Tab(text: 'New'),
-                Tab(text: 'Vacant'),
-                Tab(text: 'Completed'),
-                Tab(text: 'Cancelled'),
-              ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(40),
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: AppTheme.secondaryColor,
+                indicatorWeight: 3,
+                labelColor: AppTheme.primaryColor,
+                unselectedLabelColor: Colors.grey,
+                tabs: const [
+                  Tab(text: 'New'),
+                  Tab(text: 'Vacant'),
+                ],
+              ),
             ),
           ),
         ],
@@ -77,8 +91,6 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
                 children: [
                   _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
                   _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'vacant'),
-                  _StatusGroupsTab(searchQuery: _searchQuery, status: 'completed'),
-                  _StatusGroupsTab(searchQuery: _searchQuery, status: 'cancelled'),
                 ],
               ),
             ),
@@ -230,7 +242,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
           if (!matchesSearch) return false;
           if (widget.filter == 'vacant') {
             final total = (g['total_members'] ?? 0) as int;
-            final enrolled = (g['enrolled_members'] ?? g['current_members'] ?? 0) as int;
+            final enrolled = (g['member_count'] ?? g['enrolled_members'] ?? g['current_members'] ?? 0) as int;
             return enrolled < total;
           }
           // 'new' filter: show groups with current_month == 0 or 1
@@ -441,7 +453,7 @@ class _AvailableGroupCard extends StatelessWidget {
     final monthly =
         double.tryParse(data['monthly_installment']?.toString() ?? '0') ?? 0;
     final members = data['total_members'] ?? 0;
-    final enrolledCount = data['enrolled_members'] ?? data['current_members'] ?? 0;
+    final enrolledCount = data['member_count'] ?? data['enrolled_members'] ?? data['current_members'] ?? 0;
     final duration = data['duration_months'] ?? 0;
     final groupName = data['group_name'] ?? '';
     final psoNumber = data['pso_number'] ?? data['registration_number'] ?? '';
@@ -470,7 +482,7 @@ class _AvailableGroupCard extends StatelessWidget {
           padding: const EdgeInsets.all(20),
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
+              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -607,15 +619,11 @@ class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   const _EmptyState({
     required this.icon,
     required this.title,
     required this.subtitle,
-    this.actionLabel,
-    this.onAction,
   });
 
   @override
@@ -633,16 +641,6 @@ class _EmptyState extends StatelessWidget {
           Text(subtitle,
               style: TextStyle(color: Colors.grey[500], fontSize: 14),
               textAlign: TextAlign.center),
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: onAction,
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white),
-              child: Text(actionLabel!),
-            ),
-          ],
         ]),
       ),
     );

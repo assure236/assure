@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const { Payment, User, ChitGroup, ChitMember } = require('../models');
 const notificationService = require('../services/notificationService');
+const { notifyUser } = require('../utils/notifyUser');
 const logger = require('../utils/logger');
 
 cron.schedule('30 3 * * *', async () => {
@@ -19,13 +20,13 @@ cron.schedule('30 3 * * *', async () => {
     let sent = 0;
     for (const payment of upcoming) {
       const user = payment.user_id;
-      if (!user?.mobile) continue;
+      if (!user) continue;
       const dueDate = new Date(payment.due_date).toLocaleDateString('en-IN');
       const amount = parseFloat(payment.total_amount || payment.amount).toFixed(2);
       const groupName = payment.chit_group_id?.group_name || 'your group';
-      const msg = 'Dear ' + user.full_name + ', your chit payment of Rs.' + amount + ' for ' + groupName + ' is due on ' + dueDate + '. Pay on time to avoid late fees. - Assure ChitFunds';
-      try { await notificationService.sendSMS(user.mobile, msg); sent++; }
-      catch (e) { logger.warn('[Cron] SMS failed for user ' + user._id + ': ' + e.message); }
+      const msg = 'Your chit payment of ₹' + amount + ' for ' + groupName + ' is due on ' + dueDate + '. Pay on time to avoid late fees.';
+      try { await notifyUser(String(user._id), 'Payment Reminder 📅', msg, 'payment_reminder', { payment_id: String(payment._id) }); sent++; }
+      catch (e) { logger.warn('[Cron] Push failed for user ' + user._id + ': ' + e.message); }
     }
     logger.info('[Cron] Payment reminders sent: ' + sent + '/' + upcoming.length);
   } catch (err) { logger.error('[Cron] Payment reminder job failed:', err.message); }

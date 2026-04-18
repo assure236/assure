@@ -362,7 +362,7 @@ const Analytics = () => {
   const fetchStatement = async () => {
     setStmtLoading(true);
     try {
-      const res = await axios.get('/payments/my');
+      const res = await axios.get('/payments/my-payments');
       if (res.data.success) setStatement(res.data.data || []);
     } catch { setStatement([]); }
     finally { setStmtLoading(false); }

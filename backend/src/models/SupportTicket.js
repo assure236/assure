@@ -5,6 +5,7 @@ const supportTicketSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   subject: { type: String, required: true },
   description: { type: String, required: true },
+  category: { type: String, enum: ['General', 'Payment Issue', 'Auction Related', 'KYC / Documents', 'Account Issue', 'Technical Bug', 'Chit Transfer/Cancel', 'Loan Related', 'Other'], default: 'General' },
   status: { type: String, enum: ['open', 'in_progress', 'resolved', 'closed'], default: 'open' },
   priority: { type: String, enum: ['low', 'medium', 'high', 'urgent'], default: 'medium' },
   assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

@@ -81,7 +81,12 @@ const AuctionRoom = () => {
     const ch = Number(auction?.current_highest_bid || sortedB[0]?.bid_amount || 0);
     if (ch > 0 && amount <= ch) { toast.error(`Bid must be higher than current highest: ₹${ch.toLocaleString('en-IN')}`); return; }
     const minInc = auction?.min_bid_increment || 0;
-    if (minInc > 0 && ch > 0 && (amount - ch) < minInc) { toast.error(`Bid must be at least ₹${minInc} more than current highest`); return; }
+    if (minInc > 0 && ch > 0 && (amount - ch) < minInc) {
+      // Allow if bidding the max
+      if (amount !== maxBidAmount) {
+        toast.error(`Bid must be at least ₹${minInc} more than current highest`); return;
+      }
+    }
     setBidConfirmOpen(true);
     setConfirmCountdown(5);
     let count = 5;
@@ -200,11 +205,15 @@ const AuctionRoom = () => {
     socket.on('new_bid', (data) => {
       if (String(data.auction_id) === String(id)) {
         setBids(prev => {
-          const newBids = [data, ...prev.filter(b => !(b.user_id === data.user_id && b.bid_amount === data.bid_amount))];
+          const dataUid = String(data.user_id);
+          const newBids = [data, ...prev.filter(b => {
+            const bUid = String(b.user_id?._id || b.user_id || '');
+            return !(bUid === dataUid && Number(b.bid_amount) === Number(data.bid_amount));
+          })];
           return newBids;
         });
         setAuction(prev => prev ? { ...prev, current_highest_bid: data.bid_amount, total_bid_count: data.total_bids } : prev);
-        toast.info(`New bid: ₹${Number(data.bid_amount).toLocaleString('en-IN')} by ${data.bidder_name || 'Member'}`, { autoClose: 3000 });
+        toast.info(`New bid: ₹${Number(data.bid_amount).toLocaleString('en-IN')} by Ticket #${data.ticket_number || '?'}`, { autoClose: 3000 });
         if (data.anti_snipe_extended) {
           setAntiSnipeAlert(`⏰ Anti-snipe activated! Timer extended by ${data.extension_seconds || 30}s`);
           setTimeout(() => setAntiSnipeAlert(null), 8000);
@@ -214,7 +223,7 @@ const AuctionRoom = () => {
 
     socket.on('auction_ended', (data) => {
       if (String(data.auction_id) === String(id)) {
-        toast.success(`Auction ended! Winner: ${data.winner_name || 'N/A'}`, { autoClose: 5000 });
+        toast.success(`Auction ended! Winner: Ticket #${data.winner_ticket_number || data.ticket_number || '?'}`, { autoClose: 5000 });
         setServerTimeRemaining(0);
         fetchAuction();
       }
@@ -418,7 +427,10 @@ const AuctionRoom = () => {
                     <Box>
                       <Typography variant="caption" color="text.secondary">Min Bid</Typography>
                       <Typography fontWeight={700} color="primary.main">
-                        ₹{(currentHighest > 0 ? currentHighest + minIncrement : auction.min_bid_amount || 1000).toLocaleString('en-IN')}
+                        ₹{(() => {
+                          const rawMin = currentHighest > 0 ? currentHighest + minIncrement : (auction.min_bid_amount || 1000);
+                          return Math.min(rawMin, maxBidAmount).toLocaleString('en-IN');
+                        })()}
                       </Typography>
                     </Box>
                     {bidFee > 0 && (
@@ -475,7 +487,7 @@ const AuctionRoom = () => {
                   <GavelIcon sx={{ fontSize: 48, color: 'grey.400' }} />
                   <Typography color="text.secondary" mt={1}>
                     {auction.status === 'completed'
-                      ? `Winner: ${auction.winner_id?.full_name || auction.winner?.full_name || 'N/A'}`
+                      ? `Winner: Ticket #${auction.winner_id?.ticket_number || '?'}`
                       : 'Auction has not started yet.'}
                   </Typography>
                   {auction.status === 'completed' && auction.winning_bid_amount && (
@@ -513,7 +525,7 @@ const AuctionRoom = () => {
             <CardContent sx={{ pb: 0 }}>
               <Tabs value={rightTab} onChange={(_, v) => setRightTab(v)} sx={{ mb: 1 }}>
                 <Tab label={`Bid History (${bids.length})`} />
-                <Tab label={`Participants (${[...new Map(bids.map(b => [b.user_id?._id || b.user_id || b.bidder_name, b]).entries())].length})`} />
+                <Tab label={`Participants (${[...new Map(bids.map(b => [String(b.user_id?._id || b.user_id || b.bidder_name || 'unknown'), b])).values()].length})`} />
               </Tabs>
             </CardContent>
             {rightTab === 0 ? (
@@ -528,7 +540,8 @@ const AuctionRoom = () => {
                   const bidUid = bid.user_id?._id || bid.user_id || '';
                   const isMe = currentUserId && String(bidUid) === String(currentUserId);
                   const isHighest = i === 0;
-                  const name = bid.user_id?.full_name || bid.bidder_name || 'Member';
+                  const ticketNo = bid.ticket_number || bid.ticketNumber;
+                  const displayName = `Ticket #${ticketNo || '?'}`;
                   const ts = bid.created_at || bid.timestamp;
                   const timeStr = (() => {
                     if (!ts) return '';
@@ -547,12 +560,8 @@ const AuctionRoom = () => {
                       }}>
                         <Box display="flex" alignItems="center" gap={0.5} mb={0.3}>
                           <Typography variant="caption" fontWeight={600} color={isMe ? 'primary.main' : 'text.secondary'}>
-                            {isMe ? 'You' : name}
+                            {isMe ? 'You' : displayName}
                           </Typography>
-                          {bid.ticket_number && (
-                            <Chip label={`T#${bid.ticket_number}`} size="small"
-                              sx={{ height: 18, fontSize: 10, bgcolor: 'primary.50', color: 'primary.main' }} />
-                          )}
                         </Box>
                         <Typography fontWeight={700} fontSize={18}
                           color={isHighest ? 'success.dark' : isMe ? 'primary.dark' : 'text.primary'}>
@@ -576,8 +585,9 @@ const AuctionRoom = () => {
               (() => {
                 const participantMap = {};
                 sortedBids.forEach(bid => {
-                  const uid = bid.user_id?._id || bid.user_id || bid.bidder_name || 'unknown';
-                  const name = bid.user_id?.full_name || bid.bidder_name || 'Member';
+                  const uid = String(bid.user_id?._id || bid.user_id || bid.bidder_name || 'unknown');
+                  const ticketNo = bid.ticket_number || bid.ticketNumber;
+                  const name = `Ticket #${ticketNo || '?'}`;
                   if (!participantMap[uid]) {
                     participantMap[uid] = { name, bidCount: 0, highestBid: 0 };
                   }
@@ -600,7 +610,7 @@ const AuctionRoom = () => {
                         <ListItem>
                           <ListItemAvatar>
                             <Avatar sx={{ bgcolor: i === 0 ? 'warning.main' : 'primary.main', fontSize: 14 }}>
-                              {i === 0 ? '🏆' : p.name[0].toUpperCase()}
+                              {i === 0 ? '🏆' : 'T'}
                             </Avatar>
                           </ListItemAvatar>
                           <ListItemText

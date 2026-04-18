@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box, Paper, Typography, Grid, Card, CardContent, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, TablePagination,
-  Chip, TextField, MenuItem, Button, Divider, CircularProgress, Alert,
+  Chip, TextField, MenuItem, Button, Divider, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tabs, Tab,
   Tooltip, LinearProgress,
 } from '@mui/material';
@@ -12,6 +12,7 @@ import {
   AccountTree, MenuBook, Assessment, PieChart,
   BarChart as BarChartIcon, Cancel, Print, ArrowUpward, ArrowDownward,
   Payments as PaymentsIcon,
+  CheckCircle, Error as ErrorIcon,
 } from '@mui/icons-material';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, Legend,
@@ -74,6 +75,41 @@ export default function Accounting() {
 
   // Groups for filter
   const [groups, setGroups] = useState([]);
+
+  // Live sync status
+  const [syncStatus, setSyncStatus] = useState({ status: 'idle', lastSyncAt: null, lastResult: null, error: null });
+  const syncPollRef = useRef(null);
+
+  const fetchSyncStatus = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/admin/accounting/sync-status`);
+      setSyncStatus(res.data.data);
+    } catch (e) { /* silent */ }
+  }, []);
+
+  // Poll sync status every 5 seconds
+  useEffect(() => {
+    fetchSyncStatus();
+    syncPollRef.current = setInterval(fetchSyncStatus, 5000);
+    return () => clearInterval(syncPollRef.current);
+  }, [fetchSyncStatus]);
+
+  // Auto-refresh: re-fetch current tab data every 30s so UI stays live
+  const autoRefreshRef = useRef(null);
+  useEffect(() => {
+    const refresh = () => {
+      fetchSummary();
+      if (tab === 1) fetchAccounts();
+      if (tab === 2) fetchEntries();
+      if (tab === 3) fetchGL();
+      if (tab === 4) fetchTB();
+      if (tab === 5) fetchPL();
+      if (tab === 6) fetchBS();
+      if (tab === 7) fetchCF();
+    };
+    autoRefreshRef.current = setInterval(refresh, 30000);
+    return () => clearInterval(autoRefreshRef.current);
+  }, [tab, fetchSummary, fetchAccounts, fetchEntries, fetchGL, fetchTB, fetchPL, fetchBS, fetchCF]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -245,9 +281,44 @@ export default function Accounting() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h5" fontWeight={700}>Accounting & Finance</Typography>
-        <Button size="small" variant="outlined" startIcon={<SyncIcon />} onClick={handleBulkPost} disabled={loading}>
-          Post All Payments
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Live Sync Status Indicator */}
+          <Box sx={{
+            display: 'flex', alignItems: 'center', gap: 1,
+            px: 2, py: 0.8, borderRadius: 2,
+            bgcolor: syncStatus.status === 'syncing' ? '#e3f2fd' : syncStatus.status === 'error' ? '#ffebee' : '#e8f5e9',
+            border: '1px solid',
+            borderColor: syncStatus.status === 'syncing' ? '#90caf9' : syncStatus.status === 'error' ? '#ef9a9a' : '#a5d6a7',
+          }}>
+            {syncStatus.status === 'syncing' ? (
+              <SyncIcon sx={{ color: '#1976d2', animation: 'spin 1s linear infinite', '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } }, fontSize: 20 }} />
+            ) : syncStatus.status === 'error' ? (
+              <ErrorIcon sx={{ color: '#d32f2f', fontSize: 20 }} />
+            ) : (
+              <CheckCircle sx={{ color: '#388e3c', fontSize: 20 }} />
+            )}
+            <Box>
+              <Typography variant="caption" fontWeight={700} sx={{
+                color: syncStatus.status === 'syncing' ? '#1976d2' : syncStatus.status === 'error' ? '#d32f2f' : '#388e3c',
+                lineHeight: 1.2, display: 'block',
+              }}>
+                {syncStatus.status === 'syncing' ? 'Syncing...' : syncStatus.status === 'error' ? 'Sync Error' : 'Synced'}
+              </Typography>
+              {syncStatus.lastSyncAt && (
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1 }}>
+                  {new Date(syncStatus.lastSyncAt).toLocaleTimeString('en-IN')}
+                </Typography>
+              )}
+            </Box>
+            {syncStatus.status === 'error' && syncStatus.error && (
+              <Tooltip title={syncStatus.error}><ErrorIcon sx={{ color: '#d32f2f', fontSize: 16, cursor: 'pointer' }} /></Tooltip>
+            )}
+            {syncStatus.lastResult && syncStatus.lastResult.posted > 0 && (
+              <Chip label={`+${syncStatus.lastResult.posted}`} size="small" color="success" variant="outlined" sx={{ height: 20, fontSize: '0.65rem' }} />
+            )}
+          </Box>
+
+        </Box>
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
@@ -304,7 +375,7 @@ export default function Accounting() {
                     <Button fullWidth variant="outlined" startIcon={<Add />} onClick={() => { setTab(2); setNewJeOpen(true); }}>Journal Entry</Button>
                   </Grid>
                   <Grid item xs={6} md={3}>
-                    <Button fullWidth variant="outlined" startIcon={<SyncIcon />} onClick={handleBulkPost}>Post Payments</Button>
+                    <Button fullWidth variant="outlined" startIcon={<Receipt />} onClick={() => setTab(3)}>General Ledger</Button>
                   </Grid>
                   <Grid item xs={6} md={3}>
                     <Button fullWidth variant="outlined" startIcon={<Assessment />} onClick={() => setTab(5)}>View P&L</Button>

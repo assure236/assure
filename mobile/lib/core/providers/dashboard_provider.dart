@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -7,6 +8,10 @@ class DashboardProvider with ChangeNotifier {
   Map<String, dynamic>? _data;
   bool _isLoading = false;
   String? _error;
+
+  static const _cacheKey = 'dashboard_cache';
+  static const _cacheTsKey = 'dashboard_cache_ts';
+  static const _cacheTtl = Duration(minutes: 5);
 
   Map<String, dynamic>? get data => _data;
   bool get isLoading => _isLoading;
@@ -33,13 +38,29 @@ class DashboardProvider with ChangeNotifier {
       .toList();
 
   Future<void> fetchDashboard() async {
-    // Skip API call if no token (dev/test mode — show empty dashboard)
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
     if (token == null) {
       _isLoading = false;
       _data = {};
       notifyListeners();
+      return;
+    }
+
+    // Load from cache immediately for fast UI
+    if (_data == null) {
+      final cached = prefs.getString(_cacheKey);
+      if (cached != null) {
+        try {
+          _data = Map<String, dynamic>.from(jsonDecode(cached));
+          notifyListeners();
+        } catch (_) {}
+      }
+    }
+
+    // Check if cache is still fresh — skip API if so
+    final cacheTs = prefs.getInt(_cacheTsKey) ?? 0;
+    if (_data != null && DateTime.now().millisecondsSinceEpoch - cacheTs < _cacheTtl.inMilliseconds) {
       return;
     }
 
@@ -51,9 +72,12 @@ class DashboardProvider with ChangeNotifier {
       final res = await ApiService.get('/dashboard/member');
       if (res['success'] == true) {
         _data = Map<String, dynamic>.from(res['data']);
+        // Persist to cache
+        await prefs.setString(_cacheKey, jsonEncode(_data));
+        await prefs.setInt(_cacheTsKey, DateTime.now().millisecondsSinceEpoch);
       } else {
         _error = res['message'] ?? 'Failed to load dashboard';
-        _data = {};
+        if (_data == null) _data = {};
       }
 
       // Fetch profile completion
@@ -65,7 +89,7 @@ class DashboardProvider with ChangeNotifier {
       } catch (_) {}
     } catch (e) {
       _error = 'Could not connect to server';
-      _data = {};
+      if (_data == null) _data = {};
       debugPrint('DashboardProvider error: $e');
     } finally {
       _isLoading = false;
@@ -73,4 +97,10 @@ class DashboardProvider with ChangeNotifier {
     }
   }
 
+  /// Force refresh — bypasses cache TTL.
+  Future<void> refresh() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_cacheTsKey);
+    await fetchDashboard();
+  }
 }

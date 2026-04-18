@@ -1,6 +1,7 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { io } from 'socket.io-client';
 
 const AuthContext = createContext(null);
 
@@ -89,6 +90,29 @@ export const AuthProvider = ({ children }) => {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [token]);
+
+  // ─── Socket: listen for force_logout from logout-all-devices ───
+  const socketRef = useRef(null);
+  useEffect(() => {
+    if (!token || !user) return;
+    const SOCKET_URL = process.env.REACT_APP_API_URL
+      ? process.env.REACT_APP_API_URL.replace('/api/v1', '')
+      : window.location.origin;
+    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'], reconnectionAttempts: 3 });
+    socketRef.current = socket;
+    socket.on('connect', () => {
+      const userId = user._id || user.id;
+      if (userId) socket.emit('join', userId);
+    });
+    socket.on('force_logout', (data) => {
+      toast.warning(data?.message || 'You have been logged out from all devices.');
+      logout();
+    });
+    socket.on('new_login_detected', (data) => {
+      toast.info(data?.message || 'New login detected on another device.');
+    });
+    return () => { socket.disconnect(); socketRef.current = null; };
+  }, [token, user?._id]);
 
   const fetchUserProfile = async () => {
     try {

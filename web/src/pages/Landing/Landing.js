@@ -3,7 +3,8 @@ import {
   Box, Container, Grid, Typography, Button, Card, CardContent,
   AppBar, Toolbar, Chip, List, ListItem, ListItemIcon, ListItemText,
   Divider, IconButton, useMediaQuery, Fade, Dialog,
-  TextField, Paper, Menu as MuiMenu, MenuItem, Rating
+  TextField, Paper, Menu as MuiMenu, MenuItem, Rating,
+  Accordion, AccordionSummary, AccordionDetails,
 } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
@@ -27,6 +28,9 @@ import {
   VerifiedUser as VerifiedIcon,
   CurrencyRupee as RupeeIcon,
   Menu as MenuIcon,
+  ExpandMore as ExpandMoreIcon,
+  PhoneAndroid as PhoneAndroidIcon,
+  Calculate as CalculateIcon,
 } from '@mui/icons-material';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -75,6 +79,17 @@ const STATS = [
   { label: 'Total Disbursed', value: '₹2.5 Cr+' },
   { label: 'Active Groups', value: '28' },
   { label: 'Auctions Done', value: '340+' },
+];
+
+const FAQS = [
+  { q: 'What is a chit fund?', a: 'A chit fund is a savings-cum-borrowing scheme where a group of people contribute a fixed amount monthly. Each month, one member wins the total pool through an auction. Non-winners earn dividends from the auction discount.' },
+  { q: 'Is Assure Chit Funds registered?', a: 'Yes! We are registered under the Chit Funds Act, 1982 and operate under the supervision of the Registrar of Chit Funds. Your money is fully legal and protected.' },
+  { q: 'How do I earn dividends?', a: 'When an auction winner bids a discount (e.g., ₹20,000 on a ₹1,00,000 chit), the discount is distributed equally among all members as dividends. You earn every month, even if you don\'t win!' },
+  { q: 'When can I get the full amount?', a: 'You can bid in monthly auctions starting from month 2. If you win the auction, the chit value minus your bid discount is disbursed to your bank account within 24-48 hours.' },
+  { q: 'What happens if I miss a payment?', a: 'We send reminders before each due date. If a payment is missed, a 2% late fee is charged. Consistent defaults may result in forfeiture of the chit as per regulations.' },
+  { q: 'Can I be part of multiple chit groups?', a: 'Yes! You can join as many groups as you can comfortably afford. Many members join 2-3 groups to diversify their savings and increase their chances of winning auctions.' },
+  { q: 'How secure are online payments?', a: 'All payments are processed through Cashfree, a RBI-licensed payment gateway with 256-bit SSL encryption. We never store your card or bank details on our servers.' },
+  { q: 'Can I transfer or cancel my chit?', a: 'Yes, you can request a transfer to another eligible member or cancel your chit through the app. Cancellation terms depend on the month number and are governed by the Chit Funds Act.' },
 ];
 
 // Income-based plan recommender data
@@ -648,6 +663,99 @@ const Landing = () => {
             Together, we're building wealth and a greener future. Be a part of our growing family and our growing forest!
           </Typography>
           <Chip label="100+ Trees Planted" icon={<ForestIcon />} sx={{ bgcolor: '#E8F5E9', color: '#2E7D32', fontWeight: 700, fontSize: 14, py: 2.5 }} />
+        </Container>
+      </Box>
+
+      {/* ─── FAQ SECTION ─── */}
+      <Box sx={{ bgcolor: '#F1F5F9', py: { xs: 8, md: 10 } }}>
+        <Container maxWidth="md" sx={{ px: { xs: 2, md: 4 } }}>
+          <Box textAlign="center" mb={5}>
+            <Chip label="FAQ" size="small" sx={{ bgcolor: `${ROYAL}15`, color: ROYAL, fontWeight: 700, mb: 2, letterSpacing: 1 }} />
+            <Typography variant="h3" fontWeight={800} sx={{ color: NAVY, fontSize: { xs: '1.8rem', md: '2.4rem' }, mb: 1 }}>
+              Frequently Asked Questions
+            </Typography>
+            <Typography sx={{ color: '#64748B', fontSize: 16 }}>
+              Everything you need to know about chit funds and Assure
+            </Typography>
+          </Box>
+          {FAQS.map((faq, i) => (
+            <Accordion key={i} disableGutters elevation={0}
+              sx={{ mb: 1.5, borderRadius: '12px !important', border: '1px solid #E2E8F0', '&:before': { display: 'none' }, overflow: 'hidden' }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: ROYAL }} />}
+                sx={{ px: 3, py: 1, '&.Mui-expanded': { bgcolor: `${ROYAL}08` } }}>
+                <Typography fontWeight={600} sx={{ color: NAVY, fontSize: 15 }}>{faq.q}</Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ px: 3, pb: 2.5 }}>
+                <Typography sx={{ color: '#475569', fontSize: 14, lineHeight: 1.7 }}>{faq.a}</Typography>
+              </AccordionDetails>
+            </Accordion>
+          ))}
+        </Container>
+      </Box>
+
+      {/* ─── DOWNLOAD APP ─── */}
+      <Box sx={{ py: { xs: 8, md: 10 }, bgcolor: 'white' }}>
+        <Container maxWidth="lg" sx={{ px: { xs: 2, md: 5 } }}>
+          <Grid container spacing={6} alignItems="center">
+            <Grid item xs={12} md={6}>
+              <Chip icon={<PhoneAndroidIcon sx={{ color: `${GOLD} !important`, fontSize: 16 }} />}
+                label="MOBILE APP" size="small"
+                sx={{ bgcolor: `${GOLD}15`, color: GOLD, fontWeight: 700, mb: 2, letterSpacing: 1 }} />
+              <Typography variant="h3" fontWeight={800} sx={{ color: NAVY, fontSize: { xs: '1.8rem', md: '2.4rem' }, mb: 2 }}>
+                Manage Your Chits<br />On the Go
+              </Typography>
+              <Typography sx={{ color: '#64748B', mb: 3, fontSize: 16, lineHeight: 1.7 }}>
+                Download the Assure ChitFunds app to track payments, join auctions, monitor dividends,
+                and manage everything from your phone. Available for Android now!
+              </Typography>
+              <List>
+                {[
+                  'Live auction bidding from your phone',
+                  'Instant push notifications for payments & results',
+                  'Biometric login for security',
+                  'Track all chits, payments & dividends in one place',
+                  'DigiLocker KYC integration',
+                ].map((item, i) => (
+                  <ListItem key={i} disableGutters sx={{ py: 0.3 }}>
+                    <ListItemIcon sx={{ minWidth: 28 }}><CheckIcon sx={{ color: '#16A34A', fontSize: 18 }} /></ListItemIcon>
+                    <ListItemText primary={item} primaryTypographyProps={{ fontSize: 14, color: '#475569' }} />
+                  </ListItem>
+                ))}
+              </List>
+              <Button variant="contained" size="large" href="https://play.google.com/store" target="_blank" rel="noopener noreferrer"
+                sx={{ mt: 2, bgcolor: NAVY, color: 'white', fontWeight: 700, borderRadius: 3, px: 4, py: 1.5, fontSize: 15, '&:hover': { bgcolor: ROYAL } }}>
+                <PhoneAndroidIcon sx={{ mr: 1 }} /> Download for Android
+              </Button>
+            </Grid>
+            <Grid item xs={12} md={6} sx={{ textAlign: 'center' }}>
+              <Box sx={{
+                background: `linear-gradient(135deg, ${NAVY} 0%, ${ROYAL} 100%)`,
+                borderRadius: 4, p: { xs: 4, md: 6 }, color: 'white', position: 'relative', overflow: 'hidden',
+              }}>
+                <Box sx={{ position: 'absolute', top: -30, right: -30, width: 150, height: 150, borderRadius: '50%', background: 'rgba(212,175,55,0.1)' }} />
+                <PhoneAndroidIcon sx={{ fontSize: 80, color: GOLD, mb: 2, opacity: 0.9 }} />
+                <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>Assure ChitFunds</Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 3 }}>
+                  Your complete chit fund management app
+                </Typography>
+                <Grid container spacing={2}>
+                  {[
+                    { icon: <GavelIcon />, label: 'Live Auctions' },
+                    { icon: <RupeeIcon />, label: 'Track Payments' },
+                    { icon: <TrendingIcon />, label: 'Dividends' },
+                    { icon: <ShieldIcon />, label: 'Secure Login' },
+                  ].map((feat, i) => (
+                    <Grid item xs={6} key={i}>
+                      <Box sx={{ bgcolor: 'rgba(255,255,255,0.1)', borderRadius: 2, p: 1.5 }}>
+                        <Box sx={{ color: GOLD, mb: 0.5 }}>{feat.icon}</Box>
+                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>{feat.label}</Typography>
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Box>
+            </Grid>
+          </Grid>
         </Container>
       </Box>
 

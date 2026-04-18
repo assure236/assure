@@ -1,10 +1,7 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-import 'api_service.dart';
 
 /// Polls the backend for new notifications and shows them as local push notifications.
 /// No Firebase needed — purely Flutter + backend polling.
@@ -33,7 +30,7 @@ class LocalNotificationService {
     // Create notification channel for Android
     const channel = AndroidNotificationChannel(
       'assure_chitfunds',
-      'Assure ChitFunds',
+      'Assure Chit Funds',
       description: 'Payment reminders, auction alerts, and more',
       importance: Importance.high,
     );
@@ -82,7 +79,7 @@ class LocalNotificationService {
   }) async {
     const androidDetails = AndroidNotificationDetails(
       'assure_chitfunds',
-      'Assure ChitFunds',
+      'Assure Chit Funds',
       channelDescription: 'Payment reminders, auction alerts, and more',
       importance: Importance.high,
       priority: Priority.high,

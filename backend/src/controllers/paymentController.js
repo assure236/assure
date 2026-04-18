@@ -2,6 +2,8 @@ const { Payment, ChitGroup, ChitMember, User, Auction } = require('../models');
 const axios = require('axios');
 const crypto = require('crypto');
 const notificationService = require('../services/notificationService');
+const { notifyUser } = require('../utils/notifyUser');
+const { audit, getIp } = require('../utils/audit');
 
 const getCashfree = () => {
   const isTest = process.env.CASHFREE_ENV !== 'PROD';
@@ -18,8 +20,9 @@ async function handlePaymentSuccess(payment) {
     if (!user) return;
     const newScore = Math.min(900, (user.credit_score || 650) + 10);
     await User.findByIdAndUpdate(user._id, { credit_score: newScore });
-    if (user.mobile) {
-      notificationService.sendSMS(user.mobile, 'Dear ' + user.full_name + ', your payment of ₹' + parseFloat(payment.total_amount || payment.amount).toFixed(2) + ' has been received. Ref: ' + payment.payment_number + ' - Assure ChitFunds').catch(() => {});
+    if (user) {
+      const msg = 'Dear ' + user.full_name + ', your payment of ₹' + parseFloat(payment.total_amount || payment.amount).toFixed(2) + ' has been received. Ref: ' + payment.payment_number;
+      notifyUser(String(user._id), 'Payment Received', msg, 'payment', { payment_id: String(payment._id) }).catch(() => {});
     }
   } catch (_) {}
 }
@@ -52,8 +55,7 @@ exports.createPaymentOrder = async (req, res, next) => {
     const parsedAmount = parseFloat(amount);
     const parsedLateFee = parseFloat(late_fee) || 0;
     const totalAmount = Math.round((parsedAmount + parsedLateFee) * 100) / 100;
-    const payCount = await Payment.countDocuments();
-    const paymentNumber = 'PAY' + new Date().getFullYear() + String(payCount + 1).padStart(6, '0');
+    const paymentNumber = 'PAY' + new Date().getFullYear() + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
 
     const payment = await Payment.create({
       payment_number: paymentNumber,
@@ -137,6 +139,15 @@ exports.verifyPayment = async (req, res, next) => {
       await Payment.findByIdAndUpdate(payment._id, { payment_status: 'success', payment_date: new Date(), transaction_id: res2.data?.cf_order_id || order_id });
       const updated = await Payment.findById(payment._id);
       await handlePaymentSuccess(updated);
+
+      audit({
+        userId: updated.user_id, action: 'payment_success',
+        resourceType: 'payment', resourceId: String(updated._id),
+        description: `Payment ₹${updated.amount} verified for order ${order_id}`,
+        metadata: { amount: updated.amount, order_id, transaction_id: updated.transaction_id },
+        ipAddress: getIp(req),
+      });
+
       return res.json({ success: true, message: 'Payment verified', data: updated });
     }
     res.json({ success: false, message: 'Payment not completed', data: { order_status: orderStatus } });

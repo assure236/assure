@@ -1,4 +1,4 @@
-const { User, ChitGroup, ChitMember, Auction, Payment } = require('../models');
+const { User, ChitGroup, ChitMember, Auction, Payment, Document } = require('../models');
 const AppSetting = require('../models/AppSetting');
 
 exports.getMemberDashboard = async (req, res, next) => {
@@ -11,17 +11,34 @@ exports.getMemberDashboard = async (req, res, next) => {
     const [memberships, recentPayments, upcomingAuctions, user, showCreditScoreSetting] = await Promise.all([
       ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id'),
       Payment.find({ user_id: userId, payment_status: 'success' }).populate('chit_group_id', 'group_name').sort({ payment_date: -1 }).limit(5),
-      Auction.find({ status: { $in: ['scheduled', 'in_progress'] } }).populate('chit_group_id', 'group_name group_number chit_value').sort({ auction_date: 1 }).limit(3),
-      User.findById(userId).select('full_name credit_score kyc_status'),
+      Auction.find({ status: { $in: ['scheduled', 'in_progress', 'active'] } }).populate('chit_group_id', 'group_name group_number chit_value').sort({ auction_date: 1 }).limit(3),
+      User.findById(userId).select('full_name credit_score kyc_status pan_number aadhaar_number digilocker_id'),
       AppSetting.findOne({ key: 'show_credit_score' }),
     ]);
 
-    const paidThisMonth = await Payment.aggregate([
-      { $match: { user_id: userId, payment_status: 'success', payment_date: { $gte: startOfMonth, $lte: endOfMonth } } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
+    // Auto-sync kyc_status if docs are verified but status is stale
+    if (user && user.kyc_status !== 'verified' && user.kyc_status !== 'rejected') {
+      const docs = await Document.find({ user_id: userId });
+      const panOk = !!user.pan_number || docs.some(d => d.document_type === 'pan_card' && ['verified', 'approved'].includes(d.verification_status));
+      const aadhaarOk = !!user.aadhaar_number || docs.some(d => d.document_type === 'aadhaar_card' && ['verified', 'approved'].includes(d.verification_status));
+      if (panOk && aadhaarOk && !!user.digilocker_id) {
+        await User.findByIdAndUpdate(userId, { kyc_status: 'verified', kyc_verified_at: new Date() });
+        user.kyc_status = 'verified';
+      }
+    }
+
+    const [paidThisMonth, totalInvestedAgg] = await Promise.all([
+      Payment.aggregate([
+        { $match: { user_id: userId, payment_status: 'success', payment_date: { $gte: startOfMonth, $lte: endOfMonth } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      Payment.aggregate([
+        { $match: { user_id: userId, payment_status: 'success' } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
     ]);
 
-    const totalInvested = recentPayments.reduce((s, p) => s + (p.amount || 0), 0);
+    const totalInvested = totalInvestedAgg[0]?.total || 0;
 
     res.json({
       success: true,

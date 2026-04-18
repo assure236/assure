@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/theme/app_theme.dart';
 
 final _inr = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
@@ -89,7 +90,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             CircleAvatar(
               radius: 14,
               backgroundColor: Colors.white24,
-              child: Text('A', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+              child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: 16),
             ),
             SizedBox(width: 8),
             Text('Assure Bot'),
@@ -98,7 +99,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         flexibleSpace: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
+              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
             ),
           ),
         ),
@@ -169,14 +170,14 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
                       filled: true,
-                      fillColor: const Color(0xFFF8F9FB),
+                      fillColor: AppTheme.backgroundColor,
                     ),
                     textInputAction: TextInputAction.send,
                     onSubmitted: _sendMessage,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.send_rounded, color: Color(0xFF0B1F3B)),
+                  icon: const Icon(Icons.send_rounded, color: AppTheme.primaryColor),
                   onPressed: () => _sendMessage(_controller.text),
                 ),
               ],
@@ -212,7 +213,7 @@ class _MessageBubble extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isUser ? const Color(0xFF0B1F3B) : Colors.white,
+          color: isUser ? AppTheme.primaryColor : Colors.white,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [BoxShadow(color: Colors.black.withAlpha(15), blurRadius: 4, offset: const Offset(0, 1))],
         ),
@@ -231,7 +232,7 @@ class _MessageBubble extends StatelessWidget {
                       margin: const EdgeInsets.only(bottom: 6),
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FB),
+                        color: AppTheme.backgroundColor,
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFFE0E0E0)),
                       ),
@@ -250,7 +251,7 @@ class _MessageBubble extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFF0B1F3B)),
+                          const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.primaryColor),
                         ],
                       ),
                     ),

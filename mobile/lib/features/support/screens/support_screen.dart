@@ -36,6 +36,18 @@ class _SupportScreenState extends State<SupportScreen> {
     final subjectCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     String priority = 'medium';
+    String category = 'General';
+    final categories = [
+      'General',
+      'Payment Issue',
+      'Auction Related',
+      'KYC / Documents',
+      'Account Issue',
+      'Technical Bug',
+      'Chit Transfer/Cancel',
+      'Loan Related',
+      'Other',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -68,6 +80,21 @@ class _SupportScreenState extends State<SupportScreen> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  value: category,
+                  decoration: InputDecoration(
+                    labelText: 'Category *',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.category_outlined),
+                  ),
+                  items: categories
+                      .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) setSheetState(() => category = val);
+                  },
+                ),
+                const SizedBox(height: 14),
                 TextField(
                   controller: subjectCtrl,
                   textCapitalization: TextCapitalization.sentences,
@@ -136,6 +163,7 @@ class _SupportScreenState extends State<SupportScreen> {
                           'subject': subjectCtrl.text.trim(),
                           'description': descCtrl.text.trim(),
                           'priority': priority,
+                          'category': category,
                         });
                         if (res['success'] == true) {
                           if (mounted) {
@@ -259,16 +287,35 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildEmpty() {
     return ListView(
       children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.25),
+        SizedBox(height: MediaQuery.of(context).size.height * 0.22),
         Column(
           children: [
-            Icon(Icons.support_agent, size: 80, color: Colors.grey.shade300),
-            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: AppTheme.accentBlue.withAlpha(20),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.support_agent, size: 64, color: AppTheme.accentBlue.withAlpha(160)),
+            ),
+            const SizedBox(height: 20),
             const Text('No Support Tickets',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey)),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text('Tap "Raise Ticket" to create one',
-                style: TextStyle(color: Colors.grey.shade500)),
+            Text('Have a question or issue?\nWe\u2019re here to help!',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600, height: 1.5)),
+            const SizedBox(height: 24),
+            FilledButton.icon(
+              onPressed: () => _showCreateTicket(),
+              icon: const Icon(Icons.add_circle_outline, size: 18),
+              label: const Text('Raise a Ticket'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.cardRadius)),
+              ),
+            ),
           ],
         ),
       ],
@@ -278,14 +325,22 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildTicketCard(Map<String, dynamic> ticket) {
     final status = ticket['status'] ?? 'open';
     final priority = ticket['priority'] ?? 'medium';
+    final category = ticket['category'];
     final createdAt = DateTime.tryParse(ticket['created_at'] ?? '');
     final ticketNo = ticket['ticket_number'] ?? '';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.cardRadius)),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppTheme.cardRadius),
+          boxShadow: AppTheme.cardShadow,
+        ),
+        child: InkWell(
+        borderRadius: BorderRadius.circular(AppTheme.cardRadius),
         onTap: () => _showTicketDetail(ticket),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -323,6 +378,17 @@ class _SupportScreenState extends State<SupportScreen> {
                           fontWeight: FontWeight.w600)),
                 ],
               ),
+              if (category != null) ...[
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Icon(Icons.label_outline, size: 13, color: Colors.grey.shade500),
+                    const SizedBox(width: 4),
+                    Text(category.toString(),
+                        style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                  ],
+                ),
+              ],
               const SizedBox(height: 10),
               Text(ticket['subject'] ?? '',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -359,6 +425,7 @@ class _SupportScreenState extends State<SupportScreen> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -431,6 +498,20 @@ class _SupportScreenState extends State<SupportScreen> {
                 Text(DateFormat('EEEE, dd MMM yyyy at hh:mm a').format(createdAt.toLocal()),
                     style: TextStyle(color: Colors.grey.shade500, fontSize: 12)),
               ],
+              if (ticket['category'] != null) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.category_outlined, size: 14, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(ticket['category'].toString(),
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              // Status Timeline
+              _buildStatusTimeline(status, createdAt, ticket),
               const SizedBox(height: 16),
               const Text('Description', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 6),
@@ -467,6 +548,97 @@ class _SupportScreenState extends State<SupportScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusTimeline(String currentStatus, DateTime? createdAt, Map<String, dynamic> ticket) {
+    final steps = ['open', 'in_progress', 'resolved', 'closed'];
+    final currentIdx = steps.indexOf(currentStatus);
+    final resolvedAt = DateTime.tryParse(ticket['resolved_at'] ?? '');
+    final updatedAt = DateTime.tryParse(ticket['updated_at'] ?? '');
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Status Timeline',
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(height: 12),
+          ...List.generate(steps.length, (i) {
+            final isDone = i <= currentIdx;
+            final isCurrent = i == currentIdx;
+            final isLast = i == steps.length - 1;
+            String? timeStr;
+            if (i == 0 && createdAt != null) {
+              timeStr = DateFormat('dd MMM, hh:mm a').format(createdAt.toLocal());
+            } else if (steps[i] == 'resolved' && isDone && resolvedAt != null) {
+              timeStr = DateFormat('dd MMM, hh:mm a').format(resolvedAt.toLocal());
+            } else if (isCurrent && updatedAt != null && i > 0) {
+              timeStr = DateFormat('dd MMM, hh:mm a').format(updatedAt.toLocal());
+            }
+
+            return Column(
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Column(
+                      children: [
+                        Container(
+                          width: 24, height: 24,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isDone ? _statusColor(steps[i]) : Colors.grey.shade300,
+                          ),
+                          child: Icon(
+                            isDone ? Icons.check : Icons.circle_outlined,
+                            size: 14,
+                            color: isDone ? Colors.white : Colors.grey,
+                          ),
+                        ),
+                        if (!isLast)
+                          Container(
+                            width: 2, height: 28,
+                            color: isDone && i < currentIdx
+                                ? _statusColor(steps[i])
+                                : Colors.grey.shade300,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(_statusLabel(steps[i]),
+                              style: TextStyle(
+                                fontWeight: isCurrent ? FontWeight.bold : FontWeight.w500,
+                                color: isDone ? Colors.black87 : Colors.grey,
+                                fontSize: 13,
+                              )),
+                          if (timeStr != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(timeStr,
+                                  style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+                            ),
+                          if (!isLast) const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          }),
+        ],
       ),
     );
   }

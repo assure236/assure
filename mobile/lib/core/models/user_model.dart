@@ -26,6 +26,9 @@ class User {
   final String? currentCity;
   final String? currentState;
   final String? currentPincode;
+  final String? profileEditStatus;
+  final String? profileEditRejectionReason;
+  final Map<String, dynamic>? raw;
 
   User({
     required this.id,
@@ -55,6 +58,9 @@ class User {
     this.currentCity,
     this.currentState,
     this.currentPincode,
+    this.profileEditStatus,
+    this.profileEditRejectionReason,
+    this.raw,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -86,6 +92,9 @@ class User {
       currentCity: json['current_city'],
       currentState: json['current_state'],
       currentPincode: json['current_pincode'],
+      profileEditStatus: json['profile_edit_status'],
+      profileEditRejectionReason: json['profile_edit_rejection_reason'],
+      raw: json,
     );
   }
 

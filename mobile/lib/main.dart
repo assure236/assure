@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:go_router/go_router.dart';
 
 import 'core/providers/auth_provider.dart';
 import 'core/providers/chit_group_provider.dart';
@@ -47,31 +48,48 @@ void main() async {
   runApp(const AssureChitFundsApp());
 }
 
-class AssureChitFundsApp extends StatelessWidget {
+class AssureChitFundsApp extends StatefulWidget {
   const AssureChitFundsApp({Key? key}) : super(key: key);
+
+  @override
+  State<AssureChitFundsApp> createState() => _AssureChitFundsAppState();
+}
+
+class _AssureChitFundsAppState extends State<AssureChitFundsApp> {
+  late final AuthProvider _authProvider;
+  late final GoRouter _router;
+
+  @override
+  void initState() {
+    super.initState();
+    _authProvider = AuthProvider();
+    _router = AppRouter.router(_authProvider); // Create router once
+  }
+
+  @override
+  void dispose() {
+    _authProvider.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider.value(value: _authProvider),
         ChangeNotifierProvider(create: (_) => ChitGroupProvider()),
         ChangeNotifierProvider(create: (_) => AuctionProvider()),
         ChangeNotifierProvider(create: (_) => PaymentProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => DashboardProvider()),
       ],
-      child: Consumer<AuthProvider>(
-        builder: (context, authProvider, _) {
-          return MaterialApp.router(
-            title: 'Assure Chit Funds',
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: ThemeMode.light,
-            routerConfig: AppRouter.router(authProvider),
-          );
-        },
+      child: MaterialApp.router(
+        title: 'Assure Chit Funds',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.light,
+        routerConfig: _router, // Use the same router instance
       ),
     );
   }

@@ -83,7 +83,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
               body: 'For privacy-related inquiries:\n\n'
                   'Email: privacy@assure.fund\n'
                   'Support: In-app chat or Help Center\n'
-                  'Registered Office: Assure ChitFunds Pvt. Ltd., Hyderabad, Telangana, India'),
+                  'Registered Office: Assure Chit Funds Pvt. Ltd., Hyderabad, Telangana, India'),
 
             SizedBox(height: 32),
           ],

@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/theme/app_theme.dart';
 
 class QrScanScreen extends StatefulWidget {
   const QrScanScreen({super.key});
@@ -44,13 +45,13 @@ class _QrScanScreenState extends State<QrScanScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: const Icon(Icons.computer, color: Color(0xFF0B1F3B), size: 52),
+        icon: const Icon(Icons.computer, color: AppTheme.primaryColor, size: 52),
         title: const Text('Login to Web Portal?'),
         content: const Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'You are about to log in to the Assure ChitFunds web portal using your account.',
+              'You are about to log in to the Assure Chit Funds web portal using your account.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.black54),
             ),
@@ -85,7 +86,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
             icon: const Icon(Icons.check_circle, size: 18),
             label: const Text('Confirm Login'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0B1F3B),
+              backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
@@ -164,7 +165,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: const Text(
-                    'Point camera at the QR code on the\nAssure ChitFunds web portal',
+                    'Point camera at the QR code on the\nAssure Chit Funds web portal',
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
                   ),

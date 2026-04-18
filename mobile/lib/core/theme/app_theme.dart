@@ -4,12 +4,32 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   // ─── Brand Colors ───
   static const Color primaryColor = Color(0xFF0B1F3B);     // Deep Navy
+  static const Color primaryDark = Color(0xFF071428);       // Gradient dark
   static const Color secondaryColor = Color(0xFFD4AF37);   // Gold
   static const Color accentBlue = Color(0xFF1E3A8A);       // Royal Blue
   static const Color successColor = Color(0xFF16A34A);
   static const Color errorColor = Color(0xFFDC2626);
   static const Color warningColor = Color(0xFFF59E0B);
   static const Color backgroundColor = Color(0xFFF8F9FB);  // Soft Off-White
+
+  // ─── Extended Palette ───
+  static const Color liveGreen = Color(0xFF4CAF50);
+  static const Color countdownRed = Color(0xFFFF5252);
+  static const Color digilockerBlue = Color(0xFF0066CC);
+  static const Color purpleAccent = Color(0xFF7B1FA2);
+
+  // ─── Light Backgrounds ───
+  static const Color lightBlueBg = Color(0xFFE3F2FD);
+  static const Color lightGreenBg = Color(0xFFE8F5E9);
+  static const Color lightOrangeBg = Color(0xFFFFF3E0);
+  static const Color lightYellowBg = Color(0xFFFFF8E1);
+  static const Color surfaceLight = Color(0xFFF0F4F8);
+
+  // ─── Shared Styles ───
+  static const double cardRadius = 14;
+  static List<BoxShadow> get cardShadow => [
+    BoxShadow(color: Colors.black.withAlpha(12), blurRadius: 6, offset: const Offset(0, 2)),
+  ];
   
   // Light Theme
   static ThemeData lightTheme = ThemeData(

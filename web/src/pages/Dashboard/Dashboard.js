@@ -148,6 +148,26 @@ const Dashboard = () => {
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
+      {/* Profile Completion Tracker */}
+      {profileCompletion && !profileCompletion.isComplete && (
+        <Paper sx={{ p: 3, borderRadius: 3, mb: 4, border: '1px solid #0B1F3B' }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="h6">Complete Your Profile</Typography>
+            <Chip label={`${profileCompletion.percentage}%`} color="primary" size="small" />
+          </Box>
+          <LinearProgress variant="determinate" value={profileCompletion.percentage} sx={{ height: 8, borderRadius: 4, mb: 2 }} />
+          <Box display="flex" flexWrap="wrap" gap={1}>
+            {profileCompletion.fields.filter(f => !f.filled).map(f => (
+              <Chip key={f.key} label={f.label} size="small" variant="outlined" color="warning"
+                onClick={() => navigate('/profile')} sx={{ cursor: 'pointer' }} />
+            ))}
+          </Box>
+          <Button size="small" sx={{ mt: 1 }} onClick={() => navigate('/profile')}>
+            Complete Profile →
+          </Button>
+        </Paper>
+      )}
+
       {/* KYC Banner */}
       {kycStatus !== 'verified' && (
         <Alert
@@ -254,26 +274,6 @@ const Dashboard = () => {
               })}
             </Box>
           )}
-        </Paper>
-      )}
-
-      {/* Profile Completion Tracker */}
-      {profileCompletion && !profileCompletion.isComplete && (
-        <Paper sx={{ p: 3, borderRadius: 3, mb: 4, border: '1px solid #0B1F3B' }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="h6">Complete Your Profile</Typography>
-            <Chip label={`${profileCompletion.percentage}%`} color="primary" size="small" />
-          </Box>
-          <LinearProgress variant="determinate" value={profileCompletion.percentage} sx={{ height: 8, borderRadius: 4, mb: 2 }} />
-          <Box display="flex" flexWrap="wrap" gap={1}>
-            {profileCompletion.fields.filter(f => !f.filled).map(f => (
-              <Chip key={f.key} label={f.label} size="small" variant="outlined" color="warning"
-                onClick={() => navigate('/profile')} sx={{ cursor: 'pointer' }} />
-            ))}
-          </Box>
-          <Button size="small" sx={{ mt: 1 }} onClick={() => navigate('/profile')}>
-            Complete Profile →
-          </Button>
         </Paper>
       )}
 

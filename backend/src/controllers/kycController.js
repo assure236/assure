@@ -17,7 +17,17 @@ exports.getKycStatus = async (req, res, next) => {
     const aadhaarVerified = !!user.aadhaar_number || documents.some(d => d.document_type === 'aadhaar_card' && ['verified', 'approved'].includes(d.verification_status));
     const chequeVerified = documents.some(d => d.document_type === 'cancelled_cheque' && ['verified', 'approved'].includes(d.verification_status));
     const selfieVerified = documents.some(d => d.document_type === 'selfie_photo' && ['verified', 'approved'].includes(d.verification_status));
-    res.json({ success: true, data: { kyc_status: user.kyc_status, rejection_reason: user.kyc_rejection_reason, pan_verified: panVerified, aadhaar_verified: aadhaarVerified, cheque_verified: chequeVerified, selfie_verified: selfieVerified, digilocker_connected: !!user.digilocker_id, documents, user: { full_name: user.full_name, email: user.email, mobile: user.mobile } } });
+
+    // Auto-sync kyc_status if docs are verified but status is stale
+    let kycStatus = user.kyc_status;
+    if (kycStatus !== 'verified' && kycStatus !== 'rejected') {
+      if (panVerified && aadhaarVerified && !!user.digilocker_id) {
+        await User.findByIdAndUpdate(userId, { kyc_status: 'verified', kyc_verified_at: new Date() });
+        kycStatus = 'verified';
+      }
+    }
+
+    res.json({ success: true, data: { kyc_status: kycStatus, rejection_reason: user.kyc_rejection_reason, pan_verified: panVerified, aadhaar_verified: aadhaarVerified, cheque_verified: chequeVerified, selfie_verified: selfieVerified, digilocker_connected: !!user.digilocker_id, documents, user: { full_name: user.full_name, email: user.email, mobile: user.mobile } } });
   } catch (err) { next(err); }
 };
 

@@ -297,13 +297,11 @@ router.put('/users/:id', adminOnly, async (req, res, next) => {
     if (Object.keys(unset).length > 0) ops.$unset = unset;
     const user = await User.findByIdAndUpdate(req.params.id, ops, { new: true }).select('-password_hash');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    // Notify user of KYC status change
-    if (kyc_status === 'verified' && user.mobile) {
-      notificationService.sendSMS(user.mobile, 'Your KYC has been verified. You can now participate in auctions. - Assure ChitFunds').catch(() => {});
+    // Notify user of KYC status change (push + in-app only, no SMS)
+    if (kyc_status === 'verified') {
       notifyUser(user._id, 'KYC Approved ✅', 'Your KYC verification is approved. You can now participate in auctions.', 'kyc_update').catch(() => {});
     }
-    if (kyc_status === 'rejected' && user.mobile) {
-      notificationService.sendSMS(user.mobile, 'Your KYC was rejected: ' + (kyc_rejection_reason || 'Contact support')).catch(() => {});
+    if (kyc_status === 'rejected') {
       notifyUser(user._id, 'KYC Rejected ❌', 'Your KYC was rejected: ' + (kyc_rejection_reason || 'Contact support'), 'kyc_update').catch(() => {});
     }
     res.json({ success: true, message: 'User updated', data: user });
@@ -341,7 +339,6 @@ router.post('/kyc/:userId/approve', adminOnly, async (req, res, next) => {
     const user = await User.findByIdAndUpdate(req.params.userId, { kyc_status: 'verified', kyc_verified_at: new Date() }, { new: true });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     await Document.updateMany({ user_id: user._id, verification_status: 'pending' }, { verification_status: 'verified', verified_at: new Date(), verified_by: req.user._id || req.user.id });
-    if (user.mobile) notificationService.sendSMS(user.mobile, 'Your KYC verification is approved. Welcome to Assure ChitFunds!').catch(() => {});
     notifyUser(user._id, 'KYC Approved ✅', 'Your KYC verification is approved. You can now participate in auctions.', 'kyc_update').catch(() => {});
     res.json({ success: true, message: 'KYC approved' });
   } catch (err) { next(err); }
@@ -353,7 +350,6 @@ router.post('/kyc/:userId/reject', adminOnly, async (req, res, next) => {
     const user = await User.findByIdAndUpdate(req.params.userId, { kyc_status: 'rejected', kyc_rejection_reason: reason || 'Documents insufficient' }, { new: true });
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     await Document.updateMany({ user_id: user._id, verification_status: 'pending' }, { verification_status: 'rejected', rejected_reason: reason });
-    if (user.mobile) notificationService.sendSMS(user.mobile, 'KYC Rejected: ' + (reason || 'Contact support') + ' - Assure ChitFunds').catch(() => {});
     notifyUser(user._id, 'KYC Rejected ❌', 'Your KYC was rejected: ' + (reason || 'Contact support. Please re-upload documents.'), 'kyc_update').catch(() => {});
     res.json({ success: true, message: 'KYC rejected' });
   } catch (err) { next(err); }
@@ -453,7 +449,21 @@ router.get('/auctions/:id', adminOnly, async (req, res, next) => {
       .populate('chit_group_id').populate('winner_id', 'full_name mobile');
     if (!auction) return res.status(404).json({ success: false, message: 'Not found' });
     const bids = await Bid.find({ auction_id: auction._id }).populate('user_id', 'full_name mobile').sort({ bid_amount: -1 });
-    res.json({ success: true, data: { auction, bids } });
+    
+    const auctionData = auction.toObject();
+    const timerManager = req.app.get('timerManager');
+    
+    // Add server_time_remaining for active/paused auctions
+    if (timerManager && timerManager.isActive(auction._id)) {
+      auctionData.server_time_remaining = timerManager.getTimeRemaining(auction._id);
+      auctionData.server_end_time = timerManager.getEndTime(auction._id)?.toISOString();
+    } else if ((auction.status === 'in_progress' || auction.status === 'active' || auction.status === 'paused') && auction.end_time) {
+      const remaining = Math.max(0, Math.floor((new Date(auction.end_time) - Date.now()) / 1000));
+      auctionData.server_time_remaining = remaining;
+      auctionData.server_end_time = auction.end_time;
+    }
+    
+    res.json({ success: true, data: { auction: auctionData, bids } });
   } catch (err) { next(err); }
 });
 
@@ -531,6 +541,15 @@ router.post('/auctions/:id/start', adminOnly, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.post('/auctions/:id/cancel', adminOnly, async (req, res, next) => {
+  try {
+    const { cancelAuction } = require('../controllers/auctionController');
+    // Delegate to controller
+    req.params.id = req.params.id;
+    await cancelAuction(req, res, next);
+  } catch (err) { next(err); }
+});
+
 router.post('/auctions/:id/end', adminOnly, async (req, res, next) => {
   try {
     const timerManager = require('../services/auctionTimerManager');
@@ -541,7 +560,6 @@ router.post('/auctions/:id/end', adminOnly, async (req, res, next) => {
     await endAuctionById(auction._id, req.app.get('io'));
 
     const updated = await Auction.findById(auction._id).populate('winner_id', 'full_name mobile');
-    if (updated.winner_id?.mobile) notificationService.sendSMS(updated.winner_id.mobile, 'Congratulations! You won the auction with bid ₹' + updated.winning_bid_amount + '. Disbursement in 2-3 days. - Assure ChitFunds').catch(() => {});
     if (updated.winner_id) notifyUser(updated.winner_id._id, 'Auction Won! 🎉', `Congratulations! You won the auction with bid ₹${updated.winning_bid_amount}. Disbursement in 2-3 business days.`, 'auction_result', { auction_id: String(auction._id) }).catch(() => {});
     res.json({ success: true, message: 'Auction ended', data: updated });
   } catch (err) { next(err); }
@@ -597,7 +615,11 @@ router.post('/auctions/:id/resume', adminOnly, async (req, res, next) => {
 
 router.get('/auctions/next-month/:groupId', adminOnly, async (req, res, next) => {
   try {
-    const lastAuction = await Auction.findOne({ chit_group_id: req.params.groupId }).sort({ month_number: -1 }).lean();
+    // Exclude cancelled auctions so that cancelled month numbers can be reused
+    const lastAuction = await Auction.findOne({
+      chit_group_id: req.params.groupId,
+      status: { $ne: 'cancelled' }
+    }).sort({ month_number: -1 }).lean();
     const nextMonth = lastAuction ? lastAuction.month_number + 1 : 1;
     res.json({ success: true, data: { next_month: nextMonth } });
   } catch (err) { next(err); }
@@ -691,7 +713,6 @@ router.put('/disbursals/:auctionId/disburse', adminOnly, async (req, res, next) 
       { new: true }
     ).populate('winner_id', 'full_name mobile');
     if (!auction) return res.status(404).json({ success: false, message: 'Not found' });
-    if (auction.winner_id?.mobile) notificationService.sendSMS(auction.winner_id.mobile, 'Your chit amount disbursed. Ref: ' + (reference_number || 'N/A') + ' - Assure ChitFunds').catch(() => {});
     if (auction.winner_id) notifyUser(auction.winner_id._id, 'Amount Disbursed 🏦', `Your chit amount has been disbursed. Reference: ${reference_number || 'N/A'}`, 'disbursal_update').catch(() => {});
     res.json({ success: true, message: 'Disbursal approved and marked as disbursed', data: auction });
   } catch (err) { next(err); }
@@ -715,7 +736,6 @@ router.post('/disbursals/:auctionId/approve', adminOnly, async (req, res, next) 
     const auction = await Auction.findByIdAndUpdate(req.params.auctionId, { disbursement_status: 'approved', disbursement_approved_at: new Date(), disbursement_approved_by: req.user._id || req.user.id }, { new: true })
       .populate('winner_id', 'full_name mobile');
     if (!auction) return res.status(404).json({ success: false, message: 'Not found' });
-    if (auction.winner_id?.mobile) notificationService.sendSMS(auction.winner_id.mobile, 'Your disbursement of ₹' + auction.dividend_amount + ' has been approved. Transfer within 2 business days. - Assure ChitFunds').catch(() => {});
     if (auction.winner_id) notifyUser(auction.winner_id._id, 'Disbursement Approved 💰', `Your disbursement of ₹${auction.dividend_amount || auction.winning_bid_amount} has been approved. Transfer within 2 business days.`, 'disbursal_update').catch(() => {});
     res.json({ success: true, message: 'Disbursal approved', data: auction });
   } catch (err) { next(err); }
@@ -727,7 +747,6 @@ router.post('/disbursals/:auctionId/mark-disbursed', adminOnly, async (req, res,
     const auction = await Auction.findByIdAndUpdate(req.params.auctionId, { disbursement_status: 'disbursed', utr_number, disbursement_date: disbursement_date ? new Date(disbursement_date) : new Date() }, { new: true })
       .populate('winner_id', 'full_name mobile');
     if (!auction) return res.status(404).json({ success: false, message: 'Not found' });
-    if (auction.winner_id?.mobile) notificationService.sendSMS(auction.winner_id.mobile, 'Your chit amount of ₹' + auction.dividend_amount + ' disbursed. UTR: ' + (utr_number || 'N/A')).catch(() => {});
     if (auction.winner_id) notifyUser(auction.winner_id._id, 'Amount Disbursed 🏦', `Your chit amount of ₹${auction.dividend_amount || auction.winning_bid_amount} has been disbursed. UTR: ${utr_number || 'N/A'}`, 'disbursal_update').catch(() => {});
     res.json({ success: true, message: 'Marked as disbursed', data: auction });
   } catch (err) { next(err); }
@@ -1218,6 +1237,32 @@ router.post('/accounting/bulk-post', adminOnly, async (req, res, next) => {
   try {
     const data = await accountingService.bulkPostHistoricalPayments();
     res.json({ success: true, data });
+  } catch (err) { next(err); }
+});
+
+// Live sync status
+router.get('/accounting/sync-status', adminOnly, async (req, res) => {
+  res.json({ success: true, data: accountingService.getSyncStatus() });
+});
+
+// Start auto-sync (every 60s)
+router.post('/accounting/auto-sync/start', adminOnly, async (req, res) => {
+  const interval = Math.max(Number(req.body.interval) || 60000, 10000);
+  accountingService.startAutoSync(interval);
+  res.json({ success: true, message: 'Auto-sync started', interval });
+});
+
+// Stop auto-sync
+router.post('/accounting/auto-sync/stop', adminOnly, async (req, res) => {
+  accountingService.stopAutoSync();
+  res.json({ success: true, message: 'Auto-sync stopped' });
+});
+
+// Manual trigger sync
+router.post('/accounting/sync-now', adminOnly, async (req, res, next) => {
+  try {
+    await accountingService.runAutoSync();
+    res.json({ success: true, data: accountingService.getSyncStatus() });
   } catch (err) { next(err); }
 });
 

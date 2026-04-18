@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
@@ -13,7 +11,8 @@ import '../../../core/theme/app_theme.dart';
 import 'liveness_screen.dart';
 
 class DocumentsScreen extends StatefulWidget {
-  const DocumentsScreen({super.key});
+  final String? digilockerStatus;
+  const DocumentsScreen({super.key, this.digilockerStatus});
 
   @override
   State<DocumentsScreen> createState() => _DocumentsScreenState();
@@ -41,6 +40,12 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
     WidgetsBinding.instance.addObserver(this);
     _fetchDocuments();
     _fetchKycStatus();
+    // Handle deep link return from DigiLocker
+    if (widget.digilockerStatus != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _handleDeepLinkDigilocker(widget.digilockerStatus!);
+      });
+    }
   }
 
   @override
@@ -53,9 +58,31 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _awaitingDigilocker) {
       _awaitingDigilocker = false;
+      _handleDigilockerReturn();
+    }
+  }
+
+  Future<void> _handleDigilockerReturn() async {
+    _showSnackBar('Checking DigiLocker status...', isError: false);
+    await Future.wait([_fetchDocuments(), _fetchKycStatus()]);
+    if (!mounted) return;
+    final connected = _kycStatus?['digilocker_connected'] == true ||
+        _kycStatus?['digilocker_id'] != null;
+    if (connected) {
+      _showSnackBar('DigiLocker connected successfully!', isError: false);
+    } else {
+      _showSnackBar('DigiLocker connection was not completed. Please try again.');
+    }
+  }
+
+  void _handleDeepLinkDigilocker(String status) {
+    if (status == 'success') {
+      _showSnackBar('DigiLocker connected successfully!', isError: false);
+      // Refresh data to reflect DigiLocker verified docs
       _fetchDocuments();
       _fetchKycStatus();
-      _showSnackBar('Checking DigiLocker status...', isError: false);
+    } else {
+      _showSnackBar('DigiLocker connection failed. Please try again.');
     }
   }
 
@@ -202,20 +229,15 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
   }
 
   Future<bool> _detectFace(String imagePath) async {
-    final inputImage = InputImage.fromFilePath(imagePath);
-    final faceDetector = FaceDetector(options: FaceDetectorOptions(
-      enableClassification: false,
-      enableLandmarks: false,
-      performanceMode: FaceDetectorMode.fast,
-    ));
+    // Basic validation — actual face check is done server-side by Luxand liveness API
     try {
-      final faces = await faceDetector.processImage(inputImage);
-      return faces.isNotEmpty;
+      final file = File(imagePath);
+      if (!await file.exists()) return false;
+      final bytes = await file.length();
+      // Reject files smaller than 10KB (likely corrupt) or larger than 15MB
+      return bytes > 10240 && bytes < 15 * 1024 * 1024;
     } catch (_) {
-      // If detection fails, allow upload anyway
       return true;
-    } finally {
-      faceDetector.close();
     }
   }
 
@@ -378,7 +400,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
         break;
       default:
         statusColor = Colors.orange;
-        statusLabel = 'KYC Pending';
+        statusLabel = 'KYC Not Verified';
         statusIcon = Icons.person_outline;
     }
 

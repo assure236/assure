@@ -75,7 +75,7 @@ exports.handleCallback = async (req, res, next) => {
   const buildRedirect = (platform, status, msg) => {
     const params = msg ? `digilocker=${status}&message=${encodeURIComponent(msg)}` : `digilocker=${status}`;
     if (platform === 'mobile') {
-      return `assurechitfunds://documents?${params}`;
+      return `assurechitfunds://dashboard?${params}`;
     }
     return `${webAppUrl}/documents?${params}`;
   };

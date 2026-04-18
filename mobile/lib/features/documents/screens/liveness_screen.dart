@@ -1,13 +1,12 @@
 import 'dart:io';
 
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/services/api_service.dart';
-import '../../../core/theme/app_theme.dart';
 
 /// Liveness verification using Luxand Cloud API.
-/// Flow: Tap capture → Luxand liveness check → Verified → returns photo path.
+/// Flow: Capture selfie via image_picker → Luxand liveness check → returns photo path.
 class LivenessScreen extends StatefulWidget {
   const LivenessScreen({super.key});
 
@@ -18,51 +17,34 @@ class LivenessScreen extends StatefulWidget {
 enum _Step { ready, checking, done }
 
 class _LivenessScreenState extends State<LivenessScreen> {
-  CameraController? _camCtrl;
-  bool _disposed = false;
   _Step _currentStep = _Step.ready;
-  String _instruction = 'Position your face in the circle\nand tap Capture';
+  String _instruction = 'Take a clear selfie for\nliveness verification';
   String? _errorMsg;
-
-  @override
-  void initState() {
-    super.initState();
-    _initCamera();
-  }
-
-  Future<void> _initCamera() async {
-    try {
-      final cameras = await availableCameras();
-      final front = cameras.firstWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-        orElse: () => cameras.first,
-      );
-      _camCtrl = CameraController(front, ResolutionPreset.high,
-          enableAudio: false);
-      await _camCtrl!.initialize();
-      if (!_disposed && mounted) setState(() {});
-    } catch (e) {
-      debugPrint('Camera init error: $e');
-      if (mounted) Navigator.pop(context, null);
-    }
-  }
+  String? _capturedPath;
 
   Future<void> _onCapture() async {
-    if (_camCtrl == null || !_camCtrl!.value.isInitialized) return;
     if (_currentStep != _Step.ready) return;
+
+    final picker = ImagePicker();
+    final XFile? photo = await picker.pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
+      imageQuality: 85,
+      maxWidth: 1200,
+      maxHeight: 1200,
+    );
+    if (photo == null) return;
 
     setState(() {
       _currentStep = _Step.checking;
       _instruction = 'Checking liveness...';
       _errorMsg = null;
+      _capturedPath = photo.path;
     });
 
     try {
-      final file = await _camCtrl!.takePicture();
-      final path = file.path;
-
       final result = await ApiService.uploadFile(
-        '/liveness/check', path, fieldName: 'photo');
+        '/liveness/check', photo.path, fieldName: 'photo');
       if (!mounted) return;
 
       debugPrint('Luxand result: $result');
@@ -73,37 +55,29 @@ class _LivenessScreenState extends State<LivenessScreen> {
         setState(() {
           _currentStep = _Step.ready;
           _errorMsg = msg;
-          _instruction = 'Position your face and tap Capture';
+          _instruction = 'Take a clear selfie for\nliveness verification';
         });
-        try { await File(path).delete(); } catch (_) {}
+        try { await File(photo.path).delete(); } catch (_) {}
         return;
       }
 
-      // Liveness passed → done
       setState(() {
         _currentStep = _Step.done;
         _instruction = 'Verified! ✅';
         _errorMsg = null;
       });
       await Future.delayed(const Duration(milliseconds: 800));
-      if (mounted) Navigator.pop(context, path);
+      if (mounted) Navigator.pop(context, photo.path);
     } catch (e) {
       debugPrint('Liveness check error: $e');
       if (mounted) {
         setState(() {
           _currentStep = _Step.ready;
           _errorMsg = 'Connection error. Please try again.';
-          _instruction = 'Position your face and tap Capture';
+          _instruction = 'Take a clear selfie for\nliveness verification';
         });
       }
     }
-  }
-
-  @override
-  void dispose() {
-    _disposed = true;
-    _camCtrl?.dispose();
-    super.dispose();
   }
 
   @override
@@ -118,86 +92,83 @@ class _LivenessScreenState extends State<LivenessScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
-      body: _camCtrl == null || !_camCtrl!.value.isInitialized
-          ? const Center(child: CircularProgressIndicator(color: Colors.white))
-          : Column(
-              children: [
-                const SizedBox(height: 24),
-                Text(_instruction,
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center),
-                if (_errorMsg != null) ...[
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(_errorMsg!,
-                        style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-                        textAlign: TextAlign.center),
-                  ),
-                ],
-                const SizedBox(height: 20),
-                Expanded(
-                  child: Center(
-                    child: SizedBox(
+      body: Column(
+        children: [
+          const SizedBox(height: 40),
+          Text(_instruction,
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center),
+          if (_errorMsg != null) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Text(_errorMsg!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+                  textAlign: TextAlign.center),
+            ),
+          ],
+          const SizedBox(height: 40),
+          Expanded(
+            child: Center(
+              child: _capturedPath != null && _currentStep != _Step.ready
+                  ? ClipOval(
+                      child: Image.file(
+                        File(_capturedPath!),
+                        width: 280,
+                        height: 360,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Container(
                       width: 280,
                       height: 360,
-                      child: ClipOval(
-                        child: Transform.flip(
-                          flipX: true,
-                          child: OverflowBox(
-                            alignment: Alignment.center,
-                            child: FittedBox(
-                              fit: BoxFit.cover,
-                              child: SizedBox(
-                                width: _camCtrl!.value.previewSize!.height,
-                                height: _camCtrl!.value.previewSize!.width,
-                                child: CameraPreview(_camCtrl!),
-                              ),
-                            ),
-                          ),
-                        ),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white24, width: 3),
                       ),
+                      child: const Icon(Icons.person, size: 120, color: Colors.white24),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                if (showSpinner)
-                  const Padding(
-                    padding: EdgeInsets.only(bottom: 30),
-                    child: SizedBox(
-                      width: 60, height: 60,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 3),
-                    ),
-                  )
-                else if (showCapture)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 30),
-                    child: GestureDetector(
-                      onTap: _onCapture,
-                      child: Container(
-                        width: 70, height: 70,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 4),
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 56, height: 56,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  const SizedBox(height: 100),
-              ],
             ),
+          ),
+          const SizedBox(height: 16),
+          if (showSpinner)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 30),
+              child: SizedBox(
+                width: 60, height: 60,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 3),
+              ),
+            )
+          else if (showCapture)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 30),
+              child: GestureDetector(
+                onTap: _onCapture,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 70, height: 70,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 4),
+                      ),
+                      child: const Center(
+                        child: Icon(Icons.camera_alt, color: Colors.white, size: 32),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text('Tap to capture selfie',
+                        style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  ],
+                ),
+              ),
+            )
+          else
+            const SizedBox(height: 100),
+        ],
+      ),
     );
   }
 }

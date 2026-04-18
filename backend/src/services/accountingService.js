@@ -832,6 +832,53 @@ async function getAccountingSummary() {
   };
 }
 
+// ──── Live Sync State ────────────────────────────────────────────────────
+let _syncState = {
+  status: 'idle',        // 'idle' | 'syncing' | 'error'
+  lastSyncAt: null,
+  lastResult: null,
+  error: null,
+  intervalId: null,
+};
+
+function getSyncStatus() {
+  return {
+    status: _syncState.status,
+    lastSyncAt: _syncState.lastSyncAt,
+    lastResult: _syncState.lastResult,
+    error: _syncState.error,
+  };
+}
+
+async function runAutoSync() {
+  if (_syncState.status === 'syncing') return; // already running
+  _syncState.status = 'syncing';
+  _syncState.error = null;
+  try {
+    const result = await bulkPostHistoricalPayments();
+    _syncState.lastResult = result;
+    _syncState.lastSyncAt = new Date();
+    _syncState.status = 'idle';
+  } catch (err) {
+    _syncState.status = 'error';
+    _syncState.error = err.message;
+  }
+}
+
+function startAutoSync(intervalMs = 60000) {
+  if (_syncState.intervalId) return; // already started
+  // Run once immediately
+  runAutoSync();
+  _syncState.intervalId = setInterval(runAutoSync, intervalMs);
+}
+
+function stopAutoSync() {
+  if (_syncState.intervalId) {
+    clearInterval(_syncState.intervalId);
+    _syncState.intervalId = null;
+  }
+}
+
 module.exports = {
   seedChartOfAccounts,
   createJournalEntry,
@@ -848,4 +895,8 @@ module.exports = {
   getGroupWisePL,
   bulkPostHistoricalPayments,
   getAccountingSummary,
+  getSyncStatus,
+  runAutoSync,
+  startAutoSync,
+  stopAutoSync,
 };

@@ -122,6 +122,14 @@ const startServer = async () => {
   });
   try {
     await connectDB();
+    // Start accounting auto-sync (every 60 seconds)
+    try {
+      const accountingService = require('./services/accountingService');
+      accountingService.startAutoSync(60000);
+      logger.info('Accounting auto-sync started (60s interval)');
+    } catch (err) {
+      logger.warn('Could not start accounting auto-sync:', err.message);
+    }
     // Restore timers for any in-progress auctions after DB connects
     try {
       const Auction = require('./models').Auction;

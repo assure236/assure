@@ -10,6 +10,8 @@ import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../../../core/providers/auction_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/celebration_overlay.dart';
+import '../widgets/bid_analytics_widget.dart';
 
 class AuctionRoomScreen extends StatefulWidget {
   final String auctionId;
@@ -43,6 +45,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
   String? _bidError;
   int _bidsTab = 0; // 0 = Bids, 1 = Participants
   String? _currentUserId;
+  String? _currentUserRole;
 
   @override
   void initState() {
@@ -106,7 +109,134 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     final userJson = prefs.getString('user');
     if (userJson != null) {
       final user = jsonDecode(userJson);
-      setState(() => _currentUserId = user['_id'] ?? user['id']);
+      setState(() {
+        _currentUserId = user['_id'] ?? user['id'];
+        _currentUserRole = user['role'];
+      });
+    }
+  }
+
+  void _showEditDialog() {
+    if (_auction == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Auction data not loaded')),
+      );
+      return;
+    }
+
+    final isPaused = _auction!['status'] == 'paused';
+    final auctionDateCtrl = TextEditingController(
+      text: _auction!['auction_date'] != null 
+        ? DateTime.parse(_auction!['auction_date']).toLocal().toString().substring(0, 16)
+        : '',
+    );
+    final durationCtrl = TextEditingController(
+      text: (_auction!['duration_minutes'] ?? 30).toString(),
+    );
+    final minBidCtrl = TextEditingController(
+      text: (_auction!['min_bid_increment'] ?? 100).toString(),
+    );
+    final notesCtrl = TextEditingController(text: _auction!['notes'] ?? '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit Auction'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: auctionDateCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Auction Date (YYYY-MM-DD HH:MM)',
+                  hintText: '2026-04-20 10:00',
+                  enabled: !isPaused,
+                  helperText: isPaused ? 'Cannot change date for paused auction' : null,
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: durationCtrl,
+                decoration: InputDecoration(
+                  labelText: 'Duration (minutes)',
+                  helperText: isPaused ? 'Must be >= elapsed time' : null,
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: minBidCtrl,
+                decoration: const InputDecoration(labelText: 'Min Bid Increment'),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesCtrl,
+                decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                maxLines: 2,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _updateAuction(
+                isPaused ? '' : auctionDateCtrl.text.trim(),
+                durationCtrl.text.trim(),
+                minBidCtrl.text.trim(),
+                notesCtrl.text.trim(),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _updateAuction(String dateStr, String durationStr, String minBidStr, String notes) async {
+    try {
+      // Parse date to ISO8601
+      DateTime? auctionDate;
+      if (dateStr.isNotEmpty) {
+        auctionDate = DateTime.parse(dateStr.replaceFirst(' ', 'T'));
+      }
+
+      final body = <String, dynamic>{};
+      if (auctionDate != null) body['auction_date'] = auctionDate.toUtc().toIso8601String();
+      if (durationStr.isNotEmpty) body['duration_minutes'] = int.parse(durationStr);
+      if (minBidStr.isNotEmpty) body['min_bid_increment'] = int.parse(minBidStr);
+      if (notes.isNotEmpty) body['notes'] = notes;
+
+      if (body.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No changes to save')),
+        );
+        return;
+      }
+
+      final res = await ApiService.put('/auctions/${widget.auctionId}', body);
+      if (res['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Auction updated successfully')),
+        );
+        await _fetchAuction(); // Refresh data
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res['message'] ?? 'Update failed')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
 
@@ -264,7 +394,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
             }
           });
           _showSnackBar(
-            '₹${NumberFormat('#,##,###').format((bid['bid_amount'] as num).toInt())} by ${bid['bidder_name'] ?? 'Member'}',
+            '₹${NumberFormat('#,##,###').format((bid['bid_amount'] as num).toInt())} by Ticket #${bid['ticket_number'] ?? '?'}',
             isError: false,
           );
           if (bid['anti_snipe_extended'] == true) {
@@ -284,7 +414,13 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
             _auction?['status'] = 'completed';
             _serverTimeRemaining = 0;
           });
-          _showSnackBar('Auction ended! Winner: ${d['winner_name'] ?? 'N/A'}', isError: false);
+          _showSnackBar('Auction ended! Winner: Ticket #${d['winner_ticket_number'] ?? d['ticket_number'] ?? '?'}', isError: false);
+          // Show celebration if current user won
+          final winnerId = d['winner_id']?.toString();
+          if (winnerId != null && winnerId == _currentUserId) {
+            final groupName = _auction?['chit_group_id']?['group_name'] ?? _auction?['ChitGroup']?['group_name'];
+            CelebrationOverlay.showAuctionWin(context, groupName: groupName?.toString());
+          }
           _fetchAuction();
         }
       });
@@ -365,8 +501,20 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     return (_auction?['current_highest_bid'] ?? _auction?['winning_bid_amount'] ?? 0.0).toDouble();
   }
 
-  int get _minIncrement => (_auction?['min_bid_increment'] ?? 100) as int;
-  int get _bidFee => (_auction?['bid_fee'] ?? 0) as int;
+  int get _minIncrement {
+    final v = _auction?['min_bid_increment'];
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 100;
+    return 100;
+  }
+  int get _bidFee {
+    final v = _auction?['bid_fee'];
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
 
   Future<void> _placeBid() async {
     final amountStr = _bidController.text.trim();
@@ -391,8 +539,11 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
       return;
     }
     if (_minIncrement > 0 && _currentHighest > 0 && (amount - _currentHighest) < _minIncrement) {
-      setState(() => _bidError = 'Must be ₹$_minIncrement more than current highest');
-      return;
+      // Allow if bidding the max
+      if (amount.toInt() != maxBidAmount) {
+        setState(() => _bidError = 'Must be ₹$_minIncrement more than current highest');
+        return;
+      }
     }
 
     setState(() => _bidError = null);
@@ -487,6 +638,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
       final res = await provider.placeBid(widget.auctionId, amount);
       if (res['success'] == true) {
         _bidController.clear();
+        if (mounted) FocusScope.of(context).unfocus(); // Close numpad
         _showSnackBar('Bid of ₹${amount.toStringAsFixed(0)} placed!', isError: false);
         final data = res['data'];
         if (data != null && data['wallet_balance'] != null) {
@@ -534,24 +686,20 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          // Active users badge
-          if ((isLive || isPaused) && _activeUsers > 0)
-            Padding(
-              padding: const EdgeInsets.only(right: 4),
-              child: Chip(
-                avatar: const Icon(Icons.people, size: 16, color: Colors.white),
-                label: Text('$_activeUsers', style: const TextStyle(color: Colors.white, fontSize: 12)),
-                backgroundColor: Colors.white24,
-                padding: EdgeInsets.zero,
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+          // Edit button (admin only, scheduled or paused auctions)
+          if ((_currentUserRole == 'admin' || _currentUserRole == 'super_admin') && 
+              (auctionStatus == 'scheduled' || auctionStatus == 'paused'))
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: _showEditDialog,
+              tooltip: 'Edit Auction',
             ),
           if (_socketConnected)
             const Tooltip(
               message: 'Real-time connected',
               child: Padding(
                 padding: EdgeInsets.only(right: 8),
-                child: Icon(Icons.circle, color: Color(0xFF4CAF50), size: 12),
+                child: Icon(Icons.circle, color: AppTheme.liveGreen, size: 12),
               ),
             ),
           IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchAuction),
@@ -586,6 +734,8 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
                         ),
                       if (_antiSnipeAlert != null) SliverToBoxAdapter(child: _buildAntiSnipeBanner()),
                       if (_timeWarning != null) SliverToBoxAdapter(child: _buildTimeWarningBanner()),
+                      // AI Bid Suggestion & Trend
+                      if (isLive) SliverToBoxAdapter(child: BidAnalyticsWidget(auctionId: widget.auctionId)),
                       if (!isLive && !isPaused && (_auction?['status'] == 'completed'))
                         SliverToBoxAdapter(child: _buildSettlementBreakdown()),
                       if (isLive) SliverToBoxAdapter(child: _buildBidInput()),
@@ -679,7 +829,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isLive
-              ? (isUrgent ? [const Color(0xFFB71C1C), const Color(0xFFD32F2F)] : [const Color(0xFF071428), const Color(0xFF0B1F3B)])
+              ? (isUrgent ? [const Color(0xFFB71C1C), const Color(0xFFD32F2F)] : [AppTheme.primaryDark, AppTheme.primaryColor])
               : [const Color(0xFF616161), const Color(0xFF424242)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -711,7 +861,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
                   Text(
                     lowestBid > 0 ? '₹${NumberFormat('#,##,###').format(lowestBid.toInt())}' : 'No bids',
                     style: const TextStyle(
-                        color: Color(0xFFFFD700),
+                        color: AppTheme.secondaryColor,
                         fontSize: 20,
                         fontWeight: FontWeight.bold),
                   ),
@@ -749,9 +899,9 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 _buildTimeUnit(hours.toString().padLeft(2, '0'), 'HRS', isUrgent),
-                Text(' : ', style: TextStyle(color: isUrgent ? const Color(0xFFFF5252) : Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
+                Text(' : ', style: TextStyle(color: isUrgent ? AppTheme.countdownRed : Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
                 _buildTimeUnit(minutes.toString().padLeft(2, '0'), 'MIN', isUrgent),
-                Text(' : ', style: TextStyle(color: isUrgent ? const Color(0xFFFF5252) : Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
+                Text(' : ', style: TextStyle(color: isUrgent ? AppTheme.countdownRed : Colors.white, fontWeight: FontWeight.bold, fontSize: 22)),
                 _buildTimeUnit(seconds.toString().padLeft(2, '0'), 'SEC', isUrgent),
               ],
             ),
@@ -784,13 +934,13 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
             if (auctionStatus == 'completed') ...[
               const SizedBox(height: 8),
               Text(
-                'Winner: ${_auction?['winner_id']?['full_name'] ?? _auction?['winner']?['full_name'] ?? 'N/A'}',
+                'Winner: Ticket #${_auction?['winner_id']?['ticket_number'] ?? '?'}',
                 style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
               if (_auction?['winning_bid_amount'] != null)
                 Text(
                   'Winning Bid: ₹${NumberFormat('#,##,###').format((_auction!['winning_bid_amount'] as num).toInt())}',
-                  style: const TextStyle(color: Color(0xFFFFD700), fontSize: 16, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: AppTheme.secondaryColor, fontSize: 16, fontWeight: FontWeight.bold),
                 ),
             ],
           ],
@@ -808,7 +958,8 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     final commission = (_auction?['commission_amount'] ?? (chitValue * 0.05)).toDouble();
     final dividendPerMember = (_auction?['dividend_per_member'] ?? (totalMembers > 0 ? (winningBid / totalMembers).round() : 0)).toDouble();
     final disbursement = (_auction?['disbursement_amount'] ?? (chitValue - commission - winningBid)).toDouble();
-    final winnerName = _auction?['winner_id']?['full_name'] ?? _auction?['winner']?['full_name'] ?? 'N/A';
+    final winnerTicket = _auction?['winner_id']?['ticket_number'] ?? '?';
+    final winnerName = 'Ticket #$winnerTicket';
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -899,12 +1050,12 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: isUrgent ? const Color(0xFFFF5252).withAlpha(76) : Colors.white24,
+            color: isUrgent ? AppTheme.countdownRed.withAlpha(76) : Colors.white24,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Text(value,
               style: TextStyle(
-                  color: isUrgent ? const Color(0xFFFF5252) : Colors.white,
+                  color: isUrgent ? AppTheme.countdownRed : Colors.white,
                   fontSize: 24,
                   fontWeight: FontWeight.bold)),
         ),
@@ -921,7 +1072,8 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     final commission = (chitValue * (commPct / 100)).round();
     final auctionPool = chitValue - commission;
     final maxBid = (auctionPool * 0.30).round();
-    final minBid = _currentHighest > 0 ? (_currentHighest + _minIncrement).toInt() : (_auction?['min_bid_amount'] ?? 1000).toInt();
+    final rawMinBid = _currentHighest > 0 ? (_currentHighest + _minIncrement).toInt() : (_auction?['min_bid_amount'] ?? 1000).toInt();
+    final minBid = maxBid > 0 && rawMinBid > maxBid ? maxBid : rawMinBid;
 
     return Container(
       decoration: BoxDecoration(
@@ -1099,11 +1251,8 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
       final uid = rawUserId is Map
           ? (rawUserId['_id']?.toString() ?? 'unknown')
           : rawUserId?.toString() ?? bid['bidder_name']?.toString() ?? 'unknown';
-      final name = (rawUserId is Map ? rawUserId['full_name'] : null) ??
-          (bid['bidder'] is Map ? bid['bidder']['full_name'] : null) ??
-          bid['bidder_name'] ??
-          (bid['member'] is Map ? bid['member']['full_name'] : null) ??
-          'Member';
+      final ticketNo = bid['ticket_number'] ?? bid['ticketNumber'];
+      final name = 'Ticket #${ticketNo ?? '?'}';
       final amount = ((bid['bid_amount'] ?? 0) as num).toDouble();
       if (!pMap.containsKey(uid)) {
         pMap[uid] = {'name': name, 'bidCount': 0, 'highestBid': 0.0};
@@ -1150,8 +1299,8 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
                       : AppTheme.primaryColor.withAlpha(26),
                   child: isLeading
                       ? const Icon(Icons.emoji_events, color: Colors.white, size: 20)
-                      : Text((p['name'] as String)[0].toUpperCase(),
-                          style: const TextStyle(color: AppTheme.primaryColor,
+                      : const Text('T',
+                          style: TextStyle(color: AppTheme.primaryColor,
                               fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
                 title: Text(p['name'] as String,
@@ -1283,21 +1432,21 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (!isMe) ...[
-                    Text(bidderName,
+                    Text('Ticket #${ticketNo ?? '?'}',
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Colors.black87)),
                     const SizedBox(width: 6),
                   ],
-                  if (ticketNo != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryColor.withAlpha(38),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text('T#$ticketNo',
-                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                    ),
                   if (isMe) ...[
+                    if (ticketNo != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withAlpha(38),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text('T#$ticketNo',
+                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                      ),
                     const SizedBox(width: 6),
                     Text('You',
                         style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: AppTheme.primaryColor)),

@@ -55,4 +55,9 @@ router.post('/qr-generate', authController.qrGenerate);
 router.get('/qr-status/:sessionId', authController.qrStatus);
 router.post('/qr-confirm', authMiddleware, authController.qrConfirm);
 
+// @route   POST /api/v1/auth/logout-all-devices
+// @desc    Invalidate all sessions by bumping token version
+// @access  Private
+router.post('/logout-all-devices', authMiddleware, authController.logoutAllDevices);
+
 module.exports = router;

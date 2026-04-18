@@ -2,6 +2,7 @@ const { Auction, Bid, ChitGroup, ChitMember, User, Wallet, WalletTransaction } =
 const timerManager = require('../services/auctionTimerManager');
 const walletController = require('./walletController');
 const logger = require('../utils/logger');
+const { audit, getIp } = require('../utils/audit');
 
 const normalizeStatus = (s) => s === 'in_progress' ? 'active' : s;
 
@@ -104,6 +105,12 @@ exports.getAuctionById = async (req, res, next) => {
           auction.anti_snipe_extension || 30,
         );
       }
+    } else if (data.status === 'paused' && auction.end_time) {
+      // For paused auctions, calculate remaining time based on end_time
+      const remaining = Math.max(0, Math.floor((new Date(auction.end_time) - Date.now()) / 1000));
+      data.server_time_remaining = remaining;
+      data.server_end_time = auction.end_time;
+      data.active_users = 0;
     }
 
     res.json({ success: true, data });
@@ -229,13 +236,16 @@ exports.placeBid = async (req, res, next) => {
       });
     }
 
-    // 8. Minimum increment check
+    // 8. Minimum increment check — BUT allow exact max bid even if increment is short
     const minIncrement = auction.min_bid_increment || 0;
     if (minIncrement > 0 && currentHighest && (amount - currentHighest.bid_amount) < minIncrement) {
-      return res.status(400).json({
-        success: false,
-        message: `Bid must be at least ₹${minIncrement} more than current highest`,
-      });
+      // Allow if bid equals the max bid cap (closing bid)
+      if (amount !== maxBidAmount) {
+        return res.status(400).json({
+          success: false,
+          message: `Bid must be at least ₹${minIncrement} more than current highest`,
+        });
+      }
     }
 
     // 9. Duplicate bid check — same user, same amount
@@ -307,13 +317,38 @@ exports.placeBid = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Bid placed successfully',
+      message: amount === maxBidAmount ? 'Max bid placed! Auction will end now.' : 'Bid placed successfully',
       data: {
         bid,
         anti_snipe_extended: antiSnipeResult.extended,
         wallet_balance: walletBalance,
         server_time_remaining: timerManager.getTimeRemaining(auction._id),
+        max_bid_reached: amount === maxBidAmount,
       },
+    });
+
+    // 16. Auto-end auction if max bid (30% cap) is reached
+    if (amount === maxBidAmount) {
+      logger.info(`Max bid reached for auction ${auction._id} — auto-ending`);
+      // Short delay so the bid broadcast reaches clients before auction_ended
+      setTimeout(async () => {
+        try {
+          await endAuctionById(String(auction._id), req.app.get('io'));
+        } catch (e) {
+          logger.error(`Auto-end after max bid failed: ${e.message}`);
+        }
+      }, 2000);
+    }
+
+    // Audit log (non-blocking)
+    const loc = req.body.location;
+    audit({
+      userId, userName: req.user.full_name, userRole: req.user.role,
+      action: 'bid_placed', resourceType: 'auction', resourceId: String(auction._id),
+      description: `Bid ₹${amount} in auction for ${chitGroup?.group_name || 'group'}`,
+      metadata: { bid_amount: amount, bid_id: String(bid._id), ticket_number: membership.ticket_number },
+      location: loc ? { latitude: loc.latitude, longitude: loc.longitude, accuracy: loc.accuracy } : undefined,
+      ipAddress: getIp(req),
     });
   } catch (err) { next(err); }
 };
@@ -449,6 +484,14 @@ exports.endAuction = async (req, res, next) => {
     await endAuctionById(req.params.id, req.app.get('io'));
     const updated = await Auction.findById(req.params.id).populate('winner_id', 'full_name mobile');
     res.json({ success: true, message: 'Auction ended', data: updated });
+
+    audit({
+      userId: req.user._id || req.user.id, userName: req.user.full_name, userRole: req.user.role,
+      action: 'auction_ended', resourceType: 'auction', resourceId: req.params.id,
+      description: `Auction ended manually${updated?.winner_id?.full_name ? ` — winner: ${updated.winner_id.full_name}` : ''}`,
+      metadata: { winner_id: updated?.winner_id?._id, winning_amount: updated?.winning_bid_amount },
+      ipAddress: getIp(req),
+    });
   } catch (err) { next(err); }
 };
 
@@ -564,10 +607,61 @@ const endAuctionById = async (auctionId, io) => {
   }
 
   logger.info(`Auction ${auctionId} ended. Winner: ${updated?.winner_id?.full_name || 'none'}, Amount: ${winningBid?.bid_amount || 0}`);
+
+  // Audit the auction winner declaration (system-initiated)
+  if (winningBid) {
+    audit({
+      userId: String(winningBid.user_id), userName: updated?.winner_id?.full_name || 'unknown',
+      action: 'auction_winner_declared', resourceType: 'auction', resourceId: String(auctionId),
+      description: `Won auction for ${chitGroup?.group_name || 'group'} month ${auction.month_number} with bid ₹${winningBid.bid_amount}`,
+      metadata: { bid_amount: winningBid.bid_amount, commission: updateData.commission_amount, disbursement: updateData.disbursement_amount, dividend_per_member: updateData.dividend_per_member },
+    });
+  }
 };
 
 // Export for use by timer manager
 exports.endAuctionById = endAuctionById;
+
+// ─── CANCEL AUCTION ───
+exports.cancelAuction = async (req, res, next) => {
+  try {
+    const auction = await Auction.findById(req.params.id);
+    if (!auction) return res.status(404).json({ success: false, message: 'Not found' });
+    if (['completed', 'cancelled'].includes(auction.status)) {
+      return res.status(400).json({ success: false, message: 'Cannot cancel a completed or already cancelled auction' });
+    }
+
+    // Stop timer if running
+    timerManager.stopTimer(auction._id);
+
+    await Auction.findByIdAndUpdate(auction._id, {
+      status: 'cancelled',
+      actual_end_time: new Date(),
+      paused_time_remaining: 0,
+    });
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to('auction:' + auction._id).emit('auction_ended', {
+        auction_id: String(auction._id),
+        status: 'cancelled',
+        winner_name: 'Cancelled',
+        winning_amount: 0,
+      });
+      io.emit('auction_status_changed', { auction_id: String(auction._id), status: 'cancelled' });
+    }
+
+    const updated = await Auction.findById(auction._id).populate('chit_group_id', 'group_name');
+    res.json({ success: true, message: 'Auction cancelled. This month number can be reused.', data: updated });
+
+    audit({
+      userId: req.user._id || req.user.id, userName: req.user.full_name, userRole: req.user.role,
+      action: 'auction_cancelled', resourceType: 'auction', resourceId: String(auction._id),
+      description: `Cancelled auction month ${auction.month_number} for ${updated?.chit_group_id?.group_name || 'group'}`,
+      ipAddress: getIp(req),
+    });
+  } catch (err) { next(err); }
+};
 
 exports.approveDisbursement = async (req, res, next) => {
   try {
@@ -583,5 +677,201 @@ exports.disburseAmount = async (req, res, next) => {
     const auction = await Auction.findByIdAndUpdate(req.params.id, { disbursement_status: 'disbursed', utr_number, disbursement_date: new Date() }, { new: true }).populate('winner_id', 'full_name mobile');
     if (!auction) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, message: 'Amount disbursed', data: auction });
+  } catch (err) { next(err); }
+};
+
+// ─── UPDATE AUCTION (admin only) ───
+exports.updateAuction = async (req, res, next) => {
+  try {
+    const { auction_date, duration_minutes, min_bid_increment, notes,
+            anti_snipe_seconds, anti_snipe_extension, bid_fee, max_bids_per_user } = req.body;
+    const auction = await Auction.findById(req.params.id);
+    if (!auction) return res.status(404).json({ success: false, message: 'Auction not found' });
+    
+    // Only allow updates for scheduled, paused, or in_progress auctions (not completed/cancelled)
+    if (!['scheduled', 'paused', 'in_progress'].includes(auction.status)) {
+      return res.status(400).json({ success: false, message: 'Cannot edit completed or cancelled auctions' });
+    }
+
+    // For paused or in_progress auctions, validate duration against elapsed time
+    if ((auction.status === 'paused' || auction.status === 'in_progress') && duration_minutes) {
+      const startedAt = auction.actual_start_time || auction.auction_date ? new Date(auction.actual_start_time || auction.auction_date) : new Date();
+      const elapsedMinutes = Math.ceil((Date.now() - startedAt.getTime()) / 60000);
+      
+      if (duration_minutes < elapsedMinutes) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Cannot reduce duration below elapsed time. Auction has already run for ${elapsedMinutes} minutes. Minimum allowed duration is ${elapsedMinutes} minutes.`,
+          elapsed_minutes: elapsedMinutes,
+          current_duration: auction.duration_minutes
+        });
+      }
+    }
+
+    const updates = {};
+    // Allow changing auction_date for scheduled AND paused auctions
+    if (auction_date && (auction.status === 'scheduled' || auction.status === 'paused')) {
+      updates.auction_date = new Date(auction_date);
+      updates.start_time = new Date(auction_date);
+    }
+    if (duration_minutes) {
+      updates.duration_minutes = duration_minutes;
+      // Recalculate end_time for paused/in_progress auctions
+      if (auction.status === 'paused' || auction.status === 'in_progress') {
+        const startedAt = auction.actual_start_time || auction.auction_date ? new Date(auction.actual_start_time || auction.auction_date) : new Date();
+        const newEndTime = new Date(startedAt.getTime() + (duration_minutes * 60 * 1000));
+        updates.end_time = newEndTime;
+        updates.scheduled_end_time = newEndTime;
+
+        // For paused auctions, also update paused_time_remaining so resumeAuction uses the new duration
+        if (auction.status === 'paused') {
+          const oldDurationSec = (auction.duration_minutes || 30) * 60;
+          const oldRemaining = auction.paused_time_remaining || 0;
+          const elapsedSec = oldDurationSec - oldRemaining;
+          const newRemaining = Math.max(0, (duration_minutes * 60) - elapsedSec);
+          updates.paused_time_remaining = newRemaining;
+        }
+      }
+    }
+    if (min_bid_increment !== undefined) updates.min_bid_increment = min_bid_increment;
+    if (notes !== undefined) updates.notes = notes;
+    if (anti_snipe_seconds !== undefined) updates.anti_snipe_seconds = anti_snipe_seconds;
+    if (anti_snipe_extension !== undefined) updates.anti_snipe_extension = anti_snipe_extension;
+    if (bid_fee !== undefined) updates.bid_fee = bid_fee;
+    if (max_bids_per_user !== undefined) updates.max_bids_per_user = max_bids_per_user;
+
+    const updated = await Auction.findByIdAndUpdate(req.params.id, updates, { new: true })
+      .populate('chit_group_id', 'group_name group_number');
+
+    // Notify connected clients about the update so they refresh auction data
+    const io = req.app.get('io');
+    if (io) {
+      io.to('auction:' + auction._id).emit('auction_status_changed', {
+        auction_id: String(auction._id),
+        status: updated.status,
+        duration_minutes: updated.duration_minutes,
+        paused_time_remaining: updated.paused_time_remaining,
+      });
+    }
+
+    await audit({
+      userId: req.user._id || req.user.id,
+      action: 'auction_updated',
+      resourceType: 'auction',
+      resourceId: auction._id,
+      description: `Updated auction for ${auction.chit_group_id?.group_name || 'chit group'}`,
+      metadata: { updates },
+      ip: getIp(req),
+    });
+
+    res.json({ success: true, message: 'Auction updated successfully', data: updated });
+  } catch (err) { next(err); }
+};
+
+// ─── BID ANALYTICS & AI SUGGESTION ───
+exports.getBidAnalytics = async (req, res, next) => {
+  try {
+    const auction = await Auction.findById(req.params.id).populate('chit_group_id');
+    if (!auction) return res.status(404).json({ success: false, message: 'Auction not found' });
+
+    const chitGroupId = auction.chit_group_id?._id || auction.chit_group_id;
+    const chitValue = auction.chit_group_id?.chit_value || 0;
+    const commPct = auction.chit_group_id?.foreman_commission_percentage || 5;
+    const commission = Math.round(chitValue * (commPct / 100));
+    const pool = chitValue - commission;
+    const maxAllowed = Math.round(pool * 0.30);
+
+    // Historical completed auctions for this chit group
+    const pastAuctions = await Auction.find({
+      chit_group_id: chitGroupId,
+      status: 'completed',
+      winning_bid_amount: { $gt: 0 },
+    }).sort({ month_number: 1 }).select('month_number winning_bid_amount dividend_per_member commission_amount disbursement_amount total_bid_count');
+
+    const winningBids = pastAuctions.map(a => a.winning_bid_amount);
+    const avgWinningBid = winningBids.length > 0 ? Math.round(winningBids.reduce((s, v) => s + v, 0) / winningBids.length) : 0;
+    const minWinningBid = winningBids.length > 0 ? Math.min(...winningBids) : 0;
+    const maxWinningBid = winningBids.length > 0 ? Math.max(...winningBids) : 0;
+
+    // Trend data for chart (month_number -> winning_bid)
+    const trend = pastAuctions.map(a => ({
+      month: a.month_number,
+      winning_bid: a.winning_bid_amount,
+      dividend: a.dividend_per_member || 0,
+      total_bids: a.total_bid_count || 0,
+    }));
+
+    // Current auction bid distribution
+    const currentBids = await Bid.find({ auction_id: auction._id }).sort({ bid_amount: -1 }).select('bid_amount bid_time');
+    const bidDistribution = currentBids.map(b => ({
+      amount: b.bid_amount,
+      time: b.bid_time,
+    }));
+
+    // AI Suggestion logic
+    let suggestedMin = 0;
+    let suggestedMax = 0;
+    let suggestion = '';
+
+    if (winningBids.length >= 2) {
+      // Trend-based: if bids are rising, suggest slightly above average
+      const recentAvg = winningBids.slice(-3).reduce((s, v) => s + v, 0) / Math.min(3, winningBids.length);
+      const overallAvg = avgWinningBid;
+      const trendDirection = recentAvg > overallAvg ? 'rising' : recentAvg < overallAvg ? 'falling' : 'stable';
+
+      if (trendDirection === 'rising') {
+        suggestedMin = Math.round(recentAvg * 0.95);
+        suggestedMax = Math.min(Math.round(recentAvg * 1.10), maxAllowed);
+        suggestion = 'Bids are trending upward. Consider bidding near the recent average for a competitive chance.';
+      } else if (trendDirection === 'falling') {
+        suggestedMin = Math.round(recentAvg * 0.85);
+        suggestedMax = Math.min(Math.round(recentAvg * 1.0), maxAllowed);
+        suggestion = 'Bids are trending downward. You may win with a moderate bid.';
+      } else {
+        suggestedMin = Math.round(overallAvg * 0.90);
+        suggestedMax = Math.min(Math.round(overallAvg * 1.05), maxAllowed);
+        suggestion = 'Bids have been stable. Bidding near the average should be competitive.';
+      }
+    } else if (winningBids.length === 1) {
+      suggestedMin = Math.round(winningBids[0] * 0.85);
+      suggestedMax = Math.min(Math.round(winningBids[0] * 1.15), maxAllowed);
+      suggestion = 'Limited history. The suggested range is based on the only previous auction.';
+    } else {
+      suggestedMin = Math.round(maxAllowed * 0.40);
+      suggestedMax = Math.round(maxAllowed * 0.70);
+      suggestion = 'No auction history yet. Start with a moderate bid in the suggested range.';
+    }
+
+    // Ensure bounds
+    suggestedMin = Math.max(suggestedMin, 0);
+    suggestedMax = Math.min(suggestedMax, maxAllowed);
+    if (suggestedMin > suggestedMax) suggestedMin = suggestedMax;
+
+    res.json({
+      success: true,
+      data: {
+        chit_value: chitValue,
+        commission,
+        pool,
+        max_allowed_bid: maxAllowed,
+        history: {
+          total_completed: pastAuctions.length,
+          avg_winning_bid: avgWinningBid,
+          min_winning_bid: minWinningBid,
+          max_winning_bid: maxWinningBid,
+          trend,
+        },
+        current_auction: {
+          bid_count: currentBids.length,
+          highest_bid: currentBids.length > 0 ? currentBids[0].bid_amount : 0,
+          bid_distribution: bidDistribution,
+        },
+        ai_suggestion: {
+          suggested_min: suggestedMin,
+          suggested_max: suggestedMax,
+          message: suggestion,
+        },
+      },
+    });
   } catch (err) { next(err); }
 };

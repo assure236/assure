@@ -37,8 +37,14 @@ router.post('/:id/place-bid', auctionController.placeBid);
 // @access  Private
 router.get('/:id/live-status', auctionController.getLiveAuctionStatus);
 
+// @route   GET /api/v1/auctions/:id/bid-analytics
+// @desc    Get bid analytics & AI suggestion for an auction
+// @access  Private
+router.get('/:id/bid-analytics', auctionController.getBidAnalytics);
+
 // Admin only routes
 router.post('/', authorizeRoles('admin', 'super_admin'), auctionController.createAuction);
+router.put('/:id', authorizeRoles('admin', 'super_admin'), auctionController.updateAuction);
 router.post('/:id/start', authorizeRoles('admin', 'super_admin'), auctionController.startAuction);
 router.post('/:id/end', authorizeRoles('admin', 'super_admin'), auctionController.endAuction);
 router.post('/:id/approve-disbursement', authorizeRoles('admin', 'super_admin'), auctionController.approveDisbursement);

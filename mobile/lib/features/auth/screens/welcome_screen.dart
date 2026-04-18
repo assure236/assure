@@ -17,8 +17,8 @@ class WelcomeScreen extends StatelessWidget {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF0B1F3B),
-              Color(0xFF1E3A8A),
+              AppTheme.primaryColor,
+              AppTheme.accentBlue,
             ],
           ),
         ),
@@ -30,23 +30,26 @@ class WelcomeScreen extends StatelessWidget {
                 const Spacer(flex: 2),
                 // Logo
                 Container(
-                  width: 140,
-                  height: 140,
+                  width: 150,
+                  height: 150,
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(30),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 100,
-                      height: 100,
+                    child: ClipOval(
+                      child: Image.asset(
+                        'assets/images/logo.png',
+                        width: 110,
+                        height: 110,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 32),
                 const Text(
-                  'Assure ChitFunds',
+                  'Assure Chit Funds',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 28,
@@ -56,7 +59,7 @@ class WelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Your Trusted Partner in Savings.\nSecure. Transparent. Rewarding.',
+                  'Partners in Growth',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
@@ -69,8 +72,8 @@ class WelcomeScreen extends StatelessWidget {
                 FilledButton(
                   onPressed: () => context.go('/register'),
                   style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFD4AF37),
-                    foregroundColor: const Color(0xFF0B1F3B),
+                    backgroundColor: AppTheme.secondaryColor,
+                    foregroundColor: AppTheme.primaryColor,
                     minimumSize: const Size(double.infinity, 52),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),

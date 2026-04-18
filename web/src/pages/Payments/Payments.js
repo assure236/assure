@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+﻿import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, Grid, Card, CardContent, Typography, Box, Chip,
   CircularProgress, Alert, Tabs, Tab, List, ListItem, ListItemText,
@@ -27,8 +27,8 @@ const statusConfig = {
   upcoming: { color: 'default', icon: <PendingIcon />, bg: 'grey.400' },
 };
 
-const formatCurrency = (v) => `?${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '�';
+const formatCurrency = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”';
 
 const Payments = () => {
   const [tab, setTab] = useState(0);
@@ -143,7 +143,7 @@ const Payments = () => {
           setPaymentStep(0);
         }
       } else if (payment_session_id) {
-        // SDK not loaded � redirect to hosted payment page
+        // SDK not loaded — redirect to hosted payment page
         setPayDialog({ ...payDialog, open: false });
         const isTest = !process.env.REACT_APP_CASHFREE_ENV || process.env.REACT_APP_CASHFREE_ENV === 'sandbox';
         const payUrl = isTest
@@ -190,9 +190,18 @@ const Payments = () => {
   const totalDue = duePayments.filter(p => p.payment_status !== 'upcoming').reduce((s, p) => s + Number(p.total_amount || p.amount || 0), 0);
   const totalPaidLateFees = historyPayments.reduce((s, p) => s + Number(p.late_fee || 0), 0);
 
+  // Sort upcoming: overdue first, then pending, then upcoming
+  const statusOrder = { overdue: 0, pending: 1, upcoming: 2 };
+  const sortedDuePayments = [...duePayments].sort((a, b) => {
+    const oa = statusOrder[a.payment_status] ?? 1;
+    const ob = statusOrder[b.payment_status] ?? 1;
+    if (oa !== ob) return oa - ob;
+    return new Date(a.due_date || 0) - new Date(b.due_date || 0);
+  });
+
   const tabList = [
     { label: `History (${historyPayments.length})`, data: historyPayments },
-    { label: `Upcoming (${duePayments.length})`, data: duePayments },
+    { label: `Upcoming (${sortedDuePayments.length})`, data: sortedDuePayments },
   ];
 
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
@@ -213,7 +222,7 @@ const Payments = () => {
           </Button>
           <Button
             variant="contained" startIcon={<StatementIcon />}
-            onClick={() => window.open(`${axios.defaults.baseURL}/payments/statement?format=html`, '_blank')}
+            onClick={() => window.open(`${axios.defaults.baseURL}/payments/statement?format=html&token=${localStorage.getItem('token')}`, '_blank')}
           >
             Statement
           </Button>
@@ -336,7 +345,7 @@ const Payments = () => {
                         <>
                           {group?.group_name && (
                             <Typography variant="caption" display="block">
-                              {group.group_name} � Month {p.month_number}
+                              {group.group_name} — Month {p.month_number}
                             </Typography>
                           )}
                           {p.dividend_reduction > 0 && (
@@ -393,7 +402,7 @@ const Payments = () => {
                 {formatCurrency(payDialog.payment.total_amount || payDialog.payment.amount)}
               </Typography>
               <Typography variant="body2" color="text.secondary" textAlign="center" mb={2}>
-                {(payDialog.payment.chit_group || payDialog.payment.chitGroup)?.group_name} � Month {payDialog.payment.month_number}
+                {(payDialog.payment.chit_group || payDialog.payment.chitGroup)?.group_name} — Month {payDialog.payment.month_number}
               </Typography>
               {payDialog.payment.late_fee > 0 && (
                 <Alert severity="warning" sx={{ mb: 2 }} icon={<WarnIcon />}>

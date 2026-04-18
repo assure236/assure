@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -6,7 +7,6 @@ import 'package:provider/provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../widgets/otp_input_row.dart';
-import '../widgets/pin_input_row.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -30,10 +30,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   String _emailOtp = '';
   bool _emailOtpSent = false;
-
-  // Step 3 (MPIN)
-  String _mpin = '';
-  String _mpinConfirm = '';
 
   // Verified data
   String _mobile = '';
@@ -131,23 +127,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = false);
 
     if (res['success'] == true) {
-      setState(() { _step = 3; _emailOtp = ''; });
+      // Email verified — register directly (auto-generate MPIN for backend)
+      _registerAccount();
     } else {
       _showError(res['message'] ?? 'Invalid email OTP');
     }
   }
 
-  Future<void> _register() async {
-    if (_mpin.length != 6) return _showError('Set a 6-digit MPIN');
-    if (_mpinConfirm.length != 6) return _showError('Confirm your MPIN');
-    if (_mpin != _mpinConfirm) return _showError('MPINs do not match');
+  Future<void> _registerAccount() async {
+    // Generate a random 6-digit value for backend compatibility
+    final autoPin = (Random().nextInt(900000) + 100000).toString();
 
     if (!mounted) return;
     setState(() => _isLoading = true);
     final res = await context.read<AuthProvider>().register(
       mobile: _mobile,
       email: _email,
-      mpin: _mpin,
+      mpin: autoPin,
       fullName: _nameController.text.trim(),
     );
     if (!mounted) return;
@@ -251,31 +247,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     ],
   );
 
-  Widget _buildStep3() => SingleChildScrollView(
+  Widget _buildStep3() => Center(
     child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('Set Your MPIN',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
-        const Text('Choose a 6-digit PIN for quick login',
-            style: TextStyle(fontSize: 14, color: Colors.black54)),
-        const SizedBox(height: 36),
-        const Text('Enter MPIN',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black54)),
-        const SizedBox(height: 12),
-        PinInputRow(key: const ValueKey('mpin_enter'), onCompleted: (v) => setState(() => _mpin = v)),
-        const SizedBox(height: 28),
-        const Text('Confirm MPIN',
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.black54)),
-        const SizedBox(height: 12),
-        PinInputRow(
-          key: const ValueKey('mpin_confirm'),
-          onCompleted: (v) => setState(() => _mpinConfirm = v),
-          showMismatch: _mpinConfirm.length == 6 && _mpin != _mpinConfirm,
-        ),
-        const SizedBox(height: 36),
-        _primaryBtn('Create Account', _register),
+        const CircularProgressIndicator(),
+        const SizedBox(height: 16),
+        const Text('Creating your account...',
+            style: TextStyle(fontSize: 16, color: Colors.black54)),
       ],
     ),
   );
@@ -332,7 +311,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Widget _progressBar() => Row(
     mainAxisAlignment: MainAxisAlignment.center,
-    children: List.generate(4, (i) {
+    children: List.generate(3, (i) {
       final active = i <= _step;
       return AnimatedContainer(
         duration: const Duration(milliseconds: 300),

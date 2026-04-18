@@ -2,6 +2,7 @@ const { User, Referral, Wallet, WalletTransaction, Notification } = require('../
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
+const { audit, getIp } = require('../utils/audit');
 const { sendOTP, sendEmail } = require('../services/notificationService');
 
 const otpStore = new Map();
@@ -12,11 +13,11 @@ const QR_SESSION_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 function genOtp() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 
-const generateToken = (userId) =>
-  jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+const generateToken = (userId, tokenVersion = 0) =>
+  jwt.sign({ userId, tv: tokenVersion }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
 
-const generateRefreshToken = (userId) =>
-  jwt.sign({ userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' });
+const generateRefreshToken = (userId, tokenVersion = 0) =>
+  jwt.sign({ userId, tv: tokenVersion }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' });
 
 exports.resendOtp = async (req, res, next) => {
   try {
@@ -47,6 +48,7 @@ exports.resendOtp = async (req, res, next) => {
     if (mobile) {
       const otp = genOtp();
       otpStore.set('mobile:' + mobile, { otp, expires: Date.now() + OTP_TTL_MS, verified: false });
+      console.log(`[OTP-DEBUG] OTP stored for mobile:${mobile} = ${otp}, otpStore keys: [${[...otpStore.keys()].join(', ')}]`);
       await sendOTP(mobile, otp);
       return res.json({ success: true, message: 'OTP sent to +91 ' + mobile });
     }
@@ -61,14 +63,27 @@ exports.verifyOtp = async (req, res, next) => {
     const target = resolvedType === 'email' ? email : mobile;
     if (!target || !otp) return res.status(400).json({ success: false, message: 'target and otp are required' });
     const key = resolvedType + ':' + target;
+    console.log(`[OTP-DEBUG] verifyOtp called - key: ${key}, otpStore keys: [${[...otpStore.keys()].join(', ')}]`);
     const record = otpStore.get(key);
-    if (!record) return res.status(400).json({ success: false, message: 'OTP not sent or already used.' });
+    if (!record) {
+      console.log(`[OTP-DEBUG] OTP verification failed - key not found: ${key}`);
+      return res.status(400).json({ success: false, message: 'OTP not sent or already used.' });
+    }
     if (Date.now() > record.expires) {
       otpStore.delete(key);
+      console.log(`[OTP-DEBUG] OTP verification failed - expired for: ${key}`);
       return res.status(400).json({ success: false, message: 'OTP expired.' });
     }
-    if (record.otp !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    // Normalize both OTPs to strings and trim whitespace
+    const storedOtp = String(record.otp).trim();
+    const providedOtp = String(otp).trim();
+    console.log(`[OTP-DEBUG] OTP verification attempt for ${key} - stored: ${storedOtp}, provided: ${providedOtp}`);
+    if (storedOtp !== providedOtp) {
+      console.log(`[OTP-DEBUG] OTP verification failed - invalid OTP for ${key}`);
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
     record.verified = true;
+    console.log(`[OTP-DEBUG] OTP verified successfully for ${key}`);
     return res.json({ success: true, message: 'OTP verified successfully' });
   } catch (error) { next(error); }
 };
@@ -137,8 +152,8 @@ exports.register = async (req, res, next) => {
     otpStore.delete('mobile:' + mobile);
     otpStore.delete('email:' + email);
 
-    const token = generateToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+    const token = generateToken(user._id, user.token_version || 0);
+    const refreshToken = generateRefreshToken(user._id, user.token_version || 0);
 
     res.status(201).json({
       success: true,
@@ -166,10 +181,27 @@ exports.login = async (req, res, next) => {
     if (!valid) return res.status(401).json({ success: false, message: 'Invalid credentials' });
 
     user.last_login_at = new Date();
+    user.token_version = (user.token_version || 0) + 1; // Invalidate all other sessions on new login
     await user.save();
 
-    const token = generateToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+    // Notify existing sessions about new login & force logout
+    const io = req.app.get('io');
+    if (io) {
+      const { device_name, platform } = req.body;
+      io.to(`user:${user._id}`).emit('force_logout', {
+        message: 'You have been logged out because a new login was detected.',
+        device_name: device_name || 'Unknown device',
+        platform: platform || 'Unknown',
+        logged_in_at: new Date().toISOString(),
+      });
+    }
+
+    // Invalidate auth middleware cache
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(String(user._id));
+
+    const token = generateToken(user._id, user.token_version || 0);
+    const refreshToken = generateRefreshToken(user._id, user.token_version || 0);
 
     res.json({
       success: true,
@@ -178,6 +210,9 @@ exports.login = async (req, res, next) => {
         user: { id: user._id, full_name: user.full_name, email: user.email, mobile: user.mobile, role: user.role, kyc_status: user.kyc_status, member_id: user.member_id }
       }
     });
+
+    // Audit log (non-blocking)
+    audit({ userId: user._id, userName: user.full_name, userRole: user.role, action: 'login', resourceType: 'user', resourceId: String(user._id), description: `Login via ${mobile ? 'mobile' : 'email'}`, ipAddress: getIp(req) });
   } catch (error) { next(error); }
 };
 
@@ -190,24 +225,53 @@ exports.loginWithOtp = async (req, res, next) => {
     if (!mobile || !otp) return res.status(400).json({ success: false, message: 'Mobile and OTP required' });
 
     const key = 'mobile:' + mobile;
+    console.log(`[OTP-DEBUG] loginWithOtp called - key: ${key}, body: ${JSON.stringify(req.body)}, otpStore keys: [${[...otpStore.keys()].join(', ')}]`);
     const record = otpStore.get(key);
-    if (!record) return res.status(400).json({ success: false, message: 'OTP not sent or already used.' });
+    if (!record) {
+      console.log(`[OTP-DEBUG] Login OTP failed - key not found: ${key}`);
+      return res.status(400).json({ success: false, message: 'OTP not sent or already used.' });
+    }
     if (Date.now() > record.expires) {
       otpStore.delete(key);
+      console.log(`[OTP-DEBUG] Login OTP failed - expired for: ${key}`);
       return res.status(400).json({ success: false, message: 'OTP expired.' });
     }
-    if (record.otp !== otp) return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    // Normalize both OTPs to strings and trim whitespace
+    const storedOtp = String(record.otp).trim();
+    const providedOtp = String(otp).trim();
+    console.log(`[OTP-DEBUG] Login OTP attempt for ${key} - stored: ${storedOtp}, provided: ${providedOtp}`);
+    if (storedOtp !== providedOtp) {
+      console.log(`[OTP-DEBUG] Login OTP failed - invalid OTP for ${key}`);
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+    }
 
     const user = await User.findOne({ mobile });
     if (!user) return res.status(401).json({ success: false, message: 'No account found with this mobile number' });
     if (!user.is_active) return res.status(403).json({ success: false, message: 'Account deactivated' });
 
     user.last_login_at = new Date();
+    user.token_version = (user.token_version || 0) + 1; // Invalidate all other sessions on new login
     await user.save();
     otpStore.delete(key);
 
-    const token = generateToken(user._id);
-    const refreshToken = generateRefreshToken(user._id);
+    // Notify existing sessions about new login & force logout
+    const io = req.app.get('io');
+    if (io) {
+      const { device_name, platform: devicePlatform } = req.body;
+      io.to(`user:${user._id}`).emit('force_logout', {
+        message: 'You have been logged out because a new login was detected.',
+        device_name: device_name || 'Unknown device',
+        platform: devicePlatform || 'Unknown',
+        logged_in_at: new Date().toISOString(),
+      });
+    }
+
+    // Invalidate auth middleware cache so old tokens fail immediately
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(String(user._id));
+
+    const token = generateToken(user._id, user.token_version || 0);
+    const refreshToken = generateRefreshToken(user._id, user.token_version || 0);
 
     res.json({
       success: true,
@@ -226,7 +290,11 @@ exports.refreshToken = async (req, res, next) => {
     const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(decoded.userId).select('-password_hash');
     if (!user || !user.is_active) return res.status(401).json({ success: false, message: 'Invalid refresh token' });
-    const token = generateToken(user._id);
+    // Check token_version — if bumped, all old tokens are invalid
+    if (decoded.tv !== undefined && decoded.tv !== (user.token_version || 0)) {
+      return res.status(401).json({ success: false, message: 'Session invalidated. Please login again.' });
+    }
+    const token = generateToken(user._id, user.token_version || 0);
     res.json({ success: true, data: { token } });
   } catch (error) { next(error); }
 };
@@ -274,6 +342,32 @@ exports.changePassword = async (req, res, next) => {
 
 exports.logout = async (req, res) => {
   res.json({ success: true, message: 'Logged out successfully' });
+};
+
+exports.logoutAllDevices = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    user.token_version = (user.token_version || 0) + 1;
+    await user.save();
+    // Invalidate auth middleware cache so old tokens fail immediately
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(String(userId));
+
+    // Notify all connected sockets for this user to force logout
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user:${userId}`).emit('force_logout', {
+        message: 'You have been logged out from all devices.',
+      });
+    }
+
+    res.json({ success: true, message: 'All devices logged out. Please login again.' });
+
+    // Audit log
+    audit({ userId, userName: user.full_name, userRole: user.role, action: 'logout_all_devices', resourceType: 'user', resourceId: String(userId), description: 'Logged out all devices', ipAddress: getIp(req) });
+  } catch (error) { next(error); }
 };
 
 // ── QR Login ──────────────────────────────────────────────────────────────────

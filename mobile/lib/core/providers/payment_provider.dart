@@ -1,4 +1,6 @@
-﻿import 'package:flutter/foundation.dart';
+﻿import 'dart:convert';
+import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
 class PaymentProvider with ChangeNotifier {
@@ -6,6 +8,10 @@ class PaymentProvider with ChangeNotifier {
   List<Map<String, dynamic>> _duePayments = [];
   bool _isLoading = false;
   String? _error;
+
+  static const _paidCacheKey = 'payments_paid_cache';
+  static const _dueCacheKey = 'payments_due_cache';
+  static const _cacheTsKey = 'payments_cache_ts';
 
   bool get isLoading => _isLoading;
   String? get error => _error;
@@ -37,6 +43,18 @@ class PaymentProvider with ChangeNotifier {
       .toList();
 
   Future<void> fetchPayments() async {
+    // Load from cache for instant UI
+    if (_payments.isEmpty && _duePayments.isEmpty) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final paidCache = prefs.getString(_paidCacheKey);
+        final dueCache = prefs.getString(_dueCacheKey);
+        if (paidCache != null) _payments = List<Map<String, dynamic>>.from(jsonDecode(paidCache));
+        if (dueCache != null) _duePayments = List<Map<String, dynamic>>.from(jsonDecode(dueCache));
+        if (_payments.isNotEmpty || _duePayments.isNotEmpty) notifyListeners();
+      } catch (_) {}
+    }
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -58,6 +76,14 @@ class PaymentProvider with ChangeNotifier {
       if (dueRes['success'] == true) {
         _duePayments = List<Map<String, dynamic>>.from(dueRes['data'] ?? []);
       }
+
+      // Persist to cache
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_paidCacheKey, jsonEncode(_payments));
+        await prefs.setString(_dueCacheKey, jsonEncode(_duePayments));
+        await prefs.setInt(_cacheTsKey, DateTime.now().millisecondsSinceEpoch);
+      } catch (_) {}
     } catch (e) {
       _error = 'Could not connect to server';
       debugPrint('PaymentProvider error: $e');

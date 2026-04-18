@@ -9,7 +9,7 @@ import {
 import {
   Add as AddIcon, Gavel as GavelIcon, People as PeopleIcon, Timer as TimerIcon,
   Visibility as ViewIcon, Pause as PauseIcon, PlayArrow as PlayIcon,
-  Stop as StopIcon, EmojiEvents as TrophyIcon, Close as CloseIcon
+  Stop as StopIcon, EmojiEvents as TrophyIcon, Close as CloseIcon, Edit as EditIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -36,6 +36,12 @@ const Auctions = () => {
   const [form, setForm] = useState({ ...defaultForm });
   const [creating, setCreating] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState({ open: false, auctionId: null, action: '', title: '', message: '' });
+  
+  // Edit auction state
+  const [editDialog, setEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState({ ...defaultForm });
+  const [editing, setEditing] = useState(false);
+  const [editingAuctionId, setEditingAuctionId] = useState(null);
 
   // Live auction view state
   const [liveView, setLiveView] = useState(false);
@@ -92,7 +98,7 @@ const Auctions = () => {
   const handleAuctionAction = async (auctionId, action) => {
     try {
       await axios.post(`${process.env.REACT_APP_API_URL}/admin/auctions/${auctionId}/${action}`);
-      const labels = { start: 'started', end: 'ended', pause: 'paused', resume: 'resumed' };
+      const labels = { start: 'started', end: 'ended', pause: 'paused', resume: 'resumed', cancel: 'cancelled' };
       toast.success(`Auction ${labels[action] || action}!`);
       fetchAuctions();
     } catch (err) { toast.error(err.response?.data?.message || `${action} failed`); }
@@ -105,6 +111,7 @@ const Auctions = () => {
       end: { title: 'End Auction?', message: 'This will end the auction and determine the winner based on the highest bid.' },
       pause: { title: 'Pause Auction?', message: 'This will pause the auction timer. Members cannot bid while paused.' },
       resume: { title: 'Resume Auction?', message: 'This will resume the auction timer from where it was paused.' },
+      cancel: { title: 'Cancel Auction?', message: 'This will cancel the auction. The same month number will be available when creating a new auction for this group.' },
     };
     setConfirmDialog({ open: true, auctionId, action, ...(msgs[action] || { title: 'Confirm?', message: `Are you sure you want to ${action}?` }) });
   };
@@ -117,6 +124,51 @@ const Auctions = () => {
         if (res.data.success) setForm(f => ({ ...f, month_number: res.data.data.next_month }));
       } catch (err) {}
     }
+  };
+
+  const openEditDialog = (auction) => {
+    setEditingAuctionId(auction._id || auction.id);
+    setEditForm({
+      chit_group_id: auction.chit_group_id?._id || auction.chit_group_id || '',
+      month_number: auction.month_number || '',
+      start_time: auction.auction_date ? new Date(auction.auction_date).toISOString().slice(0, 16) : '',
+      duration_minutes: auction.duration_minutes || 30,
+      min_bid_increment: auction.min_bid_increment || 100,
+      anti_snipe_seconds: auction.anti_snipe_seconds || 15,
+      anti_snipe_extension: auction.anti_snipe_extension || 30,
+      bid_fee: auction.bid_fee || 0,
+      max_bids_per_user: auction.max_bids_per_user || 0,
+    });
+    setEditDialog(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!editForm.start_time) {
+      toast.error('Start time is required'); return;
+    }
+    setEditing(true);
+    try {
+      const payload = {
+        auction_date: editForm.start_time,
+        duration_minutes: Number(editForm.duration_minutes) || 30,
+        min_bid_increment: Number(editForm.min_bid_increment) || 100,
+        anti_snipe_seconds: Number(editForm.anti_snipe_seconds) || 15,
+        anti_snipe_extension: Number(editForm.anti_snipe_extension) || 30,
+        bid_fee: Number(editForm.bid_fee) || 0,
+        max_bids_per_user: Number(editForm.max_bids_per_user) || 0,
+      };
+      const res = await axios.put(`${process.env.REACT_APP_API_URL}/auctions/${editingAuctionId}`, payload);
+      if (res.data.success) { 
+        toast.success('Auction updated!'); 
+        setEditDialog(false); 
+        setEditForm({ ...defaultForm }); 
+        fetchAuctions();
+        if (liveAuction && (liveAuction._id === editingAuctionId || liveAuction.id === editingAuctionId)) {
+          openLiveView(editingAuctionId);
+        }
+      }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update auction'); }
+    finally { setEditing(false); }
   };
 
   // ---- Live Auction View ----
@@ -286,11 +338,22 @@ const Auctions = () => {
                       <TableCell>{a.winner_id?.full_name || a.winner?.full_name || '—'}</TableCell>
                       <TableCell>
                         {a.status === 'scheduled' && (
-                          <Button size="small" variant="outlined" color="error"
-                            startIcon={<GavelIcon />}
-                            onClick={() => openConfirm(a._id || a.id, 'start')}>
-                            Start
-                          </Button>
+                          <>
+                            <Button size="small" variant="outlined" color="primary" sx={{ mr: 1 }}
+                              startIcon={<EditIcon />}
+                              onClick={() => openEditDialog(a)}>
+                              Edit
+                            </Button>
+                            <Button size="small" variant="outlined" color="error"
+                              startIcon={<GavelIcon />}
+                              onClick={() => openConfirm(a._id || a.id, 'start')}>
+                              Start
+                            </Button>
+                            <Button size="small" variant="outlined" color="secondary" sx={{ ml: 1 }}
+                              onClick={() => openConfirm(a._id || a.id, 'cancel')}>
+                              Cancel
+                            </Button>
+                          </>
                         )}
                         {(a.status === 'in_progress' || a.status === 'active') && (
                           <>
@@ -316,6 +379,11 @@ const Auctions = () => {
                               onClick={() => openLiveView(a._id || a.id)}>
                               View
                             </Button>
+                            <Button size="small" variant="outlined" color="info" sx={{ mr: 1 }}
+                              startIcon={<EditIcon />}
+                              onClick={() => openEditDialog(a)}>
+                              Edit
+                            </Button>
                             <Button size="small" variant="outlined" color="success" sx={{ mr: 1 }}
                               onClick={() => openConfirm(a._id || a.id, 'resume')}>
                               Resume
@@ -323,6 +391,10 @@ const Auctions = () => {
                             <Button size="small" variant="outlined"
                               onClick={() => openConfirm(a._id || a.id, 'end')}>
                               End
+                            </Button>
+                            <Button size="small" variant="outlined" color="secondary" sx={{ ml: 1 }}
+                              onClick={() => openConfirm(a._id || a.id, 'cancel')}>
+                              Cancel
                             </Button>
                           </>
                         )}
@@ -414,6 +486,69 @@ const Auctions = () => {
           <Button variant="contained" onClick={handleCreate} disabled={creating}
             startIcon={creating ? <CircularProgress size={16} /> : <AddIcon />}>
             Schedule Auction
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Edit Auction</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Month Number" type="number" value={editForm.month_number}
+                disabled InputLabelProps={{ shrink: true }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Start Time *" type="datetime-local" value={editForm.start_time}
+                onChange={e => setEditForm({ ...editForm, start_time: e.target.value })} InputLabelProps={{ shrink: true }} />
+            </Grid>
+
+            <Grid item xs={12}><Divider><Chip label="Live Bidding Settings" icon={<TimerIcon />} /></Divider></Grid>
+
+            <Grid item xs={12} sm={4}>
+              <TextField fullWidth label="Duration (minutes)" type="number" value={editForm.duration_minutes}
+                onChange={e => setEditForm({ ...editForm, duration_minutes: e.target.value })}
+                helperText="Auction duration once started" inputProps={{ min: 1, max: 180 }} />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField fullWidth label="Min Bid Increment (₹)" type="number" value={editForm.min_bid_increment}
+                onChange={e => setEditForm({ ...editForm, min_bid_increment: e.target.value })}
+                helperText="Min amount above current highest" inputProps={{ min: 0 }} />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <TextField fullWidth label="Max Bids Per User" type="number" value={editForm.max_bids_per_user}
+                onChange={e => setEditForm({ ...editForm, max_bids_per_user: e.target.value })}
+                helperText="0 = unlimited" inputProps={{ min: 0 }} />
+            </Grid>
+
+            <Grid item xs={12}><Divider><Chip label="Anti-Snipe Protection" /></Divider></Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Anti-Snipe Trigger (seconds)" type="number" value={editForm.anti_snipe_seconds}
+                onChange={e => setEditForm({ ...editForm, anti_snipe_seconds: e.target.value })}
+                helperText="Extend timer if bid in last N seconds" inputProps={{ min: 0, max: 120 }} />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Anti-Snipe Extension (seconds)" type="number" value={editForm.anti_snipe_extension}
+                onChange={e => setEditForm({ ...editForm, anti_snipe_extension: e.target.value })}
+                helperText="Extend timer by this many seconds" inputProps={{ min: 0, max: 120 }} />
+            </Grid>
+
+            <Grid item xs={12}><Divider><Chip label="Wallet & Fees" /></Divider></Grid>
+
+            <Grid item xs={12} sm={6}>
+              <TextField fullWidth label="Bid Fee (₹)" type="number" value={editForm.bid_fee}
+                onChange={e => setEditForm({ ...editForm, bid_fee: e.target.value })}
+                helperText="Fee per bid (0 = free)" inputProps={{ min: 0 }} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialog(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleUpdate} disabled={editing}
+            startIcon={editing ? <CircularProgress size={16} /> : <EditIcon />}>
+            Update Auction
           </Button>
         </DialogActions>
       </Dialog>
@@ -588,6 +723,12 @@ const Auctions = () => {
             {/* Admin Controls Footer */}
             {liveAuction.status !== 'completed' && (
               <DialogActions sx={{ justifyContent: 'center', gap: 2, py: 2 }}>
+                {liveAuction.status === 'scheduled' && (
+                  <Button variant="outlined" color="primary" size="large" startIcon={<EditIcon />}
+                    onClick={() => { openEditDialog(liveAuction); }}>
+                    Edit Auction
+                  </Button>
+                )}
                 {(liveAuction.status === 'in_progress' || liveAuction.status === 'active') && (
                   <>
                     <Button variant="contained" color="warning" size="large" startIcon={<PauseIcon />}
@@ -602,6 +743,10 @@ const Auctions = () => {
                 )}
                 {liveAuction.status === 'paused' && (
                   <>
+                    <Button variant="outlined" color="primary" size="large" startIcon={<EditIcon />}
+                      onClick={() => { openEditDialog(liveAuction); }}>
+                      Edit Auction
+                    </Button>
                     <Button variant="contained" color="success" size="large" startIcon={<PlayIcon />}
                       onClick={() => handleLiveAction('resume')}>
                       Resume Auction

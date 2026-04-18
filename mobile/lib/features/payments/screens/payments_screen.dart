@@ -362,7 +362,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0B1F3B), Color(0xFF071428)],
+          colors: [AppTheme.primaryColor, AppTheme.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -519,7 +519,7 @@ class _PaymentTile extends StatelessWidget {
                 onPressed: () {
                   Navigator.pop(ctx);
                   Share.share(
-                    'Assure ChitFunds - Payment Receipt\n'
+                    'Assure Chit Funds - Payment Receipt\n'
                     '─────────────────────\n'
                     'Group: $group\n'
                     'Amount: ₹${NumberFormat('#,##,###').format(amount)}\n'
@@ -529,7 +529,7 @@ class _PaymentTile extends StatelessWidget {
                     'Txn ID: #$txnId\n'
                     '─────────────────────\n'
                     'Thank you for your timely payment!',
-                    subject: 'Payment Receipt - Assure ChitFunds',
+                    subject: 'Payment Receipt - Assure Chit Funds',
                   );
                 },
                 icon: const Icon(Icons.share, size: 18),

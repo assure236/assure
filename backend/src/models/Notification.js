@@ -4,7 +4,15 @@ const notificationSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   type: {
     type: String,
-    enum: ['payment_reminder', 'payment_received', 'auction_alert', 'auction_result', 'dividend_credit', 'kyc_update', 'referral_bonus', 'general', 'promotional', 'loan_update', 'support_update', 'document_verified', 'account_update', 'wallet_update', 'disbursal_update'],
+    enum: [
+      'payment_reminder', 'payment_received', 'auction_alert', 'auction_result',
+      'dividend_credit', 'kyc_update', 'referral_bonus', 'general', 'promotional',
+      'loan_update', 'support_update', 'document_verified', 'account_update',
+      'wallet_update', 'disbursal_update',
+      'profile_edit_request', 'profile_edit_approved', 'profile_edit_rejected',
+      'chit_transfer_request', 'chit_cancel_request',
+      'admin_chit_transfer', 'admin_chit_cancel',
+    ],
     required: true
   },
   title: { type: String, required: true },

@@ -90,8 +90,8 @@ class _LoginScreenState extends State<LoginScreen> {
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFF0B1F3B), // navy
-              Color(0xFF1E3A8A), // deep blue
+              AppTheme.primaryColor, // navy
+              AppTheme.accentBlue, // deep blue
             ],
           ),
         ),
@@ -117,14 +117,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 12),
                 // Logo
                 Container(
-                  width: 90,
-                  height: 90,
+                  width: 100,
+                  height: 100,
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(30),
                     shape: BoxShape.circle,
                   ),
                   child: ClipOval(
-                    child: Image.asset('assets/images/logo.png', width: 70, height: 70),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 75,
+                      height: 75,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),

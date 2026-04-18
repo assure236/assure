@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 import '../services/api_service.dart';
+import '../services/location_service.dart';
 
 class AuctionProvider with ChangeNotifier {
   List<Map<String, dynamic>> _auctions = [];
@@ -147,8 +148,12 @@ class AuctionProvider with ChangeNotifier {
   Future<Map<String, dynamic>> placeBid(
       String auctionId, double bidAmount) async {
     try {
+      // Record location for audit trail
+      final location = await LocationService.instance.getLocationData();
+
       final res = await ApiService.post('/auctions/$auctionId/bid', {
         'bid_amount': bidAmount,
+        if (location != null) 'location': location,
       });
       if (res['success'] == true && res['data'] != null) {
         final data = res['data'];

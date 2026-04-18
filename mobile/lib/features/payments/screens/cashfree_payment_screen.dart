@@ -9,7 +9,9 @@ import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
 import 'package:flutter_cashfree_pg_sdk/utils/cfexceptions.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/services/location_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/celebration_overlay.dart';
 
 class CashfreePaymentScreen extends StatefulWidget {
   final String paymentSessionId;
@@ -75,7 +77,7 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
       if (mounted) {
         setState(() {
           _processing = false;
-          _errorMsg = e.message ?? 'Failed to start payment';
+          _errorMsg = e.message;
         });
       }
     } catch (e) {
@@ -114,9 +116,13 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
     });
 
     try {
+      // Record location for audit trail
+      final location = await LocationService.instance.getLocationData();
+
       final res = await ApiService.post('/payments/verify', {
         'order_id': widget.orderId,
         'payment_id': widget.paymentId,
+        if (location != null) 'location': location,
       });
 
       if (!mounted) return;
@@ -127,6 +133,8 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
 
       if ((success && (payStatus == 'success' || payStatus == 'paid')) || alreadyVerified) {
         setState(() => _done = true);
+        // Show celebration overlay
+        CelebrationOverlay.showPaymentSuccess(context);
         _showResultAndPop(
           success: true,
           title: 'Payment Successful!',

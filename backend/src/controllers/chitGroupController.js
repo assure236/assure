@@ -1,4 +1,5 @@
 const { ChitGroup, ChitMember, User, Auction, Payment } = require('../models');
+const { audit, getIp } = require('../utils/audit');
 
 exports.getAllChitGroups = async (req, res, next) => {
   try {
@@ -18,7 +19,22 @@ exports.getAllChitGroups = async (req, res, next) => {
       .sort({ created_at: -1 })
       .skip((page - 1) * parseInt(limit))
       .limit(parseInt(limit));
-    res.json({ success: true, data: { groups, total, page: parseInt(page), totalPages: Math.ceil(total / limit) } });
+
+    // Add member_count to each group
+    const groupIds = groups.map(g => g._id);
+    const memberCounts = await ChitMember.aggregate([
+      { $match: { chit_group_id: { $in: groupIds }, is_active: true } },
+      { $group: { _id: '$chit_group_id', count: { $sum: 1 } } }
+    ]);
+    const countMap = {};
+    memberCounts.forEach(mc => { countMap[mc._id.toString()] = mc.count; });
+    const groupsWithCounts = groups.map(g => {
+      const obj = g.toObject();
+      obj.member_count = countMap[g._id.toString()] || 0;
+      return obj;
+    });
+
+    res.json({ success: true, data: { groups: groupsWithCounts, total, page: parseInt(page), totalPages: Math.ceil(total / limit) } });
   } catch (err) { next(err); }
 };
 
@@ -165,5 +181,113 @@ exports.getChitGroupAnalytics = async (req, res, next) => {
       Payment.aggregate([{ $match: { chit_group_id: group._id, payment_status: 'success' } }, { $group: { _id: null, total: { $sum: '$total_amount' } } }]),
     ]);
     res.json({ success: true, data: { group, memberCount, completedAuctions: auctionCount, totalCollected: revenueAgg[0]?.total || 0, expectedTotal: group.total_members * group.monthly_installment * group.duration_months } });
+  } catch (err) { next(err); }
+};
+
+// ── Transfer Chit Request ─────────────────────────────────────────────────────
+exports.transferChitRequest = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { chit_group_id, recipient_member_id, reason } = req.body;
+    if (!chit_group_id || !recipient_member_id) {
+      return res.status(400).json({ success: false, message: 'chit_group_id and recipient_member_id are required' });
+    }
+
+    const group = await ChitGroup.findById(chit_group_id);
+    if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
+
+    const membership = await ChitMember.findOne({ chit_group_id, user_id: userId, is_active: true });
+    if (!membership) return res.status(400).json({ success: false, message: 'You are not an active member of this group' });
+
+    // Check recipient exists
+    const recipient = await User.findById(recipient_member_id);
+    if (!recipient) return res.status(404).json({ success: false, message: 'Recipient user not found' });
+
+    // Check recipient is not already in the group
+    const recipientMembership = await ChitMember.findOne({ chit_group_id, user_id: recipient_member_id });
+    if (recipientMembership) return res.status(400).json({ success: false, message: 'Recipient is already a member of this group' });
+
+    // Create a notification for admin to process the transfer
+    const { Notification } = require('../models');
+    await Notification.create({
+      user_id: userId,
+      type: 'chit_transfer_request',
+      title: 'Chit Transfer Request Submitted',
+      message: `Your request to transfer chit group "${group.group_name}" to member ${recipient.full_name} has been submitted for admin approval.`,
+      metadata: { chit_group_id, recipient_member_id, reason, status: 'pending' },
+    });
+
+    // Also notify admins
+    const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
+    const adminNotifications = admins.map(admin => ({
+      user_id: admin._id,
+      type: 'admin_chit_transfer',
+      title: 'New Chit Transfer Request',
+      message: `${req.user.full_name} requests to transfer ticket #${membership.ticket_number} in "${group.group_name}" to ${recipient.full_name}.`,
+      metadata: { chit_group_id, from_user: userId, to_user: recipient_member_id, reason, ticket_number: membership.ticket_number },
+    }));
+    if (adminNotifications.length > 0) await Notification.insertMany(adminNotifications);
+
+    res.json({ success: true, message: 'Transfer request submitted for admin approval' });
+
+    audit({
+      userId, userName: req.user.full_name, userRole: req.user.role,
+      action: 'chit_group_transfer_request', resourceType: 'chit_group', resourceId: String(chit_group_id),
+      description: `Transfer request for "${group.group_name}" ticket #${membership.ticket_number} to ${recipient.full_name}`,
+      metadata: { recipient_id: recipient_member_id, reason, ticket_number: membership.ticket_number },
+      ipAddress: getIp(req),
+    });
+  } catch (err) { next(err); }
+};
+
+// ── Cancel Chit Request ───────────────────────────────────────────────────────
+exports.cancelChitRequest = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { chit_group_id, reason } = req.body;
+    if (!chit_group_id) {
+      return res.status(400).json({ success: false, message: 'chit_group_id is required' });
+    }
+
+    const group = await ChitGroup.findById(chit_group_id);
+    if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
+
+    const membership = await ChitMember.findOne({ chit_group_id, user_id: userId, is_active: true });
+    if (!membership) return res.status(400).json({ success: false, message: 'You are not an active member of this group' });
+
+    // Cannot cancel if already won an auction
+    if (membership.has_won_auction) {
+      return res.status(400).json({ success: false, message: 'Cannot cancel — you have already won an auction in this group' });
+    }
+
+    const { Notification } = require('../models');
+    await Notification.create({
+      user_id: userId,
+      type: 'chit_cancel_request',
+      title: 'Chit Cancellation Request Submitted',
+      message: `Your request to cancel membership in "${group.group_name}" has been submitted for admin review.`,
+      metadata: { chit_group_id, reason, status: 'pending' },
+    });
+
+    // Notify admins
+    const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
+    const adminNotifications = admins.map(admin => ({
+      user_id: admin._id,
+      type: 'admin_chit_cancel',
+      title: 'New Chit Cancellation Request',
+      message: `${req.user.full_name} requests to cancel membership (ticket #${membership.ticket_number}) in "${group.group_name}".`,
+      metadata: { chit_group_id, user_id: userId, reason, ticket_number: membership.ticket_number },
+    }));
+    if (adminNotifications.length > 0) await Notification.insertMany(adminNotifications);
+
+    res.json({ success: true, message: 'Cancellation request submitted for admin review' });
+
+    audit({
+      userId, userName: req.user.full_name, userRole: req.user.role,
+      action: 'chit_group_cancel_request', resourceType: 'chit_group', resourceId: String(chit_group_id),
+      description: `Cancel request for "${group.group_name}" ticket #${membership.ticket_number}`,
+      metadata: { reason, ticket_number: membership.ticket_number },
+      ipAddress: getIp(req),
+    });
   } catch (err) { next(err); }
 };

@@ -15,7 +15,7 @@ const userSchema = new mongoose.Schema({
   city: String,
   state: String,
   pincode: String,
-  kyc_status: { type: String, enum: ['pending', 'verified', 'rejected'], default: 'pending' },
+  kyc_status: { type: String, enum: ['pending', 'not_verified', 'verified', 'rejected'], default: 'pending' },
   kyc_verified_at: Date,
   credit_score: { type: Number, default: 500 },
   profile_image_url: String,
@@ -36,6 +36,14 @@ const userSchema = new mongoose.Schema({
   current_city: String,
   current_state: String,
   current_pincode: String,
+  token_version: { type: Number, default: 0 },
+  // Profile edit lock
+  profile_edit_status: { type: String, enum: ['none', 'pending', 'approved', 'rejected'], default: 'none' },
+  pending_profile_changes: { type: mongoose.Schema.Types.Mixed },
+  profile_edit_requested_at: Date,
+  profile_edit_reviewed_at: Date,
+  profile_edit_reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  profile_edit_rejection_reason: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 userSchema.pre('save', async function () {

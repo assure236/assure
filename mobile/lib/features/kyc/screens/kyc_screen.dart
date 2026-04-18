@@ -5,7 +5,8 @@ import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 
 class KycScreen extends StatefulWidget {
-  const KycScreen({super.key});
+  final String? digilockerStatus;
+  const KycScreen({super.key, this.digilockerStatus});
 
   @override
   State<KycScreen> createState() => _KycScreenState();
@@ -26,6 +27,16 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchKycStatus();
+    // Handle deep link return from DigiLocker
+    if (widget.digilockerStatus != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (widget.digilockerStatus == 'success') {
+          _showSnackBar('DigiLocker connected successfully! KYC verified.', isError: false);
+        } else {
+          _showSnackBar('DigiLocker verification failed. Please try again.');
+        }
+      });
+    }
   }
 
   @override
@@ -237,6 +248,11 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
         color = AppTheme.errorColor;
         icon = Icons.cancel;
         label = 'KYC Rejected';
+        break;
+      case 'not_verified':
+        color = Colors.orange;
+        icon = Icons.warning_amber_rounded;
+        label = 'KYC Not Verified';
         break;
       default:
         color = Colors.grey;

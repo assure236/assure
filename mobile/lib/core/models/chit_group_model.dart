@@ -39,4 +39,17 @@ class ChitGroup {
           : DateTime.now(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    '_id': id,
+    'group_number': groupNumber,
+    'group_name': groupName,
+    'total_members': totalMembers,
+    'chit_value': chitValue,
+    'monthly_installment': monthlyInstallment,
+    'duration_months': durationMonths,
+    'status': status,
+    'current_month': currentMonth,
+    'commencement_date': commencementDate.toIso8601String(),
+  };
 }

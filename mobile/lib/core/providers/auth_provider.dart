@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
 import '../services/fcm_service.dart';
+import '../services/socket_service.dart';
 
 class AuthProvider with ChangeNotifier {
   User? _user;
@@ -15,7 +16,7 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _hasLocalAccount = false;
   Timer? _inactivityTimer;
-  static const _inactivityDuration = Duration(minutes: 2);
+  static const _inactivityDuration = Duration(minutes: 10);
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -65,7 +66,7 @@ class AuthProvider with ChangeNotifier {
     if (_token != null && userJson != null) {
       _user = User.fromJson(jsonDecode(userJson));
       // Don't auto-authenticate on cold start — require MPIN re-entry
-      // _isAuthenticated stays false so splash redirects to /mpin
+      // _isAuthenticated stays false so splash redirects to /lock
     }
     notifyListeners();
   }
@@ -158,6 +159,8 @@ class AuthProvider with ChangeNotifier {
       final res = await ApiService.post('/auth/login', {
         'email': email,
         'password': password,
+        'device_name': SocketService.deviceName,
+        'platform': SocketService.devicePlatform,
       });
 
       if (res['success'] == true) {
@@ -183,6 +186,8 @@ class AuthProvider with ChangeNotifier {
       final res = await ApiService.post('/auth/login', {
         'mobile': mobile,
         'mpin': mpin,
+        'device_name': SocketService.deviceName,
+        'platform': SocketService.devicePlatform,
       });
 
       if (res['success'] == true) {
@@ -209,6 +214,8 @@ class AuthProvider with ChangeNotifier {
       final res = await ApiService.post('/auth/login-otp', {
         'mobile': mobile,
         'otp': otp,
+        'device_name': SocketService.deviceName,
+        'platform': SocketService.devicePlatform,
       });
 
       if (res['success'] == true) {
@@ -235,6 +242,8 @@ class AuthProvider with ChangeNotifier {
       final res = await ApiService.post('/auth/login', {
         'mobile': mobile,
         'mpin': mpin,
+        'device_name': SocketService.deviceName,
+        'platform': SocketService.devicePlatform,
       });
 
       if (res['success'] == true) {
@@ -270,6 +279,13 @@ class AuthProvider with ChangeNotifier {
 
     // Register FCM token for push notifications
     FcmService().registerTokenWithBackend();
+
+    // Connect user socket for multi-device alerts
+    final userId = _user!.id;
+    if (userId.isNotEmpty) {
+      SocketService.instance.setOnForceLogout(() => logout());
+      SocketService.instance.connect(userId);
+    }
 
     // Start inactivity timer
     _startInactivityTimer();
@@ -308,6 +324,9 @@ class AuthProvider with ChangeNotifier {
     _token = null;
     _isAuthenticated = false;
     _stopInactivityTimer();
+
+    // Disconnect user socket
+    SocketService.instance.disconnect();
 
     // Clear FCM token
     await FcmService().clearToken();

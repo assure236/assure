@@ -2,13 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/auction_provider.dart';
 import '../../../core/providers/dashboard_provider.dart';
 import '../../../core/providers/notification_provider.dart';
+import '../../../core/providers/payment_provider.dart';
 import '../../../core/services/local_notification_service.dart';
+import '../../../core/services/socket_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/onboarding_tour.dart';
 import '../../chit_groups/screens/chit_groups_screen.dart';
 import '../../auctions/screens/auctions_screen.dart';
 import '../../payments/screens/payments_screen.dart';
@@ -20,7 +24,8 @@ final _dtFmt = DateFormat('dd MMM yyyy');
 
 // ─── Main Shell with Bottom Nav ───────────────────────────────────────────────
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  final String? digilockerStatus;
+  const DashboardScreen({Key? key, this.digilockerStatus}) : super(key: key);
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -28,8 +33,59 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  bool _chatbotVisible = true;
+  bool _showTour = false;
 
-  void _switchTab(int index) => setState(() => _currentIndex = index);
+  @override
+  void initState() {
+    super.initState();
+    _loadChatbotPref();
+    _checkTour();
+    // Set context for SocketService multi-device alerts
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      SocketService.instance.setContext(context);
+      // Handle DigiLocker deep link return
+      if (widget.digilockerStatus != null) {
+        // Force refresh dashboard (bypass cache) to pick up new KYC status
+        context.read<DashboardProvider>().refresh();
+        if (widget.digilockerStatus == 'success') {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('DigiLocker connected! KYC verified.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('DigiLocker verification failed. Please try again.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    });
+  }
+
+  Future<void> _checkTour() async {
+    final show = await OnboardingTour.shouldShow();
+    if (show && mounted) setState(() => _showTour = true);
+  }
+
+  Future<void> _loadChatbotPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _chatbotVisible = prefs.getBool('chatbot_visible') ?? true;
+      });
+    }
+  }
+
+  void _switchTab(int index) {
+    setState(() => _currentIndex = index);
+    // Reload chatbot pref when switching back to home (in case toggled in More)
+    if (index == 0) _loadChatbotPref();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +146,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         ),
-        _DraggableFab(onTap: () => context.push('/chatbot')),
+        if (_chatbotVisible) _DraggableFab(onTap: () => context.push('/chatbot')),
+        if (_showTour) OnboardingTour(onComplete: () => setState(() => _showTour = false)),
         ],
         ),
       ),
@@ -116,6 +173,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
       if (mounted) {
         context.read<DashboardProvider>().fetchDashboard();
         context.read<NotificationProvider>().fetchNotifications();
+        context.read<PaymentProvider>().fetchPayments();
         // Start background notification polling (every 30 seconds)
         LocalNotificationService().startPolling(intervalSeconds: 30);
         // Listen to AuctionProvider changes to refresh dashboard
@@ -131,7 +189,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && mounted) {
-      context.read<DashboardProvider>().fetchDashboard();
+      context.read<DashboardProvider>().refresh();
     }
   }
 
@@ -156,7 +214,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
 
         if (dash.isLoading && dash.data == null) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF0F4F8),
+            backgroundColor: AppTheme.surfaceLight,
             body: Column(
               children: [
                 _HeaderSection(user: user, dash: dash, loading: true, onProfileTap: () => context.push('/edit-profile')),
@@ -168,7 +226,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
 
         if (dash.error != null && dash.data == null) {
           return Scaffold(
-            backgroundColor: const Color(0xFFF0F4F8),
+            backgroundColor: AppTheme.surfaceLight,
             body: Column(
               children: [
                 _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => context.push('/edit-profile')),
@@ -202,7 +260,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
         }
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF0F4F8),
+          backgroundColor: AppTheme.surfaceLight,
           body: RefreshIndicator(
             color: AppTheme.primaryColor,
             onRefresh: _refresh,
@@ -214,10 +272,14 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
                 ),
                 if (dash.kycStatus != 'verified' || !dash.isProfileComplete)
                   SliverToBoxAdapter(child: _KycProfileBanner(dash: dash, switchTab: widget.switchTab)),
+                SliverToBoxAdapter(child: _DuePaymentsReminder(switchTab: widget.switchTab)),
                 SliverToBoxAdapter(child: _StatsRow(dash: dash, switchTab: widget.switchTab)),
                 SliverToBoxAdapter(child: _ActiveChits(dash: dash, switchTab: widget.switchTab)),
                 if (dash.upcomingAuctions.isNotEmpty)
                   SliverToBoxAdapter(child: _UpcomingAuctions(dash: dash, switchTab: widget.switchTab)),
+                const SliverToBoxAdapter(child: _BecomeAgentCard()),
+                const SliverToBoxAdapter(child: _TrustBadges()),
+                const SliverToBoxAdapter(child: _PaymentPartners()),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
               ],
             ),
@@ -238,13 +300,6 @@ class _HeaderSection extends StatelessWidget {
   const _HeaderSection(
       {required this.user, required this.dash, required this.loading, this.onProfileTap});
 
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 12) return 'Good Morning';
-    if (h < 17) return 'Good Afternoon';
-    return 'Good Evening';
-  }
-
   @override
   Widget build(BuildContext context) {
     final firstName = (user?.fullName ?? 'Member').split(' ').first;
@@ -255,7 +310,7 @@ class _HeaderSection extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF071428), Color(0xFF1E3A8A), Color(0xFF0B1F3B)],
+          colors: [AppTheme.primaryDark, AppTheme.accentBlue, AppTheme.primaryColor],
         ),
       ),
       child: SafeArea(
@@ -296,16 +351,16 @@ class _HeaderSection extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            _greeting(),
-                            style: const TextStyle(
-                                color: Colors.white70, fontSize: 13),
-                          ),
-                          Text(
-                            firstName,
+                            'Hi, $firstName',
                             style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 20,
                                 fontWeight: FontWeight.bold),
+                          ),
+                          const Text(
+                            'Partners in Growth',
+                            style: TextStyle(
+                                color: Colors.white54, fontSize: 12),
                           ),
                         ],
                       ),
@@ -314,6 +369,11 @@ class _HeaderSection extends StatelessWidget {
                   ),
                   Row(
                     children: [
+                      // App logo
+                      ClipOval(
+                        child: Image.asset('assets/images/logo.png', width: 28, height: 28, fit: BoxFit.cover),
+                      ),
+                      const SizedBox(width: 4),
                       Consumer<NotificationProvider>(
                         builder: (context, notifProvider, _) {
                           final unread = notifProvider.unreadCount;
@@ -331,7 +391,7 @@ class _HeaderSection extends StatelessWidget {
                                   child: Container(
                                     padding: const EdgeInsets.all(4),
                                     decoration: const BoxDecoration(
-                                      color: Color(0xFFD4AF37),
+                                      color: AppTheme.secondaryColor,
                                       shape: BoxShape.circle,
                                     ),
                                     constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
@@ -348,7 +408,7 @@ class _HeaderSection extends StatelessWidget {
                       ),
                       IconButton(
                         onPressed: () => context.push('/support'),
-                        icon: const Icon(Icons.support_agent_rounded,
+                        icon: const Icon(Icons.headset_mic_rounded,
                             color: Colors.white, size: 26),
                         tooltip: 'Support',
                       ),
@@ -388,7 +448,7 @@ class _HeaderSection extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      kycVerified ? 'KYC Verified' : 'KYC Pending',
+                      kycVerified ? 'KYC Verified' : 'KYC Not Verified',
                       style: TextStyle(
                         color: kycVerified
                             ? Colors.greenAccent
@@ -405,19 +465,12 @@ class _HeaderSection extends StatelessWidget {
               GestureDetector(
                 onTap: () => context.push('/qr-scan'),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: Colors.white12,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.qr_code_scanner, color: Colors.white70, size: 14),
-                      SizedBox(width: 4),
-                      Text('Scan QR', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                    ],
-                  ),
+                  child: const Icon(Icons.qr_code_scanner, color: Colors.white70, size: 18),
                 ),
               ),
                 ],
@@ -446,9 +499,9 @@ class _KycProfileBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8E1),
+        color: AppTheme.lightYellowBg,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFD4AF37), width: 1),
+        border: Border.all(color: AppTheme.secondaryColor, width: 1),
         boxShadow: [
           BoxShadow(
               color: Colors.orange.withAlpha(26),
@@ -463,7 +516,7 @@ class _KycProfileBanner extends StatelessWidget {
             Row(
               children: [
                 const Icon(Icons.warning_amber_rounded,
-                    color: Color(0xFFD4AF37), size: 22),
+                    color: AppTheme.secondaryColor, size: 22),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Text('Complete Your KYC to unlock all features',
@@ -472,7 +525,7 @@ class _KycProfileBanner extends StatelessWidget {
                 TextButton(
                   onPressed: () => context.push('/kyc'),
                   style: TextButton.styleFrom(
-                      foregroundColor: const Color(0xFFD4AF37),
+                      foregroundColor: AppTheme.secondaryColor,
                       padding: EdgeInsets.zero,
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap),
@@ -489,7 +542,7 @@ class _KycProfileBanner extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.person_outline_rounded,
-                      color: Color(0xFF0B1F3B), size: 22),
+                      color: AppTheme.primaryColor, size: 22),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
@@ -504,21 +557,148 @@ class _KycProfileBanner extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: pct / 100,
                             minHeight: 6,
-                            backgroundColor: const Color(0xFFE3F2FD),
+                            backgroundColor: AppTheme.lightBlueBg,
                             valueColor: const AlwaysStoppedAnimation<Color>(
-                                Color(0xFF0B1F3B)),
+                                AppTheme.primaryColor),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(Icons.chevron_right, color: Color(0xFF0B1F3B), size: 20),
+                  const Icon(Icons.chevron_right, color: AppTheme.primaryColor, size: 20),
                 ],
               ),
             ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Due Payments Reminder (1-click pay) ──────────────────────────────────────
+class _DuePaymentsReminder extends StatelessWidget {
+  final void Function(int) switchTab;
+  const _DuePaymentsReminder({required this.switchTab});
+
+  @override
+  Widget build(BuildContext context) {
+    return Consumer<PaymentProvider>(
+      builder: (context, payProv, _) {
+        final due = payProv.upcomingPayments
+            .where((p) =>
+                p['payment_status'] == 'overdue' ||
+                (p['payment_status'] == 'pending' && p['can_pay'] == true))
+            .toList();
+        if (due.isEmpty) return const SizedBox.shrink();
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.secondaryColor.withAlpha(100)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.payment_rounded,
+                        color: AppTheme.primaryColor, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Due Payments (${due.length})',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: AppTheme.primaryColor),
+                    ),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => switchTab(3),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('View All',
+                          style: TextStyle(fontSize: 12)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ...due.take(2).map((p) {
+                  final group = (p['chit_group'] ?? p['chitGroup']) as Map<String, dynamic>? ?? {};
+                  final groupName = group['group_name']?.toString() ?? 'Chit Group';
+                  final amount = double.tryParse(p['total_amount']?.toString() ?? p['amount']?.toString() ?? '0') ?? 0;
+                  final isOverdue = p['payment_status'] == 'overdue';
+                  final month = p['month_number'] ?? '';
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isOverdue ? Icons.warning_amber_rounded : Icons.schedule,
+                          color: isOverdue ? AppTheme.errorColor : AppTheme.secondaryColor,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(groupName,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600, fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                              Text(
+                                isOverdue ? 'Overdue — Month $month' : 'Due — Month $month',
+                                style: TextStyle(
+                                    color: isOverdue ? AppTheme.errorColor : Colors.grey,
+                                    fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SizedBox(
+                          height: 32,
+                          child: ElevatedButton(
+                            onPressed: () => switchTab(3), // Go to Payments tab
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Text('Pay ${_inr.format(amount)}'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -543,8 +723,8 @@ class _StatsRow extends StatelessWidget {
                 label: 'Total Invested',
                 value: _inr.format(dash.totalInvested),
                 icon: Icons.savings_rounded,
-                iconBg: const Color(0xFFE3F2FD),
-                iconColor: const Color(0xFF1E3A8A),
+                iconBg: AppTheme.lightBlueBg,
+                iconColor: AppTheme.accentBlue,
               ),
             ),
           ),
@@ -556,7 +736,7 @@ class _StatsRow extends StatelessWidget {
                 label: 'Active Chits',
                 value: '${dash.activeGroups}',
                 icon: Icons.group_work_rounded,
-                iconBg: const Color(0xFFE8F5E9),
+                iconBg: AppTheme.lightGreenBg,
                 iconColor: const Color(0xFF2E7D32),
               ),
             ),
@@ -569,7 +749,7 @@ class _StatsRow extends StatelessWidget {
                 label: 'Loan',
                 value: 'Apply',
                 icon: Icons.account_balance_rounded,
-                iconBg: const Color(0xFFFFF3E0),
+                iconBg: AppTheme.lightOrangeBg,
                 iconColor: const Color(0xFFE65100),
               ),
             ),
@@ -652,18 +832,9 @@ class _ActiveChits extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('My Active Chits',
+            child: const Text('My Active Chits',
                     style:
                         TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                TextButton(
-                  onPressed: () => switchTab(1),
-                  child: const Text('View All'),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 10),
           memberships.isEmpty
@@ -745,7 +916,7 @@ class _ChitCard extends StatelessWidget {
   });
 
   static const _gradients = [
-    [Color(0xFF071428), Color(0xFF0B1F3B)],
+    [AppTheme.primaryDark, AppTheme.primaryColor],
     [Color(0xFF1B5E20), Color(0xFF388E3C)],
     [Color(0xFF4A148C), Color(0xFF7B1FA2)],
     [Color(0xFFBF360C), Color(0xFFE64A19)],
@@ -1013,6 +1184,219 @@ class _EmptyCard extends StatelessWidget {
   }
 }
 
+// ─── Become an Agent Card ─────────────────────────────────────────────────────
+class _BecomeAgentCard extends StatelessWidget {
+  const _BecomeAgentCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [AppTheme.primaryColor, AppTheme.accentBlue],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryColor.withAlpha(60),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(30),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.handshake_outlined, color: AppTheme.secondaryColor, size: 28),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Become an Agent',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text('Earn commissions by referring new members',
+                      style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12)),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.white70),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Trust Badges ─────────────────────────────────────────────────────────────
+class _TrustBadges extends StatelessWidget {
+  const _TrustBadges();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Trusted & Certified',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(child: _BadgeCard(
+                icon: Icons.verified_outlined,
+                label: 'ISO Certified',
+                color: const Color(0xFF1E88E5),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: _BadgeCard(
+                icon: Icons.account_balance_outlined,
+                label: 'Telangana Govt.\nRegistered',
+                color: const Color(0xFF43A047),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: _BadgeCard(
+                icon: Icons.shield_outlined,
+                label: 'DPIIT\nRegistered',
+                color: const Color(0xFFE65100),
+              )),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _BadgeCard({required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withAlpha(26),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Payment Partners ─────────────────────────────────────────────────────────
+class _PaymentPartners extends StatelessWidget {
+  const _PaymentPartners();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Our Payment Partners',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
+              ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _PartnerLogo(
+                  label: 'SBI',
+                  icon: Icons.account_balance,
+                  color: const Color(0xFF1A237E),
+                ),
+                Container(width: 1, height: 40, color: Colors.grey.shade200),
+                _PartnerLogo(
+                  label: 'Cashfree',
+                  icon: Icons.payments_outlined,
+                  color: const Color(0xFF6C3EC1),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PartnerLogo extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+
+  const _PartnerLogo({required this.label, required this.icon, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color.withAlpha(20),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 28),
+        ),
+        const SizedBox(height: 6),
+        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+      ],
+    );
+  }
+}
+
 // ─── Draggable Chatbot FAB ────────────────────────────────────────────────────
 class _DraggableFab extends StatefulWidget {
   final VoidCallback onTap;
@@ -1022,13 +1406,47 @@ class _DraggableFab extends StatefulWidget {
   State<_DraggableFab> createState() => _DraggableFabState();
 }
 
-class _DraggableFabState extends State<_DraggableFab> {
+class _DraggableFabState extends State<_DraggableFab>
+    with SingleTickerProviderStateMixin {
   Offset? _offset;
+  late AnimationController _snapController;
+  Animation<double>? _snapAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _snapController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+  }
+
+  @override
+  void dispose() {
+    _snapController.dispose();
+    super.dispose();
+  }
+
+  void _snapToEdge(Size screen) {
+    final center = _offset!.dx + 28;
+    final targetX =
+        center < screen.width / 2 ? 8.0 : screen.width - 64.0;
+
+    final startX = _offset!.dx;
+    _snapAnimation = Tween<double>(begin: startX, end: targetX)
+        .animate(CurvedAnimation(parent: _snapController, curve: Curves.easeOut))
+      ..addListener(() {
+        setState(() {
+          _offset = Offset(_snapAnimation!.value, _offset!.dy);
+        });
+      });
+    _snapController.forward(from: 0);
+  }
 
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.of(context).size;
-    _offset ??= Offset(screen.width - 72, screen.height - 160);
+    _offset ??= Offset(screen.width - 64, screen.height - 160);
 
     return Positioned(
       left: _offset!.dx,
@@ -1042,18 +1460,32 @@ class _DraggableFabState extends State<_DraggableFab> {
             );
           });
         },
+        onPanEnd: (_) => _snapToEdge(screen),
         onTap: widget.onTap,
         child: Container(
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: const Color(0xFF0B1F3B),
+            color: AppTheme.primaryColor,
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(color: Colors.black.withAlpha(60), blurRadius: 8, offset: const Offset(0, 3)),
             ],
           ),
-          child: const Icon(Icons.smart_toy_rounded, color: Colors.white, size: 28),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.smart_toy_outlined, color: AppTheme.primaryColor, size: 22),
+              ),
+            ],
+          ),
         ),
       ),
     );

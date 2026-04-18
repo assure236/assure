@@ -412,7 +412,7 @@ class _DividendCalculatorTabState extends State<_DividendCalculatorTab> {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF071428), Color(0xFF0B1F3B)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            gradient: const LinearGradient(colors: [AppTheme.primaryDark, AppTheme.primaryColor], begin: Alignment.topLeft, end: Alignment.bottomRight),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(children: [

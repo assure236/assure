@@ -27,13 +27,13 @@ class TermsScreen extends StatelessWidget {
             SizedBox(height: 20),
 
             _Section(title: '1. Acceptance of Terms',
-              body: 'By downloading, installing, or using the Assure ChitFunds mobile application ("App"), you agree to be bound by these Terms & Conditions. If you do not agree, please do not use the App.'),
+              body: 'By downloading, installing, or using the Assure Chit Funds mobile application ("App"), you agree to be bound by these Terms & Conditions. If you do not agree, please do not use the App.'),
 
             _Section(title: '2. Registration & Eligibility',
               body: 'You must be at least 18 years of age and a resident of India to register. You agree to provide accurate, current, and complete information during registration and to keep your account information updated. Each user may maintain only one account.'),
 
             _Section(title: '3. KYC Verification',
-              body: 'To participate in chit groups, you must complete Know Your Customer (KYC) verification by submitting valid identity documents (Aadhaar, PAN) and a live selfie. Assure ChitFunds reserves the right to reject or suspend accounts that fail verification.'),
+              body: 'To participate in chit groups, you must complete Know Your Customer (KYC) verification by submitting valid identity documents (Aadhaar, PAN) and a live selfie. Assure Chit Funds reserves the right to reject or suspend accounts that fail verification.'),
 
             _Section(title: '4. Chit Fund Participation',
               body: 'Chit fund groups are governed by the Chit Funds Act, 1982, and applicable state regulations. By enrolling in a chit group, you commit to making monthly installment payments for the entire duration of the chit. Failure to make timely payments may result in penalties, suspension from the group, and impact on your credit score.'),
@@ -48,13 +48,13 @@ class TermsScreen extends StatelessWidget {
               body: 'Dividends are the difference between the chit value and the winning bid, distributed equally among all members. Dividends are adjusted against monthly installments automatically.'),
 
             _Section(title: '8. Referral Program',
-              body: 'Referral rewards are credited after the referred user completes their first successful payment. Assure ChitFunds reserves the right to modify or discontinue the referral program at any time.'),
+              body: 'Referral rewards are credited after the referred user completes their first successful payment. Assure Chit Funds reserves the right to modify or discontinue the referral program at any time.'),
 
             _Section(title: '9. Intellectual Property',
-              body: 'All content, logos, trademarks, and software within the App are the property of Assure ChitFunds. You may not reproduce, distribute, or create derivative works without written consent.'),
+              body: 'All content, logos, trademarks, and software within the App are the property of Assure Chit Funds. You may not reproduce, distribute, or create derivative works without written consent.'),
 
             _Section(title: '10. Limitation of Liability',
-              body: 'Assure ChitFunds shall not be liable for any indirect, incidental, or consequential damages arising from the use of the App. Our total liability shall not exceed the amounts paid by you in the preceding 12 months.'),
+              body: 'Assure Chit Funds shall not be liable for any indirect, incidental, or consequential damages arising from the use of the App. Our total liability shall not exceed the amounts paid by you in the preceding 12 months.'),
 
             _Section(title: '11. Termination',
               body: 'We may suspend or terminate your account if you violate these terms, commit fraud, or default on payments. Upon termination, any outstanding obligations remain enforceable.'),

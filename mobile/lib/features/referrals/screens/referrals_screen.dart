@@ -55,10 +55,10 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
 
   void _shareCode(String code) {
     Share.share(
-      'Join Assure ChitFunds and invest smartly!\n'
+      'Join Assure Chit Funds and invest smartly!\n'
       'Use my referral code: $code\n'
       'Sign up at: https://assurechitfunds.com/register',
-      subject: 'Assure ChitFunds - Referral Invitation',
+      subject: 'Assure Chit Funds - Referral Invitation',
     );
   }
 
@@ -143,7 +143,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
+          colors: [AppTheme.primaryDark, AppTheme.primaryColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

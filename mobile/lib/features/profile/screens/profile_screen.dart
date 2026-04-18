@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/onboarding_tour.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -113,7 +115,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 background: Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
+                      colors: [AppTheme.primaryDark, AppTheme.primaryColor],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -234,14 +236,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _ProfileRow(
                             icon: Icons.home_outlined,
                             label: 'Permanent Address',
-                            value: [user!.address, user.city, user.state, user.pincode]
+                            value: [user.address, user.city, user.state, user.pincode]
                                 .where((s) => s != null && s.isNotEmpty)
                                 .join(', ')),
                       if (user?.currentAddress != null && user!.currentAddress!.isNotEmpty)
                         _ProfileRow(
                             icon: Icons.location_on_outlined,
                             label: 'Current Address',
-                            value: [user!.currentAddress, user.currentCity, user.currentState, user.currentPincode]
+                            value: [user.currentAddress, user.currentCity, user.currentState, user.currentPincode]
                                 .where((s) => s != null && s.isNotEmpty)
                                 .join(', ')),
                     ],
@@ -255,7 +257,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _ProfileRow(
                             icon: Icons.person_add_outlined,
                             label: 'Nominee',
-                            value: user!.nomineeName!),
+                            value: user.nomineeName!),
                         if (user.nomineeRelationship != null)
                           _ProfileRow(
                               icon: Icons.people_outline,
@@ -269,7 +271,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _SectionCard(
                       title: 'Bank Details',
                       children: [
-                        if (user!.bankName != null)
+                        if (user.bankName != null)
                           _ProfileRow(
                               icon: Icons.account_balance_outlined,
                               label: 'Bank',
@@ -346,6 +348,83 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Chit History
+                  _SectionCard(
+                    title: 'Chit History',
+                    children: [
+                      _MenuItem(
+                        icon: Icons.check_circle_outline,
+                        label: 'Completed Chits',
+                        subtitle: 'View your completed chit groups',
+                        onTap: () => context.push('/chit-history/completed'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.cancel_outlined,
+                        label: 'Cancelled Chits',
+                        subtitle: 'View cancelled chit groups',
+                        onTap: () => context.push('/chit-history/cancelled'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Chit Actions
+                  _SectionCard(
+                    title: 'Chit Actions',
+                    children: [
+                      _MenuItem(
+                        icon: Icons.swap_horiz,
+                        label: 'Transfer Chit',
+                        subtitle: 'Transfer your chit to another member',
+                        onTap: () => context.push('/transfer-chit'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.cancel_presentation_outlined,
+                        label: 'Cancel Chit',
+                        subtitle: 'Request cancellation of a chit',
+                        onTap: () => context.push('/cancel-chit'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Preferences
+                  _SectionCard(
+                    title: 'Preferences',
+                    children: [
+                      _ToggleMenuItem(
+                        icon: Icons.smart_toy_outlined,
+                        label: 'Show Chatbot',
+                        subtitle: 'Display chatbot assistant on home',
+                        prefKey: 'chatbot_visible',
+                        defaultValue: true,
+                      ),
+                      _MenuItem(
+                        icon: Icons.flag_outlined,
+                        label: 'Goal Setting',
+                        subtitle: 'Set investment targets & goals',
+                        onTap: () => context.push('/goals'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.tour_outlined,
+                        label: 'Take a Tour',
+                        subtitle: 'Replay the app walkthrough',
+                        onTap: () async {
+                          await OnboardingTour.reset();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Tour will show when you go to Home'),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
                   // Support
                   _SectionCard(
                     title: 'Support',
@@ -381,6 +460,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Account Actions',
                     children: [
                       _MenuItem(
+                        icon: Icons.devices,
+                        label: 'Logout All Devices',
+                        subtitle: 'Sign out from all logged in devices',
+                        isDestructive: true,
+                        onTap: () => _confirmLogoutAll(context, auth),
+                      ),
+                      _MenuItem(
                         icon: Icons.logout,
                         label: 'Logout',
                         isDestructive: true,
@@ -390,7 +476,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 32),
 
-                  Text('Assure ChitFunds v1.0.0',
+                  Text('Assure Chit Funds v1.0.0',
                       style:
                           TextStyle(color: Colors.grey[400], fontSize: 12)),
                   const SizedBox(height: 8),
@@ -431,62 +517,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  void _confirmLogoutAll(BuildContext context, AuthProvider auth) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Logout All Devices'),
+        content: const Text(
+            'This will sign you out from all devices including this one. You will need to log in again.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ApiService.post('/auth/logout-all-devices', {});
+              } catch (_) {}
+              await auth.logout();
+              if (context.mounted) context.go('/welcome');
+            },
+            style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.errorColor,
+                foregroundColor: Colors.white),
+            child: const Text('Logout All'),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _kycLabel(String? status) {
     switch (status) {
       case 'verified': return 'Verified';
-      case 'pending': return 'Pending';
+      case 'pending': return 'Under Review';
       case 'rejected': return 'Rejected';
-      default: return 'Not Started';
+      case 'not_verified': return 'Not Verified';
+      default: return 'Not Verified';
     }
   }
 
-  Color _kycColor(String? status) {
-    switch (status) {
-      case 'verified': return AppTheme.successColor;
-      case 'pending': return Colors.orange;
-      case 'rejected': return AppTheme.errorColor;
-      default: return Colors.grey;
-    }
-  }
-
-}
-
-class _StatCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final Color color;
-  final IconData icon;
-
-  const _StatCard(
-      {required this.label,
-      required this.value,
-      required this.color,
-      required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-                color: Colors.black.withAlpha(13),
-                blurRadius: 8,
-                offset: const Offset(0, 2))
-          ]),
-      child: Column(children: [
-        Icon(icon, color: color, size: 28),
-        const SizedBox(height: 8),
-        Text(value,
-            style: TextStyle(
-                color: color, fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label,
-            style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-      ]),
-    );
-  }
 }
 
 class _SectionCard extends StatelessWidget {
@@ -592,6 +663,73 @@ class _MenuItem extends StatelessWidget {
               size: 14, color: Colors.grey[400]),
         ]),
       ),
+    );
+  }
+}
+
+class _ToggleMenuItem extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final String? subtitle;
+  final String prefKey;
+  final bool defaultValue;
+
+  const _ToggleMenuItem({
+    required this.icon,
+    required this.label,
+    this.subtitle,
+    required this.prefKey,
+    this.defaultValue = true,
+  });
+
+  @override
+  State<_ToggleMenuItem> createState() => _ToggleMenuItemState();
+}
+
+class _ToggleMenuItemState extends State<_ToggleMenuItem> {
+  bool _value = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPref();
+  }
+
+  Future<void> _loadPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _value = prefs.getBool(widget.prefKey) ?? widget.defaultValue;
+    });
+  }
+
+  Future<void> _toggle(bool val) async {
+    setState(() => _value = val);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(widget.prefKey, val);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(children: [
+        Icon(widget.icon, size: 22, color: AppTheme.primaryColor),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(widget.label,
+                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+            if (widget.subtitle != null)
+              Text(widget.subtitle!,
+                  style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+          ]),
+        ),
+        Switch(
+          value: _value,
+          onChanged: _toggle,
+          activeColor: AppTheme.primaryColor,
+        ),
+      ]),
     );
   }
 }

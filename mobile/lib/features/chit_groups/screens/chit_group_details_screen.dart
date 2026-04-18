@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers/chit_group_provider.dart';
 import '../../../core/providers/payment_provider.dart';
@@ -46,42 +47,35 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
           backgroundColor: AppTheme.backgroundColor,
           body: RefreshIndicator(
             onRefresh: () => provider.fetchChitGroupDetails(widget.groupId),
-            child: CustomScrollView(
-              slivers: [
-                _buildAppBar(group),
-                if (provider.isLoading)
-                  const SliverFillRemaining(
-                      child: Center(child: CircularProgressIndicator()))
-                else if (group == null)
-                  SliverFillRemaining(
-                    child: Center(
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-                        const SizedBox(height: 12),
-                        const Text('Group not found'),
-                        const SizedBox(height: 12),
-                        TextButton(
-                            onPressed: () => context.pop(),
-                            child: const Text('Go Back')),
-                      ]),
-                    ),
-                  )
-                else ...[
-                  SliverToBoxAdapter(child: _buildHeader(group)),
-                  SliverToBoxAdapter(child: _buildTabBar()),
-                  SliverFillRemaining(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _OverviewTab(group: group),
-                        _MembersTab(groupId: widget.groupId),
-                        _PaymentScheduleTab(groupId: widget.groupId),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            child: provider.isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : group == null
+                    ? Center(
+                        child: Column(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                          const SizedBox(height: 12),
+                          const Text('Group not found'),
+                          const SizedBox(height: 12),
+                          TextButton(
+                              onPressed: () => context.pop(),
+                              child: const Text('Go Back')),
+                        ]),
+                      )
+                    : NestedScrollView(
+                        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                          _buildAppBar(group),
+                          SliverToBoxAdapter(child: _buildHeader(group)),
+                          SliverToBoxAdapter(child: _buildTabBar()),
+                        ],
+                        body: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            _OverviewTab(group: group),
+                            _PrizedTicketsTab(groupId: widget.groupId),
+                            _PaymentHistoryTab(groupId: widget.groupId),
+                          ],
+                        ),
+                      ),
           ),
         );
       },
@@ -102,7 +96,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
         background: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
+              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -122,7 +116,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0B1F3B), Color(0xFF071428)],
+          colors: [AppTheme.primaryColor, AppTheme.primaryDark],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -130,22 +124,39 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-                color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-            child: Text(group.groupNumber,
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12)),
+          Expanded(
+            child: GestureDetector(
+              onTap: () {
+                final psoNo = group.groupNumber;
+                final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=$psoNo';
+                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                    color: Colors.white24, borderRadius: BorderRadius.circular(20)),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('PSO: ${group.groupNumber}',
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.white70)),
+                    const SizedBox(width: 4),
+                    const Icon(Icons.open_in_new, color: Colors.white70, size: 12),
+                  ],
+                ),
+              ),
+            ),
           ),
-          const Spacer(),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
                 color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-            child: Text(group.status.toUpperCase(),
+            child: Text('Auction (Monthly)',
                 style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -173,7 +184,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
         ),
         const SizedBox(height: 16),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Month ${group.currentMonth} of ${group.durationMonths}',
+          Text('Months Completed: ${group.currentMonth}/${group.durationMonths}',
               style: const TextStyle(color: Colors.white70, fontSize: 12)),
           Text('${(progress * 100).toStringAsFixed(0)}%',
               style: const TextStyle(
@@ -205,8 +216,8 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
         indicatorColor: AppTheme.primaryColor,
         tabs: const [
           Tab(text: 'Overview'),
-          Tab(text: 'Members'),
-          Tab(text: 'Schedule'),
+          Tab(text: 'Prized Tickets'),
+          Tab(text: 'Payment History'),
         ],
       ),
     );
@@ -244,7 +255,7 @@ class _OverviewTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final df = DateFormat('dd MMM yyyy');
+    final commencedIn = DateFormat('MMMM yyyy').format(group.commencementDate);
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -252,37 +263,37 @@ class _OverviewTab extends StatelessWidget {
           title: 'Group Details',
           children: [
             _DetailRow('Group Name', group.groupName),
-            _DetailRow('Group Number', group.groupNumber),
-            _DetailRow('Status', group.status.toUpperCase()),
+            _DetailRow(
+              'PSO No.',
+              group.groupNumber,
+              isLink: true,
+              onTap: () {
+                final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=${group.groupNumber}';
+                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+              },
+            ),
+            _DetailRow('Auction', 'Monthly'),
             _DetailRow('Chit Value', '₹${_fmt(group.chitValue)}'),
             _DetailRow('Monthly Installment', '₹${_fmt(group.monthlyInstallment)}'),
             _DetailRow('Total Members', '${group.totalMembers}'),
-            _DetailRow('Duration', '${group.durationMonths} months'),
-            _DetailRow('Current Month', '${group.currentMonth}'),
-            _DetailRow('Commencement Date', df.format(group.commencementDate)),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _SectionCard(
-          title: 'Payment Info',
-          children: [
-            _DetailRow('Monthly Amount', '₹${_fmt(group.monthlyInstallment)}'),
-            _DetailRow(
-                'Total Chit Value', '₹${_fmt(group.chitValue)}'),
-            _DetailRow('Late Fee', 'As per terms'),
-            _DetailRow('Next Due Date', _nextDue(group)),
+            _DetailRow('Months Completed', '${group.currentMonth}/${group.durationMonths}'),
+            _DetailRow('Commenced in', commencedIn),
           ],
         ),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () => context.push('/payments'),
-            icon: const Icon(Icons.payment),
-            label: const Text('Pay Installment'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.secondaryColor,
-              foregroundColor: Colors.white,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              final psoNo = group.groupNumber;
+              final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=$psoNo';
+              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+            },
+            icon: const Icon(Icons.info_outline, size: 18),
+            label: const Text('More Info — PSO Certificate'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.primaryColor,
+              side: const BorderSide(color: AppTheme.primaryColor),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
@@ -297,29 +308,19 @@ class _OverviewTab extends StatelessWidget {
     final f = NumberFormat('#,##,###');
     return f.format(v);
   }
-
-  String _nextDue(dynamic group) {
-    try {
-      final date = group.commencementDate
-          .add(Duration(days: 30 * (group.currentMonth as num).toInt()));
-      return DateFormat('dd MMM yyyy').format(date);
-    } catch (_) {
-      return 'N/A';
-    }
-  }
 }
 
-// ─── MEMBERS TAB ──────────────────────────────────────────────────────────────
+// ─── PRIZED TICKETS TAB ───────────────────────────────────────────────────────
 
-class _MembersTab extends StatefulWidget {
+class _PrizedTicketsTab extends StatefulWidget {
   final String groupId;
-  const _MembersTab({required this.groupId});
+  const _PrizedTicketsTab({required this.groupId});
 
   @override
-  State<_MembersTab> createState() => _MembersTabState();
+  State<_PrizedTicketsTab> createState() => _PrizedTicketsTabState();
 }
 
-class _MembersTabState extends State<_MembersTab> {
+class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
   bool _loading = true;
   List<Map<String, dynamic>> _members = [];
 
@@ -343,51 +344,94 @@ class _MembersTabState extends State<_MembersTab> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_members.isEmpty) {
+
+    final winners = _members.where((m) => m['is_prize_winner'] == true).toList();
+
+    if (winners.isEmpty) {
       return const Center(
-          child: Text('No member data available.',
-              style: TextStyle(color: Colors.grey)));
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.emoji_events_outlined, size: 48, color: Colors.grey),
+              SizedBox(height: 12),
+              Text('No prized tickets yet',
+                  style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
+              SizedBox(height: 4),
+              Text('Winners will appear here after auctions',
+                  style: TextStyle(color: Colors.grey, fontSize: 12)),
+            ],
+          ));
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      itemCount: _members.length,
+      itemCount: winners.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
-        final m = _members[i];
+        final m = winners[i];
         final userObj = (m['user_id'] as Map<String, dynamic>?) ??
             (m['user'] as Map<String, dynamic>?);
-        final name = userObj?['full_name'] ?? 'Member ${i + 1}';
-        final memberId = userObj?['member_id'] ?? '';
-        final isPrize = m['is_prize_winner'] == true;
+        final ticketNo = m['ticket_number'] ?? (i + 1);
+        final name = 'Ticket #$ticketNo';
+        final auctionMonth = m['auction_month'] ?? m['prize_month'] ?? '';
+        final prizeAmount = m['prize_amount'] ?? m['bid_amount'] ?? 0;
+        final fmtAmt = NumberFormat('#,##,###').format(
+            double.tryParse(prizeAmount.toString()) ?? 0);
+
         return Card(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: AppTheme.primaryColor.withAlpha(26),
-              child: Text('${i + 1}',
-                  style: const TextStyle(
-                      color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withAlpha(30),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text('$ticketNo',
+                        style: const TextStyle(
+                            color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1),
+                      const SizedBox(height: 2),
+                      Text('Month $auctionMonth',
+                          style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('₹$fmtAmt',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.successColor,
+                            fontSize: 14)),
+                    const SizedBox(height: 2),
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.emoji_events, size: 12, color: Colors.amber),
+                        SizedBox(width: 4),
+                        Text('Winner', style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
             ),
-            title: Text(name,
-                style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(memberId, style: TextStyle(color: Colors.grey[500])),
-            trailing: isPrize
-                ? Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                        color: Colors.amber.withAlpha(38),
-                        borderRadius: BorderRadius.circular(8)),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.emoji_events, size: 14, color: Colors.amber),
-                      SizedBox(width: 4),
-                      Text('Won',
-                          style: TextStyle(
-                              color: Colors.amber,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold)),
-                    ]),
-                  )
-                : null,
           ),
         );
       },
@@ -395,17 +439,17 @@ class _MembersTabState extends State<_MembersTab> {
   }
 }
 
-// ─── PAYMENT SCHEDULE TAB ─────────────────────────────────────────────────────
+// ─── PAYMENT HISTORY TAB ──────────────────────────────────────────────────────
 
-class _PaymentScheduleTab extends StatefulWidget {
+class _PaymentHistoryTab extends StatefulWidget {
   final String groupId;
-  const _PaymentScheduleTab({required this.groupId});
+  const _PaymentHistoryTab({required this.groupId});
 
   @override
-  State<_PaymentScheduleTab> createState() => _PaymentScheduleTabState();
+  State<_PaymentHistoryTab> createState() => _PaymentHistoryTabState();
 }
 
-class _PaymentScheduleTabState extends State<_PaymentScheduleTab> {
+class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
   bool _loading = true;
   List<Map<String, dynamic>> _payments = [];
 
@@ -747,7 +791,9 @@ class _SectionCard extends StatelessWidget {
 class _DetailRow extends StatelessWidget {
   final String label;
   final String value;
-  const _DetailRow(this.label, this.value);
+  final bool isLink;
+  final VoidCallback? onTap;
+  const _DetailRow(this.label, this.value, {this.isLink = false, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -757,9 +803,26 @@ class _DetailRow extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          Text(value,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w600, fontSize: 13)),
+          isLink
+              ? GestureDetector(
+                  onTap: onTap,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(value,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                              color: AppTheme.primaryColor,
+                              decoration: TextDecoration.underline)),
+                      const SizedBox(width: 4),
+                      const Icon(Icons.open_in_new, size: 12, color: AppTheme.primaryColor),
+                    ],
+                  ),
+                )
+              : Text(value,
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13)),
         ],
       ),
     );

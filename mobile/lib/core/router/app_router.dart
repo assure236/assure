@@ -5,10 +5,13 @@ import '../../features/auth/screens/splash_screen.dart';
 import '../../features/auth/screens/welcome_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/register_screen.dart';
-import '../../features/auth/screens/mpin_screen.dart';
+import '../../features/auth/screens/lock_screen.dart';
 import '../../features/dashboard/screens/dashboard_screen.dart';
 import '../../features/chit_groups/screens/chit_groups_screen.dart';
 import '../../features/chit_groups/screens/chit_group_details_screen.dart';
+import '../../features/chit_groups/screens/chit_history_screen.dart';
+import '../../features/chit_groups/screens/transfer_chit_screen.dart';
+import '../../features/chit_groups/screens/cancel_chit_screen.dart';
 import '../../features/auctions/screens/auctions_screen.dart';
 import '../../features/auctions/screens/auction_room_screen.dart';
 import '../../features/payments/screens/payments_screen.dart';
@@ -28,22 +31,41 @@ import '../../features/chatbot/screens/chatbot_screen.dart';
 import '../../features/legal/screens/terms_screen.dart';
 import '../../features/legal/screens/privacy_policy_screen.dart';
 import '../../features/loans/screens/apply_loan_screen.dart';
+import '../../features/goals/screens/goal_setting_screen.dart';
 
 class AppRouter {
   static GoRouter router(AuthProvider authProvider) {
     return GoRouter(
       initialLocation: '/splash',
+      refreshListenable: authProvider, // Listen to auth changes without recreating router
       redirect: (context, state) {
+        // Handle custom scheme deep links (e.g., assurechitfunds://kyc?digilocker=success)
+        final uri = state.uri;
+        if (uri.scheme == 'assurechitfunds') {
+          final host = uri.host;
+          final query = uri.query;
+          return query.isNotEmpty ? '/$host?$query' : '/$host';
+        }
+
         final isAuthenticated = authProvider.isAuthenticated;
         final hasLocalAccount = authProvider.hasLocalAccount;
         final loc = state.matchedLocation;
 
-        const publicRoutes = ['/splash', '/welcome', '/login', '/register', '/mpin'];
+        const publicRoutes = ['/splash', '/welcome', '/login', '/register', '/lock'];
         final isPublic = publicRoutes.contains(loc);
 
-        // Only guard private routes — auth screens are always reachable
-        if (!isPublic && !isAuthenticated) {
-          return hasLocalAccount ? '/mpin' : '/welcome';
+        // Don't redirect while on auth screens — let user complete their flow
+        if (isPublic) {
+          // Only redirect authenticated users away from auth screens to dashboard
+          if (isAuthenticated && loc != '/splash') {
+            return '/dashboard';
+          }
+          return null;
+        }
+
+        // Guard private routes — redirect unauthenticated users
+        if (!isAuthenticated) {
+          return hasLocalAccount ? '/lock' : '/welcome';
         }
         return null;
       },
@@ -65,12 +87,15 @@ class AppRouter {
           builder: (context, state) => const RegisterScreen(),
         ),
         GoRoute(
-          path: '/mpin',
-          builder: (context, state) => const MpinScreen(),
+          path: '/lock',
+          builder: (context, state) => const LockScreen(),
         ),
         GoRoute(
           path: '/dashboard',
-          builder: (context, state) => const DashboardScreen(),
+          builder: (context, state) {
+            final digilockerStatus = state.uri.queryParameters['digilocker'];
+            return DashboardScreen(digilockerStatus: digilockerStatus);
+          },
         ),
         GoRoute(
           path: '/chit-groups',
@@ -104,11 +129,17 @@ class AppRouter {
         ),
         GoRoute(
           path: '/kyc',
-          builder: (context, state) => const KycScreen(),
+          builder: (context, state) {
+            final digilockerStatus = state.uri.queryParameters['digilocker'];
+            return KycScreen(digilockerStatus: digilockerStatus);
+          },
         ),
         GoRoute(
           path: '/documents',
-          builder: (context, state) => const DocumentsScreen(),
+          builder: (context, state) {
+            final digilockerStatus = state.uri.queryParameters['digilocker'];
+            return DocumentsScreen(digilockerStatus: digilockerStatus);
+          },
         ),
         GoRoute(
           path: '/notifications',
@@ -161,6 +192,25 @@ class AppRouter {
         GoRoute(
           path: '/apply-loan',
           builder: (context, state) => const ApplyLoanScreen(),
+        ),
+        GoRoute(
+          path: '/chit-history/:status',
+          builder: (context, state) {
+            final status = state.pathParameters['status']!;
+            return ChitHistoryScreen(status: status);
+          },
+        ),
+        GoRoute(
+          path: '/transfer-chit',
+          builder: (context, state) => const TransferChitScreen(),
+        ),
+        GoRoute(
+          path: '/cancel-chit',
+          builder: (context, state) => const CancelChitScreen(),
+        ),
+        GoRoute(
+          path: '/goals',
+          builder: (context, state) => const GoalSettingScreen(),
         ),
       ],
     );

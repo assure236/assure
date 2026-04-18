@@ -41,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (auth.isAuthenticated) {
       context.go('/dashboard');
     } else if (auth.hasLocalAccount) {
-      context.go('/mpin');
+      context.go('/lock');
     } else {
       context.go('/welcome');
     }
@@ -66,23 +66,25 @@ class _SplashScreenState extends State<SplashScreen>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Container(
-                  width: 100,
-                  height: 100,
+                  width: 120,
+                  height: 120,
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(38),
                     shape: BoxShape.circle,
                   ),
+                  alignment: Alignment.center,
                   child: ClipOval(
                     child: Image.asset(
                       'assets/images/logo.png',
-                      width: 80,
-                      height: 80,
+                      width: 90,
+                      height: 90,
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
-                  'Assure ChitFunds',
+                  'Assure Chit Funds',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 28,
@@ -92,7 +94,7 @@ class _SplashScreenState extends State<SplashScreen>
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Secure. Transparent. Rewarding.',
+                  'Partners in Growth',
                   style: TextStyle(
                     color: Colors.white70,
                     fontSize: 15,

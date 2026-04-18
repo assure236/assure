@@ -171,7 +171,8 @@ const Profile = () => {
   };
 
   const kycStatus = user?.kyc_status || 'pending';
-  const kycColors = { verified: 'success', pending: 'warning', rejected: 'error' };
+  const kycColors = { verified: 'success', pending: 'warning', rejected: 'error', not_verified: 'warning' };
+  const kycLabels = { verified: 'Verified', pending: 'Under Review', rejected: 'Rejected', not_verified: 'Not Verified' };
   const initials = (user?.full_name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
   return (
@@ -209,7 +210,7 @@ const Profile = () => {
                   <KycIcon color={kycStatus === 'verified' ? 'success' : 'disabled'} />
                   <Typography variant="body2">KYC Status</Typography>
                 </Box>
-                <Chip label={kycStatus} size="small" color={kycColors[kycStatus] || 'default'}
+                <Chip label={kycLabels[kycStatus] || 'Not Verified'} size="small" color={kycColors[kycStatus] || 'warning'}
                   sx={{ textTransform: 'capitalize' }} />
               </Box>
               <Divider sx={{ mb: 2 }} />

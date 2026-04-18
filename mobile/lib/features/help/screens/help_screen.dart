@@ -30,7 +30,7 @@ class _HelpScreenState extends State<HelpScreen>
 
   static const _tutorials = [
     {
-      'title': 'Getting Started with Assure ChitFunds',
+      'title': 'Getting Started with Assure Chit Funds',
       'desc': 'Learn how to create your account, complete KYC, and enroll in your first chit.',
       'duration': '5 min',
       'icon': Icons.play_circle_outline,
@@ -96,7 +96,7 @@ class _HelpScreenState extends State<HelpScreen>
     },
     {
       'q': 'Is my money safe?',
-      'a': 'Yes. Assure ChitFunds is a registered chit fund company regulated by the State Government under the Chit Funds Act. All transactions are recorded and audited.',
+      'a': 'Yes. Assure Chit Funds is a registered chit fund company regulated by the State Government under the Chit Funds Act. All transactions are recorded and audited.',
     },
     {
       'q': 'What is the referral program?',
@@ -210,7 +210,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF071428), Color(0xFF0B1F3B)],
+          colors: [AppTheme.primaryDark, AppTheme.primaryColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

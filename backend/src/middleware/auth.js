@@ -76,6 +76,11 @@ const authMiddleware = async (req, res, next) => {
     if (!user) return res.status(401).json({ success: false, message: 'User not found.' });
     if (!user.is_active) return res.status(403).json({ success: false, message: 'Account deactivated.' });
 
+    // Check token_version — if bumped via logout-all-devices, reject old tokens
+    if (decoded.tv !== undefined && decoded.tv !== (user.token_version || 0)) {
+      return res.status(401).json({ success: false, message: 'Session invalidated. Please login again.' });
+    }
+
     req.user = user;
     next();
   } catch (error) {

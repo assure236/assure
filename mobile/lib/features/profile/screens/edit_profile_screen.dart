@@ -155,7 +155,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
-      await context.read<AuthProvider>().updateProfile({
+      final res = await ApiService.put('/users/profile', {
         'full_name': _nameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
         if (_panCtrl.text.trim().isNotEmpty) 'pan_number': _panCtrl.text.trim().toUpperCase(),
@@ -176,10 +176,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         if (_currentPincodeCtrl.text.trim().isNotEmpty) 'current_pincode': _currentPincodeCtrl.text.trim(),
       });
       if (mounted) {
+        await context.read<AuthProvider>().refreshProfile();
+        final pendingApproval = res['pending_approval'] == true;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Profile updated successfully'),
-            backgroundColor: AppTheme.successColor,
+          SnackBar(
+            content: Text(pendingApproval
+                ? 'Saved! Some changes need admin approval.'
+                : 'Profile updated successfully'),
+            backgroundColor: pendingApproval ? Colors.orange : AppTheme.successColor,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -232,6 +236,61 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Form(
           key: _formKey,
           child: Column(children: [
+            // Pending approval banner
+            if (user?.profileEditStatus == 'pending')
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(children: [
+                  Icon(Icons.hourglass_top, color: Colors.orange.shade700, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Changes Pending Approval',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange.shade900)),
+                        const SizedBox(height: 2),
+                        Text('Some field changes are awaiting admin review.',
+                            style: TextStyle(fontSize: 11, color: Colors.orange.shade700)),
+                      ],
+                    ),
+                  ),
+                ]),
+              ),
+            if (user?.profileEditStatus == 'rejected')
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red.shade200),
+                ),
+                child: Row(children: [
+                  Icon(Icons.cancel_outlined, color: Colors.red.shade700, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Changes Rejected',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red.shade900)),
+                        const SizedBox(height: 2),
+                        Text(user?.profileEditRejectionReason ?? 'Your profile changes were rejected by admin.',
+                            style: TextStyle(fontSize: 11, color: Colors.red.shade700)),
+                      ],
+                    ),
+                  ),
+                ]),
+              ),
             // Avatar
             Center(
               child: GestureDetector(
@@ -511,7 +570,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Some fields like Aadhaar and mobile number require verification and can only be updated via KYC process.',
+                    'Changes to Name, Email, PAN and Bank details require admin approval for security.',
                     style: TextStyle(color: Colors.blue, fontSize: 12),
                   ),
                 ),
