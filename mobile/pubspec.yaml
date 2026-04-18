@@ -1,7 +1,7 @@
 name: assure_chitfunds
 description: Assure Chit Funds Mobile Application
 publish_to: 'none'
-version: 1.0.0+2002
+version: 1.0.0+2003
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -34,7 +34,6 @@ dependencies:
   
   # QR Code
   qr_flutter: ^4.1.0
-  mobile_scanner: ^6.0.11
   
   # Local Notifications
   flutter_local_notifications: ^18.0.1

@@ -84,7 +84,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _switchTab(int index) {
     setState(() => _currentIndex = index);
     // Reload chatbot pref when switching back to home (in case toggled in More)
-    if (index == 0) _loadChatbotPref();
+    if (index == 0) {
+      _loadChatbotPref();
+      _checkTour();
+    }
   }
 
   @override
@@ -107,7 +110,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const ChitGroupsScreen(),
             const AuctionsScreen(),
             const PaymentsScreen(),
-            const ProfileScreen(),
+            ProfileScreen(switchTab: _switchTab),
           ],
         ),
         bottomNavigationBar: NavigationBar(

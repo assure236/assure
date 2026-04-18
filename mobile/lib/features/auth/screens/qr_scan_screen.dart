@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
@@ -13,30 +13,56 @@ class QrScanScreen extends StatefulWidget {
 }
 
 class _QrScanScreenState extends State<QrScanScreen> {
-  final MobileScannerController _controller = MobileScannerController();
+  static const _channel = MethodChannel('com.assure.chitfunds/qr_scanner');
   bool _isProcessing = false;
 
   @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _startScan());
   }
 
-  Future<void> _onDetect(BarcodeCapture capture) async {
+  Future<void> _startScan() async {
     if (_isProcessing) return;
-    final barcode = capture.barcodes.firstOrNull;
-    final raw = barcode?.rawValue;
-    if (raw == null || !raw.startsWith('assure://qr-login?session=')) return;
+    try {
+      final raw = await _channel.invokeMethod<String>('scanQR');
+      if (raw == null || !mounted) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      if (!raw.startsWith('assure://qr-login?session=')) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid QR code. Please scan the Assure web portal QR.'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+          Navigator.of(context).pop();
+        }
+        return;
+      }
 
-    final uri = Uri.parse(raw.replaceFirst('assure://', 'https://'));
-    final sessionId = uri.queryParameters['session'];
-    if (sessionId == null || sessionId.isEmpty) return;
+      final uri = Uri.parse(raw.replaceFirst('assure://', 'https://'));
+      final sessionId = uri.queryParameters['session'];
+      if (sessionId == null || sessionId.isEmpty) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
 
-    setState(() => _isProcessing = true);
-    await _controller.stop();
-
-    if (!mounted) return;
-    _showConfirmDialog(sessionId);
+      setState(() => _isProcessing = true);
+      if (mounted) _showConfirmDialog(sessionId);
+    } on PlatformException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Scan error: ${e.message}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    }
   }
 
   void _showConfirmDialog(String sessionId) {
@@ -61,7 +87,8 @@ class _QrScanScreenState extends State<QrScanScreen> {
               children: [
                 Icon(Icons.shield, color: Colors.green, size: 16),
                 SizedBox(width: 4),
-                Text('Secure login via QR code', style: TextStyle(fontSize: 12, color: Colors.green)),
+                Text('Secure login via QR code',
+                    style: TextStyle(fontSize: 12, color: Colors.green)),
               ],
             ),
           ],
@@ -70,8 +97,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              setState(() => _isProcessing = false);
-              _controller.start();
+              Navigator.of(context).pop();
             },
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
@@ -115,12 +141,12 @@ class _QrScanScreenState extends State<QrScanScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // close dialog
+              Navigator.of(context).pop();
               if (success) {
-                Navigator.of(context).pop(); // go back to previous screen
+                Navigator.of(context).pop();
               } else {
                 setState(() => _isProcessing = false);
-                _controller.start();
+                _startScan();
               }
             },
             child: Text(success ? 'Done' : 'Try Again'),
@@ -138,91 +164,28 @@ class _QrScanScreenState extends State<QrScanScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         title: const Text('Scan Web QR Code'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.flash_on),
-            tooltip: 'Toggle flash',
-            onPressed: () => _controller.toggleTorch(),
-          ),
-        ],
       ),
-      body: Stack(
-        children: [
-          MobileScanner(controller: _controller, onDetect: _onDetect),
-          // Dark overlay with cutout
-          CustomPaint(painter: _OverlayPainter(), child: const SizedBox.expand()),
-          // Bottom instructions
-          Positioned(
-            bottom: 48,
-            left: 16,
-            right: 16,
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withAlpha(153),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    'Point camera at the QR code on the\nAssure Chit Funds web portal',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
-                  ),
-                ),
-                if (_isProcessing) ...[
-                  const SizedBox(height: 20),
-                  const CircularProgressIndicator(color: Colors.white),
-                  const SizedBox(height: 8),
-                  const Text('Confirming login...',
-                      style: TextStyle(color: Colors.white, fontSize: 14)),
+      body: Center(
+        child: _isProcessing
+            ? const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Colors.white),
+                  SizedBox(height: 16),
+                  Text('Confirming login...',
+                      style: TextStyle(color: Colors.white, fontSize: 16)),
                 ],
-              ],
-            ),
-          ),
-        ],
+              )
+            : const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.qr_code_scanner, color: Colors.white54, size: 80),
+                  SizedBox(height: 16),
+                  Text('Opening scanner...',
+                      style: TextStyle(color: Colors.white54, fontSize: 16)),
+                ],
+              ),
       ),
     );
   }
-}
-
-class _OverlayPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final overlayPaint = Paint()..color = Colors.black54;
-    final cutSize = size.width * 0.72;
-    final left = (size.width - cutSize) / 2;
-    final top = (size.height - cutSize) / 2 - 40;
-    final cutout = Rect.fromLTWH(left, top, cutSize, cutSize);
-
-    canvas.drawPath(
-      Path.combine(
-        PathOperation.difference,
-        Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)),
-        Path()..addRRect(RRect.fromRectAndRadius(cutout, const Radius.circular(16))),
-      ),
-      overlayPaint,
-    );
-
-    final cornerPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    const cLen = 28.0;
-    for (final corner in [
-      [cutout.topLeft, const Offset(cLen, 0), const Offset(0, cLen)],
-      [cutout.topRight, const Offset(-cLen, 0), const Offset(0, cLen)],
-      [cutout.bottomLeft, const Offset(cLen, 0), const Offset(0, -cLen)],
-      [cutout.bottomRight, const Offset(-cLen, 0), const Offset(0, -cLen)],
-    ]) {
-      final origin = corner[0];
-      canvas.drawLine(origin, origin + corner[1], cornerPaint);
-      canvas.drawLine(origin, origin + corner[2], cornerPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(_) => false;
 }

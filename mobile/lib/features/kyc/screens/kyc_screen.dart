@@ -204,12 +204,12 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
             const SizedBox(height: 20),
             _buildStepsCard(panVerified, aadhaarVerified, digilockerConnected),
             const SizedBox(height: 20),
-            if (!panVerified) ...[
+            if (!panVerified && !digilockerConnected) ...[
               _buildPanCard(),
               const SizedBox(height: 20),
             ],
-            if (panVerified) ...[
-              _buildPanVerifiedCard(),
+            if (panVerified || digilockerConnected) ...[
+              _buildPanVerifiedCard(digilockerConnected),
               const SizedBox(height: 20),
             ],
             if (!digilockerConnected) ...[
@@ -399,7 +399,7 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildPanVerifiedCard() {
+  Widget _buildPanVerifiedCard(bool digilockerConnected) {
     final pan = _kycStatus?['pan_number'] ?? '';
     return Card(
       child: Padding(
@@ -411,20 +411,21 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
               children: [
                 const Icon(Icons.check_circle, color: AppTheme.successColor),
                 const SizedBox(width: 8),
-                const Text('PAN Card Verified',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(digilockerConnected ? 'PAN (DigiLocker Verified)' : 'PAN Card Verified',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
-                TextButton.icon(
-                  onPressed: () {
-                    _panController.text = pan;
-                    setState(() {
-                      _kycStatus?['pan_verified'] = false;
-                    });
-                  },
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Edit'),
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
-                ),
+                if (!digilockerConnected)
+                  TextButton.icon(
+                    onPressed: () {
+                      _panController.text = pan;
+                      setState(() {
+                        _kycStatus?['pan_verified'] = false;
+                      });
+                    },
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Edit'),
+                    style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
+                  ),
               ],
             ),
             const SizedBox(height: 8),

@@ -35,6 +35,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _selectedGender;
   bool _saving = false;
   bool _uploadingPhoto = false;
+  bool _digilockerConnected = false;
 
   Future<void> _pickAndUploadPhoto() async {
     final picker = ImagePicker();
@@ -127,6 +128,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _currentStateCtrl = TextEditingController(text: user?.currentState ?? '');
     _currentPincodeCtrl = TextEditingController(text: user?.currentPincode ?? '');
     _selectedGender = user?.gender;
+    _fetchKycStatus();
+  }
+
+  Future<void> _fetchKycStatus() async {
+    try {
+      final res = await ApiService.get('/kyc/status');
+      if (res['success'] == true && mounted) {
+        setState(() => _digilockerConnected = res['data']?['digilocker_connected'] == true);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -382,21 +393,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 note: 'Cannot be changed',
               ),
               const Divider(height: 1),
-              _FormField(
-                controller: _panCtrl,
-                label: 'PAN Number',
-                icon: Icons.credit_card,
-                textCapitalization: TextCapitalization.characters,
-                hint: 'ABCDE1234F',
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null;
-                  if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
-                      .hasMatch(v.trim().toUpperCase())) {
-                    return 'Invalid PAN format';
-                  }
-                  return null;
-                },
-              ),
+              if (_digilockerConnected)
+                _ReadOnlyField(
+                  label: 'PAN Number',
+                  value: _panCtrl.text.isNotEmpty ? _panCtrl.text : '—',
+                  icon: Icons.credit_card,
+                  note: 'DigiLocker Verified — cannot be edited',
+                )
+              else
+                _FormField(
+                  controller: _panCtrl,
+                  label: 'PAN Number',
+                  icon: Icons.credit_card,
+                  textCapitalization: TextCapitalization.characters,
+                  hint: 'ABCDE1234F',
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
+                        .hasMatch(v.trim().toUpperCase())) {
+                      return 'Invalid PAN format';
+                    }
+                    return null;
+                  },
+                ),
             ]),
             const SizedBox(height: 16),
 

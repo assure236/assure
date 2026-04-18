@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,94 +9,36 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/onboarding_tour.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final void Function(int)? switchTab;
+  const ProfileScreen({super.key, this.switchTab});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  bool _uploadingPhoto = false;
+  Map<String, dynamic>? _kycStatus;
 
-  Future<void> _pickAndUploadPhoto() async {
-    final picker = ImagePicker();
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Change Profile Photo',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: AppTheme.primaryColor),
-                title: const Text('Take Photo'),
-                onTap: () => Navigator.pop(ctx, ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library, color: AppTheme.primaryColor),
-                title: const Text('Choose from Gallery'),
-                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (source == null) return;
+  @override
+  void initState() {
+    super.initState();
+    _fetchKycStatus();
+  }
 
-    final XFile? photo = await picker.pickImage(
-      source: source,
-      imageQuality: 70,
-      maxWidth: 800,
-      maxHeight: 800,
-    );
-    if (photo == null) return;
-
-    setState(() => _uploadingPhoto = true);
+  Future<void> _fetchKycStatus() async {
     try {
-      final res = await ApiService.uploadFile(
-        '/users/upload-profile-image',
-        photo.path,
-        fieldName: 'image',
-      );
+      final res = await ApiService.get('/kyc/status');
       if (res['success'] == true && mounted) {
-        await context.read<AuthProvider>().refreshProfile();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Profile photo updated'),
-          backgroundColor: AppTheme.successColor,
-          behavior: SnackBarBehavior.floating,
-        ));
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(res['message'] ?? 'Upload failed'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ));
+        setState(() => _kycStatus = res['data']);
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to upload photo'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _uploadingPhoto = false);
-    }
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final digilockerConnected = _kycStatus?['digilocker_connected'] == true;
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -127,21 +68,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         const SizedBox(height: 16),
                         // Avatar
                         GestureDetector(
-                          onTap: _uploadingPhoto ? null : _pickAndUploadPhoto,
+                          onTap: () => context.push('/edit-profile'),
                           child: Stack(
                           alignment: Alignment.bottomRight,
                           children: [
-                            _uploadingPhoto
-                                ? const CircleAvatar(
-                                    radius: 44,
-                                    backgroundColor: Colors.white24,
-                                    child: SizedBox(
-                                      width: 30, height: 30,
-                                      child: CircularProgressIndicator(
-                                        color: Colors.white, strokeWidth: 2),
-                                    ),
-                                  )
-                                : (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
+                            (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
                                     ? CircleAvatar(
                                         radius: 44,
                                         backgroundColor: Colors.white24,
@@ -165,7 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               decoration: const BoxDecoration(
                                   color: AppTheme.secondaryColor,
                                   shape: BoxShape.circle),
-                              child: const Icon(Icons.camera_alt,
+                              child: const Icon(Icons.edit,
                                   size: 14, color: Colors.white),
                             ),
                           ],
@@ -215,13 +146,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _ProfileRow(
                           icon: Icons.credit_card,
                           label: 'PAN',
-                          value: user?.panNumber ?? 'Not added'),
+                          value: digilockerConnected && user?.panNumber != null
+                              ? '${user!.panNumber!} (DigiLocker Verified)'
+                              : user?.panNumber ?? 'Not added'),
                       _ProfileRow(
                           icon: Icons.fingerprint,
                           label: 'Aadhaar',
-                          value: user?.aadhaarNumber != null
-                              ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)}'
-                              : 'Not added'),
+                          value: digilockerConnected && user?.aadhaarNumber != null
+                              ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)} (DigiLocker Verified)'
+                              : user?.aadhaarNumber != null
+                                  ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)}'
+                                  : 'Not added'),
                       if (user?.gender != null)
                         _ProfileRow(
                             icon: Icons.wc,
@@ -294,12 +229,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _SectionCard(
                     title: 'Account',
                     children: [
-                      _MenuItem(
-                        icon: Icons.edit_outlined,
-                        label: 'Edit Profile',
-                        subtitle: 'Update your personal details',
-                        onTap: () => context.push('/edit-profile'),
-                      ),
                       _MenuItem(
                         icon: Icons.shield_outlined,
                         label: 'KYC & Documents',
@@ -412,12 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         onTap: () async {
                           await OnboardingTour.reset();
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Tour will show when you go to Home'),
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
+                            widget.switchTab?.call(0);
                           }
                         },
                       ),
