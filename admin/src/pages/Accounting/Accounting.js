@@ -94,22 +94,7 @@ export default function Accounting() {
     return () => clearInterval(syncPollRef.current);
   }, [fetchSyncStatus]);
 
-  // Auto-refresh: re-fetch current tab data every 30s so UI stays live
   const autoRefreshRef = useRef(null);
-  useEffect(() => {
-    const refresh = () => {
-      fetchSummary();
-      if (tab === 1) fetchAccounts();
-      if (tab === 2) fetchEntries();
-      if (tab === 3) fetchGL();
-      if (tab === 4) fetchTB();
-      if (tab === 5) fetchPL();
-      if (tab === 6) fetchBS();
-      if (tab === 7) fetchCF();
-    };
-    autoRefreshRef.current = setInterval(refresh, 30000);
-    return () => clearInterval(autoRefreshRef.current);
-  }, [tab, fetchSummary, fetchAccounts, fetchEntries, fetchGL, fetchTB, fetchPL, fetchBS, fetchCF]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -217,6 +202,22 @@ export default function Accounting() {
     if (tab === 6) fetchBS();
     if (tab === 7) fetchCF();
   }, [tab, fetchAccounts, fetchEntries, fetchGL, fetchTB, fetchPL, fetchBS, fetchCF]);
+
+  // Auto-refresh: re-fetch current tab data every 30s so UI stays live
+  useEffect(() => {
+    const refresh = () => {
+      fetchSummary();
+      if (tab === 1) fetchAccounts();
+      if (tab === 2) fetchEntries();
+      if (tab === 3) fetchGL();
+      if (tab === 4) fetchTB();
+      if (tab === 5) fetchPL();
+      if (tab === 6) fetchBS();
+      if (tab === 7) fetchCF();
+    };
+    autoRefreshRef.current = setInterval(refresh, 30000);
+    return () => clearInterval(autoRefreshRef.current);
+  }, [tab, fetchSummary, fetchAccounts, fetchEntries, fetchGL, fetchTB, fetchPL, fetchBS, fetchCF]);
 
   const handleCreateAccount = async () => {
     try {
