@@ -2,6 +2,7 @@
 
 const chitGroupSchema = new mongoose.Schema({
   group_number: { type: String, unique: true, required: true },
+  pso_number: { type: String, default: '' },
   group_name: { type: String, required: true },
   total_members: { type: Number, required: true },
   chit_value: { type: Number, required: true },

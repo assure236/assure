@@ -127,7 +127,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
           Expanded(
             child: GestureDetector(
               onTap: () {
-                final psoNo = group.groupNumber;
+                final psoNo = group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber;
                 final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=$psoNo';
                 launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
               },
@@ -138,7 +138,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text('PSO: ${group.groupNumber}',
+                    Text('PSO: ${group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber}',
                         style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -265,10 +265,11 @@ class _OverviewTab extends StatelessWidget {
             _DetailRow('Group Name', group.groupName),
             _DetailRow(
               'PSO No.',
-              group.groupNumber,
+              group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber,
               isLink: true,
               onTap: () {
-                final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=${group.groupNumber}';
+                final psoNo = group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber;
+                final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=$psoNo';
                 launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
               },
             ),
@@ -285,7 +286,7 @@ class _OverviewTab extends StatelessWidget {
           width: double.infinity,
           child: OutlinedButton.icon(
             onPressed: () {
-              final psoNo = group.groupNumber;
+              final psoNo = group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber;
               final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=$psoNo';
               launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
             },

@@ -171,11 +171,14 @@ class _LockScreenState extends State<LockScreen> {
         ],
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
               const SizedBox(height: 32),
               Container(
                 width: 80,
@@ -297,7 +300,8 @@ class _LockScreenState extends State<LockScreen> {
                   child: const Text('Use OTP instead'),
                 ),
               ],
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -152,8 +152,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _ProfileRow(
                           icon: Icons.fingerprint,
                           label: 'Aadhaar',
-                          value: digilockerConnected && user?.aadhaarNumber != null
-                              ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)} (DigiLocker Verified)'
+                          value: digilockerConnected
+                              ? (user?.aadhaarNumber != null
+                                  ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)} (DigiLocker Verified)'
+                                  : 'DigiLocker Verified')
                               : user?.aadhaarNumber != null
                                   ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)}'
                                   : 'Not added'),

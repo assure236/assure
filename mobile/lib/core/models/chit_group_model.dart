@@ -1,6 +1,7 @@
 class ChitGroup {
   final String id;
   final String groupNumber;
+  final String psoNumber;
   final String groupName;
   final int totalMembers;
   final double chitValue;
@@ -13,6 +14,7 @@ class ChitGroup {
   ChitGroup({
     required this.id,
     required this.groupNumber,
+    this.psoNumber = '',
     required this.groupName,
     required this.totalMembers,
     required this.chitValue,
@@ -27,6 +29,7 @@ class ChitGroup {
     return ChitGroup(
       id: json['_id'] ?? json['id'],  // MongoDB uses _id
       groupNumber: json['group_number'],
+      psoNumber: json['pso_number'] ?? '',
       groupName: json['group_name'],
       totalMembers: json['total_members'],
       chitValue: double.parse(json['chit_value'].toString()),
@@ -43,6 +46,7 @@ class ChitGroup {
   Map<String, dynamic> toJson() => {
     '_id': id,
     'group_number': groupNumber,
+    'pso_number': psoNumber,
     'group_name': groupName,
     'total_members': totalMembers,
     'chit_value': chitValue,

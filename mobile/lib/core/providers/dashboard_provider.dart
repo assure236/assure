@@ -11,6 +11,7 @@ class DashboardProvider with ChangeNotifier {
 
   static const _cacheKey = 'dashboard_cache';
   static const _cacheTsKey = 'dashboard_cache_ts';
+  static const _profileCacheKey = 'profile_completion_cache';
   static const _cacheTtl = Duration(minutes: 5);
 
   Map<String, dynamic>? get data => _data;
@@ -53,10 +54,18 @@ class DashboardProvider with ChangeNotifier {
       if (cached != null) {
         try {
           _data = Map<String, dynamic>.from(jsonDecode(cached));
-          notifyListeners();
         } catch (_) {}
       }
     }
+    if (_profileCompletion == null) {
+      final cachedProfile = prefs.getString(_profileCacheKey);
+      if (cachedProfile != null) {
+        try {
+          _profileCompletion = Map<String, dynamic>.from(jsonDecode(cachedProfile));
+        } catch (_) {}
+      }
+    }
+    if (_data != null || _profileCompletion != null) notifyListeners();
 
     // Check if cache is still fresh — skip API if so
     final cacheTs = prefs.getInt(_cacheTsKey) ?? 0;
@@ -85,6 +94,7 @@ class DashboardProvider with ChangeNotifier {
         final profileRes = await ApiService.get('/dashboard/profile-completion');
         if (profileRes['success'] == true) {
           _profileCompletion = Map<String, dynamic>.from(profileRes['data']);
+          await prefs.setString(_profileCacheKey, jsonEncode(_profileCompletion));
         }
       } catch (_) {}
     } catch (e) {

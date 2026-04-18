@@ -395,10 +395,12 @@ router.get('/chit-groups/:id', adminOnly, async (req, res, next) => {
 
 router.post('/chit-groups', adminOnly, async (req, res, next) => {
   try {
-    // Auto-generate a unique group_number like GRP-000001
-    const count = await ChitGroup.countDocuments();
-    const group_number = `GRP-${String(count + 1).padStart(6, '0')}`;
-    const group = await ChitGroup.create({ ...req.body, group_number });
+    // Use provided group_number or auto-generate
+    if (!req.body.group_number) {
+      const count = await ChitGroup.countDocuments();
+      req.body.group_number = `GRP-${String(count + 1).padStart(6, '0')}`;
+    }
+    const group = await ChitGroup.create(req.body);
     res.status(201).json({ success: true, message: 'Chit group created', data: group });
   } catch (err) { next(err); }
 });

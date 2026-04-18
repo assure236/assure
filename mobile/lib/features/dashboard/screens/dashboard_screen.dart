@@ -373,8 +373,16 @@ class _HeaderSection extends StatelessWidget {
                   Row(
                     children: [
                       // App logo
-                      ClipOval(
-                        child: Image.asset('assets/images/logo.png', width: 28, height: 28, fit: BoxFit.cover),
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: ClipOval(
+                          child: Image.asset('assets/images/logo.png', width: 30, height: 30, fit: BoxFit.cover),
+                        ),
                       ),
                       const SizedBox(width: 4),
                       Consumer<NotificationProvider>(
@@ -1195,7 +1203,9 @@ class _BecomeAgentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-      child: Container(
+      child: GestureDetector(
+        onTap: () => _showBecomeAgentSheet(context),
+        child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           gradient: const LinearGradient(
@@ -1236,6 +1246,68 @@ class _BecomeAgentCard extends StatelessWidget {
               ),
             ),
             const Icon(Icons.chevron_right, color: Colors.white70),
+          ],
+        ),
+      ),
+      ),
+    );
+  }
+
+  void _showBecomeAgentSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withAlpha(26),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.handshake_outlined, color: AppTheme.primaryColor, size: 40),
+            ),
+            const SizedBox(height: 16),
+            const Text('Become an Assure Agent',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+              'Earn commissions by referring new members to Assure ChitFunds. Our team will contact you within 24 hours.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.black54, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '• Earn up to 2% commission per referral\n• Track referrals in your dashboard\n• No investment required',
+              style: TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  context.push('/support');
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+                child: const Text('Contact Support to Apply', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),
