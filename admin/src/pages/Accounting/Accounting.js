@@ -19,6 +19,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import axios from 'axios';
+import { io as socketIO } from 'socket.io-client';
 
 const API = process.env.REACT_APP_API_URL;
 const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
@@ -78,23 +79,11 @@ export default function Accounting() {
 
   // Live sync status
   const [syncStatus, setSyncStatus] = useState({ status: 'idle', lastSyncAt: null, lastResult: null, error: null });
-  const syncPollRef = useRef(null);
+  const socketRef = useRef(null);
+  const tabRef = useRef(tab);
 
-  const fetchSyncStatus = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API}/admin/accounting/sync-status`);
-      setSyncStatus(res.data.data);
-    } catch (e) { /* silent */ }
-  }, []);
-
-  // Poll sync status every 5 seconds
-  useEffect(() => {
-    fetchSyncStatus();
-    syncPollRef.current = setInterval(fetchSyncStatus, 5000);
-    return () => clearInterval(syncPollRef.current);
-  }, [fetchSyncStatus]);
-
-  const autoRefreshRef = useRef(null);
+  // Keep tabRef in sync so socket callback always sees latest tab
+  useEffect(() => { tabRef.current = tab; }, [tab]);
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -203,21 +192,38 @@ export default function Accounting() {
     if (tab === 7) fetchCF();
   }, [tab, fetchAccounts, fetchEntries, fetchGL, fetchTB, fetchPL, fetchBS, fetchCF]);
 
-  // Auto-refresh: re-fetch current tab data every 30s so UI stays live
+  // Socket.IO: live accounting updates — no polling, instant push
   useEffect(() => {
-    const refresh = () => {
-      fetchSummary();
-      if (tab === 1) fetchAccounts();
-      if (tab === 2) fetchEntries();
-      if (tab === 3) fetchGL();
-      if (tab === 4) fetchTB();
-      if (tab === 5) fetchPL();
-      if (tab === 6) fetchBS();
-      if (tab === 7) fetchCF();
+    const apiUrl = process.env.REACT_APP_API_URL || '';
+    const baseUrl = apiUrl.replace(/\/api\/v\d+$/, '');
+    const socket = socketIO(baseUrl, { transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      socket.emit('join_accounting');
+    });
+
+    socket.on('accounting_updated', (data) => {
+      // Update summary & sync status instantly from server push
+      if (data.summary) setSummary(data.summary);
+      if (data.syncStatus) setSyncStatus(data.syncStatus);
+
+      // Re-fetch current tab data so tables/reports update live
+      const t = tabRef.current;
+      if (t === 1) fetchAccounts();
+      if (t === 2) fetchEntries();
+      if (t === 3) fetchGL();
+      if (t === 4) fetchTB();
+      if (t === 5) fetchPL();
+      if (t === 6) fetchBS();
+      if (t === 7) fetchCF();
+    });
+
+    return () => {
+      socket.emit('leave_accounting');
+      socket.disconnect();
     };
-    autoRefreshRef.current = setInterval(refresh, 30000);
-    return () => clearInterval(autoRefreshRef.current);
-  }, [tab, fetchSummary, fetchAccounts, fetchEntries, fetchGL, fetchTB, fetchPL, fetchBS, fetchCF]);
+  }, [fetchAccounts, fetchEntries, fetchGL, fetchTB, fetchPL, fetchBS, fetchCF]);
 
   const handleCreateAccount = async () => {
     try {

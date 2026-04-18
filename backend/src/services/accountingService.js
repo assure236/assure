@@ -839,6 +839,7 @@ let _syncState = {
   lastResult: null,
   error: null,
   intervalId: null,
+  io: null,              // Socket.IO instance for live push
 };
 
 function getSyncStatus() {
@@ -859,14 +860,30 @@ async function runAutoSync() {
     _syncState.lastResult = result;
     _syncState.lastSyncAt = new Date();
     _syncState.status = 'idle';
+
+    // Push live update to all admin clients watching accounting
+    if (_syncState.io) {
+      try {
+        const summary = await getAccountingSummary();
+        const syncStatus = getSyncStatus();
+        _syncState.io.to('accounting').emit('accounting_updated', {
+          summary,
+          syncStatus,
+          timestamp: new Date().toISOString(),
+        });
+      } catch (pushErr) {
+        logger.warn('Failed to push accounting update via socket:', pushErr.message);
+      }
+    }
   } catch (err) {
     _syncState.status = 'error';
     _syncState.error = err.message;
   }
 }
 
-function startAutoSync(intervalMs = 60000) {
+function startAutoSync(intervalMs = 60000, io = null) {
   if (_syncState.intervalId) return; // already started
+  if (io) _syncState.io = io;
   // Run once immediately
   runAutoSync();
   _syncState.intervalId = setInterval(runAutoSync, intervalMs);

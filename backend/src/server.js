@@ -125,8 +125,8 @@ const startServer = async () => {
     // Start accounting auto-sync (every 60 seconds)
     try {
       const accountingService = require('./services/accountingService');
-      accountingService.startAutoSync(60000);
-      logger.info('Accounting auto-sync started (60s interval)');
+      accountingService.startAutoSync(5000, io);
+      logger.info('Accounting auto-sync started (5s interval)');
     } catch (err) {
       logger.warn('Could not start accounting auto-sync:', err.message);
     }

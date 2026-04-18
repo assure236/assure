@@ -18,6 +18,17 @@ module.exports = (io) => {
       logger.info(`User ${userId} joined room`);
     });
 
+    // Join accounting room for live accounting updates
+    socket.on('join_accounting', () => {
+      socket.join('accounting');
+      logger.info(`Socket ${socket.id} joined accounting room`);
+    });
+
+    socket.on('leave_accounting', () => {
+      socket.leave('accounting');
+      logger.info(`Socket ${socket.id} left accounting room`);
+    });
+
     // Join auction room — accepts either plain ID or { auction_id }
     socket.on('join_auction', (payload) => {
       const auctionId = (payload && typeof payload === 'object') ? payload.auction_id : payload;
