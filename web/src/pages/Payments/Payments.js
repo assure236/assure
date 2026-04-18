@@ -161,7 +161,8 @@ const Payments = () => {
   };
 
   const handleDownloadReceipt = (paymentId) => {
-    window.open(`${axios.defaults.baseURL}/payments/receipt/${paymentId}`, '_blank');
+    const token = localStorage.getItem('token');
+    window.open(`${axios.defaults.baseURL}/payments/receipt/${paymentId}?token=${token}`, '_blank');
   };
 
   const handleDownloadStatement = async () => {
