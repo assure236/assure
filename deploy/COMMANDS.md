@@ -2,7 +2,7 @@
 # VPS IP:  187.127.139.125
 # Domain:  assure.fund
 # GitHub:  https://github.com/assure236/assure.git
-# Token:   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
+# Token:   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
 
 =======================================================
 WHERE TO RUN:

@@ -4,10 +4,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import 'liveness_screen.dart';
 
 class DocumentsScreen extends StatefulWidget {
   final String? digilockerStatus;
@@ -194,18 +197,23 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
     );
   }
 
-  /// Capture selfie directly (liveness check happens on the backend in one request)
   Future<void> _openLivenessScreen() async {
-    final picker = ImagePicker();
-    final XFile? photo = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-      imageQuality: 85,
-      maxWidth: 1200,
-      maxHeight: 1200,
+    final result = await Navigator.push<String?>(
+      context,
+      MaterialPageRoute(builder: (_) => const LivenessScreen()),
     );
-    if (photo == null) return;
-    await _processAndUpload('selfie_photo', photo.path, File(photo.path).lengthSync());
+    if (result == null || result.isEmpty) return;
+    // Liveness screen now handles upload + profile-photo set in a single backend call.
+    // Just refresh the documents list and notify the user.
+    _showSnackBar('Selfie verified & saved as your profile photo', isError: false);
+    await _fetchDocuments();
+    // Refresh user profile so new profile_image_url shows everywhere
+    if (mounted) {
+      try {
+        // ignore: use_build_context_synchronously
+        await Provider.of<AuthProvider>(context, listen: false).refreshProfile();
+      } catch (_) {}
+    }
   }
 
   Future<void> _captureFromCamera(String docType, {bool useFrontCamera = false}) async {
@@ -219,12 +227,29 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
     );
     if (photo == null) return;
 
+    // Face detection for selfie
+    if (docType == 'selfie_photo') {
+      final hasFace = await _detectFace(photo.path);
+      if (!hasFace) {
+        _showSnackBar('No face detected. Please take a clear selfie with your face visible.');
+        return;
+      }
+    }
+
     await _processAndUpload(docType, photo.path, File(photo.path).lengthSync());
   }
 
   Future<bool> _detectFace(String imagePath) async {
-    // Kept for backwards compatibility — liveness check is now done server-side
-    return true;
+    // Basic validation — actual face check is done server-side by Luxand liveness API
+    try {
+      final file = File(imagePath);
+      if (!await file.exists()) return false;
+      final bytes = await file.length();
+      // Reject files smaller than 10KB (likely corrupt) or larger than 15MB
+      return bytes > 10240 && bytes < 15 * 1024 * 1024;
+    } catch (_) {
+      return true;
+    }
   }
 
   Future<void> _pickFromGallery(String docType) async {

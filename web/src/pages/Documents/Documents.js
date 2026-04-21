@@ -164,12 +164,25 @@ const Documents = () => {
       if (!blob) { toast.error('Failed to capture photo'); return; }
 
       setWebcamStatus('checking');
-      setWebcamMsg('Uploading & verifying liveness...');
+      setWebcamMsg('Checking liveness...');
 
       try {
-        // Upload directly — backend handles liveness check for selfie_photo
+        // Step 1: Liveness check
+        const livenessForm = new FormData();
+        livenessForm.append('photo', blob, 'selfie.jpg');
+        const livenessRes = await axios.post('/liveness/check', livenessForm, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        if (!livenessRes.data.live) {
+          setWebcamStatus('error');
+          setWebcamMsg(livenessRes.data.message || 'Not a real face detected. Please try again.');
+          return;
+        }
+
+        // Step 2: Liveness passed - upload document
+        setWebcamMsg('Verified! Uploading...');
         setWebcamStatus('done');
-        setWebcamMsg('Uploading...');
 
         const localUrl = URL.createObjectURL(blob);
         setLocalPreviews(prev => ({ ...prev, [webcamDocType]: localUrl }));
@@ -185,9 +198,6 @@ const Documents = () => {
         if (res.data.success) {
           toast.success('Selfie verified & uploaded!');
           fetchDocuments();
-        } else {
-          setLocalPreviews(prev => { const n = { ...prev }; delete n[webcamDocType]; return n; });
-          toast.error(res.data.message || 'Liveness check failed. Please try again.');
         }
       } catch (err) {
         const msg = err.response?.data?.message || 'Liveness check failed. Try again.';

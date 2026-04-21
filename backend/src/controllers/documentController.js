@@ -1,9 +1,6 @@
-const { Document, User } = require('../models');
+const { Document } = require('../models');
 const { uploadToGridFS, deleteFromGridFS } = require('../utils/gridfs');
 const sharp = require('sharp');
-
-const LUXAND_API = 'https://api.luxand.cloud';
-const LUXAND_TOKEN = process.env.LUXAND_API_TOKEN;
 
 // Target sizes per document type (bytes)
 const DOC_SIZE_LIMITS = {
@@ -65,34 +62,6 @@ exports.uploadDocument = async (req, res, next) => {
       fileMime = 'image/jpeg';
     }
 
-    // ── Selfie liveness check (replaces separate /liveness/check call) ──────
-    if (document_type === 'selfie_photo') {
-      if (!LUXAND_TOKEN) {
-        return res.status(500).json({ success: false, message: 'Liveness check service not configured' });
-      }
-      const form = new FormData();
-      const blob = new Blob([fileBuffer], { type: fileMime });
-      form.append('photo', blob, req.file.originalname || 'photo.jpg');
-      let luxandData;
-      try {
-        const luxandRes = await fetch(`${LUXAND_API}/photo/liveness`, {
-          method: 'POST',
-          headers: { token: LUXAND_TOKEN },
-          body: form,
-        });
-        luxandData = await luxandRes.json();
-      } catch (e) {
-        return res.status(500).json({ success: false, message: 'Liveness check failed. Check connection.' });
-      }
-      const isLive = luxandData.status === 'success' && luxandData.result === 'real';
-      if (!isLive) {
-        const msg = luxandData.result === 'spoof'
-          ? 'Spoof detected — please use a real face in good lighting'
-          : (luxandData.message || 'No face detected. Please take a clear selfie.');
-        return res.status(400).json({ success: false, live: false, message: msg });
-      }
-    }
-
     const { fileId, fileUrl } = await uploadToGridFS(fileBuffer, req.file.originalname, fileMime, {
       userId: userId.toString(), category: 'documents', documentType: document_type,
     });
@@ -108,12 +77,6 @@ exports.uploadDocument = async (req, res, next) => {
       file_size: fileBuffer.length,
       mime_type: fileMime,
     });
-
-    // ── Auto-set profile photo when selfie passes liveness ───────────────────
-    if (document_type === 'selfie_photo') {
-      await User.findByIdAndUpdate(userId, { profile_image_url: fileUrl });
-    }
-
     res.status(201).json({ success: true, message: 'Document uploaded', data: doc });
   } catch (err) { next(err); }
 };

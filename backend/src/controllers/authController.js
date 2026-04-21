@@ -1,5 +1,4 @@
 const { User, Referral, Wallet, WalletTransaction, Notification } = require('../models');
-const QrSession = require('../models/QrSession');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
@@ -9,6 +8,7 @@ const { sendOTP, sendEmail } = require('../services/notificationService');
 const otpStore = new Map();
 const OTP_TTL_MS = 10 * 60 * 1000;
 
+const qrSessionStore = new Map();
 const QR_SESSION_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 function genOtp() { return Math.floor(100000 + Math.random() * 900000).toString(); }
@@ -384,23 +384,24 @@ exports.qrGenerate = async (req, res, next) => {
   try {
     const { randomUUID } = require('crypto');
     const sessionId = randomUUID();
-    const expiresAt = new Date(Date.now() + QR_SESSION_TTL_MS);
-    await QrSession.create({ sessionId, status: 'pending', expiresAt });
-    res.json({ success: true, data: { sessionId, expiresAt: expiresAt.getTime() } });
+    const expiresAt = Date.now() + QR_SESSION_TTL_MS;
+    qrSessionStore.set(sessionId, { status: 'pending', expires: expiresAt });
+    setTimeout(() => qrSessionStore.delete(sessionId), QR_SESSION_TTL_MS + 5000);
+    res.json({ success: true, data: { sessionId, expiresAt } });
   } catch (error) { next(error); }
 };
 
 exports.qrStatus = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
-    const session = await QrSession.findOne({ sessionId });
-    if (!session || session.expiresAt < new Date()) {
-      if (session) await QrSession.deleteOne({ sessionId });
+    const session = qrSessionStore.get(sessionId);
+    if (!session || Date.now() > session.expires) {
+      qrSessionStore.delete(sessionId);
       return res.json({ success: true, data: { status: 'expired' } });
     }
     if (session.status === 'confirmed') {
       const { token, refreshToken, user } = session;
-      await QrSession.deleteOne({ sessionId });
+      qrSessionStore.delete(sessionId);
       return res.json({ success: true, data: { status: 'confirmed', token, refreshToken, user } });
     }
     res.json({ success: true, data: { status: session.status } });
@@ -411,9 +412,9 @@ exports.qrConfirm = async (req, res, next) => {
   try {
     const { sessionId } = req.body;
     if (!sessionId) return res.status(400).json({ success: false, message: 'sessionId required' });
-    const session = await QrSession.findOne({ sessionId });
-    if (!session || session.expiresAt < new Date()) {
-      if (session) await QrSession.deleteOne({ sessionId });
+    const session = qrSessionStore.get(sessionId);
+    if (!session || Date.now() > session.expires) {
+      qrSessionStore.delete(sessionId);
       return res.status(404).json({ success: false, message: 'QR session not found or expired' });
     }
     if (session.status !== 'pending') {
@@ -431,7 +432,10 @@ exports.qrConfirm = async (req, res, next) => {
       member_id: req.user.member_id,
       kyc_status: req.user.kyc_status,
     };
-    await QrSession.updateOne({ sessionId }, { status: 'confirmed', token, refreshToken, user });
+    session.status = 'confirmed';
+    session.token = token;
+    session.refreshToken = refreshToken;
+    session.user = user;
     res.json({ success: true, message: 'QR login confirmed. Web session activated.' });
   } catch (error) { next(error); }
 };

@@ -3,15 +3,7 @@
 const { Resend } = require('resend');
 const logger = require('../utils/logger');
 
-// Lazy init — avoids crash when RESEND_API_KEY is not set
-let _resend = null;
-const getResend = () => {
-  if (!_resend) {
-    if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not set in .env');
-    _resend = new Resend(process.env.RESEND_API_KEY);
-  }
-  return _resend;
-};
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ─── Fast2SMS OTP (DLT Route) ────────────────────────────────────────────────
 
@@ -23,10 +15,12 @@ exports.sendOTP = async (mobile, otp) => {
     throw new Error('FAST2SMS_API_KEY must be set in .env');
   }
 
+  // Fast2SMS DLT route requires the DLT template ID in the `message` field
+  const dltTemplateId = process.env.FAST2SMS_DLT_TEMPLATE_ID || process.env.FAST2SMS_MESSAGE_ID;
   const body = {
     route: 'dlt',
     sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
-    message: parseInt(process.env.FAST2SMS_MESSAGE_ID),
+    message: dltTemplateId,
     variables_values: String(otp),
     flash: 0,
     numbers: String(mobile),
@@ -77,7 +71,7 @@ exports.sendSMS = async (mobile, message) => {
       body: JSON.stringify({
         route: 'dlt',
         sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
-        message: parseInt(process.env.FAST2SMS_MESSAGE_ID),
+        message: process.env.FAST2SMS_DLT_TEMPLATE_ID || process.env.FAST2SMS_MESSAGE_ID,
         variables_values: message,
         flash: 0,
         numbers: String(mobile),
@@ -107,7 +101,7 @@ exports.sendEmail = async (to, subject, body) => {
   const textBody = body.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
   try {
-    const { data, error } = await getResend().emails.send({
+    const { data, error } = await resend.emails.send({
       from: process.env.RESEND_FROM || 'Assure ChitFunds <noreply@assure.fund>',
       reply_to: 'support@assure.fund',
       to: Array.isArray(to) ? to : [to],

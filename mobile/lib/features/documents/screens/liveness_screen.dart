@@ -43,12 +43,13 @@ class _LivenessScreenState extends State<LivenessScreen> {
     });
 
     try {
+      // Single backend call: liveness check + save selfie doc + set profile photo
       final result = await ApiService.uploadFile(
-        '/liveness/check', photo.path, fieldName: 'photo');
+        '/liveness/verify-and-save', photo.path, fieldName: 'photo');
       if (!mounted) return;
 
       debugPrint('Luxand result: $result');
-      final isLive = result['live'] == true;
+      final isLive = result['live'] == true && result['success'] == true;
 
       if (!isLive) {
         final msg = result['message'] ?? 'Not a real face detected';
@@ -67,7 +68,8 @@ class _LivenessScreenState extends State<LivenessScreen> {
         _errorMsg = null;
       });
       await Future.delayed(const Duration(milliseconds: 800));
-      if (mounted) Navigator.pop(context, photo.path);
+      // Pop with a sentinel so caller knows the document is already saved server-side
+      if (mounted) Navigator.pop(context, 'saved');
     } catch (e) {
       debugPrint('Liveness check error: $e');
       if (mounted) {

@@ -67,28 +67,41 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 16),
-                        // Avatar — photo comes from Documents > Live Selfie
+                        // Avatar
                         GestureDetector(
                           onTap: () => context.push('/edit-profile'),
-                          child: (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
-                              ? CircleAvatar(
-                                  radius: 44,
-                                  backgroundColor: Colors.white24,
-                                  backgroundImage: NetworkImage(user.profileImageUrl!),
-                                )
-                              : CircleAvatar(
-                                  radius: 44,
-                                  backgroundColor: Colors.white24,
-                                  child: Text(
-                                    user != null && user.fullName.isNotEmpty
-                                        ? user.fullName[0].toUpperCase()
-                                        : '?',
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 36,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
+                          child: Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
+                                    ? CircleAvatar(
+                                        radius: 44,
+                                        backgroundColor: Colors.white24,
+                                        backgroundImage: NetworkImage(user.profileImageUrl!),
+                                      )
+                                    : CircleAvatar(
+                                        radius: 44,
+                                        backgroundColor: Colors.white24,
+                                        child: Text(
+                                          user != null && user.fullName.isNotEmpty
+                                              ? user.fullName[0].toUpperCase()
+                                              : '?',
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 36,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                  color: AppTheme.secondaryColor,
+                                  shape: BoxShape.circle),
+                              child: const Icon(Icons.edit,
+                                  size: 14, color: Colors.white),
+                            ),
+                          ],
+                        ),
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -404,38 +417,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _confirmLogout(BuildContext context, AuthProvider auth) {
-    showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout from this device?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    ).then((confirmed) async {
-      if (confirmed != true || !context.mounted) return;
-      await auth.logout();
-      if (context.mounted) context.go('/welcome');
-    });
+    _doLogout(context, auth, logoutAll: false);
   }
 
   void _confirmLogoutAll(BuildContext context, AuthProvider auth) {
-    showDialog<bool>(
+    _doLogout(context, auth, logoutAll: true);
+  }
+
+  Future<void> _doLogout(
+    BuildContext context,
+    AuthProvider auth, {
+    required bool logoutAll,
+  }) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Logout All Devices'),
-        content: const Text('This will sign you out from ALL devices including web. Continue?'),
+        title: Text(logoutAll ? 'Logout All Devices' : 'Logout'),
+        content: Text(
+          logoutAll
+              ? 'This will sign you out from ALL devices (mobile, web & other phones).'
+              : 'You will be signed out of this device.',
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -444,18 +447,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: AppTheme.errorColor,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Logout All'),
+            child: Text(logoutAll ? 'Logout All' : 'Logout'),
           ),
         ],
       ),
-    ).then((confirmed) async {
-      if (confirmed != true || !context.mounted) return;
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    if (logoutAll) {
+      // Backend bumps token_version (invalidating ALL tokens incl. web) and emits
+      // force_logout to every connected socket for this user.
       try {
         await ApiService.post('/auth/logout-all-devices', {});
-      } catch (_) {}
-      await auth.logout();
-      if (context.mounted) context.go('/welcome');
-    });
+      } catch (_) {
+        // Even if server fails, log out locally so user isn't stuck.
+      }
+    }
+    await auth.logout();
+    if (context.mounted) context.go('/welcome');
   }
 
   String _kycLabel(String? status) {

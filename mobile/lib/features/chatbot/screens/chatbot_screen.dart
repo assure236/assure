@@ -48,7 +48,27 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     _scrollToBottom();
 
     try {
-      final res = await ApiService.post('/chatbot/chat', {'message': text.trim()});
+      // Build short history (last 8 turns, skipping the welcome message and the
+      // user message we just added — server prepends the current message itself).
+      final historyMessages = _messages
+          .where((m) => m.text.isNotEmpty)
+          .toList();
+      // Drop the user message just appended so server doesn't see it twice
+      if (historyMessages.isNotEmpty && historyMessages.last.from == 'user') {
+        historyMessages.removeLast();
+      }
+      final history = historyMessages
+          .skip(historyMessages.length > 8 ? historyMessages.length - 8 : 0)
+          .map((m) => {
+                'role': m.from == 'user' ? 'user' : 'assistant',
+                'content': m.text,
+              })
+          .toList();
+
+      final res = await ApiService.post('/chatbot/chat', {
+        'message': text.trim(),
+        'history': history,
+      });
       if (res['success'] == true) {
         final data = res['data'];
         final List<Map<String, dynamic>> chitGroups =

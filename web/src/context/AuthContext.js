@@ -28,27 +28,6 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
-  // ─── Axios 401 interceptor — auto-logout on token invalidation ───────────
-  useEffect(() => {
-    const interceptorId = axios.interceptors.response.use(
-      (response) => response,
-      (error) => {
-        if (error.response?.status === 401 && localStorage.getItem('token')) {
-          // Token is expired or invalidated — force logout
-          setUser(null);
-          setToken(null);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          localStorage.removeItem('lastActivity');
-          delete axios.defaults.headers.common['Authorization'];
-          toast.warning('Your session has expired. Please login again.');
-        }
-        return Promise.reject(error);
-      }
-    );
-    return () => axios.interceptors.response.eject(interceptorId);
-  }, []);
-
   // Set axios defaults
   useEffect(() => {
     if (token) {
@@ -119,7 +98,7 @@ export const AuthProvider = ({ children }) => {
     const SOCKET_URL = process.env.REACT_APP_API_URL
       ? process.env.REACT_APP_API_URL.replace('/api/v1', '')
       : window.location.origin;
-    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'], reconnectionAttempts: Infinity, reconnectionDelay: 2000 });
+    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'], reconnectionAttempts: 3 });
     socketRef.current = socket;
     socket.on('connect', () => {
       const userId = user._id || user.id;

@@ -231,7 +231,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ]),
               ),
-            // Avatar — read-only, set via Documents > Live Selfie Photo
+            // Avatar — read-only. Photo comes from the live selfie uploaded in Documents.
             Center(
               child: Stack(
                 alignment: Alignment.bottomRight,
@@ -255,17 +255,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 color: AppTheme.primaryColor),
                           ),
                         ),
-                  Tooltip(
-                    message: 'Photo set from Documents > Live Selfie',
-                    child: Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                          color: Colors.grey[400],
-                          shape: BoxShape.circle),
-                      child: const Icon(Icons.lock, size: 14, color: Colors.white),
-                    ),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: const BoxDecoration(
+                        color: AppTheme.secondaryColor,
+                        shape: BoxShape.circle),
+                    child: const Icon(Icons.verified_user,
+                        size: 16, color: Colors.white),
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 6),
+            Center(
+              child: Text(
+                'Profile photo is set from your live selfie in Documents',
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(height: 8),

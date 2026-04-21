@@ -76,7 +76,7 @@ export default function Documents() {
     } catch (e) { setError('Failed to delete document'); }
   };
 
-  const statusColor = (s) => ({ approved: 'success', verified: 'success', rejected: 'error', pending: 'warning' }[s] || 'default');
+  const statusColor = (s) => ({ approved: 'success', rejected: 'error', pending: 'warning' }[s] || 'default');
 
   return (
     <Box>
@@ -180,7 +180,7 @@ export default function Documents() {
                         <Chip label={(row.document_type || '-').replace('_', ' ')} size="small" variant="outlined" sx={{ textTransform: 'capitalize' }} />
                       </TableCell>
                       <TableCell>
-                        <Chip label={row.verification_status === 'verified' ? 'approved' : (row.verification_status || 'pending')} size="small" color={statusColor(row.verification_status)} sx={{ textTransform: 'capitalize' }} />
+                        <Chip label={row.verification_status || 'pending'} size="small" color={statusColor(row.verification_status)} />
                       </TableCell>
                       <TableCell>
                         <Typography variant="caption">{row.created_at ? new Date(row.created_at).toLocaleDateString('en-IN') : '-'}</Typography>
@@ -202,7 +202,7 @@ export default function Documents() {
                               </IconButton>
                             </Tooltip>
                           )}
-                          {(row.verification_status === 'pending' || row.verification_status === 'rejected') && (
+                          {row.verification_status !== 'approved' && (
                             <Tooltip title="Approve">
                               <IconButton size="small" color="success"
                                 onClick={() => setVerifyDialog({ open: true, doc: row, action: 'approved' })}>
@@ -210,9 +210,9 @@ export default function Documents() {
                               </IconButton>
                             </Tooltip>
                           )}
-                          {(row.verification_status === 'pending' || row.verification_status === 'verified' || row.verification_status === 'approved') && (
+                          {row.verification_status !== 'rejected' && (
                             <Tooltip title="Reject">
-                              <IconButton size="small" color="warning"
+                              <IconButton size="small" color="error"
                                 onClick={() => setVerifyDialog({ open: true, doc: row, action: 'rejected' })}>
                                 <Cancel fontSize="small" />
                               </IconButton>
@@ -314,8 +314,8 @@ export default function Documents() {
             <Typography color="text.secondary">No file available for preview</Typography>
           )}
           <Box sx={{ mt: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            <Chip label={previewDoc?.verification_status === 'verified' ? 'approved' : (previewDoc?.verification_status || 'pending')} size="small"
-              color={statusColor(previewDoc?.verification_status)} sx={{ textTransform: 'capitalize' }} />
+            <Chip label={previewDoc?.verification_status || 'pending'} size="small"
+              color={statusColor(previewDoc?.verification_status)} />
             <Typography variant="caption" color="text.secondary">
               Uploaded: {previewDoc?.created_at ? new Date(previewDoc.created_at).toLocaleDateString('en-IN') : '—'}
             </Typography>

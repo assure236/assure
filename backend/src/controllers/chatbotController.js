@@ -206,15 +206,27 @@ async function gatherContext(userId, intent, match, message) {
   return { context, chitGroups, actionType };
 }
 
-// Generate AI response
-async function generateAIResponse(message, context) {
+// Generate AI response with optional conversation history
+async function generateAIResponse(message, context, history = []) {
   if (!groq) return null;
   try {
+    const messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
+    ];
+    // Inject prior turns (last 8 max) so the bot has memory
+    const trimmedHistory = Array.isArray(history) ? history.slice(-8) : [];
+    for (const turn of trimmedHistory) {
+      if (!turn || !turn.role || !turn.content) continue;
+      const role = turn.role === 'bot' || turn.role === 'assistant' ? 'assistant' : 'user';
+      messages.push({ role, content: String(turn.content).slice(0, 1000) });
+    }
+    messages.push({
+      role: 'user',
+      content: '--- USER DATA CONTEXT (current turn) ---\n' + (context || 'No specific data available.') + '\n--- END CONTEXT ---\n\nUser message: "' + message + '"',
+    });
+
     const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: '--- USER DATA CONTEXT ---\n' + (context || 'No specific data available.') + '\n--- END CONTEXT ---\n\nUser message: "' + message + '"' }
-      ],
+      messages,
       model: 'llama-3.3-70b-versatile',
       temperature: 0.7,
       max_tokens: 500,
@@ -239,14 +251,14 @@ function fallbackResponse(intent) {
 // Main Chat Handler
 exports.chat = async (req, res, next) => {
   try {
-    const { message } = req.body;
+    const { message, history } = req.body;
     if (!message || !message.trim()) {
       return res.status(400).json({ success: false, message: 'Message is required' });
     }
     const userId = req.user._id || req.user.id;
     const { intent, match } = detectIntent(message);
     const { context, chitGroups, actionType } = await gatherContext(userId, intent, match, message);
-    let reply = await generateAIResponse(message, context);
+    let reply = await generateAIResponse(message, context, history);
     if (!reply) reply = fallbackResponse(intent);
     res.json({
       success: true,

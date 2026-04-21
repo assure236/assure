@@ -86,7 +86,8 @@ export const AuthProvider = ({ children }) => {
     const socket = socketIO(baseUrl, { transports: ['websocket', 'polling'] });
     socketRef.current = socket;
     socket.on('connect', () => {
-      socket.emit('join', `user:${user._id || user.id}`);
+      // Backend joins the socket to `user:${userId}` room when it receives this event.
+      socket.emit('join', user._id || user.id);
     });
     socket.on('force_logout', () => {
       toast.warning('You have been logged out from all devices');
