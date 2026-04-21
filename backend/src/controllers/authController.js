@@ -421,8 +421,12 @@ exports.qrConfirm = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'QR already used' });
     }
     const userId = req.user._id || req.user.id;
-    const token = generateToken(userId);
-    const refreshToken = generateRefreshToken(userId);
+    // QR login uses the mobile user's CURRENT token_version — does NOT bump it.
+    // This lets the same account stay active on both mobile and web simultaneously.
+    // (Logout-all-devices is the only path that bumps token_version to kick both.)
+    const tv = req.user.token_version || 0;
+    const token = generateToken(userId, tv);
+    const refreshToken = generateRefreshToken(userId, tv);
     const user = {
       id: req.user._id,
       full_name: req.user.full_name,

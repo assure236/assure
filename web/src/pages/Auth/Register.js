@@ -32,7 +32,7 @@ function PinInput({ pinKey, length = 6, onComplete, autoFocus }) {
   );
 }
 
-const STEPS = ['Mobile Verification', 'Email Verification', 'Set MPIN', 'Done'];
+const STEPS = ['Mobile Verification', 'Email Verification'];
 
 export default function Register() {
   const navigate = useNavigate();
@@ -40,8 +40,6 @@ export default function Register() {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ full_name: '', mobile: '', email: '', referral_code: '' });
-  const [mpin, setMpin] = useState('');
-
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -79,39 +77,37 @@ export default function Register() {
     finally { setLoading(false); }
   };
 
-  // Step 3: verify email OTP
+  // Step 3: verify email OTP — then auto-register (no MPIN)
   const verifyEmailOtp = async (otp) => {
     setLoading(true);
     try {
       const res = await axios.post('/auth/verify-otp', { email: form.email, otp, type: 'email' });
-      if (res.data.success) { setStep(4); toast.success('Email verified!'); }
-      else toast.error(res.data.message || 'Invalid OTP');
+      if (res.data.success) {
+        toast.success('Email verified!');
+        await handleRegister();
+      } else {
+        toast.error(res.data.message || 'Invalid OTP');
+      }
     } catch (e) { toast.error(e.response?.data?.message || 'Invalid OTP'); }
     finally { setLoading(false); }
   };
 
-  // Step 4: set MPIN → register
-  const handleSetMpin = async (pin) => {
-    setMpin(pin);
-  };
-
   const handleRegister = async () => {
-    if (mpin.length !== 6) return toast.error('Enter 6-digit MPIN');
-    setLoading(true);
-    try {
-      const result = await register({
-        full_name: form.full_name.trim(),
-        mobile: form.mobile,
-        email: form.email,
-        mpin,
-        referral_code: form.referral_code.trim() || undefined,
-      });
-      if (result?.success) navigate('/dashboard');
-    } finally { setLoading(false); }
+    // Auto-generate a random 6-digit value to satisfy the backend MPIN field.
+    // The user no longer enters or uses an MPIN.
+    const autoPin = String(Math.floor(100000 + Math.random() * 900000));
+    const result = await register({
+      full_name: form.full_name.trim(),
+      mobile: form.mobile,
+      email: form.email,
+      mpin: autoPin,
+      referral_code: form.referral_code.trim() || undefined,
+    });
+    if (result?.success) navigate('/dashboard');
   };
 
-  // Stepper display: steps 0,1 = "Mobile Verification", 2,3 = "Email Verification", 4 = "Set MPIN"
-  const activeStep = step <= 1 ? 0 : step <= 3 ? 1 : 2;
+  // Stepper display: steps 0,1 = "Mobile Verification", 2,3 = "Email Verification"
+  const activeStep = step <= 1 ? 0 : 1;
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#f0f4f8', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
@@ -123,7 +119,7 @@ export default function Register() {
 
         <Box sx={{ p: 4 }}>
           <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-            {STEPS.slice(0, 3).map(label => (
+            {STEPS.map(label => (
               <Step key={label}><StepLabel>{label}</StepLabel></Step>
             ))}
           </Stepper>
@@ -186,29 +182,8 @@ export default function Register() {
               <Typography variant="h6" fontWeight={700} gutterBottom>Verify Email</Typography>
               <Typography variant="body2" color="text.secondary">OTP sent to {form.email}</Typography>
               <PinInput pinKey="eotp" length={6} onComplete={verifyEmailOtp} autoFocus />
-              {loading && <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>}
+              {loading && <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}><CircularProgress size={24} /></Box>}
               <Button variant="text" size="small" onClick={() => setStep(2)}>← Back</Button>
-            </>
-          )}
-
-          {/* Step 4: Set MPIN */}
-          {step === 4 && (
-            <>
-              <Typography variant="h6" fontWeight={700} gutterBottom>Set your MPIN</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                Choose a 6-digit MPIN — you'll use this to login
-              </Typography>
-              <PinInput pinKey="mpin" length={6} onComplete={handleSetMpin} autoFocus />
-              {mpin.length === 6 && (
-                <Box>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Confirm MPIN</Typography>
-                  <PinInput pinKey="mpin-confirm" length={6} onComplete={(pin) => { if (pin !== mpin) { toast.error('MPINs do not match'); } }} autoFocus={false} />
-                </Box>
-              )}
-              <Button fullWidth variant="contained" size="large" sx={{ mt: 3, py: 1.5, fontWeight: 700 }}
-                onClick={handleRegister} disabled={loading || mpin.length !== 6}>
-                {loading ? <CircularProgress size={22} color="inherit" /> : 'Create Account'}
-              </Button>
             </>
           )}
 

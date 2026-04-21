@@ -10,15 +10,25 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
+const WELCOME_MESSAGE = { from: 'bot', text: "Hi! I'm Assure Bot 🤖\nHow can I help you today?\n\nTry: \"Show chits for 20 months\" or \"My payments\"", chitGroups: [] };
+
 const Chatbot = () => {
   const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState([
-    { from: 'bot', text: "Hi! I'm Assure Bot 🤖\nHow can I help you today?\n\nTry: \"Show chits for 20 months\" or \"My payments\"", chitGroups: [] }
-  ]);
+  const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef(null);
   const navigate = useNavigate();
+
+  // Reset chat on close — fresh greeting on next open
+  const handleClose = () => {
+    setOpen(false);
+    // Wipe history after dialog close animation finishes
+    setTimeout(() => {
+      setMessages([WELCOME_MESSAGE]);
+      setInput('');
+    }, 250);
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -31,7 +41,13 @@ const Chatbot = () => {
     setMessages(prev => [...prev, { from: 'user', text }]);
     setLoading(true);
     try {
-      const res = await axios.post('/chatbot/chat', { message: text });
+      // Build history of last 8 turns excluding the welcome message and the
+      // user message we just appended (the server prepends the current message).
+      const history = messages
+        .filter(m => m !== WELCOME_MESSAGE && m.text)
+        .slice(-8)
+        .map(m => ({ role: m.from === 'user' ? 'user' : 'assistant', content: m.text }));
+      const res = await axios.post('/chatbot/chat', { message: text, history });
       if (res.data.success) {
         const { reply, chitGroups, actionType } = res.data.data;
         setMessages(prev => [...prev, { from: 'bot', text: reply, chitGroups: chitGroups || [], actionType }]);
@@ -46,7 +62,7 @@ const Chatbot = () => {
   };
 
   const handleChitClick = (id) => {
-    setOpen(false);
+    handleClose();
     navigate(`/chit-groups/${id}`);
   };
 
@@ -74,7 +90,7 @@ const Chatbot = () => {
 
       {/* Chat Dialog */}
       <Dialog
-        open={open} onClose={() => setOpen(false)}
+        open={open} onClose={handleClose}
         maxWidth="sm" fullWidth
         TransitionComponent={Slide}
         TransitionProps={{ direction: 'up' }}
@@ -86,7 +102,7 @@ const Chatbot = () => {
         }}>
           <BotIcon /> Assure Bot
           <Box flex={1} />
-          <IconButton onClick={() => setOpen(false)} sx={{ color: 'white' }}><CloseIcon /></IconButton>
+          <IconButton onClick={handleClose} sx={{ color: 'white' }}><CloseIcon /></IconButton>
         </DialogTitle>
 
         <DialogContent sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }}>

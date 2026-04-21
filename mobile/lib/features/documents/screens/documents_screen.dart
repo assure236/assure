@@ -608,9 +608,11 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: doc?['file_url'] != null
-            ? () => _viewDocument(doc!['file_url'])
-            : (!isUploading ? () => _showUploadOptions(key) : null),
+        onTap: (status == 'approved' || status == 'verified')
+            ? (doc?['file_url'] != null ? () => _viewDocument(doc!['file_url']) : null)
+            : (doc?['file_url'] != null
+                ? () => _viewDocument(doc!['file_url'])
+                : (!isUploading ? () => _showUploadOptions(key) : null)),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -674,26 +676,51 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis),
               const SizedBox(height: 8),
-              // Action button
-              SizedBox(
-                width: double.infinity,
-                height: 30,
-                child: ElevatedButton(
-                  onPressed: isUploading ? null : () => _showUploadOptions(key),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: status == 'rejected'
-                        ? AppTheme.errorColor
-                        : AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.zero,
-                    textStyle: const TextStyle(fontSize: 11),
+              // Action button — hide for approved/verified docs (no re-upload allowed)
+              if (status == 'approved' || status == 'verified')
+                SizedBox(
+                  width: double.infinity,
+                  height: 30,
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppTheme.successColor.withAlpha(26),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.lock, size: 12, color: AppTheme.successColor),
+                        SizedBox(width: 4),
+                        Text('Locked',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.successColor)),
+                      ],
+                    ),
                   ),
-                  child: isUploading
-                      ? const SizedBox(height: 14, width: 14,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : Text(status == 'not_uploaded' ? 'Upload' : 'Re-upload'),
+                )
+              else
+                SizedBox(
+                  width: double.infinity,
+                  height: 30,
+                  child: ElevatedButton(
+                    onPressed: isUploading ? null : () => _showUploadOptions(key),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: status == 'rejected'
+                          ? AppTheme.errorColor
+                          : AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: EdgeInsets.zero,
+                      textStyle: const TextStyle(fontSize: 11),
+                    ),
+                    child: isUploading
+                        ? const SizedBox(height: 14, width: 14,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : Text(status == 'not_uploaded' ? 'Upload' : 'Re-upload'),
+                  ),
                 ),
-              ),
             ],
           ),
         ),
