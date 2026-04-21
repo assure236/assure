@@ -299,6 +299,12 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
     FcmService().registerTokenWithBackend();
     _startInactivityTimer();
+    // Reconnect socket so force_logout events are received
+    final userId = _user?.id ?? '';
+    if (userId.isNotEmpty) {
+      SocketService.instance.setOnForceLogout(() => logout());
+      SocketService.instance.connect(userId);
+    }
   }
 
   Future<Map<String, dynamic>> confirmQrLogin(String sessionId) async {

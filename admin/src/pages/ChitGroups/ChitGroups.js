@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
-const statusColors = { active: 'success', completed: 'default', suspended: 'error', pending: 'warning', accepting_members: 'info' };
+const statusColors = { not_started: 'warning', active: 'success', vacant: 'info', completed: 'default', suspended: 'error', pending: 'warning', accepting_members: 'info' };
 
 const ChitGroups = () => {
   const navigate = useNavigate();
@@ -49,10 +49,14 @@ const ChitGroups = () => {
 
   const handleStatusAction = async () => {
     const { group, action } = confirmDialog;
-    const newStatus = action === 'suspend' ? 'suspended' : 'active';
+    let newStatus;
+    if (action === 'start') newStatus = 'active';
+    else if (action === 'suspend') newStatus = 'suspended';
+    else newStatus = 'active';
     try {
       await axios.put(`${process.env.REACT_APP_API_URL}/admin/chit-groups/${group._id || group.id}`, { status: newStatus });
-      toast.success(`Group ${newStatus === 'active' ? 'activated' : 'suspended'} successfully`);
+      const label = action === 'start' ? 'started' : newStatus === 'active' ? 'activated' : 'suspended';
+      toast.success(`Group ${label} successfully`);
       setConfirmDialog({ open: false, group: null, action: '' });
       fetchGroups();
     } catch (err) {
@@ -120,13 +124,23 @@ const ChitGroups = () => {
                           <Tooltip title="View">
                             <IconButton size="small" onClick={() => navigate(`/chit-groups/${g._id || g.id}`)}><ViewIcon fontSize="small" /></IconButton>
                           </Tooltip>
-                          <Tooltip title={g.status === 'active' ? 'Suspend' : 'Activate'}>
-                            <IconButton size="small"
-                              color={g.status === 'active' ? 'error' : 'success'}
-                              onClick={() => setConfirmDialog({ open: true, group: g, action: g.status === 'active' ? 'suspend' : 'activate' })}>
-                              {g.status === 'active' ? <PauseIcon fontSize="small" /> : <ResumeIcon fontSize="small" />}
-                            </IconButton>
-                          </Tooltip>
+                          {g.status === 'not_started' && (
+                            <Tooltip title="Start Chit">
+                              <IconButton size="small" color="success"
+                                onClick={() => setConfirmDialog({ open: true, group: g, action: 'start' })}>
+                                <ResumeIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
+                          {g.status !== 'not_started' && (
+                            <Tooltip title={g.status === 'active' ? 'Suspend' : 'Activate'}>
+                              <IconButton size="small"
+                                color={g.status === 'active' ? 'error' : 'success'}
+                                onClick={() => setConfirmDialog({ open: true, group: g, action: g.status === 'active' ? 'suspend' : 'activate' })}>
+                                {g.status === 'active' ? <PauseIcon fontSize="small" /> : <ResumeIcon fontSize="small" />}
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </TableCell>
                       </TableRow>
                     );

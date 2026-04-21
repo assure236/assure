@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -406,8 +407,9 @@ class _ContactCard extends StatelessWidget {
         border: Border.all(color: AppTheme.secondaryColor.withAlpha(76)),
       ),
       child: Column(children: [
-        const Icon(Icons.headset_mic_outlined,
-            color: AppTheme.secondaryColor, size: 36),
+        SvgPicture.asset('assets/icons/support.svg',
+            width: 36, height: 36,
+            colorFilter: ColorFilter.mode(AppTheme.secondaryColor, BlendMode.srcIn)),
         const SizedBox(height: 8),
         const Text('Still need help?',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),

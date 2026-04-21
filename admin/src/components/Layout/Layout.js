@@ -24,6 +24,7 @@ import {
   Business as BranchIcon,
   SupportAgent as SupportIcon,
   NotificationsActive as PushNotificationIcon,
+  Badge as BadgeIcon,
   ExpandLess, ExpandMore
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
@@ -64,6 +65,7 @@ const navGroups = [
     items: [
       { text: 'Branches', icon: <BranchIcon />, path: '/branches' },
       { text: 'Support', icon: <SupportIcon />, path: '/support' },
+      { text: 'Agent Requests', icon: <BadgeIcon />, path: '/agent-requests' },
     ]
   },
   {

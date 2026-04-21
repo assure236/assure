@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/services/api_service.dart';
@@ -14,11 +15,22 @@ class SupportScreen extends StatefulWidget {
 class _SupportScreenState extends State<SupportScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _tickets = [];
+  String? _agentRequestStatus; // null, 'pending', 'approved', 'rejected'
 
   @override
   void initState() {
     super.initState();
     _fetchTickets();
+    _fetchAgentStatus();
+  }
+
+  Future<void> _fetchAgentStatus() async {
+    try {
+      final res = await ApiService.get('/users/agent-request');
+      if (res['success'] == true && res['data'] != null) {
+        if (mounted) setState(() => _agentRequestStatus = res['data']['status']);
+      }
+    } catch (_) {}
   }
 
   Future<void> _fetchTickets() async {
@@ -275,10 +287,13 @@ class _SupportScreenState extends State<SupportScreen> {
               onRefresh: _fetchTickets,
               child: _tickets.isEmpty
                   ? _buildEmpty()
-                  : ListView.builder(
+                  : ListView(
                       padding: const EdgeInsets.all(16),
-                      itemCount: _tickets.length,
-                      itemBuilder: (_, i) => _buildTicketCard(_tickets[i]),
+                      children: [
+                        _buildBecomeAgentCard(),
+                        const SizedBox(height: 12),
+                        ...List.generate(_tickets.length, (i) => _buildTicketCard(_tickets[i])),
+                      ],
                     ),
             ),
     );
@@ -287,7 +302,9 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildEmpty() {
     return ListView(
       children: [
-        SizedBox(height: MediaQuery.of(context).size.height * 0.22),
+        const SizedBox(height: 16),
+        _buildBecomeAgentCard(),
+        SizedBox(height: MediaQuery.of(context).size.height * 0.12),
         Column(
           children: [
             Container(
@@ -296,7 +313,9 @@ class _SupportScreenState extends State<SupportScreen> {
                 color: AppTheme.accentBlue.withAlpha(20),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.support_agent, size: 64, color: AppTheme.accentBlue.withAlpha(160)),
+              child: SvgPicture.asset('assets/icons/support.svg',
+                  width: 64, height: 64,
+                  colorFilter: ColorFilter.mode(AppTheme.accentBlue.withAlpha(160), BlendMode.srcIn)),
             ),
             const SizedBox(height: 20),
             const Text('No Support Tickets',
@@ -319,6 +338,185 @@ class _SupportScreenState extends State<SupportScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildBecomeAgentCard() {
+    final isPending = _agentRequestStatus == 'pending';
+    final isApproved = _agentRequestStatus == 'approved';
+
+    if (isApproved) {
+      return Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(30),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.verified, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('You\'re an Assure Agent',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+                    SizedBox(height: 2),
+                    Text('You can now earn commissions by referring members',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isPending
+                ? [const Color(0xFFE65100), const Color(0xFFEF6C00)]
+                : [const Color(0xFF1A237E), const Color(0xFF283593)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.white.withAlpha(30),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                isPending ? Icons.hourglass_top_rounded : Icons.badge_outlined,
+                color: Colors.white, size: 28,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isPending ? 'Application In Progress' : 'Become an Agent',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isPending
+                        ? 'Our team will contact you within 24 hours'
+                        : 'Earn commissions by referring members',
+                    style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (!isPending)
+              OutlinedButton(
+                onPressed: () => _showBecomeAgentSheet(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white70),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                child: Text(_agentRequestStatus == 'rejected' ? 'Apply Again' : 'Apply',
+                    style: const TextStyle(fontSize: 13)),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showBecomeAgentSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withAlpha(20),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.badge_rounded, size: 48, color: AppTheme.primaryColor),
+            ),
+            const SizedBox(height: 16),
+            const Text('Become an Assure Agent',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            const SizedBox(height: 8),
+            Text(
+              'As an Assure agent, you can earn commissions by referring new members to chit groups. Would you like to submit your request?',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final res = await ApiService.post('/users/agent-request', {});
+                    if (mounted) {
+                      setState(() => _agentRequestStatus = 'pending');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(res['message'] ?? 'Agent request submitted!'), backgroundColor: Colors.green),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
+                },
+                icon: const Icon(Icons.send, size: 18),
+                label: const Text('Submit Request'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
     );
   }
 

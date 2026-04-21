@@ -1,4 +1,5 @@
 const { User, ChitGroup, ChitMember, Payment } = require('../models');
+const AgentRequest = require('../models/AgentRequest');
 const bcrypt = require('bcrypt');
 const { uploadToGridFS } = require('../utils/gridfs');
 const { audit, getIp } = require('../utils/audit');
@@ -6,7 +7,9 @@ const { audit, getIp } = require('../utils/audit');
 exports.getProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id || req.user.id).select('-password_hash');
-    res.json({ success: true, data: user });
+    const userObj = user.toObject();
+    userObj.id = userObj._id;
+    res.json({ success: true, data: userObj });
   } catch (err) { next(err); }
 };
 
@@ -184,7 +187,9 @@ exports.uploadProfileImage = async (req, res, next) => {
     });
 
     const user = await User.findByIdAndUpdate(userId, { profile_image_url: fileUrl }, { new: true }).select('-password_hash');
-    res.json({ success: true, message: 'Profile image uploaded', data: user });
+    const userObj = user.toObject();
+    userObj.id = userObj._id;
+    res.json({ success: true, message: 'Profile image uploaded', data: userObj });
   } catch (err) { next(err); }
 };
 
@@ -225,6 +230,66 @@ exports.getAllUsers = async (req, res, next) => {
       .skip((page - 1) * limit)
       .limit(parseInt(limit));
     res.json({ success: true, data: rows, total, page: parseInt(page), totalPages: Math.ceil(total / limit) });
+  } catch (err) { next(err); }
+};
+
+// ── Agent Request ──
+exports.submitAgentRequest = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const existing = await AgentRequest.findOne({ user_id: userId, status: 'pending' });
+    if (existing) return res.status(400).json({ success: false, message: 'You already have a pending agent request' });
+    const user = await User.findById(userId);
+    if (user.role === 'agent') return res.status(400).json({ success: false, message: 'You are already an agent' });
+    const request = await AgentRequest.create({ user_id: userId });
+    res.json({ success: true, data: request, message: 'Agent request submitted successfully' });
+  } catch (err) { next(err); }
+};
+
+exports.getMyAgentRequest = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const request = await AgentRequest.findOne({ user_id: userId }).sort({ createdAt: -1 });
+    res.json({ success: true, data: request });
+  } catch (err) { next(err); }
+};
+
+// ── Admin: Agent Requests ──
+exports.getAgentRequests = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const filter = {};
+    if (status) filter.status = status;
+    const total = await AgentRequest.countDocuments(filter);
+    const rows = await AgentRequest.find(filter)
+      .populate('user_id', 'full_name phone email member_id profile_image_url')
+      .populate('reviewed_by', 'full_name')
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(parseInt(limit));
+    res.json({ success: true, data: rows, total, page: parseInt(page), totalPages: Math.ceil(total / limit) });
+  } catch (err) { next(err); }
+};
+
+exports.reviewAgentRequest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, admin_note } = req.body;
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'Status must be approved or rejected' });
+    }
+    const request = await AgentRequest.findById(id);
+    if (!request) return res.status(404).json({ success: false, message: 'Request not found' });
+    if (request.status !== 'pending') return res.status(400).json({ success: false, message: 'Request already reviewed' });
+    request.status = status;
+    request.admin_note = admin_note;
+    request.reviewed_by = req.user._id || req.user.id;
+    request.reviewed_at = new Date();
+    await request.save();
+    if (status === 'approved') {
+      await User.findByIdAndUpdate(request.user_id, { role: 'agent' });
+    }
+    res.json({ success: true, data: request, message: `Agent request ${status}` });
   } catch (err) { next(err); }
 };
 

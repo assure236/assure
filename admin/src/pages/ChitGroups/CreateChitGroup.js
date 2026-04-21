@@ -16,6 +16,7 @@ const CreateChitGroup = () => {
   const [error, setError] = useState(null);
   const [form, setForm] = useState({
     group_name: '',
+    pso_number: '',
     chit_value: '',
     duration_months: '',
     monthly_installment: '',
@@ -72,8 +73,9 @@ const CreateChitGroup = () => {
         total_members: Number(form.total_members),
         auction_day: Number(form.auction_day),
         commencement_date: form.commencement_date,
+        pso_number: form.pso_number,
         description: form.description,
-        status: 'active',
+        status: 'not_started',
       });
       if (res.data.success) {
         toast.success('Chit group created successfully!');
@@ -104,6 +106,11 @@ const CreateChitGroup = () => {
               <Grid item xs={12} sm={6}>
                 <TextField fullWidth label="Group Name *" value={form.group_name}
                   onChange={handleChange('group_name')} />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField fullWidth label="PSO Number" value={form.pso_number}
+                  onChange={handleChange('pso_number')}
+                  helperText="Prior Sanction Order number" />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField fullWidth label="Chit Value (₹) *" type="number" value={form.chit_value}

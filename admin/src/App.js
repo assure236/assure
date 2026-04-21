@@ -29,6 +29,7 @@ import Support from './pages/Support/Support';
 import Disbursals from './pages/Disbursals/Disbursals';
 import PushNotifications from './pages/PushNotifications/PushNotifications';
 import Loans from './pages/Loans/Loans';
+import AgentRequests from './pages/AgentRequests/AgentRequests';
 
 const theme = createTheme({
   palette: {
@@ -113,6 +114,7 @@ function App() {
               <Route path="/push-notifications" element={<PushNotifications />} />
               <Route path="/branches" element={<Branches />} />
               <Route path="/support" element={<Support />} />
+              <Route path="/agent-requests" element={<AgentRequests />} />
               <Route path="/disbursals" element={<Disbursals />} />
               <Route path="/loans" element={<Loans />} />
             </Route>

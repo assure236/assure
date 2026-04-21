@@ -2087,4 +2087,9 @@ router.get('/erpnext/reports/receivable', adminOnly, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ─── Agent Requests ───────────────────────────────────────────────────────────
+const userController = require('../controllers/userController');
+router.get('/agent-requests', adminOnly, userController.getAgentRequests);
+router.put('/agent-requests/:id', adminOnly, userController.reviewAgentRequest);
+
 module.exports = router;

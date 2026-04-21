@@ -28,6 +28,7 @@ import '../../features/profile/screens/change_password_screen.dart';
 import '../../features/profile/screens/family_members_screen.dart';
 import '../../features/auth/screens/qr_scan_screen.dart';
 import '../../features/chatbot/screens/chatbot_screen.dart';
+import '../../features/dashboard/screens/total_investment_screen.dart';
 import '../../features/legal/screens/terms_screen.dart';
 import '../../features/legal/screens/privacy_policy_screen.dart';
 import '../../features/loans/screens/apply_loan_screen.dart';
@@ -211,6 +212,10 @@ class AppRouter {
         GoRoute(
           path: '/goals',
           builder: (context, state) => const GoalSettingScreen(),
+        ),
+        GoRoute(
+          path: '/total-investment',
+          builder: (context, state) => const TotalInvestmentScreen(),
         ),
       ],
     );

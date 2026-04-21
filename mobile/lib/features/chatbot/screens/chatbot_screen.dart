@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
@@ -85,15 +86,19 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
             CircleAvatar(
               radius: 14,
               backgroundColor: Colors.white24,
-              child: Icon(Icons.smart_toy_rounded, color: Colors.white, size: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: SvgPicture.asset('assets/icons/chatbot.svg',
+                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)),
+              ),
             ),
-            SizedBox(width: 8),
-            Text('Assure Bot'),
+            const SizedBox(width: 8),
+            const Text('Assure Bot'),
           ],
         ),
         flexibleSpace: Container(

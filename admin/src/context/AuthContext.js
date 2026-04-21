@@ -1,6 +1,7 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { io as socketIO } from 'socket.io-client';
 
 const AuthContext = createContext(null);
 
@@ -76,6 +77,26 @@ export const AuthProvider = ({ children }) => {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [token]);
+
+  // ─── Socket.IO: listen for force_logout ───
+  const socketRef = useRef(null);
+  useEffect(() => {
+    if (!token || !user) return;
+    const baseUrl = (process.env.REACT_APP_API_URL || '').replace(/\/api\/v1$/, '');
+    const socket = socketIO(baseUrl, { transports: ['websocket', 'polling'] });
+    socketRef.current = socket;
+    socket.on('connect', () => {
+      socket.emit('join', `user:${user._id || user.id}`);
+    });
+    socket.on('force_logout', () => {
+      toast.warning('You have been logged out from all devices');
+      logout();
+    });
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [token, user]);
 
   const login = async (email, password) => {
     try {

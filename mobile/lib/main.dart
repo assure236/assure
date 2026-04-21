@@ -15,6 +15,7 @@ import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/local_notification_service.dart';
 import 'core/services/fcm_service.dart';
+import 'core/utils/app_prefs.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,6 +31,9 @@ void main() async {
   
   // Initialize local notifications (for polling fallback)
   await LocalNotificationService().init();
+
+  // Load reactive preferences (chatbot visibility, etc.)
+  await AppPrefs.init();
 
   // Set preferred orientations
   await SystemChrome.setPreferredOrientations([

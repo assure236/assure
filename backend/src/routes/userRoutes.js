@@ -144,6 +144,10 @@ router.get('/support/tickets', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// Agent request routes
+router.post('/agent-request', userController.submitAgentRequest);
+router.get('/agent-request', userController.getMyAgentRequest);
+
 router.get('/support/tickets/:id', async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;

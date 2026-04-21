@@ -40,6 +40,27 @@ exports.getMemberDashboard = async (req, res, next) => {
 
     const totalInvested = totalInvestedAgg[0]?.total || 0;
 
+    // Compute actual total_paid and months_paid per group from Payment records
+    const groupIds = memberships.map(m => m.chit_group_id?._id).filter(Boolean);
+    const perGroupPayments = groupIds.length > 0 ? await Payment.aggregate([
+      { $match: { user_id: userId, payment_status: 'success', chit_group_id: { $in: groupIds } } },
+      { $group: { _id: '$chit_group_id', total_paid: { $sum: '$amount' }, months_paid: { $sum: 1 } } }
+    ]) : [];
+    const paymentMap = {};
+    for (const pg of perGroupPayments) {
+      paymentMap[pg._id.toString()] = { total_paid: pg.total_paid, months_paid: pg.months_paid };
+    }
+
+    // Enrich memberships with real payment data
+    const enrichedMemberships = memberships.map(m => {
+      const obj = m.toObject();
+      const gid = m.chit_group_id?._id?.toString();
+      const stats = gid ? paymentMap[gid] : null;
+      obj.total_paid = stats?.total_paid || obj.total_paid_amount || 0;
+      obj.months_paid = stats?.months_paid || 0;
+      return obj;
+    });
+
     res.json({
       success: true,
       data: {
@@ -49,7 +70,7 @@ exports.getMemberDashboard = async (req, res, next) => {
         totalInvested,
         paymentsThisMonth: paidThisMonth[0]?.total || 0,
         showCreditScore: showCreditScoreSetting?.value === 'true' || showCreditScoreSetting?.value === true,
-        memberships,
+        memberships: enrichedMemberships,
         recentPayments,
         upcomingAuctions: upcomingAuctions.map(a => ({ ...a.toObject(), status: a.status === 'in_progress' ? 'active' : a.status })),
       }

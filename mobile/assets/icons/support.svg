@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Headband -->
+  <path d="M12 30C12 19 21 10 32 10s20 9 20 20" stroke="#2196F3" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <!-- Left ear cup -->
+  <rect x="6" y="28" width="10" height="18" rx="5" fill="#2196F3"/>
+  <!-- Right ear cup -->
+  <rect x="48" y="28" width="10" height="18" rx="5" fill="#2196F3"/>
+  <!-- Mic arm -->
+  <path d="M16 46c0 6 6 10 16 10" stroke="#2196F3" stroke-width="3" stroke-linecap="round" fill="none"/>
+  <!-- Chat bubble -->
+  <rect x="28" y="42" width="22" height="16" rx="8" fill="#29B6F6"/>
+  <polygon points="32,58 36,58 30,64" fill="#29B6F6"/>
+  <!-- Chat lines -->
+  <line x1="34" y1="48" x2="44" y2="48" stroke="white" stroke-width="2" stroke-linecap="round"/>
+  <line x1="34" y1="53" x2="40" y2="53" stroke="white" stroke-width="2" stroke-linecap="round"/>
+</svg>

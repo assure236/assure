@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
@@ -14,18 +16,29 @@ import 'cashfree_payment_screen.dart';
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});
 
+  /// Set to desired tab index before switching to Payments tab
+  static int initialTabIndex = 0;
+
   @override
-  State<PaymentsScreen> createState() => _PaymentsScreenState();
+  State<PaymentsScreen> createState() => PaymentsScreenState();
 }
 
-class _PaymentsScreenState extends State<PaymentsScreen>
+class PaymentsScreenState extends State<PaymentsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
+  /// Switch to a specific tab programmatically
+  void switchToTab(int index) {
+    if (_tabController.index != index) {
+      _tabController.animateTo(index);
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: PaymentsScreen.initialTabIndex);
+    PaymentsScreen.initialTabIndex = 0; // reset after use
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<PaymentProvider>().fetchPayments();
     });
@@ -53,7 +66,7 @@ class _PaymentsScreenState extends State<PaymentsScreen>
             onPressed: () async {
               const storage = FlutterSecureStorage();
               final token = await storage.read(key: 'access_token');
-              final url = '${ApiService.baseUrl}/payments/statement?format=html&token=$token';
+              final url = '${ApiService.baseUrl}/payments/statement?format=pdf&token=$token';
               launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
             },
           ),
@@ -517,21 +530,33 @@ class _PaymentTile extends StatelessWidget {
           Row(children: [
             Expanded(
               child: OutlinedButton.icon(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(ctx);
-                  Share.share(
-                    'Assure Chit Funds - Payment Receipt\n'
-                    '─────────────────────\n'
-                    'Group: $group\n'
-                    'Amount: ₹${NumberFormat('#,##,###').format(amount)}\n'
-                    'Month: $monthNum\n'
-                    'Status: ${status.toUpperCase()}\n'
-                    'Date: $dateStr\n'
-                    'Txn ID: #$txnId\n'
-                    '─────────────────────\n'
-                    'Thank you for your timely payment!',
-                    subject: 'Payment Receipt - Assure Chit Funds',
-                  );
+                  final paymentId = payment['_id'] ?? payment['id'] ?? '';
+                  const storage = FlutterSecureStorage();
+                  final token = await storage.read(key: 'access_token') ?? '';
+                  final url = '${ApiService.baseUrl}/payments/receipt/$paymentId?token=$token';
+                  try {
+                    final response = await http.get(Uri.parse(url));
+                    if (response.statusCode == 200) {
+                      final dir = Directory.systemTemp;
+                      final file = File('${dir.path}/receipt_$paymentId.pdf');
+                      await file.writeAsBytes(response.bodyBytes);
+                      await Share.shareXFiles(
+                        [XFile(file.path, mimeType: 'application/pdf')],
+                        subject: 'Payment Receipt - Assure Chit Funds',
+                      );
+                    }
+                  } catch (_) {
+                    // Fallback to text share
+                    Share.share(
+                      'Assure Chit Funds - Payment Receipt\n'
+                      'Group: $group | Amount: ₹${NumberFormat('#,##,###').format(amount)}\n'
+                      'Month: $monthNum | Status: ${status.toUpperCase()}\n'
+                      'Date: $dateStr | Txn ID: #$txnId',
+                      subject: 'Payment Receipt - Assure Chit Funds',
+                    );
+                  }
                 },
                 icon: const Icon(Icons.share, size: 18),
                 label: const Text('Share'),
@@ -543,8 +568,8 @@ class _PaymentTile extends StatelessWidget {
                 onPressed: () async {
                   Navigator.pop(ctx);
                   final paymentId = payment['_id'] ?? payment['id'] ?? '';
-                  final prefs = await SharedPreferences.getInstance();
-                  final token = prefs.getString('token') ?? '';
+                  const storage = FlutterSecureStorage();
+                  final token = await storage.read(key: 'access_token') ?? '';
                   final url = '${ApiService.baseUrl}/payments/receipt/$paymentId?token=$token';
                   launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
                 },

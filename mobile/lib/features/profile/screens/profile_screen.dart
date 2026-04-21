@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/app_prefs.dart';
 import '../../../core/widgets/onboarding_tour.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -66,41 +67,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 16),
-                        // Avatar
+                        // Avatar — photo comes from Documents > Live Selfie
                         GestureDetector(
                           onTap: () => context.push('/edit-profile'),
-                          child: Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
-                                    ? CircleAvatar(
-                                        radius: 44,
-                                        backgroundColor: Colors.white24,
-                                        backgroundImage: NetworkImage(user.profileImageUrl!),
-                                      )
-                                    : CircleAvatar(
-                                        radius: 44,
-                                        backgroundColor: Colors.white24,
-                                        child: Text(
-                                          user != null && user.fullName.isNotEmpty
-                                              ? user.fullName[0].toUpperCase()
-                                              : '?',
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 36,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                  color: AppTheme.secondaryColor,
-                                  shape: BoxShape.circle),
-                              child: const Icon(Icons.edit,
-                                  size: 14, color: Colors.white),
-                            ),
-                          ],
-                        ),
+                          child: (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
+                              ? CircleAvatar(
+                                  radius: 44,
+                                  backgroundColor: Colors.white24,
+                                  backgroundImage: NetworkImage(user.profileImageUrl!),
+                                )
+                              : CircleAvatar(
+                                  radius: 44,
+                                  backgroundColor: Colors.white24,
+                                  child: Text(
+                                    user != null && user.fullName.isNotEmpty
+                                        ? user.fullName[0].toUpperCase()
+                                        : '?',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 36,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
                         ),
                         const SizedBox(height: 10),
                         Text(
@@ -416,62 +404,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _confirmLogout(BuildContext context, AuthProvider auth) {
-    showDialog(
+    showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+        content: const Text('Are you sure you want to logout from this device?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              await auth.logout();
-              if (context.mounted) context.go('/welcome');
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.errorColor,
-                foregroundColor: Colors.white),
+              backgroundColor: AppTheme.errorColor,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Logout'),
           ),
         ],
       ),
-    );
+    ).then((confirmed) async {
+      if (confirmed != true || !context.mounted) return;
+      await auth.logout();
+      if (context.mounted) context.go('/welcome');
+    });
   }
 
   void _confirmLogoutAll(BuildContext context, AuthProvider auth) {
-    showDialog(
+    showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Logout All Devices'),
-        content: const Text(
-            'This will sign you out from all devices including this one. You will need to log in again.'),
+        content: const Text('This will sign you out from ALL devices including web. Continue?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await ApiService.post('/auth/logout-all-devices', {});
-              } catch (_) {}
-              await auth.logout();
-              if (context.mounted) context.go('/welcome');
-            },
+            onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.errorColor,
-                foregroundColor: Colors.white),
+              backgroundColor: AppTheme.errorColor,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Logout All'),
           ),
         ],
       ),
-    );
+    ).then((confirmed) async {
+      if (confirmed != true || !context.mounted) return;
+      try {
+        await ApiService.post('/auth/logout-all-devices', {});
+      } catch (_) {}
+      await auth.logout();
+      if (context.mounted) context.go('/welcome');
+    });
   }
 
   String _kycLabel(String? status) {
@@ -632,6 +616,10 @@ class _ToggleMenuItemState extends State<_ToggleMenuItem> {
     setState(() => _value = val);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(widget.prefKey, val);
+    // Notify reactive listeners immediately (e.g. chatbot FAB on dashboard)
+    if (widget.prefKey == 'chatbot_visible') {
+      AppPrefs.chatbotVisible.value = val;
+    }
   }
 
   @override
@@ -659,3 +647,4 @@ class _ToggleMenuItemState extends State<_ToggleMenuItem> {
     );
   }
 }
+

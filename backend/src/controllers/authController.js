@@ -203,11 +203,15 @@ exports.login = async (req, res, next) => {
     const token = generateToken(user._id, user.token_version || 0);
     const refreshToken = generateRefreshToken(user._id, user.token_version || 0);
 
+    const loginUserObj = user.toObject();
+    delete loginUserObj.password_hash;
+    loginUserObj.id = loginUserObj._id;
+
     res.json({
       success: true,
       data: {
         token, refreshToken,
-        user: { id: user._id, full_name: user.full_name, email: user.email, mobile: user.mobile, role: user.role, kyc_status: user.kyc_status, member_id: user.member_id }
+        user: loginUserObj
       }
     });
 
@@ -273,11 +277,15 @@ exports.loginWithOtp = async (req, res, next) => {
     const token = generateToken(user._id, user.token_version || 0);
     const refreshToken = generateRefreshToken(user._id, user.token_version || 0);
 
+    const userObj = user.toObject();
+    delete userObj.password_hash;
+    userObj.id = userObj._id;
+
     res.json({
       success: true,
       data: {
         token, refreshToken,
-        user: { id: user._id, full_name: user.full_name, email: user.email, mobile: user.mobile, role: user.role, kyc_status: user.kyc_status, member_id: user.member_id, credit_score: user.credit_score, pan_number: user.pan_number, aadhaar_number: user.aadhaar_number, referral_code: user.referral_code, address: user.address, city: user.city, state: user.state, pincode: user.pincode, date_of_birth: user.date_of_birth, gender: user.gender, nominee_name: user.nominee_name, nominee_relationship: user.nominee_relationship, bank_account_number: user.bank_account_number, bank_ifsc_code: user.bank_ifsc_code, bank_name: user.bank_name }
+        user: userObj
       }
     });
   } catch (error) { next(error); }

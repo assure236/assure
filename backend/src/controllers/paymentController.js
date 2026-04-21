@@ -1,6 +1,7 @@
 const { Payment, ChitGroup, ChitMember, User, Auction } = require('../models');
 const axios = require('axios');
 const crypto = require('crypto');
+const PDFDocument = require('pdfkit');
 const notificationService = require('../services/notificationService');
 const { notifyUser } = require('../utils/notifyUser');
 const { audit, getIp } = require('../utils/audit');
@@ -452,53 +453,67 @@ exports.downloadReceipt = async (req, res, next) => {
     const user = payment.user_id || {};
     const group = payment.chit_group_id || {};
     const date = payment.payment_date ? new Date(payment.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
-    const amount = Number(payment.total_amount || payment.amount || 0).toLocaleString('en-IN');
+    const amt = Number(payment.total_amount || payment.amount || 0);
+    const amountStr = '₹' + amt.toLocaleString('en-IN');
+    const status = (payment.payment_status || 'pending').toUpperCase();
+    const receiptNo = payment.payment_number || payment._id.toString();
 
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Payment Receipt</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:#f5f5f5;padding:20px}
-.receipt{max-width:500px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.1)}
-.header{background:linear-gradient(135deg,#1565C0,#1976D2);color:#fff;padding:24px;text-align:center}
-.header h1{font-size:20px;margin-bottom:4px}
-.header p{font-size:12px;opacity:0.85}
-.status{display:inline-block;margin-top:10px;padding:4px 16px;border-radius:20px;font-size:12px;font-weight:600;text-transform:uppercase;background:${payment.payment_status === 'success' ? 'rgba(76,175,80,0.2);color:#4CAF50' : 'rgba(255,152,0,0.2);color:#FF9800'}}
-.body{padding:24px}
-.row{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0}
-.row:last-child{border-bottom:none}
-.label{color:#666;font-size:13px}
-.value{font-weight:600;font-size:13px;text-align:right}
-.amount-row{background:#f8f9fa;margin:16px -24px;padding:16px 24px;border-top:2px dashed #e0e0e0;border-bottom:2px dashed #e0e0e0}
-.amount-row .value{font-size:20px;color:#1565C0}
-.footer{text-align:center;padding:16px 24px;background:#fafafa;font-size:11px;color:#999}
-@media print{body{background:#fff;padding:0}.receipt{box-shadow:none}}
-</style></head><body>
-<div class="receipt">
-  <div class="header">
-    <h1>Assure ChitFunds</h1>
-    <p>Payment Receipt</p>
-    <div class="status">${payment.payment_status}</div>
-  </div>
-  <div class="body">
-    <div class="row"><span class="label">Receipt No</span><span class="value">${payment.payment_number || payment._id}</span></div>
-    <div class="row"><span class="label">Date</span><span class="value">${date}</span></div>
-    <div class="row"><span class="label">Member</span><span class="value">${user.full_name || 'N/A'}</span></div>
-    <div class="row"><span class="label">Member ID</span><span class="value">${user.member_id || 'N/A'}</span></div>
-    <div class="row"><span class="label">Chit Group</span><span class="value">${group.group_name || 'N/A'}</span></div>
-    <div class="row"><span class="label">Group No</span><span class="value">${group.group_number || 'N/A'}</span></div>
-    <div class="row"><span class="label">Payment Method</span><span class="value">${payment.payment_method || 'N/A'}</span></div>
-    ${payment.transaction_id ? `<div class="row"><span class="label">Transaction ID</span><span class="value">${payment.transaction_id}</span></div>` : ''}
-    <div class="row amount-row"><span class="label" style="font-size:15px">Amount Paid</span><span class="value">₹${amount}</span></div>
-  </div>
-  <div class="footer">
-    This is a computer-generated receipt. No signature required.<br>
-    Assure ChitFunds &bull; assure.fund
-  </div>
-</div>
-<script>window.onload=function(){window.print()}</script>
-</body></html>`;
-    res.set('Content-Type', 'text/html');
-    res.send(html);
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ size: 'A4', margin: 50 });
+
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="receipt_${receiptNo}.pdf"`,
+    });
+    doc.pipe(res);
+
+    // Header background
+    doc.rect(0, 0, doc.page.width, 120).fill('#1565C0');
+    doc.fontSize(22).fill('#fff').text('Assure ChitFunds', 0, 35, { align: 'center' });
+    doc.fontSize(12).fill('#ffffffcc').text('Payment Receipt', 0, 62, { align: 'center' });
+
+    // Status badge
+    const badgeColor = status === 'SUCCESS' ? '#4CAF50' : '#FF9800';
+    const badgeW = 80, badgeH = 22;
+    const badgeX = (doc.page.width - badgeW) / 2;
+    doc.roundedRect(badgeX, 82, badgeW, badgeH, 11).fill(badgeColor);
+    doc.fontSize(10).fill('#fff').text(status, badgeX, 87, { width: badgeW, align: 'center' });
+
+    // Receipt body
+    const startY = 150;
+    const leftX = 60;
+    const rightX = doc.page.width - 60;
+    const rows = [
+      ['Receipt No', receiptNo],
+      ['Date', date],
+      ['Member', user.full_name || 'N/A'],
+      ['Member ID', user.member_id || 'N/A'],
+      ['Chit Group', group.group_name || 'N/A'],
+      ['Group No', group.group_number || 'N/A'],
+      ['Payment Method', payment.payment_method || 'N/A'],
+    ];
+    if (payment.transaction_id) rows.push(['Transaction ID', payment.transaction_id]);
+
+    let y = startY;
+    for (const [label, value] of rows) {
+      doc.fontSize(11).fill('#666').text(label, leftX, y);
+      doc.fontSize(11).fill('#222').text(value, leftX, y, { width: rightX - leftX, align: 'right' });
+      y += 28;
+      doc.moveTo(leftX, y - 8).lineTo(rightX, y - 8).strokeColor('#f0f0f0').lineWidth(0.5).stroke();
+    }
+
+    // Amount row (highlighted)
+    y += 5;
+    doc.rect(leftX - 10, y - 5, rightX - leftX + 20, 40).fill('#f8f9fa');
+    doc.fontSize(13).fill('#666').text('Amount Paid', leftX, y + 5);
+    doc.fontSize(20).fill('#1565C0').text(amountStr, leftX, y + 2, { width: rightX - leftX, align: 'right' });
+    y += 50;
+
+    // Footer
+    doc.fontSize(9).fill('#999').text('This is a computer-generated receipt. No signature required.', 0, y + 20, { align: 'center' });
+    doc.text('Assure ChitFunds • assure.fund', 0, y + 34, { align: 'center' });
+
+    doc.end();
   } catch (err) { next(err); }
 };
 
@@ -523,6 +538,76 @@ exports.getAccountStatement = async (req, res, next) => {
       return res.send(csv);
     }
 
+    // Server-side PDF generation
+    if (format === 'pdf') {
+      const totalPaid = payments.reduce((s, p) => s + (p.total_amount || p.amount || 0), 0);
+      const now = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
+      const doc = new PDFDocument({ size: 'A4', margin: 40 });
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Disposition', 'attachment; filename="Assure_Statement.pdf"');
+      doc.pipe(res);
+
+      // Header
+      doc.rect(0, 0, 615, 70).fill('#0D47A1');
+      doc.fillColor('#ffffff').fontSize(18).font('Helvetica-Bold').text('Assure ChitFunds', 40, 20);
+      doc.fontSize(10).font('Helvetica').text('Account Statement', 40, 42);
+      doc.fontSize(9).text(`Generated: ${now}`, 400, 28, { align: 'right', width: 175 });
+
+      // User info
+      let y = 85;
+      doc.fillColor('#333333').fontSize(10).font('Helvetica-Bold');
+      doc.text('Account Holder: ', 40, y, { continued: true }).font('Helvetica').text(user?.full_name || 'N/A');
+      doc.font('Helvetica-Bold').text('Member ID: ', 40, y + 16, { continued: true }).font('Helvetica').text(user?.member_id || 'N/A');
+      doc.font('Helvetica-Bold').text('Mobile: ', 300, y + 16, { continued: true }).font('Helvetica').text(user?.mobile || 'N/A');
+
+      // Summary
+      y = 130;
+      doc.rect(40, y, 515, 30).fill('#f0f4ff');
+      doc.fillColor('#0D47A1').fontSize(10).font('Helvetica-Bold');
+      doc.text(`Total Transactions: ${payments.length}`, 55, y + 9);
+      doc.text(`Total Paid: Rs.${Number(totalPaid).toLocaleString('en-IN')}`, 350, y + 9);
+
+      // Table header
+      y = 175;
+      const cols = [40, 120, 210, 320, 400, 480];
+      const headers = ['Date', 'Receipt #', 'Chit Group', 'Method', 'Amount', 'Cumulative'];
+      doc.rect(40, y, 515, 20).fill('#e8e8e8');
+      doc.fillColor('#333333').fontSize(8).font('Helvetica-Bold');
+      headers.forEach((h, i) => doc.text(h, cols[i] + 4, y + 6));
+
+      // Table rows
+      y += 20;
+      let runBal = 0;
+      doc.font('Helvetica').fontSize(8).fillColor('#333333');
+      for (const p of payments) {
+        if (y > 760) { doc.addPage(); y = 40; }
+        const amt = p.total_amount || p.amount || 0;
+        runBal += amt;
+        const date = p.payment_date ? new Date(p.payment_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+        if (payments.indexOf(p) % 2 === 0) doc.rect(40, y, 515, 18).fill('#f9f9f9');
+        doc.fillColor('#333333');
+        doc.text(date, cols[0] + 4, y + 5);
+        doc.text(p.payment_number || '-', cols[1] + 4, y + 5);
+        doc.text((p.chit_group_id?.group_name || '-').substring(0, 18), cols[2] + 4, y + 5);
+        doc.text(p.payment_method || '-', cols[3] + 4, y + 5);
+        doc.text(`Rs.${Number(amt).toLocaleString('en-IN')}`, cols[4] + 4, y + 5);
+        doc.text(`Rs.${Number(runBal).toLocaleString('en-IN')}`, cols[5] + 4, y + 5);
+        y += 18;
+      }
+      if (payments.length === 0) {
+        doc.fillColor('#999999').fontSize(10).text('No transactions found', 200, y + 10);
+      }
+
+      // Footer
+      y = Math.max(y + 20, 720);
+      if (y > 760) { doc.addPage(); y = 40; }
+      doc.fillColor('#999999').fontSize(8).text('This is a system-generated statement. For any discrepancies, please contact support.', 40, y, { align: 'center', width: 515 });
+      doc.text('Assure ChitFunds - assure.fund', 40, y + 12, { align: 'center', width: 515 });
+
+      doc.end();
+      return;
+    }
+
     // Bank-style HTML statement
     const totalPaid = payments.reduce((s, p) => s + (p.total_amount || p.amount || 0), 0);
     let runningBalance = 0;
@@ -541,22 +626,23 @@ exports.getAccountStatement = async (req, res, next) => {
     }).join('');
 
     const now = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' });
-    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Account Statement</title>
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Account Statement</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f5f5f5;padding:20px}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:#f5f5f5;padding:16px}
 .stmt{max-width:800px;margin:0 auto;background:#fff;border-radius:4px;overflow:hidden;box-shadow:0 1px 6px rgba(0,0,0,0.1)}
-.header{background:linear-gradient(135deg,#1565C0,#0D47A1);color:#fff;padding:24px 32px;display:flex;justify-content:space-between;align-items:center}
-.header h1{font-size:22px;letter-spacing:0.5px}
-.header .date{font-size:12px;opacity:0.8}
-.info{display:flex;gap:40px;padding:20px 32px;background:#f8f9ff;border-bottom:2px solid #1565C0}
-.info div{font-size:13px;color:#333}
+.header{background:linear-gradient(135deg,#1565C0,#0D47A1);color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:center}
+.header h1{font-size:18px;letter-spacing:0.5px}
+.header .date{font-size:11px;opacity:0.8}
+.info{display:flex;flex-wrap:wrap;gap:16px;padding:16px 24px;background:#f8f9ff;border-bottom:2px solid #1565C0}
+.info div{font-size:13px;color:#333;min-width:120px}
 .info .label{color:#888;font-size:11px;margin-bottom:2px}
-.summary{display:flex;gap:32px;padding:16px 32px;background:#fafafa;border-bottom:1px solid #e0e0e0}
+.summary{display:flex;gap:16px;padding:16px 24px;background:#fafafa;border-bottom:1px solid #e0e0e0}
 .summary .box{text-align:center;flex:1}
-.summary .box .num{font-size:20px;font-weight:700;color:#1565C0}
+.summary .box .num{font-size:18px;font-weight:700;color:#1565C0}
 .summary .box .lbl{font-size:11px;color:#666;margin-top:2px}
-table{width:100%;border-collapse:collapse}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:500px}
 th{background:#f5f5f5;padding:10px 12px;font-size:11px;text-transform:uppercase;color:#666;border-bottom:2px solid #ddd;text-align:left}
 td{padding:10px 12px;font-size:13px;border-bottom:1px solid #f0f0f0}
 tr:hover td{background:#f8f9ff}
@@ -578,16 +664,17 @@ tr:hover td{background:#f8f9ff}
     <div class="box"><div class="num">${payments.length}</div><div class="lbl">Total Transactions</div></div>
     <div class="box"><div class="num">₹${Number(totalPaid).toLocaleString('en-IN')}</div><div class="lbl">Total Amount Paid</div></div>
   </div>
+  <div class="table-wrap">
   <table>
     <thead><tr><th>Date</th><th>Receipt #</th><th>Chit Group</th><th>Method</th><th style="text-align:right">Amount</th><th style="text-align:right">Cumulative</th></tr></thead>
     <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:24px;color:#999">No transactions found</td></tr>'}</tbody>
   </table>
+  </div>
   <div class="footer">
     This is a system-generated statement. For any discrepancies, please contact support.<br>
     Assure ChitFunds &bull; assure.fund
   </div>
 </div>
-<script>window.onload=function(){window.print()}</script>
 </body></html>`;
     res.set('Content-Type', 'text/html');
     res.send(html);

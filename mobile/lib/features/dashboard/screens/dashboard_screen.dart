@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -11,7 +12,9 @@ import '../../../core/providers/notification_provider.dart';
 import '../../../core/providers/payment_provider.dart';
 import '../../../core/services/local_notification_service.dart';
 import '../../../core/services/socket_service.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/app_prefs.dart';
 import '../../../core/widgets/onboarding_tour.dart';
 import '../../chit_groups/screens/chit_groups_screen.dart';
 import '../../auctions/screens/auctions_screen.dart';
@@ -33,13 +36,12 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
-  bool _chatbotVisible = true;
   bool _showTour = false;
+  final _paymentsKey = GlobalKey<PaymentsScreenState>();
 
   @override
   void initState() {
     super.initState();
-    _loadChatbotPref();
     _checkTour();
     // Set context for SocketService multi-device alerts
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -72,20 +74,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (show && mounted) setState(() => _showTour = true);
   }
 
-  Future<void> _loadChatbotPref() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (mounted) {
-      setState(() {
-        _chatbotVisible = prefs.getBool('chatbot_visible') ?? true;
-      });
-    }
-  }
-
   void _switchTab(int index) {
     setState(() => _currentIndex = index);
-    // Reload chatbot pref when switching back to home (in case toggled in More)
+    // If switching to Payments tab and a specific sub-tab was requested
+    if (index == 3 && PaymentsScreen.initialTabIndex != 0) {
+      final tabIdx = PaymentsScreen.initialTabIndex;
+      PaymentsScreen.initialTabIndex = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _paymentsKey.currentState?.switchToTab(tabIdx);
+      });
+    }
+    // Reload tour when switching back to home
     if (index == 0) {
-      _loadChatbotPref();
       _checkTour();
     }
   }
@@ -109,7 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _HomeTab(switchTab: _switchTab),
             const ChitGroupsScreen(),
             const AuctionsScreen(),
-            const PaymentsScreen(),
+            PaymentsScreen(key: _paymentsKey),
             ProfileScreen(switchTab: _switchTab),
           ],
         ),
@@ -149,7 +149,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ],
         ),
         ),
-        if (_chatbotVisible) _DraggableFab(onTap: () => context.push('/chatbot')),
+        ValueListenableBuilder<bool>(
+          valueListenable: AppPrefs.chatbotVisible,
+          builder: (context, chatbotOn, _) {
+            if (!chatbotOn) return const SizedBox.shrink();
+            return _DraggableFab(onTap: () => context.push('/chatbot'));
+          },
+        ),
         if (_showTour) OnboardingTour(onComplete: () => setState(() => _showTour = false)),
         ],
         ),
@@ -213,7 +219,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return Consumer<DashboardProvider>(
       builder: (context, dash, _) {
-        final user = context.read<AuthProvider>().user;
+        final user = context.watch<AuthProvider>().user;
 
         if (dash.isLoading && dash.data == null) {
           return Scaffold(
@@ -419,8 +425,9 @@ class _HeaderSection extends StatelessWidget {
                       ),
                       IconButton(
                         onPressed: () => context.push('/support'),
-                        icon: const Icon(Icons.headset_mic_rounded,
-                            color: Colors.white, size: 26),
+                        icon: SvgPicture.asset('assets/icons/support.svg',
+                            width: 26, height: 26,
+                            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)),
                         tooltip: 'Support',
                       ),
                     ],
@@ -633,7 +640,10 @@ class _DuePaymentsReminder extends StatelessWidget {
                     ),
                     const Spacer(),
                     TextButton(
-                      onPressed: () => switchTab(3),
+                      onPressed: () {
+                        PaymentsScreen.initialTabIndex = 1;
+                        switchTab(3);
+                      },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
@@ -645,7 +655,7 @@ class _DuePaymentsReminder extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                ...due.take(2).map((p) {
+                ...due.take(1).map((p) {
                   final group = (p['chit_group'] ?? p['chitGroup']) as Map<String, dynamic>? ?? {};
                   final groupName = group['group_name']?.toString() ?? 'Chit Group';
                   final amount = double.tryParse(p['total_amount']?.toString() ?? p['amount']?.toString() ?? '0') ?? 0;
@@ -689,7 +699,10 @@ class _DuePaymentsReminder extends StatelessWidget {
                         SizedBox(
                           height: 32,
                           child: ElevatedButton(
-                            onPressed: () => switchTab(3), // Go to Payments tab
+                            onPressed: () {
+                              PaymentsScreen.initialTabIndex = 1;
+                              switchTab(3); // Go to Payments → Upcoming tab
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primaryColor,
                               foregroundColor: Colors.white,
@@ -729,7 +742,7 @@ class _StatsRow extends StatelessWidget {
         children: [
           Expanded(
             child: GestureDetector(
-              onTap: () => switchTab(1),
+              onTap: () => context.push('/total-investment'),
               child: _StatCard(
                 label: 'Total Invested',
                 value: _inr.format(dash.totalInvested),
@@ -1196,27 +1209,103 @@ class _EmptyCard extends StatelessWidget {
 }
 
 // ─── Become an Agent Card ─────────────────────────────────────────────────────
-class _BecomeAgentCard extends StatelessWidget {
+class _BecomeAgentCard extends StatefulWidget {
   const _BecomeAgentCard();
 
   @override
+  State<_BecomeAgentCard> createState() => _BecomeAgentCardState();
+}
+
+class _BecomeAgentCardState extends State<_BecomeAgentCard> {
+  String? _agentStatus; // null, 'pending', 'approved', 'rejected'
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAgentStatus();
+  }
+
+  Future<void> _fetchAgentStatus() async {
+    try {
+      final res = await ApiService.get('/users/agent-request');
+      if (res['success'] == true && res['data'] != null) {
+        if (mounted) setState(() => _agentStatus = res['data']['status']);
+      }
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final isPending = _agentStatus == 'pending';
+    final isApproved = _agentStatus == 'approved';
+
+    if (isApproved) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF1B5E20).withAlpha(60),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(30),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.verified, color: Colors.white, size: 28),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('You\'re an Assure Agent',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    SizedBox(height: 4),
+                    Text('Earn commissions by referring new members',
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
       child: GestureDetector(
-        onTap: () => _showBecomeAgentSheet(context),
+        onTap: isPending ? null : () => _showBecomeAgentSheet(context),
         child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [AppTheme.primaryColor, AppTheme.accentBlue],
+          gradient: LinearGradient(
+            colors: isPending
+                ? [const Color(0xFFE65100), const Color(0xFFEF6C00)]
+                : [AppTheme.primaryColor, AppTheme.accentBlue],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primaryColor.withAlpha(60),
+              color: (isPending ? const Color(0xFFE65100) : AppTheme.primaryColor).withAlpha(60),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -1230,22 +1319,32 @@ class _BecomeAgentCard extends StatelessWidget {
                 color: Colors.white.withAlpha(30),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Icon(Icons.handshake_outlined, color: AppTheme.secondaryColor, size: 28),
+              child: Icon(
+                isPending ? Icons.hourglass_top_rounded : Icons.handshake_outlined,
+                color: isPending ? Colors.white : AppTheme.secondaryColor,
+                size: 28,
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Become an Agent',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  Text(
+                    isPending ? 'Application In Progress' : 'Become an Agent',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
                   const SizedBox(height: 4),
-                  Text('Earn commissions by referring new members',
-                      style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12)),
+                  Text(
+                    isPending
+                        ? 'Our team will contact you within 24 hours'
+                        : 'Earn commissions by referring new members',
+                    style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12),
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right, color: Colors.white70),
+            if (!isPending) const Icon(Icons.chevron_right, color: Colors.white70),
           ],
         ),
       ),
@@ -1296,15 +1395,32 @@ class _BecomeAgentCard extends StatelessWidget {
               width: double.infinity,
               height: 50,
               child: FilledButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(ctx);
-                  context.push('/support');
+                  try {
+                    final res = await ApiService.post('/users/agent-request', {});
+                    if (mounted) {
+                      setState(() => _agentStatus = 'pending');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(res['message'] ?? 'Agent request submitted!'), backgroundColor: Colors.green),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
+                      );
+                    }
+                  }
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                 ),
-                child: const Text('Contact Support to Apply', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                child: Text(
+                  _agentStatus == 'rejected' ? 'Submit Request Again' : 'Submit Request',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
               ),
             ),
             const SizedBox(height: 12),
@@ -1503,9 +1619,9 @@ class _DraggableFabState extends State<_DraggableFab>
   }
 
   void _snapToEdge(Size screen) {
-    final center = _offset!.dx + 28;
+    final center = _offset!.dx + 30;
     final targetX =
-        center < screen.width / 2 ? 8.0 : screen.width - 64.0;
+        center < screen.width / 2 ? 8.0 : screen.width - 68.0;
 
     final startX = _offset!.dx;
     _snapAnimation = Tween<double>(begin: startX, end: targetX)
@@ -1521,7 +1637,7 @@ class _DraggableFabState extends State<_DraggableFab>
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.of(context).size;
-    _offset ??= Offset(screen.width - 64, screen.height - 160);
+    _offset ??= Offset(screen.width - 68, screen.height - 160);
 
     return Positioned(
       left: _offset!.dx,
@@ -1530,36 +1646,27 @@ class _DraggableFabState extends State<_DraggableFab>
         onPanUpdate: (d) {
           setState(() {
             _offset = Offset(
-              (_offset!.dx + d.delta.dx).clamp(0.0, screen.width - 56),
-              (_offset!.dy + d.delta.dy).clamp(0.0, screen.height - 56),
+              (_offset!.dx + d.delta.dx).clamp(0.0, screen.width - 60),
+              (_offset!.dy + d.delta.dy).clamp(0.0, screen.height - 60),
             );
           });
         },
         onPanEnd: (_) => _snapToEdge(screen),
         onTap: widget.onTap,
         child: Container(
-          width: 56,
-          height: 56,
+          width: 60,
+          height: 60,
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor,
+            color: Colors.white,
             shape: BoxShape.circle,
+            border: Border.all(color: AppTheme.primaryColor, width: 2.5),
             boxShadow: [
-              BoxShadow(color: Colors.black.withAlpha(60), blurRadius: 8, offset: const Offset(0, 3)),
+              BoxShadow(color: AppTheme.primaryColor.withAlpha(60), blurRadius: 12, spreadRadius: 1, offset: const Offset(0, 3)),
             ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.smart_toy_outlined, color: AppTheme.primaryColor, size: 22),
-              ),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: SvgPicture.asset('assets/icons/chatbot.svg'),
           ),
         ),
       ),

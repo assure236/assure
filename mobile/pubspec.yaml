@@ -1,7 +1,7 @@
 name: assure_chitfunds
 description: Assure Chit Funds Mobile Application
 publish_to: 'none'
-version: 1.0.0+2003
+version: 1.0.0+4004
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -61,6 +61,9 @@ dependencies:
   
   # Charts
   fl_chart: ^0.71.0
+
+  # SVG Icons
+  flutter_svg: ^2.0.10
   
   # Payments
   flutter_cashfree_pg_sdk: ^2.3.2+49
@@ -80,3 +83,4 @@ flutter:
   
   assets:
     - assets/images/
+    - assets/icons/

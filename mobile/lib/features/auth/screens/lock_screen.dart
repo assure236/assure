@@ -45,18 +45,38 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _checkBiometrics() async {
+    // Check if OTP is required (every 2 days)
+    final prefs = await SharedPreferences.getInstance();
+    final lastOtpTime = prefs.getInt('last_otp_auth_time') ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    final otpRequired = (now - lastOtpTime) > twoDaysMs;
+
+    if (otpRequired) {
+      // OTP required every 2 days
+      if (mounted) {
+        setState(() {
+          _biometricsAvailable = false;
+          _showOtpFallback = true;
+        });
+      }
+      return;
+    }
+
+    // Otherwise try fingerprint for inactivity lock
     try {
       final canCheck = await _localAuth.canCheckBiometrics;
-      final isDeviceSupported = await _localAuth.isDeviceSupported();
+      final isSupported = await _localAuth.isDeviceSupported();
       if (mounted) {
-        setState(() => _biometricsAvailable = canCheck && isDeviceSupported);
+        setState(() => _biometricsAvailable = canCheck || isSupported);
         if (_biometricsAvailable) {
           _authenticateWithBiometrics();
         } else {
           setState(() => _showOtpFallback = true);
         }
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Biometric check error: \$e');
       if (mounted) setState(() => _showOtpFallback = true);
     }
   }
@@ -138,6 +158,9 @@ class _LockScreenState extends State<LockScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (res['success'] == true) {
+      // Save OTP auth timestamp for 2-day cycle
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('last_otp_auth_time', DateTime.now().millisecondsSinceEpoch);
       context.go('/dashboard');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

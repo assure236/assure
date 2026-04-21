@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/providers/chit_group_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/celebration_overlay.dart';
 
 class ChitGroupsScreen extends StatefulWidget {
   const ChitGroupsScreen({super.key});
@@ -45,55 +46,34 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
             floating: true,
             pinned: true,
             toolbarHeight: 48,
-            backgroundColor: Colors.white,
-            foregroundColor: AppTheme.primaryColor,
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
             elevation: 0,
-            title: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppTheme.primaryColor.withAlpha(40)),
-              ),
-              child: const Text('Chit Groups',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryColor,
-                  )),
-            ),
+            title: const Text('Chit Groups',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                )),
             centerTitle: true,
-            bottom: PreferredSize(
-              preferredSize: const Size.fromHeight(40),
-              child: TabBar(
-                controller: _tabController,
-                indicatorColor: AppTheme.secondaryColor,
-                indicatorWeight: 3,
-                labelColor: AppTheme.primaryColor,
-                unselectedLabelColor: Colors.grey,
-                tabs: const [
-                  Tab(text: 'New'),
-                  Tab(text: 'Vacant'),
-                ],
-              ),
+            bottom: TabBar(
+              controller: _tabController,
+              indicatorColor: AppTheme.secondaryColor,
+              indicatorWeight: 3,
+              labelColor: Colors.white,
+              unselectedLabelColor: Colors.white60,
+              tabs: const [
+                Tab(text: 'New'),
+                Tab(text: 'Vacant'),
+              ],
             ),
           ),
         ],
-        body: Column(
+        body: TabBarView(
+          controller: _tabController,
           children: [
-            _SearchBar(
-              controller: _searchController,
-              onChanged: (val) => setState(() => _searchQuery = val),
-            ),
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
-                  _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'vacant'),
-                ],
-              ),
-            ),
+            _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
+            _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'vacant'),
           ],
         ),
       ),
@@ -271,13 +251,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
                 .read<ChitGroupProvider>()
                 .enrollInChitGroup((filtered[i]['_id'] ?? filtered[i]['id']).toString());
             if (ok && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Enrollment request submitted!'),
-                  backgroundColor: AppTheme.successColor,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+              CelebrationOverlay.showGroupJoined(context, groupName: filtered[i]['group_name'] ?? 'Chit Group');
             }
           },
         ),

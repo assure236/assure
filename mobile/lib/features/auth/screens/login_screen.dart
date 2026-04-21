@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -72,6 +73,9 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (res['success'] == true) {
+      // Save OTP auth timestamp for 2-day cycle
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt('last_otp_auth_time', DateTime.now().millisecondsSinceEpoch);
       context.go('/dashboard');
     } else {
       _showError(res['message'] ?? 'Invalid OTP');

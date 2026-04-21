@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
-import 'liveness_screen.dart';
 
 class DocumentsScreen extends StatefulWidget {
   final String? digilockerStatus;
@@ -195,14 +194,18 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
     );
   }
 
+  /// Capture selfie directly (liveness check happens on the backend in one request)
   Future<void> _openLivenessScreen() async {
-    final capturedPath = await Navigator.push<String?>(
-      context,
-      MaterialPageRoute(builder: (_) => const LivenessScreen()),
+    final picker = ImagePicker();
+    final XFile? photo = await picker.pickImage(
+      source: ImageSource.camera,
+      preferredCameraDevice: CameraDevice.front,
+      imageQuality: 85,
+      maxWidth: 1200,
+      maxHeight: 1200,
     );
-    if (capturedPath != null && capturedPath.isNotEmpty) {
-      await _processAndUpload('selfie_photo', capturedPath, File(capturedPath).lengthSync());
-    }
+    if (photo == null) return;
+    await _processAndUpload('selfie_photo', photo.path, File(photo.path).lengthSync());
   }
 
   Future<void> _captureFromCamera(String docType, {bool useFrontCamera = false}) async {
@@ -216,29 +219,12 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
     );
     if (photo == null) return;
 
-    // Face detection for selfie
-    if (docType == 'selfie_photo') {
-      final hasFace = await _detectFace(photo.path);
-      if (!hasFace) {
-        _showSnackBar('No face detected. Please take a clear selfie with your face visible.');
-        return;
-      }
-    }
-
     await _processAndUpload(docType, photo.path, File(photo.path).lengthSync());
   }
 
   Future<bool> _detectFace(String imagePath) async {
-    // Basic validation — actual face check is done server-side by Luxand liveness API
-    try {
-      final file = File(imagePath);
-      if (!await file.exists()) return false;
-      final bytes = await file.length();
-      // Reject files smaller than 10KB (likely corrupt) or larger than 15MB
-      return bytes > 10240 && bytes < 15 * 1024 * 1024;
-    } catch (_) {
-      return true;
-    }
+    // Kept for backwards compatibility — liveness check is now done server-side
+    return true;
   }
 
   Future<void> _pickFromGallery(String docType) async {

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
@@ -34,77 +33,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _currentPincodeCtrl;
   String? _selectedGender;
   bool _saving = false;
-  bool _uploadingPhoto = false;
   bool _digilockerConnected = false;
-
-  Future<void> _pickAndUploadPhoto() async {
-    final picker = ImagePicker();
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Change Profile Photo',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: const Icon(Icons.camera_alt, color: AppTheme.primaryColor),
-                title: const Text('Take Photo'),
-                onTap: () => Navigator.pop(ctx, ImageSource.camera),
-              ),
-              ListTile(
-                leading: const Icon(Icons.photo_library, color: AppTheme.primaryColor),
-                title: const Text('Choose from Gallery'),
-                onTap: () => Navigator.pop(ctx, ImageSource.gallery),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-    if (source == null) return;
-
-    final XFile? photo = await picker.pickImage(
-      source: source,
-      imageQuality: 70,
-      maxWidth: 800,
-      maxHeight: 800,
-    );
-    if (photo == null) return;
-
-    setState(() => _uploadingPhoto = true);
-    try {
-      final res = await ApiService.uploadFile(
-        '/users/upload-profile-image',
-        photo.path,
-        fieldName: 'image',
-      );
-      if (res['success'] == true && mounted) {
-        await context.read<AuthProvider>().refreshProfile();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Profile photo updated'),
-          backgroundColor: AppTheme.successColor,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Failed to upload photo'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ));
-      }
-    } finally {
-      if (mounted) setState(() => _uploadingPhoto = false);
-    }
-  }
 
   @override
   void initState() {
@@ -302,51 +231,41 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ]),
               ),
-            // Avatar
+            // Avatar — read-only, set via Documents > Live Selfie Photo
             Center(
-              child: GestureDetector(
-                onTap: _uploadingPhoto ? null : _pickAndUploadPhoto,
-                child: Stack(
+              child: Stack(
                 alignment: Alignment.bottomRight,
                 children: [
-                  _uploadingPhoto
-                      ? const CircleAvatar(
+                  (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
+                      ? CircleAvatar(
                           radius: 52,
-                          backgroundColor: Color(0x260B1F3B),
-                          child: SizedBox(
-                            width: 30, height: 30,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
+                          backgroundColor: AppTheme.primaryColor.withAlpha(38),
+                          backgroundImage: NetworkImage(user.profileImageUrl!),
                         )
-                      : (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
-                          ? CircleAvatar(
-                              radius: 52,
-                              backgroundColor: AppTheme.primaryColor.withAlpha(38),
-                              backgroundImage: NetworkImage(user.profileImageUrl!),
-                            )
-                          : CircleAvatar(
-                    radius: 52,
-                    backgroundColor: AppTheme.primaryColor.withAlpha(38),
-                    child: Text(
-                      user?.fullName.isNotEmpty == true
-                          ? user!.fullName[0].toUpperCase()
-                          : '?',
-                      style: const TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor),
+                      : CircleAvatar(
+                          radius: 52,
+                          backgroundColor: AppTheme.primaryColor.withAlpha(38),
+                          child: Text(
+                            user?.fullName.isNotEmpty == true
+                                ? user!.fullName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryColor),
+                          ),
+                        ),
+                  Tooltip(
+                    message: 'Photo set from Documents > Live Selfie',
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          shape: BoxShape.circle),
+                      child: const Icon(Icons.lock, size: 14, color: Colors.white),
                     ),
                   ),
-                  Container(
-                    padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                        color: AppTheme.secondaryColor,
-                        shape: BoxShape.circle),
-                    child: const Icon(Icons.camera_alt,
-                        size: 16, color: Colors.white),
-                  ),
                 ],
-              ),
               ),
             ),
             const SizedBox(height: 8),
