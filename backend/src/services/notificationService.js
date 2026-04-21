@@ -23,25 +23,14 @@ exports.sendOTP = async (mobile, otp) => {
     throw new Error('FAST2SMS_API_KEY must be set in .env');
   }
 
-  // Use DLT route if template ID is configured, otherwise use Quick Transactional route
-  const hasDlt = process.env.FAST2SMS_MESSAGE_ID && !isNaN(parseInt(process.env.FAST2SMS_MESSAGE_ID));
-
-  const body = hasDlt
-    ? {
-        route: 'dlt',
-        sender_id: process.env.FAST2SMS_SENDER_ID,
-        message: parseInt(process.env.FAST2SMS_MESSAGE_ID),
-        variables_values: String(otp),
-        flash: 0,
-        numbers: String(mobile),
-      }
-    : {
-        route: 'qt',
-        message: `Your Assure ChitFunds OTP is ${otp}. Valid for 10 minutes. Do not share with anyone.`,
-        language: 'english',
-        flash: 0,
-        numbers: String(mobile),
-      };
+  const body = {
+    route: 'dlt',
+    sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
+    message: parseInt(process.env.FAST2SMS_MESSAGE_ID),
+    variables_values: String(otp),
+    flash: 0,
+    numbers: String(mobile),
+  };
 
   try {
     const response = await fetch('https://www.fast2sms.com/dev/bulkV2', {
