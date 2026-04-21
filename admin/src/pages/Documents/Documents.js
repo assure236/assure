@@ -202,7 +202,7 @@ export default function Documents() {
                               </IconButton>
                             </Tooltip>
                           )}
-                          {row.verification_status !== 'approved' && row.verification_status !== 'verified' && (
+                          {(row.verification_status === 'pending' || row.verification_status === 'rejected') && (
                             <Tooltip title="Approve">
                               <IconButton size="small" color="success"
                                 onClick={() => setVerifyDialog({ open: true, doc: row, action: 'approved' })}>
@@ -210,9 +210,9 @@ export default function Documents() {
                               </IconButton>
                             </Tooltip>
                           )}
-                          {row.verification_status !== 'rejected' && (
+                          {(row.verification_status === 'pending' || row.verification_status === 'verified' || row.verification_status === 'approved') && (
                             <Tooltip title="Reject">
-                              <IconButton size="small" color="error"
+                              <IconButton size="small" color="warning"
                                 onClick={() => setVerifyDialog({ open: true, doc: row, action: 'rejected' })}>
                                 <Cancel fontSize="small" />
                               </IconButton>
