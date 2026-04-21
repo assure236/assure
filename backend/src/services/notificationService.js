@@ -3,7 +3,15 @@
 const { Resend } = require('resend');
 const logger = require('../utils/logger');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy init — avoids crash when RESEND_API_KEY is not set
+let _resend = null;
+const getResend = () => {
+  if (!_resend) {
+    if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY not set in .env');
+    _resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return _resend;
+};
 
 // ─── Fast2SMS OTP (DLT Route) ────────────────────────────────────────────────
 
@@ -110,7 +118,7 @@ exports.sendEmail = async (to, subject, body) => {
   const textBody = body.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 
   try {
-    const { data, error } = await resend.emails.send({
+    const { data, error } = await getResend().emails.send({
       from: process.env.RESEND_FROM || 'Assure ChitFunds <noreply@assure.fund>',
       reply_to: 'support@assure.fund',
       to: Array.isArray(to) ? to : [to],
