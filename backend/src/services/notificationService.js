@@ -15,12 +15,13 @@ exports.sendOTP = async (mobile, otp) => {
     throw new Error('FAST2SMS_API_KEY must be set in .env');
   }
 
-  // Fast2SMS DLT route requires the DLT template ID in the `message` field
-  const dltTemplateId = process.env.FAST2SMS_DLT_TEMPLATE_ID || process.env.FAST2SMS_MESSAGE_ID;
+  // Fast2SMS DLT route requires the Fast2SMS internal Message ID (short numeric) in the `message` field,
+  // NOT the 19-digit TRAI DLT template ID.
+  const fast2smsMessageId = process.env.FAST2SMS_MESSAGE_ID || process.env.FAST2SMS_DLT_TEMPLATE_ID;
   const body = {
     route: 'dlt',
     sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
-    message: dltTemplateId,
+    message: fast2smsMessageId,
     variables_values: String(otp),
     flash: 0,
     numbers: String(mobile),
@@ -71,7 +72,7 @@ exports.sendSMS = async (mobile, message) => {
       body: JSON.stringify({
         route: 'dlt',
         sender_id: process.env.FAST2SMS_SENDER_ID || 'ACFUND',
-        message: process.env.FAST2SMS_DLT_TEMPLATE_ID || process.env.FAST2SMS_MESSAGE_ID,
+        message: process.env.FAST2SMS_MESSAGE_ID || process.env.FAST2SMS_DLT_TEMPLATE_ID,
         variables_values: message,
         flash: 0,
         numbers: String(mobile),
