@@ -210,15 +210,10 @@ class _LockScreenState extends State<LockScreen> {
                   color: AppTheme.primaryColor.withAlpha(26),
                   shape: BoxShape.circle,
                 ),
-                child: Center(
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 60,
-                      height: 60,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
+                padding: const EdgeInsets.all(12),
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.contain,
                 ),
               ),
               const SizedBox(height: 20),

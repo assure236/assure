@@ -219,6 +219,70 @@ class _GoalSettingScreenState extends State<GoalSettingScreen> {
     );
   }
 
+  void _showUpdateProgress(Map<String, dynamic> goal) {
+    final current = double.tryParse(goal['current_amount']?.toString() ?? '0') ?? 0;
+    final ctrl = TextEditingController(text: current > 0 ? current.toStringAsFixed(0) : '');
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Update Progress',
+            style: TextStyle(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Goal: ${goal['name']}',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              keyboardType: TextInputType.number,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: 'Current invested amount (₹)',
+                prefixIcon: const Icon(Icons.currency_rupee, size: 18),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                filled: true,
+                fillColor: Colors.grey.shade50,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              final val = double.tryParse(ctrl.text.trim());
+              if (val == null) return;
+              Navigator.pop(ctx);
+              try {
+                final res = await ApiService.put(
+                  '/users/goals/${goal['_id']}',
+                  {'current_amount': val},
+                );
+                if (res['success'] == true && mounted) {
+                  _fetchGoals();
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text('Progress updated!'),
+                    backgroundColor: AppTheme.successColor,
+                    behavior: SnackBarBehavior.floating,
+                  ));
+                }
+              } catch (_) {}
+            },
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildGoalCard(Map<String, dynamic> goal) {
     final target = double.tryParse(goal['target_amount']?.toString() ?? '0') ?? 0;
     final current = double.tryParse(goal['current_amount']?.toString() ?? '0') ?? 0;
@@ -259,10 +323,31 @@ class _GoalSettingScreenState extends State<GoalSettingScreen> {
                     ],
                   ),
                 ),
-                Text('${(progress * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryColor)),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text('${(progress * 100).toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryColor)),
+                    const SizedBox(height: 4),
+                    GestureDetector(
+                      onTap: () => _showUpdateProgress(goal),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withAlpha(15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('Update',
+                            style: TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600)),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 16),

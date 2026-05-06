@@ -128,65 +128,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(children: [
-                  // Personal Info
-                  _SectionCard(
-                    title: 'Personal Information',
-                    children: [
-                      _ProfileRow(
-                          icon: Icons.person_outline,
-                          label: 'Full Name',
-                          value: user?.fullName ?? '—'),
-                      _ProfileRow(
-                          icon: Icons.phone_outlined,
-                          label: 'Mobile',
-                          value: user?.mobile ?? '—'),
-                      _ProfileRow(
-                          icon: Icons.email_outlined,
-                          label: 'Email',
-                          value: user?.email ?? '—'),
-                      _ProfileRow(
-                          icon: Icons.credit_card,
-                          label: 'PAN',
-                          value: digilockerConnected && user?.panNumber != null
-                              ? '${user!.panNumber!} (DigiLocker Verified)'
-                              : user?.panNumber ?? 'Not added'),
-                      _ProfileRow(
-                          icon: Icons.fingerprint,
-                          label: 'Aadhaar',
-                          value: digilockerConnected
-                              ? (user?.aadhaarNumber != null
-                                  ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)} (DigiLocker Verified)'
-                                  : 'DigiLocker Verified')
-                              : user?.aadhaarNumber != null
-                                  ? 'XXXX-XXXX-${user!.aadhaarNumber!.substring(user.aadhaarNumber!.length - 4)}'
-                                  : 'Not added'),
-                      if (user?.gender != null)
-                        _ProfileRow(
-                            icon: Icons.wc,
-                            label: 'Gender',
-                            value: user!.gender![0].toUpperCase() + user.gender!.substring(1)),
-                      if (user?.dateOfBirth != null)
-                        _ProfileRow(
-                            icon: Icons.cake_outlined,
-                            label: 'Date of Birth',
-                            value: user!.dateOfBirth!),
-                      if (user?.address != null && user!.address!.isNotEmpty)
-                        _ProfileRow(
-                            icon: Icons.home_outlined,
-                            label: 'Permanent Address',
-                            value: [user.address, user.city, user.state, user.pincode]
-                                .where((s) => s != null && s.isNotEmpty)
-                                .join(', ')),
-                      if (user?.currentAddress != null && user!.currentAddress!.isNotEmpty)
-                        _ProfileRow(
-                            icon: Icons.location_on_outlined,
-                            label: 'Current Address',
-                            value: [user.currentAddress, user.currentCity, user.currentState, user.currentPincode]
-                                .where((s) => s != null && s.isNotEmpty)
-                                .join(', ')),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
                   if (user?.nomineeName != null && user!.nomineeName!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _SectionCard(

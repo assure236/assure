@@ -1523,30 +1523,23 @@ class _PaymentPartners extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Our Payment Partners',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _SbiLogo(),
-                Container(width: 1, height: 52, color: Colors.grey.shade200),
-                _CashfreeLogo(),
-              ],
-            ),
+          const Text('Trusted Partners',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black38,
+                  letterSpacing: 0.8)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _SbiLogo()),
+              Container(width: 1, height: 44, color: Colors.grey.shade200),
+              Expanded(child: _CashfreeLogo()),
+            ],
           ),
         ],
       ),
@@ -1561,31 +1554,30 @@ class _SbiLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        const Text('SBI',
+            style: TextStyle(
+                color: Color(0xFF002B80),
+                fontWeight: FontWeight.w900,
+                fontSize: 24,
+                letterSpacing: 3)),
+        const SizedBox(height: 2),
+        const Text('State Bank of India',
+            style: TextStyle(color: Colors.black38, fontSize: 9)),
+        const SizedBox(height: 5),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: const Color(0xFF002B80),
-            borderRadius: BorderRadius.circular(8),
+            color: AppTheme.lightBlueBg,
+            borderRadius: BorderRadius.circular(4),
           ),
-          child: const Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('SBI',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20,
-                      letterSpacing: 2)),
-              Text('State Bank of India',
-                  style: TextStyle(
-                      color: Colors.white70, fontSize: 7, letterSpacing: 0.2)),
-            ],
-          ),
+          child: const Text('Banking Partner',
+              style: TextStyle(
+                  color: AppTheme.accentBlue,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600)),
         ),
-        const SizedBox(height: 6),
-        const Text('Banking Partner',
-            style: TextStyle(color: Colors.grey, fontSize: 11)),
       ],
     );
   }
@@ -1598,36 +1590,42 @@ class _CashfreeLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF6C3EC1).withAlpha(50)),
-          ),
-          child: RichText(
-            text: const TextSpan(
-              children: [
-                TextSpan(
-                    text: 'cash',
-                    style: TextStyle(
-                        color: Color(0xFF2B2D42),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18)),
-                TextSpan(
-                    text: 'free',
-                    style: TextStyle(
-                        color: Color(0xFF6C3EC1),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18)),
-              ],
-            ),
+        RichText(
+          text: const TextSpan(
+            children: [
+              TextSpan(
+                  text: 'cash',
+                  style: TextStyle(
+                      color: Color(0xFF1A1A2E),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20)),
+              TextSpan(
+                  text: 'free',
+                  style: TextStyle(
+                      color: Color(0xFF6C3EC1),
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20)),
+            ],
           ),
         ),
-        const SizedBox(height: 6),
-        const Text('Payment Gateway',
-            style: TextStyle(color: Colors.grey, fontSize: 11)),
+        const SizedBox(height: 2),
+        const Text('Payments Platform',
+            style: TextStyle(color: Colors.black38, fontSize: 9)),
+        const SizedBox(height: 5),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          decoration: BoxDecoration(
+            color: Color(0xFFF0EAFF),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Text('Payment Gateway',
+              style: TextStyle(
+                  color: Color(0xFF6C3EC1),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600)),
+        ),
       ],
     );
   }

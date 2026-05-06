@@ -72,14 +72,10 @@ class _SplashScreenState extends State<SplashScreen>
                     color: Colors.white.withAlpha(38),
                     shape: BoxShape.circle,
                   ),
-                  alignment: Alignment.center,
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/logo.png',
-                      width: 90,
-                      height: 90,
-                      fit: BoxFit.cover,
-                    ),
+                  padding: const EdgeInsets.all(18),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(height: 24),

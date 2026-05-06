@@ -36,15 +36,10 @@ class WelcomeScreen extends StatelessWidget {
                     color: Colors.white.withAlpha(30),
                     shape: BoxShape.circle,
                   ),
-                  child: Center(
-                    child: ClipOval(
-                      child: Image.asset(
-                        'assets/images/logo.png',
-                        width: 110,
-                        height: 110,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
+                  padding: const EdgeInsets.all(22),
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
                   ),
                 ),
                 const SizedBox(height: 32),
