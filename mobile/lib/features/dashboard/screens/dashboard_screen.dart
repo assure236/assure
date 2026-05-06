@@ -1556,15 +1556,11 @@ class _SbiLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const Text('SBI',
-            style: TextStyle(
-                color: Color(0xFF002B80),
-                fontWeight: FontWeight.w900,
-                fontSize: 24,
-                letterSpacing: 3)),
-        const SizedBox(height: 2),
-        const Text('State Bank of India',
-            style: TextStyle(color: Colors.black38, fontSize: 9)),
+        Image.asset(
+          'assets/icons/sbi.png',
+          height: 36,
+          fit: BoxFit.contain,
+        ),
         const SizedBox(height: 5),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1592,32 +1588,16 @@ class _CashfreeLogo extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        RichText(
-          text: const TextSpan(
-            children: [
-              TextSpan(
-                  text: 'cash',
-                  style: TextStyle(
-                      color: Color(0xFF1A1A2E),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20)),
-              TextSpan(
-                  text: 'free',
-                  style: TextStyle(
-                      color: Color(0xFF6C3EC1),
-                      fontWeight: FontWeight.w900,
-                      fontSize: 20)),
-            ],
-          ),
+        Image.asset(
+          'assets/icons/cashfree.png',
+          height: 36,
+          fit: BoxFit.contain,
         ),
-        const SizedBox(height: 2),
-        const Text('Payments Platform',
-            style: TextStyle(color: Colors.black38, fontSize: 9)),
         const SizedBox(height: 5),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: Color(0xFFF0EAFF),
+            color: const Color(0xFFF0EAFF),
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text('Payment Gateway',

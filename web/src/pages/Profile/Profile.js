@@ -8,7 +8,7 @@ import {
 import {
   Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon,
   VerifiedUser as KycIcon, TrendingUp as ScoreIcon,
-  Info as InfoIcon, CameraAlt as CameraIcon, PhotoCamera as SelfieIcon
+  Info as InfoIcon, PhotoCamera as SelfieIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
