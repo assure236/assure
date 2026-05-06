@@ -217,7 +217,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
         tabs: const [
           Tab(text: 'Overview'),
           Tab(text: 'Prized Tickets'),
-          Tab(text: 'Payment History'),
+          Tab(text: 'Payments'),
         ],
       ),
     );

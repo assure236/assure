@@ -218,15 +218,13 @@ exports.getUpcomingPayments = async (req, res, next) => {
 
     const schedule = [];
 
-    // Tiered late fee calculation
+    // Tiered late fee calculation (fixed amounts per client spec)
     const calcLateFee = (baseAmount, daysOverdue) => {
       if (daysOverdue <= 0) return 0;
-      let rate;
-      if (daysOverdue <= 7) rate = 0.01;        // 1% for 1-7 days
-      else if (daysOverdue <= 15) rate = 0.02;   // 2% for 8-15 days
-      else if (daysOverdue <= 30) rate = 0.03;   // 3% for 16-30 days
-      else rate = 0.05;                           // 5% for 30+ days
-      return Math.round(baseAmount * rate * 100) / 100;
+      if (daysOverdue <= 7) return 100;           // ₹100 for 1–7 days
+      if (daysOverdue <= 30) return 400;          // ₹400 for 8–30 days
+      if (daysOverdue <= 60) return 600;          // ₹600 for 31–60 days
+      return Math.round(baseAmount * 0.03 * 100) / 100; // 3% for 60+ days
     };
 
     for (const m of memberships) {

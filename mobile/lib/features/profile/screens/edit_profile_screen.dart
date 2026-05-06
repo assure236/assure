@@ -33,6 +33,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _currentPincodeCtrl;
   String? _selectedGender;
   bool _saving = false;
+  bool _isEditing = false;
   bool _digilockerConnected = false;
 
   @override
@@ -151,27 +152,40 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Edit Profile'),
+        title: const Text('My Profile'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          TextButton(
-            onPressed: _saving ? null : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                : const Text('Save',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16)),
-          ),
+          if (_isEditing)
+            TextButton(
+              onPressed: _saving ? null : _save,
+              child: _saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2))
+                  : const Text('Save',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16)),
+            )
+          else
+            TextButton.icon(
+              onPressed: () => setState(() => _isEditing = true),
+              icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
+              label: const Text('Edit',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16)),
+            ),
         ],
       ),
-      body: SingleChildScrollView(
+      body: AbsorbPointer(
+        absorbing: !_isEditing,
+        child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
@@ -524,6 +538,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ]),
         ),
       ),
+    ),
     );
   }
 

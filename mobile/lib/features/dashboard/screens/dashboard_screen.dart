@@ -760,8 +760,8 @@ class _StatsRow extends StatelessWidget {
                 label: 'Active Chits',
                 value: '${dash.activeGroups}',
                 icon: Icons.group_work_rounded,
-                iconBg: AppTheme.lightGreenBg,
-                iconColor: const Color(0xFF2E7D32),
+                iconBg: AppTheme.lightBlueBg,
+                iconColor: AppTheme.accentBlue,
               ),
             ),
           ),
@@ -773,8 +773,8 @@ class _StatsRow extends StatelessWidget {
                 label: 'Loan',
                 value: 'Apply',
                 icon: Icons.account_balance_rounded,
-                iconBg: AppTheme.lightOrangeBg,
-                iconColor: const Color(0xFFE65100),
+                iconBg: const Color(0xFFFAF0C8),
+                iconColor: AppTheme.secondaryColor,
               ),
             ),
           ),
@@ -941,9 +941,9 @@ class _ChitCard extends StatelessWidget {
 
   static const _gradients = [
     [AppTheme.primaryDark, AppTheme.primaryColor],
-    [Color(0xFF1B5E20), Color(0xFF388E3C)],
+    [Color(0xFF1E3A8A), Color(0xFF2563EB)],
     [Color(0xFF4A148C), Color(0xFF7B1FA2)],
-    [Color(0xFFBF360C), Color(0xFFE64A19)],
+    [Color(0xFF0F766E), Color(0xFF0D9488)],
   ];
 
   @override
@@ -1246,14 +1246,14 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
+              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF1B5E20).withAlpha(60),
+                color: AppTheme.primaryColor.withAlpha(60),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -1297,7 +1297,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: isPending
-                ? [const Color(0xFFE65100), const Color(0xFFEF6C00)]
+                ? [const Color(0xFFB7952E), AppTheme.secondaryColor]
                 : [AppTheme.primaryColor, AppTheme.accentBlue],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -1305,7 +1305,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: (isPending ? const Color(0xFFE65100) : AppTheme.primaryColor).withAlpha(60),
+              color: (isPending ? AppTheme.secondaryColor : AppTheme.primaryColor).withAlpha(60),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -1450,19 +1450,19 @@ class _TrustBadges extends StatelessWidget {
               Expanded(child: _BadgeCard(
                 icon: Icons.verified_outlined,
                 label: 'ISO Certified',
-                color: const Color(0xFF1E88E5),
+                color: AppTheme.accentBlue,
               )),
               const SizedBox(width: 10),
               Expanded(child: _BadgeCard(
                 icon: Icons.account_balance_outlined,
                 label: 'Telangana Govt.\nRegistered',
-                color: const Color(0xFF43A047),
+                color: AppTheme.primaryColor,
               )),
               const SizedBox(width: 10),
               Expanded(child: _BadgeCard(
                 icon: Icons.shield_outlined,
                 label: 'DPIIT\nRegistered',
-                color: const Color(0xFFE65100),
+                color: AppTheme.secondaryColor,
               )),
             ],
           ),
@@ -1542,17 +1542,9 @@ class _PaymentPartners extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _PartnerLogo(
-                  label: 'SBI',
-                  icon: Icons.account_balance,
-                  color: const Color(0xFF1A237E),
-                ),
-                Container(width: 1, height: 40, color: Colors.grey.shade200),
-                _PartnerLogo(
-                  label: 'Cashfree',
-                  icon: Icons.payments_outlined,
-                  color: const Color(0xFF6C3EC1),
-                ),
+                _SbiLogo(),
+                Container(width: 1, height: 52, color: Colors.grey.shade200),
+                _CashfreeLogo(),
               ],
             ),
           ),
@@ -1562,27 +1554,80 @@ class _PaymentPartners extends StatelessWidget {
   }
 }
 
-class _PartnerLogo extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-
-  const _PartnerLogo({required this.label, required this.icon, required this.color});
+class _SbiLogo extends StatelessWidget {
+  const _SbiLogo();
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: color.withAlpha(20),
-            borderRadius: BorderRadius.circular(12),
+            color: const Color(0xFF002B80),
+            borderRadius: BorderRadius.circular(8),
           ),
-          child: Icon(icon, color: color, size: 28),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('SBI',
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                      letterSpacing: 2)),
+              Text('State Bank of India',
+                  style: TextStyle(
+                      color: Colors.white70, fontSize: 7, letterSpacing: 0.2)),
+            ],
+          ),
         ),
         const SizedBox(height: 6),
-        Text(label, style: TextStyle(color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+        const Text('Banking Partner',
+            style: TextStyle(color: Colors.grey, fontSize: 11)),
+      ],
+    );
+  }
+}
+
+class _CashfreeLogo extends StatelessWidget {
+  const _CashfreeLogo();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF6C3EC1).withAlpha(50)),
+          ),
+          child: RichText(
+            text: const TextSpan(
+              children: [
+                TextSpan(
+                    text: 'cash',
+                    style: TextStyle(
+                        color: Color(0xFF2B2D42),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18)),
+                TextSpan(
+                    text: 'free',
+                    style: TextStyle(
+                        color: Color(0xFF6C3EC1),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text('Payment Gateway',
+            style: TextStyle(color: Colors.grey, fontSize: 11)),
       ],
     );
   }

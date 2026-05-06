@@ -71,7 +71,7 @@ const INTENTS = {
   profile_info: /(?:my\s*profile|my\s*account|my\s*details|member\s*id|account\s*info)/i,
   kyc_info: /(?:kyc|verification|verify|document|identity|id\s*proof|aadhaar|pan)/i,
   wallet_info: /(?:wallet|balance|money|funds|available\s*balance|wallet\s*balance)/i,
-  referral_info: /(?:referr|invite|share|bonus|earn.*friend|friend.*earn|my\s*referral)/i,
+  referral_info: /(?:refer  ssh root@187.127.139.125 "mongosh assure --eval \"db.chitgroups.find({status:'active'},{group_name:1,chit_value:1,monthly_installment:1,total_members:1,_id:0}).pretty()\""r|invite|share|bonus|earn.*friend|friend.*earn|my\s*referral)/i,
   support_info: /(?:support|ticket|complaint|issue|problem|contact|help\s*desk|raise)/i,
 };
 

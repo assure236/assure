@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -16,6 +19,8 @@ class ChatbotScreen extends StatefulWidget {
 }
 
 class _ChatbotScreenState extends State<ChatbotScreen> {
+  static const _historyKey = 'chatbot_history_v1';
+
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [
@@ -25,6 +30,42 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
     ),
   ];
   bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadHistory();
+  }
+
+  Future<void> _loadHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_historyKey);
+      if (raw == null || raw.isEmpty) return;
+      final list = jsonDecode(raw) as List<dynamic>;
+      final cutoff = DateTime.now().subtract(const Duration(days: 7));
+      final loaded = list
+          .map((e) => _ChatMessage.fromJson(e as Map<String, dynamic>))
+          .where((m) => m.timestamp.isAfter(cutoff))
+          .toList();
+      if (loaded.isNotEmpty && mounted) {
+        setState(() {
+          _messages
+            ..clear()
+            ..addAll(loaded);
+        });
+        _scrollToBottom();
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _saveHistory() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+          _historyKey, jsonEncode(_messages.map((m) => m.toJson()).toList()));
+    } catch (_) {}
+  }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -44,6 +85,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _messages.add(_ChatMessage(from: 'user', text: text.trim()));
       _loading = true;
     });
+    _saveHistory();
     _controller.clear();
     _scrollToBottom();
 
@@ -80,15 +122,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             chitGroups: chitGroups,
           ));
         });
+        _saveHistory();
       } else {
         setState(() {
           _messages.add(_ChatMessage(from: 'bot', text: 'Sorry, something went wrong.'));
         });
+        _saveHistory();
       }
     } catch (_) {
       setState(() {
         _messages.add(_ChatMessage(from: 'bot', text: 'Unable to reach server. Try again later.'));
       });
+      _saveHistory();
     } finally {
       setState(() => _loading = false);
       _scrollToBottom();
@@ -218,8 +263,32 @@ class _ChatMessage {
   final String from;
   final String text;
   final List<Map<String, dynamic>> chitGroups;
+  final DateTime timestamp;
 
-  _ChatMessage({required this.from, required this.text, this.chitGroups = const []});
+  _ChatMessage({
+    required this.from,
+    required this.text,
+    this.chitGroups = const [],
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+        'from': from,
+        'text': text,
+        'timestamp': timestamp.toIso8601String(),
+        'chitGroups': chitGroups,
+      };
+
+  static _ChatMessage fromJson(Map<String, dynamic> json) => _ChatMessage(
+        from: json['from'] as String? ?? 'bot',
+        text: json['text'] as String? ?? '',
+        timestamp:
+            DateTime.tryParse(json['timestamp'] as String? ?? '') ?? DateTime.now(),
+        chitGroups: (json['chitGroups'] as List<dynamic>?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            [],
+      );
 }
 
 class _MessageBubble extends StatelessWidget {

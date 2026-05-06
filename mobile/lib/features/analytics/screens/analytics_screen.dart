@@ -305,8 +305,6 @@ class _DividendAnalyticsTab extends StatelessWidget {
           const SizedBox(height: 12),
           _InsightRow(icon: Icons.info_outline, color: AppTheme.primaryColor, text: 'Lower bids = higher dividends for all non-winning members.'),
           const SizedBox(height: 8),
-          _InsightRow(icon: Icons.star_outline, color: AppTheme.successColor, text: 'A credit score above 750 increases prize-taking eligibility.'),
-          const SizedBox(height: 8),
           _InsightRow(icon: Icons.schedule, color: AppTheme.secondaryColor, text: 'Taking the prize in later months yields higher accumulated dividends.'),
         ]))),
       ]),
