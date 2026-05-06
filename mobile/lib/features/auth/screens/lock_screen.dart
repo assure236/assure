@@ -207,13 +207,20 @@ class _LockScreenState extends State<LockScreen> {
                 width: 80,
                 height: 80,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withAlpha(26),
+                  color: Colors.white,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                        color: AppTheme.primaryColor.withAlpha(40),
+                        blurRadius: 12,
+                        offset: const Offset(0, 3)),
+                  ],
                 ),
-                padding: const EdgeInsets.all(12),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  fit: BoxFit.contain,
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/logo.png',
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
               const SizedBox(height: 20),

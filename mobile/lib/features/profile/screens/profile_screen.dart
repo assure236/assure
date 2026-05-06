@@ -128,23 +128,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(children: [
-                  if (user?.nomineeName != null && user!.nomineeName!.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: 'Nominee Details',
-                      children: [
-                        _ProfileRow(
-                            icon: Icons.person_add_outlined,
-                            label: 'Nominee',
-                            value: user.nomineeName!),
-                        if (user.nomineeRelationship != null)
-                          _ProfileRow(
-                              icon: Icons.people_outline,
-                              label: 'Relationship',
-                              value: user.nomineeRelationship!),
-                      ],
-                    ),
-                  ],
                   if (user?.bankAccountNumber != null && user!.bankAccountNumber!.isNotEmpty) ...[
                     const SizedBox(height: 16),
                     _SectionCard(
@@ -259,6 +242,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
+
+                  // Nominee Details (before Preferences)
+                  if (user?.nomineeName != null && user!.nomineeName!.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: 'Nominee Details',
+                      children: [
+                        _ProfileRow(
+                            icon: Icons.person_add_outlined,
+                            label: 'Nominee',
+                            value: user.nomineeName!),
+                        if (user.nomineeRelationship != null)
+                          _ProfileRow(
+                              icon: Icons.people_outline,
+                              label: 'Relationship',
+                              value: user.nomineeRelationship!),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   // Preferences

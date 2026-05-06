@@ -1,14 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Container, Grid, Card, CardContent, Typography, Box, Avatar,
   Button, Divider, TextField, Alert, CircularProgress, Chip, Paper,
   Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress, Tooltip,
-  MenuItem, IconButton
+  MenuItem
 } from '@mui/material';
 import {
   Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon,
   VerifiedUser as KycIcon, TrendingUp as ScoreIcon,
-  Info as InfoIcon, CameraAlt as CameraIcon
+  Info as InfoIcon, CameraAlt as CameraIcon, PhotoCamera as SelfieIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
@@ -81,38 +81,7 @@ const Profile = () => {
   const [pwDialog, setPwDialog] = useState(false);
   const [pwData, setPwData] = useState({ current_password: '', new_password: '', confirm: '' });
   const [pwError, setPwError] = useState('');
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const fileInputRef = useRef(null);
 
-  const handlePhotoUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
-      toast.error('Only JPG/PNG images are allowed');
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      toast.error('Image must be under 2MB');
-      return;
-    }
-    setUploadingPhoto(true);
-    try {
-      const fd = new FormData();
-      fd.append('image', file);
-      const res = await axios.post('/users/upload-profile-image', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      if (res.data.success) {
-        toast.success('Profile photo updated');
-        window.location.reload();
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Upload failed');
-    } finally {
-      setUploadingPhoto(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -184,25 +153,23 @@ const Profile = () => {
         <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 3, textAlign: 'center' }}>
             <Box sx={{ background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)', pt: 4, pb: 2, borderRadius: '12px 12px 0 0' }}>
-              <input type="file" accept="image/jpeg,image/png" ref={fileInputRef} onChange={handlePhotoUpload} style={{ display: 'none' }} />
-              <Box sx={{ position: 'relative', display: 'inline-block', cursor: 'pointer' }} onClick={() => !uploadingPhoto && fileInputRef.current?.click()}>
-                {uploadingPhoto ? (
-                  <Avatar sx={{ width: 90, height: 90, bgcolor: 'rgba(255,255,255,0.2)', border: '3px solid white', mx: 'auto', mb: 1.5 }}>
-                    <CircularProgress size={30} sx={{ color: 'white' }} />
-                  </Avatar>
-                ) : user?.profile_image_url ? (
+              <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                {user?.profile_image_url ? (
                   <Avatar src={user.profile_image_url} sx={{ width: 90, height: 90, border: '3px solid white', mx: 'auto', mb: 1.5 }} />
                 ) : (
                   <Avatar sx={{ width: 90, height: 90, fontSize: 32, bgcolor: 'rgba(255,255,255,0.2)', border: '3px solid white', mx: 'auto', mb: 1.5 }}>
                     {initials}
                   </Avatar>
                 )}
-                <IconButton size="small" sx={{ position: 'absolute', bottom: 8, right: -4, bgcolor: '#D4AF37', color: 'white', '&:hover': { bgcolor: '#B8960F' }, width: 28, height: 28 }}>
-                  <CameraIcon sx={{ fontSize: 16 }} />
-                </IconButton>
               </Box>
               <Typography variant="h6" color="white" fontWeight={700}>{user?.full_name}</Typography>
               <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.8)' }}>{user?.mobile}</Typography>
+              <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
+                <SelfieIcon sx={{ fontSize: 12, color: 'rgba(255,255,255,0.6)' }} />
+                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 10 }}>
+                  Photo from live selfie · Documents
+                </Typography>
+              </Box>
             </Box>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>

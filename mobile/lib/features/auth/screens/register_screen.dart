@@ -359,12 +359,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 child: Container(
                   width: 56,
                   height: 56,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withAlpha(15),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 8,
+                          offset: Offset(0, 2)),
+                    ],
                   ),
-                  padding: const EdgeInsets.all(8),
-                  child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
+                  child: ClipOval(
+                    child: Image.asset('assets/images/logo.png', fit: BoxFit.contain),
+                  ),
                 ),
               ),
               const SizedBox(height: 14),

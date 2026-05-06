@@ -68,14 +68,21 @@ class _SplashScreenState extends State<SplashScreen>
                 Container(
                   width: 120,
                   height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(38),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 16,
+                          offset: Offset(0, 4)),
+                    ],
                   ),
-                  padding: const EdgeInsets.all(18),
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    fit: BoxFit.contain,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 24),

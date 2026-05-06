@@ -32,14 +32,21 @@ class WelcomeScreen extends StatelessWidget {
                 Container(
                   width: 150,
                   height: 150,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withAlpha(30),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 20,
+                          offset: Offset(0, 6)),
+                    ],
                   ),
-                  padding: const EdgeInsets.all(22),
-                  child: Image.asset(
-                    'assets/images/logo.png',
-                    fit: BoxFit.contain,
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 32),

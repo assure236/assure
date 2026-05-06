@@ -185,11 +185,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ),
       body: AbsorbPointer(
         absorbing: !_isEditing,
-        child: SingleChildScrollView(
+        child: Theme(
+          data: Theme.of(context).copyWith(
+            inputDecorationTheme: _isEditing
+                ? const InputDecorationTheme()
+                : InputDecorationTheme(
+                    filled: true,
+                    fillColor: const Color(0xFFF5F5F5),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    errorBorder: InputBorder.none,
+                    disabledBorder: InputBorder.none,
+                    labelStyle: const TextStyle(color: Colors.black54, fontSize: 12),
+                  ),
+          ),
+          child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(children: [
+            // View-mode hint banner
+            if (!_isEditing)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryColor.withAlpha(12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.primaryColor.withAlpha(30)),
+                ),
+                child: Row(children: [
+                  Icon(Icons.lock_outline, color: AppTheme.primaryColor, size: 16),
+                  const SizedBox(width: 8),
+                  Text('Tap Edit (top right) to modify your details',
+                      style: TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
+                ]),
+              ),
             // Pending approval banner
             if (user?.profileEditStatus == 'pending')
               Container(
@@ -538,6 +571,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ]),
         ),
       ),
+        ),
     ),
     );
   }
