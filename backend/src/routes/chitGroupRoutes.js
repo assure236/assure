@@ -31,6 +31,11 @@ router.get('/:id/payment-schedule', chitGroupController.getPaymentSchedule);
 // @access  Private (Members only)
 router.post('/:id/enroll', chitGroupController.enrollInChitGroup);
 
+// @route   GET /api/v1/chit-groups/:id/auctions
+// @desc    Get completed auctions (winners) for a chit group
+// @access  Private
+router.get('/:id/auctions', chitGroupController.getChitGroupAuctions);
+
 // @route   GET /api/v1/chit-groups/:id/analytics
 // @desc    Get chit group analytics (dividend predictions, etc.)
 // @access  Private

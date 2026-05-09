@@ -76,7 +76,7 @@ exports.enrollInChitGroup = async (req, res, next) => {
   try {
     const group = await ChitGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
-    if (group.status !== 'active') return res.status(400).json({ success: false, message: 'Group not open for enrollment' });
+    if (!['active', 'vacant'].includes(group.status)) return res.status(400).json({ success: false, message: 'Group not open for enrollment' });
     const currentCount = await ChitMember.countDocuments({ chit_group_id: group._id });
     if (currentCount >= group.total_members) return res.status(400).json({ success: false, message: 'Group is full' });
     const userId = req.user._id || req.user.id;
@@ -182,6 +182,18 @@ exports.suspendChitGroup = async (req, res, next) => {
     const group = await ChitGroup.findByIdAndUpdate(req.params.id, { status: 'suspended' }, { new: true });
     if (!group) return res.status(404).json({ success: false, message: 'Not found' });
     res.json({ success: true, message: 'Chit group suspended', data: group });
+  } catch (err) { next(err); }
+};
+
+exports.getChitGroupAuctions = async (req, res, next) => {
+  try {
+    const auctions = await Auction.find({
+      chit_group_id: req.params.id,
+      status: 'completed',
+    })
+      .populate('winner_id', 'full_name mobile')
+      .sort({ month_number: 1 });
+    res.json({ success: true, data: auctions });
   } catch (err) { next(err); }
 };
 

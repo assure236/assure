@@ -350,6 +350,21 @@ class _NotificationsScreenState extends State<NotificationsScreen>
                       createdAt != null ? _timeAgo(createdAt) : '',
                       style: const TextStyle(color: Colors.grey, fontSize: 11),
                     ),
+                    if (!isRead)
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => _markRead(id),
+                          style: TextButton.styleFrom(
+                            foregroundColor: AppTheme.primaryColor,
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            textStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: const Text('Mark Read'),
+                        ),
+                      ),
                   ],
                 ),
               ),

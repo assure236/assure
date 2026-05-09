@@ -63,16 +63,32 @@ class ChitGroupProvider with ChangeNotifier {
   }
 
   Future<void> fetchChitGroupDetails(String id) async {
+    _selectedChitGroup = null;
+    _isLoading = true;
+    notifyListeners();
     try {
       final response = await ApiService.get('/chit-groups/$id');
       
       if (response['success']) {
         _selectedChitGroup = ChitGroup.fromJson(response['data']);
-        notifyListeners();
       }
     } catch (e) {
       debugPrint('Error fetching chit group details: $e');
     }
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchGroupAuctions(String groupId) async {
+    try {
+      final response = await ApiService.get('/chit-groups/$groupId/auctions');
+      if (response['success'] == true) {
+        return List<Map<String, dynamic>>.from(response['data'] ?? []);
+      }
+    } catch (e) {
+      debugPrint('Error fetching group auctions: $e');
+    }
+    return [];
   }
 
   Future<bool> enrollInChitGroup(String groupId) async {

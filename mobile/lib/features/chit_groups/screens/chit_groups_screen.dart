@@ -258,15 +258,18 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
         itemCount: filtered.length,
         itemBuilder: (context, i) => _AvailableGroupCard(
           data: filtered[i],
+          onTap: () => context.push('/chit-groups/${(filtered[i]['_id'] ?? filtered[i]['id']).toString()}'),
           onEnroll: () async {
             final ok = await context
                 .read<ChitGroupProvider>()
                 .enrollInChitGroup((filtered[i]['_id'] ?? filtered[i]['id']).toString());
             if (ok && context.mounted) {
               CelebrationOverlay.showGroupJoined(context, groupName: filtered[i]['group_name'] ?? 'Chit Group');
+              await Future.delayed(const Duration(seconds: 2));
+              if (context.mounted) context.go('/dashboard');
             }
           },
-        ),
+        );
       ),
     );
   }
@@ -431,7 +434,8 @@ class _InfoChip extends StatelessWidget {
 class _AvailableGroupCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final VoidCallback onEnroll;
-  const _AvailableGroupCard({required this.data, required this.onEnroll});
+  final VoidCallback? onTap;
+  const _AvailableGroupCard({required this.data, required this.onEnroll, this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -455,10 +459,20 @@ class _AvailableGroupCard extends StatelessWidget {
     }
 
     final bool isVacant = (data['status'] ?? '') == 'vacant';
+    final bool isNotStarted = (data['status'] ?? '') == 'not_started';
     final Color accentColor = AppTheme.primaryColor;
-    final String statusLabel = isVacant ? 'Seats Available' : 'Upcoming';
+    final String statusLabel = isVacant ? 'Seats Available' : isNotStarted ? 'Not Started' : 'Upcoming';
 
-    return Container(
+    DateTime? commencementDt;
+    if (commencementDate != null) {
+      try { commencementDt = DateTime.parse(commencementDate.toString()); } catch (_) {}
+    }
+    final bool enrollDisabled = isNotStarted &&
+        (commencementDt == null || commencementDt.isAfter(DateTime.now()));
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -529,7 +543,7 @@ class _AvailableGroupCard extends StatelessWidget {
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _DetailItem(label: 'Total Members', value: '$members')),
+              Expanded(child: _DetailItem(label: 'Members', value: '$enrolledInt/$membersInt')),
               Expanded(child: _DetailItem(
                 label: 'Auction',
                 value: data['auction_type']?.toString().isNotEmpty == true
@@ -561,9 +575,9 @@ class _AvailableGroupCard extends StatelessWidget {
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: onEnroll,
+              onPressed: enrollDisabled ? null : onEnroll,
               icon: const Icon(Icons.how_to_reg_rounded, size: 18),
-              label: const Text('Enroll Now'),
+              label: Text(enrollDisabled ? 'Opens ${dateStr.isNotEmpty ? dateStr : 'Soon'}' : 'Enroll Now'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: accentColor,
                 foregroundColor: Colors.white,
@@ -576,6 +590,7 @@ class _AvailableGroupCard extends StatelessWidget {
           ),
         ),
       ]),
+    ),
     );
   }
 

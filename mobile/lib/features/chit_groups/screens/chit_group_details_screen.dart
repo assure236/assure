@@ -84,24 +84,13 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
 
   Widget _buildAppBar(dynamic group) {
     return SliverAppBar(
-      expandedHeight: 80,
       pinned: true,
       backgroundColor: AppTheme.primaryColor,
       foregroundColor: Colors.white,
-      flexibleSpace: FlexibleSpaceBar(
-        title: Text(
-          group?.groupName ?? 'Chit Group Details',
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        background: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-        ),
+      elevation: 0,
+      title: Text(
+        group?.groupName ?? 'Chit Group Details',
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
       ),
     );
   }
@@ -211,6 +200,8 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
       color: Colors.white,
       child: TabBar(
         controller: _tabController,
+        isScrollable: true,
+        tabAlignment: TabAlignment.start,
         labelColor: AppTheme.primaryColor,
         unselectedLabelColor: Colors.grey,
         indicatorColor: AppTheme.primaryColor,
@@ -323,7 +314,7 @@ class _PrizedTicketsTab extends StatefulWidget {
 
 class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
   bool _loading = true;
-  List<Map<String, dynamic>> _members = [];
+  List<Map<String, dynamic>> _auctions = [];
 
   @override
   void initState() {
@@ -335,8 +326,8 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
     try {
       final res = await context
           .read<ChitGroupProvider>()
-          .fetchGroupMembers(widget.groupId);
-      if (mounted) setState(() { _members = res; _loading = false; });
+          .fetchGroupAuctions(widget.groupId);
+      if (mounted) setState(() { _auctions = res; _loading = false; });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -346,9 +337,7 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
 
-    final winners = _members.where((m) => m['is_prize_winner'] == true).toList();
-
-    if (winners.isEmpty) {
+    if (_auctions.isEmpty) {
       return const Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -365,18 +354,19 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
     }
     return ListView.separated(
       padding: const EdgeInsets.all(16),
-      itemCount: winners.length,
+      itemCount: _auctions.length,
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, i) {
-        final m = winners[i];
-        final userObj = (m['user_id'] as Map<String, dynamic>?) ??
-            (m['user'] as Map<String, dynamic>?);
-        final ticketNo = m['ticket_number'] ?? (i + 1);
-        final name = 'Ticket #$ticketNo';
-        final auctionMonth = m['auction_month'] ?? m['prize_month'] ?? '';
-        final prizeAmount = m['prize_amount'] ?? m['bid_amount'] ?? 0;
+        final a = _auctions[i];
+        final monthNum = a['month_number'] ?? (i + 1);
+        final ticketNo = a['winner_ticket_number'] ?? '-';
+        final winnerObj = a['winner_id'];
+        final winnerName = (winnerObj is Map)
+            ? (winnerObj['full_name'] ?? 'Winner')
+            : 'Winner';
+        final bidAmount = a['winning_bid_amount'] ?? 0;
         final fmtAmt = NumberFormat('#,##,###').format(
-            double.tryParse(prizeAmount.toString()) ?? 0);
+            double.tryParse(bidAmount.toString()) ?? 0);
 
         return Card(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -401,12 +391,12 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(name,
+                      Text('Month $monthNum — $winnerName',
                           style: const TextStyle(fontWeight: FontWeight.w600),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1),
                       const SizedBox(height: 2),
-                      Text('Month $auctionMonth',
+                      Text('Ticket #$ticketNo',
                           style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                     ],
                   ),
