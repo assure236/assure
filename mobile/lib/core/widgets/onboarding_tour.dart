@@ -43,7 +43,7 @@ class _OnboardingTourState extends State<OnboardingTour> with TickerProviderStat
   static const _steps = [
     _TourStep(
       icon: Icons.waving_hand_rounded,
-      title: 'Welcome to Assure ChitFunds!',
+      title: 'Welcome to Assure Chit Funds!',
       description:
           'India\'s most trusted digital chit fund platform. Save smartly, grow together, and achieve your financial goals with complete transparency.',
       color: Color(0xFF3B82F6),

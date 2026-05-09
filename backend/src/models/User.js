@@ -67,7 +67,7 @@ userSchema.methods.validatePassword = async function (password) {
 
 // Performance indexes for 50K+ user queries
 userSchema.index({ is_active: 1, role: 1 });
-userSchema.index({ referral_code: 1 });
+// referral_code index defined inline via unique:true on the field
 userSchema.index({ fcm_token: 1 }, { sparse: true });
 userSchema.index({ created_at: -1 });
 

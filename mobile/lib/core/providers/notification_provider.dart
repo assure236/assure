@@ -79,26 +79,37 @@ class NotificationProvider with ChangeNotifier {
   }
 
   Future<void> markRead(String id) async {
+    // Optimistic update — update local state immediately so badge drops at once
+    final idx = _notifications.indexWhere((n) => (n['_id'] ?? n['id']).toString() == id);
+    if (idx != -1 && _notifications[idx]['is_read'] != true) {
+      _notifications[idx] = {..._notifications[idx], 'is_read': true};
+      notifyListeners();
+    }
     try {
       await ApiService.put('/notifications/$id/mark-read', {});
-      final idx = _notifications.indexWhere((n) => (n['_id'] ?? n['id']).toString() == id);
+      _persistCache();
+    } catch (e) {
+      // Revert on failure
       if (idx != -1) {
-        _notifications[idx] = {..._notifications[idx], 'is_read': true};
-        _persistCache();
+        _notifications[idx] = {..._notifications[idx], 'is_read': false};
         notifyListeners();
       }
-    } catch (e) {
       debugPrint('NotificationProvider markRead error: $e');
     }
   }
 
   Future<void> markAllRead() async {
+    // Optimistic update
+    final previous = List<Map<String, dynamic>>.from(_notifications);
+    _notifications = _notifications.map((n) => {...n, 'is_read': true}).toList();
+    notifyListeners();
     try {
       await ApiService.put('/notifications/mark-all-read', {});
-      _notifications = _notifications.map((n) => {...n, 'is_read': true}).toList();
       _persistCache();
-      notifyListeners();
     } catch (e) {
+      // Revert on failure
+      _notifications = previous;
+      notifyListeners();
       debugPrint('NotificationProvider markAllRead error: $e');
     }
   }

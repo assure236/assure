@@ -87,7 +87,7 @@ class _LockScreenState extends State<LockScreen> {
         localizedReason: 'Unlock Assure Chit Funds',
         options: const AuthenticationOptions(
           stickyAuth: true,
-          biometricOnly: false,
+          biometricOnly: true,
           useErrorDialogs: true,
           sensitiveTransaction: false,
         ),
@@ -202,7 +202,6 @@ class _LockScreenState extends State<LockScreen> {
               crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-              const SizedBox(height: 32),
               Container(
                 width: 80,
                 height: 80,

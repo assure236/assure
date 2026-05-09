@@ -298,6 +298,29 @@ class _MessageBubble extends StatelessWidget {
 
   const _MessageBubble({required this.msg, required this.isUser, required this.onChitTap});
 
+  Widget _buildFormattedText(String text) {
+    final spans = <TextSpan>[];
+    final regex = RegExp(r'\*\*(.+?)\*\*');
+    int last = 0;
+    for (final match in regex.allMatches(text)) {
+      if (match.start > last) {
+        spans.add(TextSpan(text: text.substring(last, match.start)));
+      }
+      spans.add(TextSpan(
+        text: match.group(1),
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ));
+      last = match.end;
+    }
+    if (last < text.length) spans.add(TextSpan(text: text.substring(last)));
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(color: Colors.black87, fontSize: 14, height: 1.4),
+        children: spans,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Align(
@@ -314,10 +337,12 @@ class _MessageBubble extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              msg.text,
-              style: TextStyle(color: isUser ? Colors.white : Colors.black87, fontSize: 14, height: 1.4),
-            ),
+            isUser
+                ? Text(
+                    msg.text,
+                    style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                  )
+                : _buildFormattedText(msg.text),
             if (msg.chitGroups.isNotEmpty) ...[
               const SizedBox(height: 8),
               ...msg.chitGroups.map((g) => GestureDetector(

@@ -8,7 +8,7 @@ if (GROQ_API_KEY) {
   groq = new Groq({ apiKey: GROQ_API_KEY });
 }
 
-const SYSTEM_PROMPT = `You are "Assure Bot", the warm and friendly AI assistant for Assure ChitFunds — a registered chit fund company based in Telangana, India.
+const SYSTEM_PROMPT = `You are "Assure Bot", the focused AI assistant for Assure ChitFunds — a registered chit fund company based in Telangana, India.
 
 ABOUT CHIT FUNDS:
 - A chit fund is a savings + borrowing scheme where members pay monthly installments
@@ -17,11 +17,14 @@ ABOUT CHIT FUNDS:
 - This reduces the effective EMI for non-prized members
 - Assure ChitFunds is registered and regulated under the Telangana Chit Funds Act
 
+YOUR SCOPE (STRICTLY FOLLOW):
+- ONLY answer questions about: chit funds, the Assure ChitFunds app, chit schemes, auctions, payments, KYC, wallet, referrals, support tickets, and financial savings planning
+- For ANY question outside this scope (cricket, weather, movies, politics, coding, jokes, general knowledge, etc.) — politely say you can only help with chit fund and app-related topics
+- NEVER share user passwords, OTPs, raw database IDs, full mobile numbers, or full email addresses
+- When referencing a user, use only their name and member ID — never expose contact details
+
 YOUR PERSONALITY:
-- You are polite, patient, and always helpful — like a friendly financial advisor
-- Always answer every question with kindness, even if it's not about chit funds
-- For general questions (weather, jokes, greetings, etc.), respond naturally and warmly, then gently offer to help with chit fund queries
-- Never refuse to answer or say "I can't help with that" — instead, answer helpfully and offer chit fund assistance
+- Polite, patient, and helpful — like a trusted financial advisor
 - Use a conversational, encouraging tone that makes users feel comfortable
 - Celebrate their financial milestones (payments made, groups joined, etc.)
 
@@ -172,7 +175,7 @@ async function gatherContext(userId, intent, match, message) {
       break;
     }
     case 'profile_info': {
-      if (user) context += 'Full details - Name: ' + user.full_name + ', Mobile: ' + user.mobile + ', Email: ' + user.email + ', Member ID: ' + (user.member_id || 'N/A') + ', KYC: ' + (user.kyc_status || 'pending') + ', Referral Code: ' + (user.referral_code || 'N/A') + '\n';
+      if (user) context += 'Profile - Name: ' + user.full_name + ', Member ID: ' + (user.member_id || 'N/A') + ', KYC: ' + (user.kyc_status || 'pending') + '\n';
       actionType = 'navigate';
       break;
     }
@@ -255,6 +258,36 @@ function fallbackResponse(intent) {
   }
 }
 
+// Off-topic guard — returns true if message is clearly not chit fund / app related
+const CHIT_FUND_KEYWORDS = [
+  'chit', 'fund', 'group', 'auction', 'bid', 'payment', 'emi', 'installment', 'wallet', 'kyc',
+  'referral', 'invite', 'bonus', 'ticket', 'support', 'member', 'enroll', 'join', 'scheme',
+  'dividend', 'prize', 'lakh', 'savings', 'monthly', 'assure', 'profile', 'account', 'due',
+  'calculator', 'calculate', 'how much', 'how does', 'what is chit', 'hi', 'hello', 'help',
+  'thank', 'notification', 'balance', 'withdraw', 'deposit',
+];
+
+const OFF_TOPIC_PATTERNS = [
+  /\b(cricket|ipl|football|tennis|sport|match|score|team|player|stadium)\b/i,
+  /\b(weather|temperature|rain|sunny|forecast|climate)\b/i,
+  /\b(movie|film|series|netflix|ott|actor|actress|cinema)\b/i,
+  /\b(politics|election|minister|prime minister|government|parliament|party|vote)\b/i,
+  /\b(recipe|food|cook|restaurant|biryani|pizza|burger)\b/i,
+  /\b(code|program|javascript|python|java|react|flutter|debug|error.*code)\b/i,
+  /\b(joke|funny|meme|laugh|humor)\b/i,
+  /\b(news|headline|today.*news|latest news)\b/i,
+  /\b(stock|share market|nifty|sensex|trading|forex|crypto|bitcoin)\b/i,
+];
+
+function isOffTopic(message) {
+  const lower = message.toLowerCase();
+  // If any chit-fund keyword present, allow it
+  if (CHIT_FUND_KEYWORDS.some(k => lower.includes(k))) return false;
+  // If matches known off-topic pattern, block it
+  if (OFF_TOPIC_PATTERNS.some(p => p.test(message))) return true;
+  return false;
+}
+
 // Main Chat Handler
 exports.chat = async (req, res, next) => {
   try {
@@ -262,6 +295,19 @@ exports.chat = async (req, res, next) => {
     if (!message || !message.trim()) {
       return res.status(400).json({ success: false, message: 'Message is required' });
     }
+
+    // Reject off-topic questions before hitting AI
+    if (isOffTopic(message.trim())) {
+      return res.json({
+        success: true,
+        data: {
+          reply: "I\'m Assure Bot, here to help with chit funds and the Assure ChitFunds app only. 😊 Please ask me about chit groups, payments, auctions, KYC, your wallet, or referrals!",
+          chitGroups: [],
+          actionType: null,
+        }
+      });
+    }
+
     const userId = req.user._id || req.user.id;
     const { intent, match } = detectIntent(message);
     const { context, chitGroups, actionType } = await gatherContext(userId, intent, match, message);

@@ -52,7 +52,6 @@ exports.resendOtp = async (req, res, next) => {
     if (mobile) {
       const otp = genOtp();
       otpStore.set('mobile:' + mobile, { otp, expires: Date.now() + OTP_TTL_MS, verified: false });
-      console.log(`[OTP-DEBUG] OTP stored for mobile:${mobile} = ${otp}, otpStore keys: [${[...otpStore.keys()].join(', ')}]`);
       await sendOTP(mobile, otp);
       return res.json({ success: true, message: 'OTP sent to +91 ' + mobile });
     }
@@ -67,27 +66,20 @@ exports.verifyOtp = async (req, res, next) => {
     const target = resolvedType === 'email' ? email : mobile;
     if (!target || !otp) return res.status(400).json({ success: false, message: 'target and otp are required' });
     const key = resolvedType + ':' + target;
-    console.log(`[OTP-DEBUG] verifyOtp called - key: ${key}, otpStore keys: [${[...otpStore.keys()].join(', ')}]`);
     const record = otpStore.get(key);
     if (!record) {
-      console.log(`[OTP-DEBUG] OTP verification failed - key not found: ${key}`);
       return res.status(400).json({ success: false, message: 'OTP not sent or already used.' });
     }
     if (Date.now() > record.expires) {
       otpStore.delete(key);
-      console.log(`[OTP-DEBUG] OTP verification failed - expired for: ${key}`);
       return res.status(400).json({ success: false, message: 'OTP expired.' });
     }
-    // Normalize both OTPs to strings and trim whitespace
     const storedOtp = String(record.otp).trim();
     const providedOtp = String(otp).trim();
-    console.log(`[OTP-DEBUG] OTP verification attempt for ${key} - stored: ${storedOtp}, provided: ${providedOtp}`);
     if (storedOtp !== providedOtp) {
-      console.log(`[OTP-DEBUG] OTP verification failed - invalid OTP for ${key}`);
       return res.status(400).json({ success: false, message: 'Invalid OTP' });
     }
     record.verified = true;
-    console.log(`[OTP-DEBUG] OTP verified successfully for ${key}`);
     return res.json({ success: true, message: 'OTP verified successfully' });
   } catch (error) { next(error); }
 };
@@ -233,23 +225,17 @@ exports.loginWithOtp = async (req, res, next) => {
     if (!mobile || !otp) return res.status(400).json({ success: false, message: 'Mobile and OTP required' });
 
     const key = 'mobile:' + mobile;
-    console.log(`[OTP-DEBUG] loginWithOtp called - key: ${key}, body: ${JSON.stringify(req.body)}, otpStore keys: [${[...otpStore.keys()].join(', ')}]`);
     const record = otpStore.get(key);
     if (!record) {
-      console.log(`[OTP-DEBUG] Login OTP failed - key not found: ${key}`);
       return res.status(400).json({ success: false, message: 'OTP not sent or already used.' });
     }
     if (Date.now() > record.expires) {
       otpStore.delete(key);
-      console.log(`[OTP-DEBUG] Login OTP failed - expired for: ${key}`);
       return res.status(400).json({ success: false, message: 'OTP expired.' });
     }
-    // Normalize both OTPs to strings and trim whitespace
     const storedOtp = String(record.otp).trim();
     const providedOtp = String(otp).trim();
-    console.log(`[OTP-DEBUG] Login OTP attempt for ${key} - stored: ${storedOtp}, provided: ${providedOtp}`);
     if (storedOtp !== providedOtp) {
-      console.log(`[OTP-DEBUG] Login OTP failed - invalid OTP for ${key}`);
       return res.status(400).json({ success: false, message: 'Invalid OTP' });
     }
 
