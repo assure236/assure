@@ -28,9 +28,19 @@ exports.getAllChitGroups = async (req, res, next) => {
     ]);
     const countMap = {};
     memberCounts.forEach(mc => { countMap[mc._id.toString()] = mc.count; });
+
+    // Compute current_month from completed auctions for accurate months tracking
+    const auctionCounts = await Auction.aggregate([
+      { $match: { chit_group_id: { $in: groupIds }, status: 'completed' } },
+      { $group: { _id: '$chit_group_id', count: { $sum: 1 } } }
+    ]);
+    const auctionCountMap = {};
+    auctionCounts.forEach(ac => { auctionCountMap[ac._id.toString()] = ac.count; });
+
     const groupsWithCounts = groups.map(g => {
       const obj = g.toObject();
       obj.member_count = countMap[g._id.toString()] || 0;
+      obj.current_month = auctionCountMap[g._id.toString()] || 0;
       return obj;
     });
 

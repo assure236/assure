@@ -109,7 +109,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(height: 48), // space for overlaid back button
                           // Logo
                           Container(
                             width: 100,
