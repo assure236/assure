@@ -306,17 +306,36 @@ exports.handleCallback = async (req, res, next) => {
         // Email notification
         if (verifiedUser?.email) {
           const emailHtml = `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <div style="text-align: center; margin-bottom: 20px;">
-                <h1 style="color: #1a73e8;">Assure ChitFunds</h1>
+            <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">
+              <div style="background:#0B1F3B;padding:28px;text-align:center">
+                <h1 style="color:#D4AF37;margin:0;font-size:22px;letter-spacing:0.5px">Assure ChitFunds</h1>
+                <p style="color:#ffffffb3;margin:6px 0 0;font-size:13px">Secure. Transparent. Rewarding.</p>
               </div>
-              <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; text-align: center;">
-                <h2 style="color: #16a34a;">✅ KYC Verification Complete</h2>
-                <p style="color: #333; font-size: 16px;">Hello <strong>${userName}</strong>,</p>
-                <p style="color: #555;">Your identity has been successfully verified through DigiLocker. Your Aadhaar and PAN details are now confirmed.</p>
-                <p style="color: #555;">You can now enjoy full access to all features on Assure ChitFunds.</p>
+              <div style="padding:32px 28px">
+                <div style="text-align:center;margin-bottom:24px">
+                  <div style="display:inline-block;background:#f0fdf4;border:2px solid #16a34a;border-radius:50%;width:64px;height:64px;line-height:64px;font-size:32px">&#x2705;</div>
+                </div>
+                <h2 style="color:#16a34a;text-align:center;margin:0 0 16px;font-size:20px">KYC Verification Successful!</h2>
+                <p style="color:#333;font-size:15px;margin:0 0 12px">Dear <strong>${userName}</strong>,</p>
+                <p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 16px">We are pleased to inform you that your KYC (Know Your Customer) verification has been successfully completed through DigiLocker. Your Aadhaar and PAN details have been verified and your identity is now confirmed on our platform.</p>
+                <div style="background:#f8f9fb;border-left:4px solid #D4AF37;border-radius:6px;padding:16px;margin:0 0 20px">
+                  <p style="color:#0B1F3B;font-weight:600;margin:0 0 8px;font-size:14px">You now have full access to:</p>
+                  <ul style="color:#555;font-size:14px;margin:0;padding-left:20px;line-height:1.8">
+                    <li>Monthly auction bidding &amp; prize eligibility</li>
+                    <li>Dividend credits on your installments</li>
+                    <li>Prize disbursement to your bank account</li>
+                    <li>Enhanced platform features &amp; priority support</li>
+                  </ul>
+                </div>
+                <p style="color:#555;font-size:14px;line-height:1.7;margin:0 0 24px">Log in to the Assure ChitFunds app to explore available chit groups and start your savings journey today.</p>
+                <div style="text-align:center">
+                  <a href="https://assure.fund" style="display:inline-block;background:#0B1F3B;color:#D4AF37;text-decoration:none;padding:12px 32px;border-radius:8px;font-weight:600;font-size:15px">Open the App</a>
+                </div>
               </div>
-              <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">This is an automated message from Assure ChitFunds. Please do not reply.</p>
+              <div style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb;text-align:center">
+                <p style="color:#999;font-size:11px;margin:0">This is a system-generated email. Please do not reply. For support, contact <a href="mailto:support@assure.fund" style="color:#1E3A8A">support@assure.fund</a></p>
+                <p style="color:#bbb;font-size:11px;margin:4px 0 0">&copy; ${new Date().getFullYear()} Assure ChitFunds. All rights reserved.</p>
+              </div>
             </div>
           `;
           notificationService.sendEmail(verifiedUser.email, 'KYC Verification Complete - Assure ChitFunds', emailHtml).catch(err => console.error('KYC email failed:', err.message));

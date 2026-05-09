@@ -316,11 +316,7 @@ class _HeaderSection extends StatelessWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [AppTheme.primaryDark, AppTheme.accentBlue, AppTheme.primaryColor],
-        ),
+        color: AppTheme.primaryColor,
       ),
       child: SafeArea(
         bottom: false,
@@ -517,15 +513,14 @@ class _KycProfileBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppTheme.lightYellowBg,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.secondaryColor, width: 1),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.orange.withAlpha(26),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
-        ],
+        border: const Border(
+          left: BorderSide(color: AppTheme.secondaryColor, width: 3),
+          top: BorderSide(color: Color(0xFFE2E8F0)),
+          right: BorderSide(color: Color(0xFFE2E8F0)),
+          bottom: BorderSide(color: Color(0xFFE2E8F0)),
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -615,13 +610,14 @@ class _DuePaymentsReminder extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.secondaryColor.withAlpha(100)),
+              border: const Border(
+                left: BorderSide(color: AppTheme.warningColor, width: 3),
+                top: BorderSide(color: Color(0xFFE2E8F0)),
+                right: BorderSide(color: Color(0xFFE2E8F0)),
+                bottom: BorderSide(color: Color(0xFFE2E8F0)),
+              ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -641,7 +637,7 @@ class _DuePaymentsReminder extends StatelessWidget {
                     const Spacer(),
                     TextButton(
                       onPressed: () {
-                        PaymentsScreen.initialTabIndex = 1;
+                        PaymentsScreen.initialTabIndex = 0;
                         switchTab(3);
                       },
                       style: TextButton.styleFrom(
@@ -700,7 +696,7 @@ class _DuePaymentsReminder extends StatelessWidget {
                           height: 32,
                           child: ElevatedButton(
                             onPressed: () {
-                              PaymentsScreen.initialTabIndex = 1;
+                              PaymentsScreen.initialTabIndex = 0;
                               switchTab(3); // Go to Payments → Upcoming tab
                             },
                             style: ElevatedButton.styleFrom(
@@ -802,35 +798,36 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withAlpha(15),
-              blurRadius: 8,
-              offset: const Offset(0, 2)),
-        ],
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
-            child: Icon(icon, color: iconColor, size: 22),
-          ),
-          const SizedBox(height: 10),
+          Icon(icon, color: iconColor, size: 18),
+          const SizedBox(height: 6),
           Text(
             value,
-            style: TextStyle(
-                fontWeight: FontWeight.bold, fontSize: 16, color: iconColor),
+            style: const TextStyle(
+                fontWeight: FontWeight.w700, fontSize: 15, color: AppTheme.primaryColor),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(fontSize: 10, color: Colors.grey),
+            style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
             textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 2,
+            width: 20,
+            decoration: BoxDecoration(
+              color: iconColor,
+              borderRadius: BorderRadius.circular(1),
+            ),
           ),
         ],
       ),
@@ -856,9 +853,13 @@ class _ActiveChits extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: const Text('My Active Chits',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: const Text('MY ACTIVE CHITS',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
+                      color: Color(0xFF64748B),
+                    )),
           ),
           const SizedBox(height: 10),
           memberships.isEmpty
@@ -876,7 +877,7 @@ class _ActiveChits extends StatelessWidget {
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(right: 16),
-                    itemCount: memberships.length,
+                    itemCount: memberships.length.clamp(0, 3),
                     itemBuilder: (context, i) {
                       final m = memberships[i];
                       final group = (m['chit_group_id'] as Map<String, dynamic>?) ??
@@ -914,6 +915,25 @@ class _ActiveChits extends StatelessWidget {
                     },
                   ),
                 ),
+          if (memberships.length > 3) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () => switchTab(1),
+                  icon: const Icon(Icons.arrow_forward_ios, size: 14),
+                  label: Text('View More (${memberships.length - 3} more)'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppTheme.primaryColor,
+                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -939,30 +959,20 @@ class _ChitCard extends StatelessWidget {
     required this.index,
   });
 
-  static const _gradients = [
-    [AppTheme.primaryDark, AppTheme.primaryColor],
-    [Color(0xFF1E3A8A), Color(0xFF2563EB)],
-    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
-    [Color(0xFF0F766E), Color(0xFF0D9488)],
-  ];
-
   @override
   Widget build(BuildContext context) {
-    final colors = _gradients[index % _gradients.length];
-
     return Container(
       width: 200,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient:
-            LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
+        color: AppTheme.primaryColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: colors[0].withAlpha(102),
-              blurRadius: 12,
-              offset: const Offset(0, 4)),
+              color: AppTheme.primaryColor.withAlpha(60),
+              blurRadius: 10,
+              offset: const Offset(0, 3)),
         ],
       ),
       child: Column(
@@ -995,8 +1005,8 @@ class _ChitCard extends StatelessWidget {
                 fontWeight: FontWeight.bold),
           ),
           Text(
-            'Chit Value',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+            'Chit Value  ·  Auction: Monthly',
+            style: const TextStyle(color: Colors.white54, fontSize: 10),
           ),
           const Spacer(),
           Row(
@@ -1050,9 +1060,13 @@ class _UpcomingAuctions extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Upcoming Auctions',
-                  style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Text('UPCOMING AUCTIONS',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 1.2,
+                    color: Color(0xFF64748B),
+                  )),
               TextButton(
                 onPressed: () => switchTab(2),
                 child: const Text('View All'),
@@ -1082,15 +1096,10 @@ class _UpcomingAuctions extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: isLive
-                    ? Border.all(color: Colors.red.shade300, width: 1.5)
-                    : null,
-                boxShadow: [
-                  BoxShadow(
-                      color: Colors.black.withAlpha(13),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2)),
-                ],
+                border: Border.all(
+                  color: isLive ? AppTheme.errorColor.withAlpha(80) : const Color(0xFFE2E8F0),
+                  width: isLive ? 1.5 : 1,
+                ),
               ),
               child: Row(
                 children: [
@@ -1098,12 +1107,12 @@ class _UpcomingAuctions extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: isLive
-                          ? Colors.red.shade50
-                          : Colors.purple.shade50,
+                          ? AppTheme.errorColor.withAlpha(15)
+                          : const Color(0xFFF1F5F9),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.gavel_rounded,
-                        color: isLive ? Colors.red : Colors.purple,
+                        color: isLive ? AppTheme.errorColor : AppTheme.primaryColor,
                         size: 20),
                   ),
                   const SizedBox(width: 12),
@@ -1245,30 +1254,12 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppTheme.primaryColor,
             borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: AppTheme.primaryColor.withAlpha(60),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
           ),
           child: Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withAlpha(30),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.verified, color: Colors.white, size: 28),
-              ),
+              const Icon(Icons.verified_rounded, color: AppTheme.secondaryColor, size: 28),
               const SizedBox(width: 16),
               const Expanded(
                 child: Column(
@@ -1295,21 +1286,8 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
         child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isPending
-                ? [const Color(0xFFB7952E), AppTheme.secondaryColor]
-                : [AppTheme.primaryColor, AppTheme.accentBlue],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
+          color: isPending ? AppTheme.secondaryColor : AppTheme.primaryColor,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: (isPending ? AppTheme.secondaryColor : AppTheme.primaryColor).withAlpha(60),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
         ),
         child: Row(
           children: [
@@ -1381,7 +1359,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text(
-              'Earn commissions by referring new members to Assure ChitFunds. Our team will contact you within 24 hours.',
+              'Earn commissions by referring new members to Assure Chit Funds. Our team will contact you within 24 hours.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.black54, fontSize: 14),
             ),
@@ -1442,8 +1420,13 @@ class _TrustBadges extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Trusted & Certified',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const Text('TRUSTED & CERTIFIED',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
+                color: Color(0xFF64748B),
+              )),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1482,30 +1465,21 @@ class _BadgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
-        ],
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withAlpha(26),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
+          Icon(icon, color: AppTheme.primaryColor, size: 22),
           const SizedBox(height: 8),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: color,
+            style: const TextStyle(
+              color: AppTheme.primaryColor,
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
@@ -1527,17 +1501,17 @@ class _PaymentPartners extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Trusted Partners',
+          const Text('TRUSTED PARTNERS',
               style: TextStyle(
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black38,
-                  letterSpacing: 0.8)),
-          const SizedBox(height: 10),
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                  color: Color(0xFF64748B))),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(child: _SbiLogo()),
-              Container(width: 1, height: 44, color: Colors.grey.shade200),
+              const SizedBox(width: 10),
               Expanded(child: _CashfreeLogo()),
             ],
           ),
@@ -1552,29 +1526,33 @@ class _SbiLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Image.asset(
-          'assets/icons/sbi.png',
-          height: 36,
-          fit: BoxFit.contain,
-        ),
-        const SizedBox(height: 5),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: AppTheme.lightBlueBg,
-            borderRadius: BorderRadius.circular(4),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Image.asset(
+            'assets/icons/sbi.png',
+            height: 36,
+            fit: BoxFit.contain,
           ),
-          child: const Text('Banking Partner',
+          const SizedBox(height: 8),
+          const Text('Banking Partner',
+              textAlign: TextAlign.center,
               style: TextStyle(
                   color: AppTheme.accentBlue,
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600)),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -1584,29 +1562,33 @@ class _CashfreeLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Image.asset(
-          'assets/icons/cashfree.png',
-          height: 36,
-          fit: BoxFit.contain,
-        ),
-        const SizedBox(height: 5),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          decoration: BoxDecoration(
-            color: const Color(0xFFF0EAFF),
-            borderRadius: BorderRadius.circular(4),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Image.asset(
+            'assets/icons/cashfree.png',
+            height: 36,
+            fit: BoxFit.contain,
           ),
-          child: const Text('Payment Gateway',
+          const SizedBox(height: 8),
+          const Text('Payment Gateway',
+              textAlign: TextAlign.center,
               style: TextStyle(
                   color: Color(0xFF6C3EC1),
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600)),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

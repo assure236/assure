@@ -42,22 +42,36 @@ exports.getMemberDashboard = async (req, res, next) => {
 
     // Compute actual total_paid and months_paid per group from Payment records
     const groupIds = memberships.map(m => m.chit_group_id?._id).filter(Boolean);
-    const perGroupPayments = groupIds.length > 0 ? await Payment.aggregate([
-      { $match: { user_id: userId, payment_status: 'success', chit_group_id: { $in: groupIds } } },
-      { $group: { _id: '$chit_group_id', total_paid: { $sum: '$amount' }, months_paid: { $sum: 1 } } }
-    ]) : [];
+    const [perGroupPayments, completedAuctionCounts] = await Promise.all([
+      groupIds.length > 0 ? Payment.aggregate([
+        { $match: { user_id: userId, payment_status: 'success', chit_group_id: { $in: groupIds } } },
+        { $group: { _id: '$chit_group_id', total_paid: { $sum: '$amount' }, months_paid: { $sum: 1 } } }
+      ]) : [],
+      groupIds.length > 0 ? Auction.aggregate([
+        { $match: { chit_group_id: { $in: groupIds }, status: 'completed' } },
+        { $group: { _id: '$chit_group_id', count: { $sum: 1 } } }
+      ]) : [],
+    ]);
     const paymentMap = {};
     for (const pg of perGroupPayments) {
       paymentMap[pg._id.toString()] = { total_paid: pg.total_paid, months_paid: pg.months_paid };
     }
+    const currentMonthMap = {};
+    for (const a of completedAuctionCounts) {
+      currentMonthMap[a._id.toString()] = a.count;
+    }
 
-    // Enrich memberships with real payment data
+    // Enrich memberships with real payment data and current_month (completed auctions count)
     const enrichedMemberships = memberships.map(m => {
       const obj = m.toObject();
       const gid = m.chit_group_id?._id?.toString();
       const stats = gid ? paymentMap[gid] : null;
       obj.total_paid = stats?.total_paid || obj.total_paid_amount || 0;
       obj.months_paid = stats?.months_paid || 0;
+      // Inject current_month since ChitGroup schema doesn't store it
+      if (obj.chit_group_id && gid) {
+        obj.chit_group_id.current_month = currentMonthMap[gid] || 0;
+      }
       return obj;
     });
 

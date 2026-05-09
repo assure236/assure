@@ -102,6 +102,34 @@ class ChitGroupProvider with ChangeNotifier {
     return [];
   }
 
+  Future<List<Map<String, dynamic>>> fetchVacantGroups() async {
+    try {
+      final response = await ApiService.get('/chit-groups?status=vacant&limit=50');
+      if (response['success'] == true) {
+        final data = response['data'];
+        final list = (data is Map) ? data['groups'] : data;
+        return List<Map<String, dynamic>>.from(list ?? []);
+      }
+    } catch (e) {
+      debugPrint('Error fetching vacant groups: $e');
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> fetchNewGroups() async {
+    try {
+      final response = await ApiService.get('/chit-groups?status=not_started&limit=50');
+      if (response['success'] == true) {
+        final data = response['data'];
+        final list = (data is Map) ? data['groups'] : data;
+        return List<Map<String, dynamic>>.from(list ?? []);
+      }
+    } catch (e) {
+      debugPrint('Error fetching new groups: $e');
+    }
+    return [];
+  }
+
   Future<List<Map<String, dynamic>>> fetchGroupMembers(String groupId) async {
     try {
       final response = await ApiService.get('/chit-groups/$groupId/members');

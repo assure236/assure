@@ -166,19 +166,19 @@ exports.registerFcmToken = async (req, res, next) => {
     // Send welcome push notification on first FCM registration
     if (isFirstToken && existingUser) {
       try {
-        const name = existingUser.full_name || 'there';
+        const name = existingUser.full_name?.split(' ')[0] || 'there';
         await Notification.create({
           user_id: userId,
-          title: '🙏 Welcome to Assure ChitFunds!',
-          message: `Hi ${name}, thank you for joining! Explore chit groups, track payments, participate in auctions, and grow your savings with us.`,
+          title: `🌟 Welcome to Assure ChitFunds, ${name}!`,
+          message: `Hi ${name}, you're now part of India's most transparent digital chit fund platform. Browse chit groups, participate in monthly auctions, track your payments, and watch your savings grow. We're glad to have you!`,
           type: 'general',
           data: { screen: 'dashboard' },
           sent_at: new Date(),
           delivery_method: ['push', 'in_app'],
         });
         await sendPushNotification(fcm_token,
-          '🙏 Welcome to Assure ChitFunds!',
-          `Hi ${name}, thank you for joining! Explore chit groups, track payments, participate in auctions, and grow your savings with us.`,
+          `🌟 Welcome to Assure ChitFunds, ${name}!`,
+          `Hi ${name}, you're now part of India's most transparent digital chit fund platform. Browse chit groups, participate in monthly auctions, track your payments, and watch your savings grow. We're glad to have you!`,
           { type: 'general', screen: 'dashboard' }
         );
 
@@ -188,16 +188,16 @@ exports.registerFcmToken = async (req, res, next) => {
             try {
               await Notification.create({
                 user_id: userId,
-                title: '📋 Complete Your KYC to Get Started',
-                message: `Hi ${name}, complete your KYC verification to unlock bidding, payments, and dividends. It only takes 2 minutes!`,
+                title: '🔐 One Step Away: Complete Your KYC',
+                message: `Hi ${name}, verify your identity via Aadhaar & PAN to unlock auction bidding, prize eligibility, and dividend payouts. It takes less than 2 minutes — tap to start!`,
                 type: 'kyc_update',
                 data: { screen: 'kyc' },
                 sent_at: new Date(),
                 delivery_method: ['push', 'in_app'],
               });
               await sendPushNotification(fcm_token,
-                '📋 Complete Your KYC to Get Started',
-                `Hi ${name}, complete your KYC verification to unlock bidding, payments, and dividends. It only takes 2 minutes!`,
+                '🔐 One Step Away: Complete Your KYC',
+                `Hi ${name}, verify your identity via Aadhaar & PAN to unlock auction bidding, prize eligibility, and dividend payouts. It takes less than 2 minutes — tap to start!`,
                 { type: 'kyc_update', screen: 'kyc' }
               );
             } catch (_) { /* ignore */ }

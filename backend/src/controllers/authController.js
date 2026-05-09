@@ -32,15 +32,19 @@ exports.resendOtp = async (req, res, next) => {
             <p style="color:#ffffffb3;margin:6px 0 0;font-size:13px">Secure. Transparent. Rewarding.</p>
           </div>
           <div style="padding:32px 28px">
-            <p style="color:#333;font-size:15px;margin:0 0 20px">Your one-time verification code is:</p>
-            <div style="background:#F8F9FB;border:2px dashed #D4AF37;border-radius:10px;padding:18px;text-align:center;margin:0 0 20px">
-              <span style="font-size:32px;font-weight:700;letter-spacing:8px;color:#0B1F3B">${otp}</span>
+            <p style="color:#333;font-size:15px;margin:0 0 8px">We received a verification request for this email address. Use the code below to complete your verification:</p>
+            <div style="background:#F8F9FB;border:2px dashed #D4AF37;border-radius:10px;padding:20px;text-align:center;margin:20px 0">
+              <p style="color:#666;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:1px">Your One-Time Password</p>
+              <span style="font-size:36px;font-weight:700;letter-spacing:10px;color:#0B1F3B">${otp}</span>
             </div>
-            <p style="color:#666;font-size:13px;margin:0 0 8px">This code is valid for <b>10 minutes</b>.</p>
-            <p style="color:#b91c1c;font-size:13px;margin:0 0 20px">⚠ Do not share this code with anyone. Assure ChitFunds will never ask for your OTP.</p>
+            <p style="color:#555;font-size:13px;margin:0 0 8px">This code is valid for <strong>10 minutes</strong> and can only be used once.</p>
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:12px 16px;margin-top:16px">
+              <p style="color:#b91c1c;font-size:13px;margin:0"><strong>&#9888; Security Alert:</strong> Do not share this OTP with anyone, including Assure ChitFunds staff. We will <u>never</u> ask for your OTP.</p>
+            </div>
           </div>
           <div style="background:#f9fafb;padding:16px 28px;border-top:1px solid #e5e7eb;text-align:center">
-            <p style="color:#999;font-size:11px;margin:0">© ${new Date().getFullYear()} Assure ChitFunds. All rights reserved.</p>
+            <p style="color:#999;font-size:11px;margin:0">If you did not request this code, please ignore this email or contact <a href="mailto:support@assure.fund" style="color:#1E3A8A">support@assure.fund</a> immediately.</p>
+            <p style="color:#bbb;font-size:11px;margin:4px 0 0">&copy; ${new Date().getFullYear()} Assure ChitFunds. All rights reserved.</p>
           </div>
         </div>`);
       return res.json({ success: true, message: 'OTP sent to ' + email });

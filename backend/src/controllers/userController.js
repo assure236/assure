@@ -1,4 +1,4 @@
-const { User, ChitGroup, ChitMember, Payment } = require('../models');
+const { User, ChitGroup, ChitMember, Payment, Auction } = require('../models');
 const AgentRequest = require('../models/AgentRequest');
 const bcrypt = require('bcrypt');
 const { uploadToGridFS } = require('../utils/gridfs');
@@ -197,7 +197,21 @@ exports.getMyChitGroups = async (req, res, next) => {
   try {
     const memberships = await ChitMember.find({ user_id: req.user._id || req.user.id })
       .populate('chit_group_id');
-    res.json({ success: true, data: memberships });
+
+    // Compute current_month from completed auction count for accurate months tracking
+    const enriched = await Promise.all(memberships.map(async (m) => {
+      const obj = m.toObject();
+      if (obj.chit_group_id && obj.chit_group_id._id) {
+        const completedCount = await Auction.countDocuments({
+          chit_group_id: obj.chit_group_id._id,
+          status: 'completed',
+        });
+        obj.chit_group_id.current_month = completedCount;
+      }
+      return obj;
+    }));
+
+    res.json({ success: true, data: enriched });
   } catch (err) { next(err); }
 };
 

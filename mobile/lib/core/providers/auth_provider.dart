@@ -17,6 +17,8 @@ class AuthProvider with ChangeNotifier {
   bool _hasLocalAccount = false;
   Timer? _inactivityTimer;
   static const _inactivityDuration = Duration(minutes: 10);
+  String? _sessionDevice;
+  DateTime? _sessionLoginAt;
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -25,6 +27,8 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
   bool get hasLocalAccount => _hasLocalAccount;
+  String? get sessionDevice => _sessionDevice;
+  DateTime? get sessionLoginAt => _sessionLoginAt;
 
   AuthProvider() {
     _loadFromStorage();
@@ -38,8 +42,8 @@ class AuthProvider with ChangeNotifier {
     _inactivityTimer?.cancel();
     if (_isAuthenticated) {
       _inactivityTimer = Timer(_inactivityDuration, () {
-        debugPrint('Inactivity timeout — soft lock (keep token for biometric)');
-        _softLock();
+        debugPrint('Inactivity timeout — full logout');
+        logout();
       });
     }
   }
@@ -47,8 +51,8 @@ class AuthProvider with ChangeNotifier {
   void _startInactivityTimer() {
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer(_inactivityDuration, () {
-      debugPrint('Inactivity timeout — soft lock (keep token for biometric)');
-      _softLock();
+      debugPrint('Inactivity timeout — full logout');
+      logout();
     });
   }
 
@@ -68,6 +72,9 @@ class AuthProvider with ChangeNotifier {
       // Don't auto-authenticate on cold start — require MPIN re-entry
       // _isAuthenticated stays false so splash redirects to /lock
     }
+    _sessionDevice = prefs.getString('session_device');
+    final loginAtStr = prefs.getString('session_login_at');
+    if (loginAtStr != null) _sessionLoginAt = DateTime.tryParse(loginAtStr);
     notifyListeners();
   }
 
@@ -276,6 +283,10 @@ class AuthProvider with ChangeNotifier {
     await prefs.setBool('hasLocalAccount', true);
     await prefs.setString('mobile', _user!.mobile);
     await _secureStorage.write(key: 'mpin_set', value: 'true');
+    _sessionLoginAt = DateTime.now();
+    _sessionDevice = SocketService.deviceName;
+    await prefs.setString('session_login_at', _sessionLoginAt!.toIso8601String());
+    await prefs.setString('session_device', _sessionDevice!);
 
     // Register FCM token for push notifications
     FcmService().registerTokenWithBackend();

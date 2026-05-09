@@ -56,11 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppTheme.primaryDark, AppTheme.primaryColor],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                    color: AppTheme.primaryColor,
                   ),
                   child: SafeArea(
                     child: Column(
@@ -326,6 +322,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
+                  // Current Session
+                  _buildCurrentSessionCard(auth),
+                  const SizedBox(height: 16),
+
                   // Account Actions
                   _SectionCard(
                     title: 'Account Actions',
@@ -362,6 +362,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _confirmLogout(BuildContext context, AuthProvider auth) {
     _doLogout(context, auth, logoutAll: false);
+  }
+
+  Widget _buildCurrentSessionCard(AuthProvider auth) {
+    final device = auth.sessionDevice ?? 'This device';
+    final loginAt = auth.sessionLoginAt;
+    String timeStr = 'Unknown';
+    if (loginAt != null) {
+      final local = loginAt.toLocal();
+      final h = local.hour > 12 ? local.hour - 12 : local.hour;
+      final amPm = local.hour >= 12 ? 'PM' : 'AM';
+      final hStr = (h == 0 ? 12 : h).toString();
+      final minStr = local.minute.toString().padLeft(2, '0');
+      timeStr = '${local.day}/${local.month}/${local.year}  $hStr:$minStr $amPm';
+    }
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 8, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+            child: Text('Current Session',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey[600])),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withAlpha(15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.phone_android, color: AppTheme.primaryColor, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(device,
+                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 2),
+                      Text('Signed in: $timeStr',
+                          style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Text('Active', style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmLogoutAll(BuildContext context, AuthProvider auth) {

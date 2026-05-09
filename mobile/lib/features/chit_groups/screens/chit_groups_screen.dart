@@ -49,12 +49,21 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
             elevation: 0,
-            title: const Text('Chit Groups',
+            title: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Text(
+                'Chit Groups',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 15,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                )),
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
             centerTitle: true,
             bottom: TabBar(
               controller: _tabController,
@@ -69,13 +78,21 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
             ),
           ),
         ],
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
-            _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'vacant'),
-          ],
-        ),
+        body: Column(children: [
+          _SearchBar(
+            controller: _searchController,
+            onChanged: (q) => setState(() => _searchQuery = q),
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
+                _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'vacant'),
+              ],
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -192,10 +209,15 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
     setState(() { _loading = true; _error = null; });
     try {
       final provider = context.read<ChitGroupProvider>();
-      final res = await provider.fetchAvailableGroups();
-      if (mounted) setState(() { _available = res; _loading = false; });
+      final List<Map<String, dynamic>> data;
+      if (widget.filter == 'vacant') {
+        data = await provider.fetchVacantGroups();
+      } else {
+        data = await provider.fetchNewGroups();
+      }
+      if (mounted) setState(() { _available = data; _loading = false; });
     } catch (e) {
-      if (mounted) setState(() { _error = 'Could not load groups'; _loading = false; });
+      if (mounted) setState(() { _error = 'Failed to load. Please try again.'; _loading = false; });
     }
   }
 
@@ -216,18 +238,8 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
 
     final filtered = _available
         .where((g) {
-          final matchesSearch =
-              (g['group_name'] ?? '').toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
+          return (g['group_name'] ?? '').toLowerCase().contains(widget.searchQuery.toLowerCase()) ||
               (g['group_number'] ?? '').toLowerCase().contains(widget.searchQuery.toLowerCase());
-          if (!matchesSearch) return false;
-          if (widget.filter == 'vacant') {
-            final total = (g['total_members'] ?? 0) as int;
-            final enrolled = (g['member_count'] ?? g['enrolled_members'] ?? g['current_members'] ?? 0) as int;
-            return enrolled < total;
-          }
-          // 'new' filter: show groups with current_month == 0 or 1
-          final currentMonth = (g['current_month'] ?? 0) as int;
-          return currentMonth <= 1;
         })
         .toList();
 
@@ -424,136 +436,142 @@ class _AvailableGroupCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chitValue = double.tryParse(data['chit_value']?.toString() ?? '0') ?? 0;
-    final monthly =
-        double.tryParse(data['monthly_installment']?.toString() ?? '0') ?? 0;
+    final monthly = double.tryParse(data['monthly_installment']?.toString() ?? '0') ?? 0;
     final members = data['total_members'] ?? 0;
     final enrolledCount = data['member_count'] ?? data['enrolled_members'] ?? data['current_members'] ?? 0;
     final duration = data['duration_months'] ?? 0;
     final groupName = data['group_name'] ?? '';
     final psoNumber = data['pso_number'] ?? data['registration_number'] ?? '';
-    final auctionType = data['auction_frequency'] ?? data['auction_type'] ?? 'Monthly';
     final commencementDate = data['commencement_date'];
-    final dividendUpto = data['dividend_upto'] ?? data['max_dividend'] ?? 0;
-    final minBid = data['min_bid'] ?? data['minimum_bid'] ?? 0;
-    final maxBid = data['max_bid'] ?? data['maximum_bid'] ?? 0;
-    final slotsLeft = (members is int ? members : 0) - (enrolledCount is int ? enrolledCount : 0);
+    final int membersInt = members is int ? members : (members as num).toInt();
+    final int enrolledInt = enrolledCount is int ? enrolledCount : (enrolledCount as num).toInt();
+    final int slotsLeft = membersInt - enrolledInt;
 
     String dateStr = '';
     if (commencementDate != null) {
       try {
-        dateStr = DateFormat('dd-MM-yyyy').format(DateTime.parse(commencementDate.toString()));
+        dateStr = DateFormat('d MMM yyyy').format(DateTime.parse(commencementDate.toString()));
       } catch (_) {}
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 3,
+    final bool isVacant = (data['status'] ?? '') == 'vacant';
+    final Color accentColor = AppTheme.primaryColor;
+    final String statusLabel = isVacant ? 'Seats Available' : 'Upcoming';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Header with chit value
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(20),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        // ── Header ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 4,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(
+                    '₹ ${NumberFormat('#,##,###').format(chitValue)}',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: accentColor,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  Text(
+                    groupName,
+                    style: const TextStyle(fontSize: 13, color: Colors.black54, fontWeight: FontWeight.w500),
+                  ),
+                ]),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: accentColor.withAlpha(20),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: accentColor.withAlpha(60)),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: accentColor),
+                ),
+              ),
+            ],
           ),
-          child: Column(children: [
-            Text(
-              '₹ ${NumberFormat('#,##,###').format(chitValue)}',
-              style: const TextStyle(
-                color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
-            ),
-            const Text('Chit Value',
-                style: TextStyle(color: Colors.white70, fontSize: 13)),
-          ]),
         ),
 
-        // Details grid
-        Container(
+        const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
+
+        // ── Details ──
+        Padding(
           padding: const EdgeInsets.all(16),
           child: Column(children: [
             Row(children: [
-              Expanded(child: _DetailItem(
-                label: 'Subscription Value',
-                value: '₹${_fmt(monthly)}/Month',
-                valueColor: AppTheme.errorColor,
-              )),
-              Expanded(child: _DetailItem(
-                label: 'First Auction Date',
-                value: dateStr.isNotEmpty ? dateStr : 'TBD',
-              )),
+              Expanded(child: _DetailItem(label: 'Monthly EMI', value: '₹${_fmt(monthly)}')),
+              Expanded(child: _DetailItem(label: 'Months', value: '$duration')),
             ]),
             const SizedBox(height: 12),
             Row(children: [
+              Expanded(child: _DetailItem(label: 'Total Members', value: '$members')),
               Expanded(child: _DetailItem(
-                label: 'Duration',
-                value: '$duration Months',
-              )),
-              Expanded(child: _DetailItem(
-                label: 'Auctions',
-                value: auctionType.toString(),
-              )),
-            ]),
-            const SizedBox(height: 12),
-            Row(children: [
-              Expanded(child: _DetailItem(
-                label: 'PSO No.',
-                value: psoNumber.toString().isNotEmpty ? psoNumber.toString() : 'N/A',
+                label: 'Auction',
+                value: data['auction_type']?.toString().isNotEmpty == true
+                    ? data['auction_type'].toString()
+                    : 'Monthly',
                 valueColor: AppTheme.primaryColor,
               )),
-              Expanded(child: _DetailItem(
-                label: 'Group Name',
-                value: groupName,
-              )),
             ]),
-            if (dividendUpto != 0 || minBid != 0) ...[
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: _DetailItem(
-                  label: 'Dividend Upto',
-                  value: '₹${_fmt(double.tryParse(dividendUpto.toString()) ?? 0)}',
-                )),
-                Expanded(child: _DetailItem(
-                  label: 'Bid Range',
-                  value: '₹${_fmt(double.tryParse(minBid.toString()) ?? 0)} - ₹${_fmt(double.tryParse(maxBid.toString()) ?? 0)}',
-                )),
-              ]),
-            ],
             const SizedBox(height: 12),
             Row(children: [
               Expanded(child: _DetailItem(
-                label: 'Total Members',
-                value: '$members',
+                label: isVacant ? 'Slots Available' : 'Starts',
+                value: isVacant
+                    ? (slotsLeft > 0 ? '$slotsLeft open' : 'Almost full')
+                    : (dateStr.isNotEmpty ? dateStr : 'TBD'),
+                valueColor: isVacant
+                    ? (slotsLeft > 0 ? const Color(0xFF0B6E4F) : AppTheme.errorColor)
+                    : AppTheme.primaryColor,
               )),
-              Expanded(child: _DetailItem(
-                label: 'Slots Available',
-                value: slotsLeft > 0 ? '$slotsLeft left' : 'Filling up',
-                valueColor: slotsLeft > 0 ? AppTheme.successColor : AppTheme.errorColor,
-              )),
+              if (psoNumber.toString().isNotEmpty)
+                Expanded(child: _DetailItem(label: 'PSO No.', value: psoNumber.toString())),
             ]),
           ]),
         ),
 
-        // Enroll button
+        // ── Enroll button ──
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           child: SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: onEnroll,
-              icon: const Icon(Icons.how_to_reg_rounded),
+              icon: const Icon(Icons.how_to_reg_rounded, size: 18),
               label: const Text('Enroll Now'),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12))),
+                backgroundColor: accentColor,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              ),
             ),
           ),
         ),

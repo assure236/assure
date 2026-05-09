@@ -78,8 +78,8 @@ class PaymentsScreenState extends State<PaymentsScreen>
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
           tabs: const [
-            Tab(text: 'History'),
             Tab(text: 'Upcoming'),
+            Tab(text: 'History'),
           ],
         ),
       ),
@@ -91,13 +91,13 @@ class PaymentsScreenState extends State<PaymentsScreen>
           return TabBarView(
             controller: _tabController,
             children: [
-              _PaymentHistoryTab(
-                payments: provider.paidPayments,
-                onRefresh: provider.fetchPayments,
-              ),
               _UpcomingPaymentsTab(
                 payments: provider.upcomingPayments,
                 onPay: (p) => _showPayDialog(context, p),
+                onRefresh: provider.fetchPayments,
+              ),
+              _PaymentHistoryTab(
+                payments: provider.paidPayments,
                 onRefresh: provider.fetchPayments,
               ),
             ],

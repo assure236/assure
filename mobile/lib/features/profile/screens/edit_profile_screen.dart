@@ -98,7 +98,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final res = await ApiService.put('/users/profile', {
         'full_name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
         if (_panCtrl.text.trim().isNotEmpty) 'pan_number': _panCtrl.text.trim().toUpperCase(),
         'address': _addressCtrl.text.trim(),
         'city': _cityCtrl.text.trim(),
@@ -340,18 +339,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 },
               ),
               const Divider(height: 1),
-              _FormField(
-                controller: _emailCtrl,
+              _ReadOnlyField(
                 label: 'Email Address',
+                value: _emailCtrl.text.isNotEmpty ? _emailCtrl.text : '—',
                 icon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Email is required';
-                  if (!RegExp(r'^[\w.-]+@[\w.-]+\.\w+$').hasMatch(v.trim())) {
-                    return 'Enter a valid email';
-                  }
-                  return null;
-                },
+                note: 'Cannot be changed',
               ),
             ]),
             const SizedBox(height: 16),
@@ -561,7 +553,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Changes to Name, Email, PAN and Bank details require admin approval for security.',
+                    'Changes to Name, PAN and Bank details require admin approval for security.',
                     style: TextStyle(color: Colors.blue, fontSize: 12),
                   ),
                 ),

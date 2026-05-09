@@ -84,10 +84,13 @@ cron.schedule('0 9 * * *', async () => {
     for (const user of users) {
       if (await alreadySentToday(user._id, 'kyc_update')) continue;
 
-      const title = '📋 Complete Your KYC Verification';
+      const name = user.full_name?.split(' ')[0] || 'there';
+      const title = user.kyc_status === 'rejected'
+        ? '🚫 KYC Rejected — Action Required'
+        : '🔐 KYC Pending — Unlock Your Full Access';
       const body = user.kyc_status === 'rejected'
-        ? `Hi ${user.full_name || 'there'}, your KYC was rejected. Please re-submit your documents to continue using all features.`
-        : `Hi ${user.full_name || 'there'}, your KYC is pending. Complete it now to unlock bidding, payments, and dividends!`;
+        ? `Hi ${name}, your KYC verification was rejected. Please re-submit your documents immediately to restore full access to bidding, auctions, and payouts. Tap to resolve now.`
+        : `Hi ${name}, your KYC verification is still pending. Complete it in under 2 minutes to unlock auction bidding, prize eligibility, and dividend payouts — don't miss your next auction!`;
 
       await pushToUser(user._id, title, body, 'kyc_update', { screen: 'kyc' });
       sent++;
@@ -132,14 +135,14 @@ cron.schedule('30 8 * * *', async () => {
 
       let title, body;
       if (diffDays <= 0) {
-        title = '🚨 Payment Due Today!';
-        body = `Your installment of ${amount} for ${groupName} is due TODAY (${dueDateStr}). Pay now to avoid late fees!`;
+        title = '🚨 Payment Due Today — Act Now!';
+        body = `Your installment of ${amount} for ${groupName} is due TODAY (${dueDateStr}). Pay immediately to avoid late fees and protect your bidding rights. Tap to pay now.`;
       } else if (diffDays === 1) {
-        title = '⏰ Payment Due Tomorrow';
-        body = `Reminder: ${amount} for ${groupName} is due tomorrow (${dueDateStr}). Make your payment today!`;
+        title = '⏰ Last Reminder: Payment Due Tomorrow';
+        body = `Don't forget! Your installment of ${amount} for ${groupName} is due tomorrow (${dueDateStr}). Pay today to stay on track and avoid any late penalty. Tap to pay now.`;
       } else {
-        title = '📅 Upcoming Payment Reminder';
-        body = `Your installment of ${amount} for ${groupName} is due on ${dueDateStr}. Plan your payment in advance!`;
+        title = '📅 Upcoming Installment — Plan Ahead';
+        body = `Hi! Your installment of ${amount} for ${groupName} is due on ${dueDateStr}. Early payment ensures uninterrupted auction eligibility and a cleaner payment record.`;
       }
 
       await pushToUser(p.user_id._id, title, body, 'payment_reminder', {
@@ -181,14 +184,14 @@ cron.schedule('30 18 * * *', async () => {
 
       let title, body;
       if (daysOverdue >= 14) {
-        title = '🔴 Urgent: Payment Severely Overdue';
-        body = `Your payment of ${amount} for ${groupName} is ${daysOverdue} days overdue! Late fees are accumulating. Pay immediately to avoid legal action.`;
+        title = '🔴 Critical: Payment Severely Overdue';
+        body = `Your installment of ${amount} for ${groupName} is ${daysOverdue} days overdue. Continued default may result in loss of auction rights, credit bureau reporting, and legal recovery proceedings. Pay immediately to avoid escalation.`;
       } else if (daysOverdue >= 7) {
-        title = '⚠️ Payment Overdue — Action Required';
-        body = `Your installment of ${amount} for ${groupName} is ${daysOverdue} days overdue. A late fee has been applied. Pay now to avoid further penalties.`;
+        title = '⚠️ Overdue Alert — Late Fees Applying';
+        body = `Your installment of ${amount} for ${groupName} is ${daysOverdue} days past due. Late fees are accumulating daily. Pay now to stop the penalty clock and protect your membership standing.`;
       } else {
-        title = '❗ Payment Overdue';
-        body = `Your payment of ${amount} for ${groupName} is ${daysOverdue} day(s) overdue. Please pay at the earliest to avoid late fees.`;
+        title = '❗ Missed Payment — Pay to Avoid Penalty';
+        body = `Your installment of ${amount} for ${groupName} was due ${daysOverdue} day(s) ago. Please clear this immediately to avoid late fees and maintain your good standing. Tap to pay now.`;
       }
 
       await pushToUser(p.user_id._id, title, body, 'payment_reminder', {
@@ -239,8 +242,8 @@ cron.schedule('*/30 * * * *', async () => {
       if (alreadySent) continue;
 
       await pushToMany(userIds,
-        '📅 Auction Tomorrow!',
-        `The auction for ${groupName} (Month ${auction.month_number}) is scheduled for ${dateStr}. Get ready to bid!`,
+        `🏦 Auction Tomorrow: ${groupName}`,
+        `Month ${auction.month_number} auction for ${groupName} is tomorrow (${dateStr}). Prepare your bid strategy — bid smart to maximize your savings and get the best prize amount!`,
         'auction_alert',
         { screen: 'auctions', auction_id: String(auction._id) }
       );
@@ -269,8 +272,8 @@ cron.schedule('*/30 * * * *', async () => {
       const userIds = members.map(m => m.user_id);
 
       await pushToMany(userIds,
-        '🔴 Auction Starting Soon!',
-        `The auction for ${groupName} starts in about 1 hour! Open the app and get ready to bid.`,
+        `⏱️ Auction in 1 Hour — ${groupName}`,
+        `The Month ${auction.month_number} auction for ${groupName} starts in approximately 1 hour. Open the app now, review your bid limit, and get ready to win!`,
         'auction_alert',
         { screen: 'auction_room', auction_id: String(auction._id) }
       );
@@ -325,8 +328,8 @@ cron.schedule('*/5 * * * *', async () => {
           ? `₹${auction.disbursement_amount.toLocaleString('en-IN')}`
           : '';
         await pushToUser(auction.winner_id._id,
-          '🎉 Congratulations — You Won the Auction!',
-          `You won the Month ${auction.month_number} auction for ${groupName}! ${prizeAmt ? `Prize: ${prizeAmt}` : 'Your prize will be disbursed soon.'}`,
+          `🎉 You Won! — ${groupName} Month ${auction.month_number}`,
+          `Congratulations! You won the Month ${auction.month_number} auction for ${groupName}. ${prizeAmt ? `Prize Amount: ${prizeAmt} — this will be disbursed to your registered bank account shortly.` : 'Your prize disbursement is being processed. You will receive a confirmation soon.'} Thank you for being a valued member!`,
           'auction_result',
           { screen: 'auction_result', auction_id: String(auction._id) }
         );
@@ -335,8 +338,8 @@ cron.schedule('*/5 * * * *', async () => {
       // Notify others
       if (nonWinnerIds.length > 0) {
         await pushToMany(nonWinnerIds,
-          '🏆 Auction Results Are Out!',
-          `The Month ${auction.month_number} auction for ${groupName} is complete. Winner: ${winnerName}. ${dividend ? `Your dividend: ${dividend}.` : ''} Check the app for details.`,
+          `🏆 Month ${auction.month_number} Auction Results — ${groupName}`,
+          `The Month ${auction.month_number} auction for ${groupName} has concluded. ${winnerName} is the winner. ${dividend ? `Your dividend credit for this month: ${dividend} — automatically adjusted in your next installment.` : 'Dividend details will be updated in the app shortly.'} Stay active for next month's auction!`,
           'auction_result',
           { screen: 'auction_result', auction_id: String(auction._id) }
         );
@@ -365,8 +368,8 @@ cron.schedule('0 10 25 * *', async () => {
       const installment = `₹${group.monthly_installment?.toLocaleString('en-IN') || '0'}`;
 
       await pushToMany(userIds,
-        `📊 ${group.group_name} — Next Month Installment`,
-        `Your monthly installment of ${installment} for ${group.group_name} is coming up. Plan your finances and pay on time to earn better credit scores!`,
+        `� Next Installment Coming Up — ${group.group_name}`,
+        `A heads-up! Your monthly installment of ${installment} for ${group.group_name} is due next month. Setting aside funds today ensures timely payment, preserves your auction eligibility, and keeps your financial record clean.`,
         'payment_reminder',
         { screen: 'payments', group_id: String(group._id) }
       );
@@ -409,9 +412,10 @@ cron.schedule('0 11 * * 2,5', async () => {
       if (!user.bank_account_number) missing.push('Bank Account');
       if (!user.address) missing.push('Address');
 
+      const firstName = user.full_name?.split(' ')[0] || 'there';
       await pushToUser(user._id,
-        '👤 Complete Your Profile',
-        `Hi ${user.full_name || 'there'}, please update your ${missing.join(', ')} details for smooth disbursals and better service.`,
+        '👤 Profile Incomplete — Update Now',
+        `Hi ${firstName}, your profile is missing: ${missing.join(', ')}. A complete profile is required for prize disbursals, audit compliance, and faster support. Takes less than 2 minutes — tap to update!`,
         'general',
         { screen: 'profile' }
       );
@@ -443,9 +447,9 @@ cron.schedule('0 17 * * 0', async () => {
     }).select('_id full_name').lean();
 
     const messages = [
-      { title: '👋 We Miss You!', body: name => `Hi ${name}, it's been a while! Check your chit group updates, payment status, and upcoming auctions.` },
-      { title: '📱 Don\'t Miss Out!', body: name => `Hi ${name}, there may be new updates in your chit groups. Open the app to stay informed!` },
-      { title: '🔔 Quick Check-In', body: name => `Hi ${name}, your chit group may have new dividends or auction updates. Take a quick look!` },
+      { title: '� Stay on Top of Your Chit Groups', body: name => `Hi ${name}, it's been a while since your last visit. Check upcoming auctions, pending payments, and your latest dividend credits — don't let anything slip by!` },
+      { title: '💸 Your Chit Journey Awaits', body: name => `Hi ${name}, your chit groups may have new updates, dividend credits, or upcoming auctions. Log in now to stay in control of your savings plan.` },
+      { title: '🔔 Don’t Miss Your Next Auction', body: name => `Hi ${name}, auctions are your opportunity to win the prize and reduce your effective cost. Check the app now to ensure you’re prepared for the next bid round!` },
     ];
 
     let sent = 0;
@@ -494,8 +498,8 @@ cron.schedule('*/10 * * * *', async () => {
       const groupName = p.chit_group_id?.group_name || 'Chit Group';
 
       await pushToUser(p.user_id._id,
-        '✅ Payment Received — Thank You!',
-        `Your payment of ${amount} for ${groupName} has been received. Keep up the great track record! 🌟`,
+        '✅ Payment Confirmed — Thank You!',
+        `Your installment of ${amount} for ${groupName} has been successfully received and recorded. Your payment record is up to date. Keep it up and earn a strong savings track record!`,
         'payment_received',
         { screen: 'payments', payment_id: String(p._id) }
       );
@@ -533,8 +537,8 @@ cron.schedule('*/15 * * * *', async () => {
       const installment = `₹${group.monthly_installment?.toLocaleString('en-IN') || '0'}`;
 
       await pushToMany(allMembers.map(u => u._id),
-        `🆕 New Group: ${group.group_name}`,
-        `A new chit group is now open! Value: ${chitValue}, Monthly: ${installment}, Duration: ${group.duration_months} months. Limited slots — join now!`,
+        `� New Chit Group Open: ${group.group_name}`,
+        `A new chit group is now accepting enrollments! Chit Value: ${chitValue} | Monthly Installment: ${installment} | Duration: ${group.duration_months} months. Seats are limited — secure your spot before it fills up!`,
         'promotional',
         { screen: 'chit_groups', group_id: String(group._id) }
       );
@@ -567,8 +571,8 @@ cron.schedule('*/10 * * * *', async () => {
 
       const amount = `₹${txn.amount?.toLocaleString('en-IN') || '0'}`;
       await pushToUser(txn.user_id,
-        '💸 Dividend Credited!',
-        `Great news! ${amount} dividend has been credited to your wallet. Your new balance: ₹${txn.balance_after?.toLocaleString('en-IN') || '0'}.`,
+        '� Dividend Credited to Your Account!',
+        `Great news! A dividend of ${amount} has been credited to your Assure ChitFunds wallet. Current balance: ₹${txn.balance_after?.toLocaleString('en-IN') || '0'}. This will be applied towards your upcoming installment automatically.`,
         'dividend_credit',
         { screen: 'wallet', txn_id: String(txn._id) }
       );

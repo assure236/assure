@@ -21,7 +21,7 @@ const restoreUser = () => {
   } catch { return null; }
 };
 
-const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(restoreUser);

@@ -10,7 +10,7 @@ exports.getAllChitGroups = async (req, res, next) => {
 
     // Exclude groups the member has already joined
     if (req.user.role === 'member') {
-      const joinedIds = await ChitMember.distinct('chit_group_id', { user_id: req.user._id });
+      const joinedIds = await ChitMember.distinct('chit_group_id', { user_id: req.user._id || req.user.id });
       if (joinedIds.length > 0) filter._id = { $nin: joinedIds };
     }
 
@@ -46,7 +46,11 @@ exports.getChitGroupById = async (req, res, next) => {
       ChitMember.find({ chit_group_id: group._id }).populate('user_id', 'full_name mobile'),
       Auction.find({ chit_group_id: group._id }).sort({ created_at: -1 }).limit(5),
     ]);
-    res.json({ success: true, data: { ...group.toObject(), members, auctions } });
+    // Compute current_month from completed auctions for accurate months tracking
+    const completedCount = await Auction.countDocuments({ chit_group_id: group._id, status: 'completed' });
+    const groupObj = group.toObject();
+    groupObj.current_month = completedCount;
+    res.json({ success: true, data: { ...groupObj, members, auctions } });
   } catch (err) { next(err); }
 };
 
