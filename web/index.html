@@ -83,6 +83,17 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .ph-notif{background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.3);border-radius:12px;padding:10px;display:flex;align-items:center;gap:9px}
 .ph-nd{width:9px;height:9px;background:var(--green);border-radius:50%;flex-shrink:0;box-shadow:0 0 8px var(--green)}.ph-nt{font-size:.62rem;color:var(--green);font-weight:700}
+/* HERO IMAGE WRAP */
+.hero-img-wrap{position:relative;max-width:480px;margin:0 auto}
+.hero-img-wrap img{width:100%;border-radius:22px;box-shadow:0 40px 80px rgba(0,0,0,.65);display:block;object-fit:cover}
+.hib-badge{position:absolute;background:rgba(4,10,24,.93);backdrop-filter:blur(14px);border:1px solid rgba(245,166,35,.28);border-radius:16px;padding:12px 18px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.hib-v{font-family:'Poppins',sans-serif;font-weight:900;font-size:1.05rem;color:var(--gold)}
+.hib-l{font-size:.68rem;color:rgba(255,255,255,.52);margin-top:2px}
+.hib-t{top:28px;right:-18px}
+.hib-b{bottom:80px;left:-18px}
+.hib-icon{font-size:1.4rem;flex-shrink:0}
+.hib-notif{position:absolute;bottom:-20px;left:50%;transform:translateX(-50%);white-space:nowrap;background:rgba(39,174,96,.95);border-radius:50px;padding:9px 20px;font-size:.78rem;color:#fff;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(39,174,96,.4)}
+.hib-ndot{width:8px;height:8px;background:#fff;border-radius:50%;flex-shrink:0}
 /* HOW IT WORKS */
 #how{padding:110px 0;background:var(--bg)}
 .steps{display:flex;align-items:stretch;gap:0}
@@ -127,7 +138,7 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .wc-ico{width:52px;height:52px;background:rgba(10,31,68,.07);border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;color:var(--navy)}
 .wc h3{font-weight:800;font-size:.98rem;color:var(--navy);margin-bottom:9px}.wc p{font-size:.9rem;color:var(--text-lt);line-height:1.58}
 /* AUCTION */
-#auction{padding:110px 0;background:linear-gradient(135deg,#020c1e 0%,var(--navy) 100%)}
+#auction{padding:110px 0;background:linear-gradient(160deg,#050220 0%,#0e0533 50%,#130640 100%);border-top:3px solid rgba(245,166,35,.35)}
 .auc-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
 .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:30px}
 .chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:50px;padding:8px 18px;font-size:.8rem;color:rgba(255,255,255,.8);font-weight:600}
@@ -141,8 +152,16 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .am-hist{margin-bottom:16px}.am-hl{font-size:.68rem;color:rgba(255,255,255,.35);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
 .am-bid{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .am-bn{font-size:.76rem;color:rgba(255,255,255,.7)}.am-bv{font-size:.76rem;font-weight:700;color:var(--gold)}.am-bt{font-size:.65rem;color:rgba(255,255,255,.3)}
-.am-cta{width:100%;padding:14px;background:var(--gold);color:var(--navy-dark);border-radius:12px;font-weight:800;font-size:.92rem;transition:var(--t);border:none;cursor:pointer}.am-cta:hover{background:var(--gold-light)}
-/* TRUST */
+/* AUCTION IMAGE WRAP */
+.auc-img-wrap{position:relative;border-radius:22px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+.auc-img-wrap img{width:100%;display:block;object-fit:cover;height:420px}
+.auc-img-overlay{position:absolute;bottom:0;left:0;right:0;padding:24px;background:linear-gradient(to top,rgba(5,2,32,.98) 0%,rgba(5,2,32,.7) 60%,transparent 100%)}
+.auc-live-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(220,38,38,.9);border-radius:50px;padding:6px 14px;font-size:.75rem;font-weight:700;color:#fff;margin-bottom:10px;letter-spacing:.5px}
+.auc-live-blink{width:8px;height:8px;background:#fff;border-radius:50%;animation:pulse 1s infinite}
+.auc-ov-prize{font-family:'Poppins',sans-serif;font-size:1.7rem;font-weight:900;color:#fff;margin-bottom:6px}
+.auc-ov-sub{display:flex;align-items:center;justify-content:space-between}
+.auc-ov-grp{font-size:.8rem;color:rgba(255,255,255,.6)}
+.auc-ov-timer{font-family:'Poppins',sans-serif;font-weight:800;color:var(--gold);font-size:1rem}
 #trust{padding:110px 0;background:var(--bg)}
 .trust-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px}
 .tc{background:var(--w);border-radius:var(--r);padding:32px;box-shadow:var(--sh);display:flex;gap:20px;align-items:flex-start;transition:transform var(--t)}.tc:hover{transform:translateY(-5px)}
@@ -208,7 +227,7 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .ref-flow{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.1);border-radius:var(--r);padding:22px 26px}
 .rf{text-align:center;flex:1}.rf-icon{font-size:1.8rem;margin-bottom:8px}.rf-lbl{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.9)}.rf-arr{font-size:1.4rem;font-weight:900;color:rgba(255,255,255,.6);opacity:1}
 /* PLANTATION */
-#plantation{padding:70px 0;background:linear-gradient(160deg,var(--navy) 0%,#0c1d38 55%,var(--navy-dark) 100%);border-top:2px solid rgba(245,166,35,.18)}
+#plantation{padding:80px 0;background:linear-gradient(160deg,#0a2218 0%,#0d2e1e 50%,#071a11 100%);border-top:3px solid rgba(39,174,96,.4)}
 .plant-grid{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}
 .plant-big{font-family:'Poppins',sans-serif;font-size:clamp(2.8rem,5.5vw,4.5rem);font-weight:900;color:var(--gold);line-height:1;margin-bottom:8px}
 .plant-lbl{font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:24px}
@@ -342,12 +361,18 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
       </div>
     </div>
     <div class="hero-visual reveal">
-      <div class="phone"><div class="phone-inner">
-        <div class="ph-bar"><div class="ph-row"><span class="ph-name">Good Morning, Ravi &#128075;</span></div><div class="ph-amt">&#8377;3,24,500</div><div class="ph-lbl">Total Chit Portfolio Value</div></div>
-        <div class="ph-card"><div class="ph-cr"><span class="ph-cl">Gold Group A &middot; &#8377;5L Chit</span><span class="ph-cv" style="color:#27AE60">Active</span></div><div class="ph-cr"><span class="ph-cl">Monthly: &#8377;5,000</span><span class="ph-cv">Month 8/24</span></div></div>
-        <div class="ph-auct"><div class="ph-at">&#9200; LIVE AUCTION &mdash; Silver Group B</div><div class="ph-av">Current Prize: &#8377;1,82,000</div><div class="ph-tr"><span class="ph-tl">Closes in:</span><span class="ph-tv" id="heroTimer">04:32</span></div></div>
-        <div class="ph-notif"><div class="ph-nd"></div><div class="ph-nt">&#10003; Dividend &#8377;1,200 credited to your bank!</div></div>
-      </div></div>
+      <div class="hero-img-wrap">
+        <img src="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=700&h=520&q=80" alt="Family Financial Savings" loading="lazy">
+        <div class="hib-badge hib-t">
+          <div class="hib-icon">&#128200;</div>
+          <div><div class="hib-v">&#8377;3,24,500</div><div class="hib-l">Total Portfolio Value</div></div>
+        </div>
+        <div class="hib-badge hib-b">
+          <div class="hib-icon">&#128176;</div>
+          <div><div class="hib-v">&#8377;80,000</div><div class="hib-l">Avg Annual Dividend</div></div>
+        </div>
+        <div class="hib-notif"><div class="hib-ndot"></div>&#10003; Dividend &#8377;1,200 credited to your bank!</div>
+      </div>
     </div>
   </div></div>
 </section>
@@ -417,15 +442,16 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
       <div style="margin-top:28px"><a href="/login" class="btn btn-gold">Watch a Live Auction</a></div>
     </div>
     <div class="reveal">
-      <div class="auc-mock">
-        <div class="am-hdr"><div><div class="am-g">&#128308; LIVE &mdash; Silver Group B</div><div class="am-v">&#8377;1,00,000 Chit</div></div><div class="am-timer"><div class="am-tl">Closes in</div><div class="am-tv" id="auctionTimer">14:22</div></div></div>
-        <div class="am-stats"><div class="am-s"><div class="am-sv">18</div><div class="am-sl">Total Members</div></div><div class="am-s"><div class="am-sv">&#8377;86,000</div><div class="am-sl">Current Bid</div></div><div class="am-s"><div class="am-sv">&#8377;14,000</div><div class="am-sl">Discount</div></div><div class="am-s"><div class="am-sv">&#8377;778</div><div class="am-sl">Your Dividend</div></div></div>
-        <div class="am-hist"><div class="am-hl">Recent Bids</div>
-          <div class="am-bid"><span class="am-bn">Member #12</span><span class="am-bv">&#8377;86,000</span><span class="am-bt">14:42:18</span></div>
-          <div class="am-bid"><span class="am-bn">Member #7</span><span class="am-bv">&#8377;88,000</span><span class="am-bt">14:41:55</span></div>
-          <div class="am-bid"><span class="am-bn">Member #3</span><span class="am-bv">&#8377;90,000</span><span class="am-bt">14:41:30</span></div>
+      <div class="auc-img-wrap">
+        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&h=420&q=80" alt="Live Auction" loading="lazy">
+        <div class="auc-img-overlay">
+          <div class="auc-live-pill"><div class="auc-live-blink"></div>&#128308; LIVE NOW</div>
+          <div class="auc-ov-prize">Current Prize: &#8377;1,82,000</div>
+          <div class="auc-ov-sub">
+            <span class="auc-ov-grp">Silver Group B &middot; 18 Members</span>
+            <span class="auc-ov-timer">&#9200; <span id="auctionTimer">14:22</span></span>
+          </div>
         </div>
-        <button class="am-cta">Place Your Bid</button>
       </div>
     </div>
   </div></div>
