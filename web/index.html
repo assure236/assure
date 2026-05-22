@@ -73,14 +73,15 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .ph-notif{background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.3);border-radius:12px;padding:10px;display:flex;align-items:center;gap:9px}
 .ph-nd{width:9px;height:9px;background:var(--green);border-radius:50%;flex-shrink:0;box-shadow:0 0 8px var(--green)}.ph-nt{font-size:.62rem;color:var(--green);font-weight:700}
 /* HOW IT WORKS */
-#how{padding:110px 0;background:var(--w)}
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;position:relative}
-.steps::before{content:'';position:absolute;top:68px;left:calc(16.7% + 24px);right:calc(16.7% + 24px);height:2px;background:linear-gradient(90deg,var(--gold),rgba(10,31,68,.3));z-index:0}
-.step{background:var(--bg);border-radius:var(--r);padding:36px 28px;text-align:center;position:relative;z-index:1;transition:transform var(--t),box-shadow var(--t)}.step:hover{transform:translateY(-8px);box-shadow:var(--sh)}
-.sn-badge{width:48px;height:48px;background:var(--gold);color:var(--navy-dark);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Poppins',sans-serif;font-weight:900;font-size:1.1rem;margin:0 auto 20px;box-shadow:0 6px 20px rgba(245,166,35,.45)}
-.s-icon{width:64px;height:64px;background:var(--navy);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:var(--gold)}
-.s-title{font-family:'Poppins',sans-serif;font-weight:800;font-size:1.08rem;color:var(--navy);margin-bottom:12px}
-.s-desc{font-size:.94rem;color:var(--text-lt);line-height:1.68}
+#how{padding:110px 0;background:var(--bg)}
+.steps{display:flex;align-items:stretch;gap:0}
+.step{background:#fff;border-radius:20px;padding:38px 28px;text-align:center;flex:1;border:1.5px solid rgba(10,31,68,.08);box-shadow:0 4px 20px rgba(10,31,68,.06);transition:transform var(--t),box-shadow var(--t)}.step:hover{transform:translateY(-8px);box-shadow:0 20px 48px rgba(10,31,68,.14)}
+.step-arr{display:flex;align-items:center;justify-content:center;padding:0 18px;flex-shrink:0;color:var(--gold);font-size:1.6rem}
+.sn-badge{width:48px;height:48px;background:var(--gold);color:var(--navy-dark);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Poppins',sans-serif;font-weight:900;font-size:1.1rem;margin:0 auto 16px;box-shadow:0 6px 20px rgba(245,166,35,.4)}
+.s-icon{width:72px;height:72px;border-radius:20px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px}
+.s-title{font-family:'Poppins',sans-serif;font-weight:800;font-size:1.1rem;color:var(--navy);margin-bottom:10px}
+.s-desc{font-size:.9rem;color:var(--text-lt);line-height:1.7;margin-bottom:16px}
+.step-chip{display:inline-block;background:rgba(39,174,96,.1);color:var(--green);font-size:.74rem;font-weight:700;padding:5px 14px;border-radius:50px}
 /* INCOME FINDER */
 #finder{padding:100px 0;background:linear-gradient(135deg,#020c1e,#0a2a5e)}
 .finder-inner{max-width:820px;margin:0 auto;text-align:center}
@@ -138,7 +139,7 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .tc h3{font-weight:800;font-size:1rem;color:var(--navy);margin-bottom:10px}.tc p{font-size:.92rem;color:var(--text-lt);line-height:1.65}
 /* SCHEMES */
 #schemes{padding:110px 0;background:var(--w)}
-.sch-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:44px}
+.sch-carousel{overflow:hidden}.sch-track{display:flex;gap:20px;width:max-content;user-select:none}.sch-track .sc{width:258px;flex-shrink:0}
 .sc{background:#fff;border-radius:18px;padding:30px 26px 24px;border:1.5px solid rgba(10,31,68,.08);box-shadow:0 2px 12px rgba(10,31,68,.06);transition:transform var(--t),box-shadow var(--t);position:relative;display:flex;flex-direction:column}.sc:hover{transform:translateY(-6px);box-shadow:0 16px 40px rgba(10,31,68,.13)}
 .sc-top-ribbon{position:absolute;top:-13px;left:50%;transform:translateX(-50%);font-size:.72rem;font-weight:800;padding:4px 16px;border-radius:50px;white-space:nowrap;letter-spacing:.2px}
 .sc-plan{font-family:'Poppins',sans-serif;font-size:1rem;font-weight:900;padding:5px 14px;border-radius:8px;display:inline-block;margin-bottom:12px;letter-spacing:.2px}
@@ -265,7 +266,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 @media(max-width:1024px){
   .container{padding:0 30px}
   .hero-grid,.feat-grid,.auc-grid,.cred-grid,.ref-grid,.plant-grid,.tkt-grid,.sec2col{grid-template-columns:1fr}
-  .steps::before{display:none}.steps,.web-grid{grid-template-columns:repeat(2,1fr)}
+  .steps{flex-direction:column;gap:16px}.step-arr{transform:rotate(90deg);padding:12px 0}.web-grid{grid-template-columns:repeat(2,1fr)}
   .stats-band{grid-template-columns:repeat(2,1fr)}.trust-grid{grid-template-columns:1fr}
   .foot-grid{grid-template-columns:1fr 1fr}.tcard{min-width:calc(50% - 12px)}
   .f-cards,.c-res-grid{grid-template-columns:1fr 1fr}.cb-grid{grid-template-columns:repeat(2,1fr)}
@@ -275,7 +276,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
   .container{padding:0 20px}
   .nav-links,.nav-ctas{display:none}.hamburger{display:flex}
   .h1{font-size:2.2rem}.hero-btns{flex-direction:column}.btn{justify-content:center}
-  .steps,.web-grid{grid-template-columns:1fr}.foot-grid{grid-template-columns:1fr}
+  .steps{flex-direction:column}.web-grid{grid-template-columns:1fr}.foot-grid{grid-template-columns:1fr}
   .foot-btm{flex-direction:column;text-align:center}.tcard{min-width:100%}
   .f-row,.calc-row{grid-template-columns:1fr}.cb-grid{grid-template-columns:1fr}
 }
@@ -341,9 +342,29 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
   <div class="container">
     <div class="sec-head center reveal"><div class="tag">Simple 3-Step Process</div><h2 class="h2">From Sign-Up to First Dividend</h2><p class="sub">No branch visits. No paperwork. Just your phone and 5 minutes.</p></div>
     <div class="steps">
-      <div class="step reveal"><div class="sn-badge">1</div><div class="s-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><div class="s-title">Verify Your Identity</div><p class="s-desc">Complete e-KYC with PAN + DigiLocker in under 5 minutes. 100% digital &mdash; no branch visit or physical documents required.</p></div>
-      <div class="step reveal"><div class="sn-badge">2</div><div class="s-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="s-title">Pick Your Chit Group</div><p class="s-desc">Browse open chit groups with available seats. See tickets, instalment amount, chit value, start date and area &mdash; filter just like online shopping.</p></div>
-      <div class="step reveal"><div class="sn-badge">3</div><div class="s-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="s-title">Bid, Win &amp; Get Paid</div><p class="s-desc">Join live transparent auctions each month. The lowest bidder wins the prize pot &mdash; everyone else earns a dividend. Payouts hit your bank automatically.</p></div>
+      <div class="step reveal">
+        <div class="sn-badge">1</div>
+        <div class="s-icon" style="background:rgba(59,130,246,.1)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
+        <div class="s-title">Verify Your Identity</div>
+        <p class="s-desc">Complete e-KYC with PAN + DigiLocker in under 5 minutes. 100% digital &mdash; no branch visit or physical documents required.</p>
+        <div class="step-chip">&#10003; Done in under 5 minutes</div>
+      </div>
+      <div class="step-arr">&#8594;</div>
+      <div class="step reveal">
+        <div class="sn-badge">2</div>
+        <div class="s-icon" style="background:rgba(245,166,35,.12)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#D4AF37" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div>
+        <div class="s-title">Pick Your Chit Group</div>
+        <p class="s-desc">Browse open chit groups with available seats. See tickets, instalment amount, chit value, start date and area &mdash; filter just like online shopping.</p>
+        <div class="step-chip">&#128202; 50+ groups available</div>
+      </div>
+      <div class="step-arr">&#8594;</div>
+      <div class="step reveal">
+        <div class="sn-badge">3</div>
+        <div class="s-icon" style="background:rgba(39,174,96,.12)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#27AE60" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <div class="s-title">Bid, Win &amp; Get Paid</div>
+        <p class="s-desc">Join live transparent auctions each month. The lowest bidder wins the prize pot &mdash; everyone else earns a dividend. Payouts hit your bank automatically.</p>
+        <div class="step-chip">&#128176; Same-day bank payout</div>
+      </div>
     </div>
   </div>
 </section>
@@ -411,7 +432,8 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 <section id="schemes">
   <div class="container">
     <div class="sec-head center reveal"><div class="tag">Chit Schemes</div><h2 class="h2">Plans for Every Budget</h2><p class="sub">From small savers to big investors &mdash; there's an Assure scheme for your goals.</p></div>
-    <div class="sch-grid reveal">
+    <div class="sch-carousel reveal">
+      <div class="sch-track" id="schTrack">
       <div class="sc">
         <div class="sc-plan plan-starter">Starter Chit</div>
         <div class="sc-val">&#8377;25,000</div>
@@ -479,6 +501,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
           <div class="sc-row"><span>Members</span><span>30</span></div>
         </div>
         <a href="/register" class="sc-cta">Join This Group</a>
+      </div>
       </div>
     </div>
   </div>
@@ -645,6 +668,9 @@ document.querySelectorAll('.fi-q').forEach(q=>{q.addEventListener('click',()=>{c
 document.getElementById('testiPrev')?.addEventListener('click',()=>{idx=Math.max(0,idx-1);upd();});
 document.getElementById('testiNext')?.addEventListener('click',()=>{idx++;upd();});
 window.addEventListener('resize',upd,{passive:true});})();
+
+// SCHEMES AUTO-SCROLL
+(function(){const track=document.getElementById('schTrack');if(!track)return;Array.from(track.children).forEach(c=>track.appendChild(c.cloneNode(true)));let pos=0,raf;const speed=0.5;function tick(){pos+=speed;const half=track.scrollWidth/2;if(pos>=half)pos=0;track.style.transform='translateX(-'+pos+'px)';raf=requestAnimationFrame(tick);}raf=requestAnimationFrame(tick);track.parentElement.addEventListener('mouseenter',()=>cancelAnimationFrame(raf));track.parentElement.addEventListener('mouseleave',()=>{raf=requestAnimationFrame(tick);});})();
 
 // INCOME FINDER
 const chitPlans=[
