@@ -48,8 +48,9 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .mobile-menu{display:none;position:fixed;inset:0;background:var(--navy-dark);z-index:998;flex-direction:column;align-items:center;justify-content:center;gap:32px}
 .mobile-menu.open{display:flex}.mobile-menu a{color:var(--w);font-size:1.3rem;font-weight:700}.mobile-menu a:hover{color:var(--gold)}
 /* HERO */
-#hero{min-height:100vh;background:linear-gradient(135deg,#020c1e 0%,#0a1f44 45%,#0a3d62 100%);display:flex;align-items:center;padding:110px 0 70px;position:relative;overflow:hidden}
-#hero::before{content:'';position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(245,166,35,.12) 0%,transparent 70%);top:-100px;right:-100px;pointer-events:none}
+#hero{min-height:100vh;background:linear-gradient(135deg,#010913 0%,#0a1f44 40%,#0d3060 70%,#0a1f44 100%);display:flex;align-items:center;padding:110px 0 70px;position:relative;overflow:hidden}
+#hero::before{content:'';position:absolute;width:700px;height:700px;background:radial-gradient(circle,rgba(245,166,35,.14) 0%,transparent 65%);top:-150px;right:-150px;pointer-events:none}
+#hero::after{content:'';position:absolute;width:500px;height:500px;background:radial-gradient(circle,rgba(13,48,96,.7) 0%,transparent 70%);bottom:-80px;left:-80px;pointer-events:none}
 .hero-grid{display:grid;grid-template-columns:55% 45%;gap:60px;align-items:center}
 .hero-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.35);border-radius:50px;padding:7px 18px;margin-bottom:22px;font-size:.78rem;font-weight:700;color:var(--gold)}
 .h1{font-family:'Poppins',sans-serif;font-size:clamp(2.4rem,5vw,4rem);font-weight:900;color:var(--w);line-height:1.1;margin-bottom:20px}
@@ -58,6 +59,9 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .hero-btns{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:36px}
 .hero-trust{display:flex;gap:24px;flex-wrap:wrap}
 .ht{display:flex;align-items:center;gap:7px;font-size:.82rem;color:rgba(255,255,255,.65);font-weight:500}.ht svg{color:var(--gold);flex-shrink:0}
+.hero-stats{display:flex;gap:40px;flex-wrap:wrap;margin-top:32px;padding-top:28px;border-top:1px solid rgba(255,255,255,.1)}
+.hstat-v{font-family:'Poppins',sans-serif;font-size:2rem;font-weight:900;color:var(--gold);line-height:1}
+.hstat-l{font-size:.72rem;color:rgba(255,255,255,.5);margin-top:4px;font-weight:500;letter-spacing:.3px}
 .phone{width:280px;background:#111827;border-radius:38px;padding:10px;box-shadow:0 50px 100px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);margin:0 auto}
 .phone-inner{background:var(--bg);border-radius:30px;overflow:hidden;min-height:510px;padding:18px}
 .ph-bar{background:var(--navy);border-radius:18px;padding:16px;margin-bottom:14px;color:var(--w)}
@@ -197,7 +201,7 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .ref-flow{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.1);border-radius:var(--r);padding:22px 26px}
 .rf{text-align:center;flex:1}.rf-icon{font-size:1.8rem;margin-bottom:8px}.rf-lbl{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.9)}.rf-arr{font-size:1.4rem;font-weight:900;color:rgba(255,255,255,.6);opacity:1}
 /* PLANTATION */
-#plantation{padding:100px 0;background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 100%)}
+#plantation{padding:70px 0;background:linear-gradient(160deg,var(--navy) 0%,#0c1d38 55%,var(--navy-dark) 100%);border-top:2px solid rgba(245,166,35,.18)}
 .plant-grid{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}
 .plant-big{font-family:'Poppins',sans-serif;font-size:clamp(2.8rem,5.5vw,4.5rem);font-weight:900;color:var(--gold);line-height:1;margin-bottom:8px}
 .plant-lbl{font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:24px}
@@ -211,7 +215,7 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .plant-num{width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 .plant-cta{display:block;width:100%;padding:15px;background:var(--gold);color:var(--navy-dark);border-radius:12px;font-weight:900;font-size:1rem;text-align:center;transition:var(--t);letter-spacing:.2px}.plant-cta:hover{opacity:.88;transform:translateY(-2px)}
 /* DOWNLOAD */
-#download{padding:110px 0;background:var(--navy-dark)}
+#download{padding:70px 0;background:linear-gradient(135deg,#030c1a 0%,#071628 50%,#030c1a 100%);border-top:2px solid rgba(245,166,35,.18);border-bottom:2px solid rgba(245,166,35,.08)}
 .dl-inner{text-align:center;max-width:620px;margin:0 auto}
 .dl-inner h2{font-family:'Poppins',sans-serif;font-size:clamp(2rem,3.5vw,2.6rem);font-weight:900;color:var(--w);margin-bottom:16px}
 .dl-inner p{font-size:1.02rem;color:rgba(255,255,255,.6);line-height:1.72;margin-bottom:36px}
@@ -320,6 +324,11 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
         <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>RBI Compliant</span>
         <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Instant KYC</span>
         <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Bank-grade Security</span>
+      </div>
+      <div class="hero-stats reveal">
+        <div><div class="hstat-v">12,500+</div><div class="hstat-l">Active Members</div></div>
+        <div><div class="hstat-v">&#8377;80K</div><div class="hstat-l">Avg Annual Dividend</div></div>
+        <div><div class="hstat-v">4.9&#9733;</div><div class="hstat-l">App Store Rating</div></div>
       </div>
     </div>
     <div class="hero-visual reveal">
