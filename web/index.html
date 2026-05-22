@@ -72,12 +72,6 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
 .ph-notif{background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.3);border-radius:12px;padding:10px;display:flex;align-items:center;gap:9px}
 .ph-nd{width:9px;height:9px;background:var(--green);border-radius:50%;flex-shrink:0;box-shadow:0 0 8px var(--green)}.ph-nt{font-size:.62rem;color:var(--green);font-weight:700}
-/* STATS */
-#stats{background:var(--navy-dark)}.stats-band{display:grid;grid-template-columns:repeat(4,1fr)}
-.stat-box{text-align:center;padding:36px 20px;border-right:1px solid rgba(255,255,255,.08)}
-.stat-box:last-child{border-right:none}
-.sn{font-family:'Poppins',sans-serif;font-size:clamp(1.8rem,3vw,2.6rem);font-weight:900;color:var(--gold);line-height:1}
-.sl{font-size:.82rem;color:rgba(255,255,255,.5);margin-top:6px;font-weight:500}
 /* HOW IT WORKS */
 #how{padding:110px 0;background:var(--w)}
 .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;position:relative}
@@ -114,16 +108,6 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .cbc-area{font-size:.73rem;color:var(--text-lt);margin-bottom:12px}
 .cbc-foot{display:flex;gap:7px}.cbc-apply{flex:1;padding:8px;background:var(--navy);color:var(--w);border-radius:9px;font-weight:700;font-size:.82rem;text-align:center;transition:var(--t)}.cbc-apply:hover{background:var(--gold);color:var(--navy-dark)}
 .cbc-date{font-size:.7rem;color:var(--text-lt);display:flex;align-items:center}
-/* APP FEATURES */
-#app-features{padding:110px 0;background:var(--w)}
-.feat-grid{display:grid;grid-template-columns:45% 55%;gap:80px;align-items:center}
-.feat-list{display:flex;flex-direction:column;gap:20px}
-.fi{display:flex;align-items:flex-start;gap:16px}
-.fi-ico{width:44px;height:44px;background:rgba(39,174,96,.12);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--green)}
-.fi-t{font-weight:700;font-size:.97rem;color:var(--navy);margin-bottom:3px}.fi-d{font-size:.9rem;color:var(--text-lt);line-height:1.58}
-.app-btns{display:flex;gap:14px;margin-top:30px;flex-wrap:wrap}
-.app-btn{display:flex;align-items:center;gap:12px;background:var(--navy-dark);color:var(--w);border-radius:14px;padding:12px 20px;font-size:.85rem;font-weight:700;transition:var(--t);border:1px solid rgba(255,255,255,.08)}
-.app-btn:hover{background:var(--navy-mid);transform:translateY(-2px)}.app-btn-sub{font-size:.62rem;opacity:.65;line-height:1}.app-btn-name{font-size:.95rem;font-weight:800;line-height:1.2}
 /* WEB FEATURES */
 #web-features{padding:110px 0;background:var(--bg)}
 .web-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
@@ -226,18 +210,6 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .sec-item{display:flex;gap:11px;font-size:.85rem;color:var(--text);line-height:1.6;align-items:flex-start}
 .sec-ico{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:900;margin-top:2px}
 .ico-ok{background:rgba(39,174,96,.15);color:var(--green)}.ico-sh{background:rgba(10,31,68,.1);color:var(--navy)}
-/* SUPPORT TICKET */
-#ticket{padding:100px 0;background:var(--w)}
-.tkt-grid{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:start}
-.tkt-form{background:var(--bg);border-radius:var(--r);padding:28px}
-.tf{margin-bottom:14px}.tf label{font-size:.76rem;font-weight:700;color:var(--text-lt);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.5px}
-.tf input,.tf select,.tf textarea{width:100%;background:var(--w);border:1.5px solid rgba(10,31,68,.12);border-radius:9px;padding:10px 13px;font-size:.88rem;font-family:inherit;color:var(--navy);outline:none;transition:border-color var(--t);resize:vertical}
-.tf input:focus,.tf select:focus,.tf textarea:focus{border-color:var(--gold)}.tf textarea{min-height:90px}
-.tkt-btn{width:100%;padding:12px;background:var(--navy);color:var(--w);border-radius:11px;font-weight:800;font-size:.93rem;border:none;cursor:pointer;transition:var(--t)}.tkt-btn:hover{background:var(--gold);color:var(--navy-dark)}
-.tkt-info{display:flex;flex-direction:column;gap:18px}
-.tkt-ic{display:flex;gap:14px;align-items:flex-start}
-.tkt-icon{width:44px;height:44px;border-radius:12px;background:rgba(10,31,68,.07);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--navy)}
-.tkt-it{font-weight:700;font-size:.93rem;color:var(--navy);margin-bottom:3px}.tkt-id{font-size:.88rem;color:var(--text-lt);line-height:1.58}
 /* DOWNLOAD */
 #download{padding:110px 0;background:var(--navy-dark)}
 .dl-inner{text-align:center;max-width:620px;margin:0 auto}
@@ -360,15 +332,6 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
     </div>
   </div></div>
 </section>
-<!-- STATS -->
-<section id="stats">
-  <div class="stats-band">
-    <div class="stat-box reveal"><div class="sn" data-target="12500">0</div><div class="sl">Happy Members</div></div>
-    <div class="stat-box reveal"><div class="sn" data-target="485">0</div><div class="sl">Crores Disbursed</div></div>
-    <div class="stat-box reveal"><div class="sn" data-target="24">0</div><div class="sl">Active Schemes</div></div>
-    <div class="stat-box reveal"><div class="sn" data-target="6">0</div><div class="sl">Years of Trust</div></div>
-  </div>
-</section>
 <!-- HOW IT WORKS -->
 <section id="how">
   <div class="container">
@@ -399,33 +362,6 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
         <div class="f-cards" id="finCards"></div>
         <div style="margin-top:16px;text-align:center"><a href="/register" class="btn btn-gold" style="font-size:.85rem;padding:11px 26px">Join Any of These &rarr;</a></div>
       </div>
-    </div>
-  </div></div>
-</section>
-<!-- APP FEATURES -->
-<section id="app-features">
-  <div class="container"><div class="feat-grid">
-    <div class="feat-content reveal">
-      <div class="tag">Mobile App</div>
-      <h2 class="h2">Everything You Need in Your Pocket</h2>
-      <div class="feat-list" style="margin-top:24px">
-        <div class="fi"><div class="fi-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><div><div class="fi-t">Instant Enrolment</div><div class="fi-d">Pick a chit group, pay online, get enrolled in under 5 minutes.</div></div></div>
-        <div class="fi"><div class="fi-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="fi-t">Live Auction Bidding</div><div class="fi-d">Participate in monthly auctions from anywhere. Real-time countdown and bids.</div></div></div>
-        <div class="fi"><div class="fi-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div><div class="fi-t">Dividend Tracker</div><div class="fi-d">See your monthly dividends, payout history and projected earnings at a glance.</div></div></div>
-        <div class="fi"><div class="fi-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></div><div><div class="fi-t">Auto-Pay &amp; Reminders</div><div class="fi-d">Set up auto-debit for your monthly instalment. Never miss a payment.</div></div></div>
-      </div>
-      <div class="app-btns">
-        <a href="#" class="app-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.32.07 2.22.74 3.12.7.42-.08 1.71-.82 3.2-.7.58.05 2.19.23 3.24 1.61-.09.06-1.93 1.13-1.91 3.36.02 2.67 2.34 3.56 2.35 3.56s-.78 2.17-2.48 4.35zM13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg><div><div class="app-btn-sub">Download on the</div><div class="app-btn-name">App Store</div></div></a>
-        <a href="#" class="app-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.18 23.5c.32.18.69.18 1.01 0l10.94-6.17-2.37-2.42L3.18 23.5zm17.49-11.04L17.9 10.9l-2.68 2.56 2.68 2.56 2.81-1.59a1.38 1.38 0 0 0 0-2.57zM4.19.5A1 1 0 0 0 3 1.5v21l9.76-9.76L4.19.5zm8.17 9.4l2.37-2.42L4.19.5l8.17 9.4z"/></svg><div><div class="app-btn-sub">Get it on</div><div class="app-btn-name">Google Play</div></div></a>
-      </div>
-    </div>
-    <div class="reveal" style="display:flex;justify-content:center">
-      <div class="phone" style="width:240px"><div class="phone-inner" style="min-height:460px;padding:14px">
-        <div style="background:var(--navy);border-radius:12px;padding:14px;margin-bottom:10px;color:#fff"><div style="font-size:.65rem;opacity:.6;margin-bottom:4px">Portfolio Overview</div><div style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:800;color:#F5A623">&#8377;8,24,000</div><div style="font-size:.6rem;opacity:.5">Total across 3 active chits</div></div>
-        <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:.65rem;color:var(--text-lt)">Gold Group A</span><span style="font-size:.65rem;font-weight:700;color:#27AE60">Active</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:.7rem;font-weight:700;color:var(--navy)">&#8377;5,00,000 Chit</span><span style="font-size:.65rem;color:var(--text-lt)">Month 8/24</span></div></div>
-        <div style="background:#fff3cd;border-radius:12px;padding:12px;margin-bottom:8px;border-left:3px solid #F5A623"><div style="font-size:.65rem;font-weight:700;color:#c27a00">&#128276; Auction Tomorrow!</div><div style="font-size:.62rem;color:var(--text-lt);margin-top:3px">Silver Group B &middot; 10:00 AM</div></div>
-        <div style="background:rgba(39,174,96,.1);border-radius:12px;padding:12px;border-left:3px solid #27AE60"><div style="font-size:.65rem;font-weight:700;color:var(--green)">&#10003; Dividend Credited</div><div style="font-family:'Poppins',sans-serif;font-size:1rem;font-weight:900;color:var(--navy)">+&#8377;1,850</div><div style="font-size:.6rem;color:var(--text-lt)">May 2025 &middot; Gold Group A</div></div>
-      </div></div>
     </div>
   </div></div>
 </section>
@@ -562,28 +498,6 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
     </div>
   </div>
 </section>
-<!-- SUPPORT TICKET -->
-<section id="ticket">
-  <div class="container">
-    <div class="sec-head center reveal"><div class="tag">Support Center</div><h2 class="h2">Raise a Query &mdash; We Respond Fast</h2><p class="sub">Our team responds within 2 hours on business days, 24/7 via app chat.</p></div>
-    <div class="tkt-grid reveal">
-      <div class="tkt-form">
-        <div class="tf"><label>Full Name</label><input type="text" placeholder="e.g. Ramesh Kumar"/></div>
-        <div class="tf"><label>Mobile Number</label><input type="tel" placeholder="e.g. 9876543210"/></div>
-        <div class="tf"><label>Query Category</label><select><option>KYC / Enrollment</option><option>Payment Issue</option><option>Auction Query</option><option>Dividend / Payout</option><option>Account Access</option><option>Other</option></select></div>
-        <div class="tf"><label>Describe Your Issue</label><textarea placeholder="Tell us your issue in detail..."></textarea></div>
-        <button class="tkt-btn" onclick="submitTicket(event)">Submit Support Ticket &rarr;</button>
-      </div>
-      <div class="tkt-info">
-        <div style="font-family:'Poppins',sans-serif;font-weight:800;font-size:1.05rem;color:var(--navy);margin-bottom:6px">Other Ways to Reach Us</div>
-        <div class="tkt-ic"><div class="tkt-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div><div class="tkt-it">Live Chat (App)</div><div class="tkt-id">Available 9 AM &ndash; 6 PM, Mon&ndash;Sat. Avg response: 8 min.</div></div></div>
-        <div class="tkt-ic"><div class="tkt-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 14a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 3.18L6.6 3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 10.6a16 16 0 0 0 6 6l.9-.9a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.27 18z"/></svg></div><div><div class="tkt-it">Toll-Free Helpline</div><div class="tkt-id">1800-XXX-XXXX &middot; Free call &middot; Mon&ndash;Sat, 9 AM&ndash;6 PM</div></div></div>
-        <div class="tkt-ic"><div class="tkt-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><div><div class="tkt-it">Email Support</div><div class="tkt-id">support@assure.fund &middot; Response within 4 hours</div></div></div>
-        <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);border-radius:12px;padding:16px"><div style="font-weight:700;color:#c27a00;font-size:.88rem;margin-bottom:5px">&#9889; Average Resolution Time</div><div style="font-size:.83rem;color:var(--text-lt);line-height:1.6">Payment issues: 2 hrs &middot; KYC queries: 4 hrs &middot; Other: 24 hrs</div></div>
-      </div>
-    </div>
-  </div>
-</section>
 <!-- FAQ -->
 <section id="faq">
   <div class="container">
@@ -596,7 +510,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
       <div class="fi-item"><div class="fi-q">What happens if I miss a monthly instalment?<div class="fi-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div><div class="fi-a">You have a 5-day grace period after the due date. After that, a nominal late fee applies (as per your chit agreement). If you miss 3 consecutive months, your membership may be suspended. We recommend enabling Auto-Pay in the app to never miss a payment.</div></div>
       <div class="fi-item"><div class="fi-q">How do I receive my prize money or dividend?<div class="fi-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div><div class="fi-a">Prize money (if you win the auction) is transferred to your registered bank account within the same business day via NEFT/IMPS. Monthly dividends are auto-credited to all member accounts within 3 business days of the auction date.</div></div>
     </div>
-    <div class="faq-link"><a href="#ticket" class="chat-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Have a different question? Contact us</a></div>
+
   </div>
 </section>
 <!-- DOWNLOAD -->
@@ -625,7 +539,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
         </div>
       </div>
       <div><h4>Quick Links</h4><ul><li><a href="/">Home</a></li><li><a href="#how">How It Works</a></li><li><a href="#schemes">Chit Schemes</a></li><li><a href="#calculator">Calculator</a></li><li><a href="#faq">FAQ</a></li></ul></div>
-      <div><h4>Company</h4><ul><li><a href="/about">About Us</a></li><li><a href="/careers">Careers</a></li><li><a href="/blog">Blog</a></li><li><a href="/press">Press Kit</a></li><li><a href="/refer">Refer &amp; Earn</a></li><li><a href="/contact">Contact Us</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="/about">About Us</a></li><li><a href="/blog">Blog</a></li><li><a href="/press">Press Kit</a></li><li><a href="/refer">Refer &amp; Earn</a></li><li><a href="/contact">Contact Us</a></li></ul></div>
       <div class="foot-contact"><h4>Contact</h4><p>&#128205; Hyderabad, Telangana, India</p><p>&#128222; 1800-XXX-XXXX (Toll Free)</p><p>&#128231; support@assure.fund</p><p>&#128336; Mon&ndash;Sat, 9 AM &ndash; 6 PM</p><h4 style="margin-top:18px">Legal</h4><ul><li><a href="/privacy">Privacy Policy</a></li><li><a href="/terms">Terms &amp; Conditions</a></li><li><a href="/chit-act">Chit Fund Act</a></li></ul></div>
     </div>
     <div class="foot-btm"><p class="foot-copy">&copy; 2025 Assure Chit Funds Pvt. Ltd. All rights reserved. Regulated under Telangana Chit Funds Act, 1971.</p><div class="pgws"><span class="pgw">SSL Secured</span><span class="pgw">RBI Compliant</span><span class="pgw">DPIIT Registered</span><span class="pgw">CIBIL Partner</span></div></div>
@@ -736,9 +650,6 @@ function calcCompare(){
   document.getElementById('cmp-diff').innerHTML='+'+fmt(chit-fd);
   document.getElementById('res-compare').classList.add('show');
 }
-
-// SUPPORT TICKET
-function submitTicket(e){e.preventDefault();const btn=e.target;btn.textContent='Ticket Submitted! We\'ll contact you soon.';btn.style.background='#27AE60';btn.disabled=true;setTimeout(()=>{btn.textContent='Submit Support Ticket \u2192';btn.style.background='';btn.disabled=false;},4000);}
 
 // CHATBOT
 const chatR={'what is a chit fund':'A chit fund is a group savings scheme where members pool money monthly. Each month, the pot is auctioned \u2014 the lowest bidder wins. Others earn a dividend. 100% legal and regulated!','how to join':'Click "Join Free", complete e-KYC with PAN & Aadhaar (5 mins), choose your scheme, and you\'re in!','how much can i earn':'Members earn \u20b9600\u2013\u20b94,800/month in dividends depending on scheme size. Use our calculator above for exact figures!','is it safe':'100% safe! We\'re registered under Telangana Chit Funds Act, DPIIT recognized, and use SBI-powered payment infrastructure with 256-bit SSL.','earnings':'Dividends range from \u20b9600\u2013\u20b94,800/month based on your scheme. Use our Dividend Calculator for precise estimates!','default':'Great question! For detailed help, call 1800-XXX-XXXX or email support@assure.fund. You can also raise a support ticket above!'};
