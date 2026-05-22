@@ -138,10 +138,11 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .wc-ico{width:52px;height:52px;background:rgba(10,31,68,.07);border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;color:var(--navy)}
 .wc h3{font-weight:800;font-size:.98rem;color:var(--navy);margin-bottom:9px}.wc p{font-size:.9rem;color:var(--text-lt);line-height:1.58}
 /* AUCTION */
-#auction{padding:110px 0;background:linear-gradient(160deg,#050220 0%,#0e0533 50%,#130640 100%);border-top:3px solid rgba(245,166,35,.35)}
-.auc-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
-.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:30px}
-.chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:50px;padding:8px 18px;font-size:.8rem;color:rgba(255,255,255,.8);font-weight:600}
+#auction{padding:80px 0;background:linear-gradient(160deg,#050220 0%,#0e0533 50%,#130640 100%);border-top:3px solid rgba(245,166,35,.35)}
+.auc-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:28px;padding:56px;overflow:hidden}
+.auc-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}
+.chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:50px;padding:7px 16px;font-size:.78rem;color:rgba(255,255,255,.8);font-weight:600;display:flex;align-items:center;gap:6px}
 .auc-mock{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:var(--r);padding:28px;max-width:400px}
 .am-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
 .am-g{font-size:.78rem;color:rgba(255,255,255,.5);margin-bottom:3px}.am-v{font-family:'Poppins',sans-serif;font-weight:800;font-size:1.05rem;color:var(--w)}
@@ -153,15 +154,19 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .am-bid{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
 .am-bn{font-size:.76rem;color:rgba(255,255,255,.7)}.am-bv{font-size:.76rem;font-weight:700;color:var(--gold)}.am-bt{font-size:.65rem;color:rgba(255,255,255,.3)}
 /* AUCTION IMAGE WRAP */
-.auc-img-wrap{position:relative;border-radius:22px;overflow:hidden;box-shadow:0 30px 70px rgba(0,0,0,.5)}
-.auc-img-wrap img{width:100%;display:block;object-fit:cover;height:420px}
-.auc-img-overlay{position:absolute;bottom:0;left:0;right:0;padding:24px;background:linear-gradient(to top,rgba(5,2,32,.98) 0%,rgba(5,2,32,.7) 60%,transparent 100%)}
-.auc-live-pill{display:inline-flex;align-items:center;gap:7px;background:rgba(220,38,38,.9);border-radius:50px;padding:6px 14px;font-size:.75rem;font-weight:700;color:#fff;margin-bottom:10px;letter-spacing:.5px}
-.auc-live-blink{width:8px;height:8px;background:#fff;border-radius:50%;animation:pulse 1s infinite}
-.auc-ov-prize{font-family:'Poppins',sans-serif;font-size:1.7rem;font-weight:900;color:#fff;margin-bottom:6px}
+.auc-img-wrap{position:relative;border-radius:18px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.6)}
+.auc-img-wrap img{width:100%;display:block;object-fit:cover;height:380px}
+.auc-img-top{position:absolute;top:16px;left:16px;display:flex;align-items:center;gap:8px}
+.auc-live-pill{display:inline-flex;align-items:center;gap:6px;background:rgba(220,38,38,.92);border-radius:50px;padding:5px 13px;font-size:.72rem;font-weight:800;color:#fff;letter-spacing:.6px;box-shadow:0 4px 14px rgba(220,38,38,.5)}
+.auc-live-blink{width:7px;height:7px;background:#fff;border-radius:50%;animation:pulse 1s infinite}
+.auc-play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:62px;height:62px;background:rgba(255,255,255,.95);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:transform var(--t),background var(--t);box-shadow:0 8px 32px rgba(0,0,0,.35)}
+.auc-play-btn:hover{transform:translate(-50%,-50%) scale(1.08);background:var(--gold)}
+.auc-play-icon{width:0;height:0;border-top:10px solid transparent;border-bottom:10px solid transparent;border-left:18px solid #0A1F44;margin-left:4px}
+.auc-img-overlay{position:absolute;bottom:0;left:0;right:0;padding:20px 24px;background:linear-gradient(to top,rgba(5,2,32,.97) 0%,rgba(5,2,32,.6) 65%,transparent 100%)}
+.auc-ov-prize{font-family:'Poppins',sans-serif;font-size:1.3rem;font-weight:900;color:#fff;margin-bottom:4px}
 .auc-ov-sub{display:flex;align-items:center;justify-content:space-between}
-.auc-ov-grp{font-size:.8rem;color:rgba(255,255,255,.6)}
-.auc-ov-timer{font-family:'Poppins',sans-serif;font-weight:800;color:var(--gold);font-size:1rem}
+.auc-ov-grp{font-size:.76rem;color:rgba(255,255,255,.55)}
+.auc-ov-timer{font-family:'Poppins',sans-serif;font-weight:800;color:var(--gold);font-size:.9rem}
 #trust{padding:110px 0;background:var(--bg)}
 .trust-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px}
 .tc{background:var(--w);border-radius:var(--r);padding:32px;box-shadow:var(--sh);display:flex;gap:20px;align-items:flex-start;transition:transform var(--t)}.tc:hover{transform:translateY(-5px)}
@@ -291,6 +296,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 @media(max-width:1024px){
   .container{padding:0 20px}
   .hero-grid,.feat-grid,.auc-grid,.cred-grid,.ref-grid,.plant-grid,.tkt-grid{grid-template-columns:1fr}
+  .auc-card{padding:32px}
   .steps{flex-direction:column;gap:16px}.step-arr{transform:rotate(90deg);padding:12px 0}.web-grid{grid-template-columns:repeat(2,1fr)}
   .stats-band{grid-template-columns:repeat(2,1fr)}.trust-grid{grid-template-columns:1fr}
   .foot-grid{grid-template-columns:1fr 1fr}.tcard{min-width:calc(50% - 12px)}
@@ -431,30 +437,40 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 </section>
 <!-- LIVE AUCTION -->
 <section id="auction">
-  <div class="container"><div class="auc-grid">
-    <div class="reveal">
-      <div class="tag" style="color:rgba(255,255,255,.5)">Live Auctions</div>
-      <h2 class="h2 h2-w">Every Month, a Fair &amp;<br>Transparent Auction</h2>
-      <p class="sub sub-w">No fixed winner. No bias. The member who accepts the lowest discount gets the prize pot. Everyone else earns a dividend.</p>
-      <div class="chips">
-        <span class="chip">&#128250; Live video streaming</span><span class="chip">&#9200; Real-time countdown</span><span class="chip">&#128241; Bid from mobile</span><span class="chip">&#9989; Court-registered minutes</span>
-      </div>
-      <div style="margin-top:28px"><a href="/login" class="btn btn-gold">Watch a Live Auction</a></div>
-    </div>
-    <div class="reveal">
-      <div class="auc-img-wrap">
-        <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&h=420&q=80" alt="Live Auction" loading="lazy">
-        <div class="auc-img-overlay">
-          <div class="auc-live-pill"><div class="auc-live-blink"></div>&#128308; LIVE NOW</div>
-          <div class="auc-ov-prize">Current Prize: &#8377;1,82,000</div>
-          <div class="auc-ov-sub">
-            <span class="auc-ov-grp">Silver Group B &middot; 18 Members</span>
-            <span class="auc-ov-timer">&#9200; <span id="auctionTimer">14:22</span></span>
+  <div class="container">
+    <div class="auc-card">
+      <div class="auc-grid">
+        <div class="reveal">
+          <div class="tag" style="color:rgba(255,255,255,.5)">Live Auctions</div>
+          <h2 class="h2 h2-w">Every Month, a Fair &amp;<br><span style="color:var(--gold)">Transparent</span> Auction</h2>
+          <p class="sub sub-w">No fixed winner. No bias. The member who accepts the lowest discount gets the prize pot. Everyone else earns a dividend.</p>
+          <div class="chips">
+            <span class="chip">&#128250; Live video streaming</span>
+            <span class="chip">&#9200; Real-time countdown</span>
+            <span class="chip">&#128241; Bid from mobile</span>
+            <span class="chip">&#9989; Court-registered minutes</span>
+          </div>
+          <div style="margin-top:32px"><a href="/login" class="btn btn-gold">Join a Live Auction &#8594;</a></div>
+        </div>
+        <div class="reveal">
+          <div class="auc-img-wrap">
+            <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=640&h=420&q=80" alt="Live Auction" loading="lazy">
+            <div class="auc-img-top">
+              <div class="auc-live-pill"><div class="auc-live-blink"></div>&#128308; LIVE NOW</div>
+            </div>
+            <div class="auc-play-btn"><div class="auc-play-icon"></div></div>
+            <div class="auc-img-overlay">
+              <div class="auc-ov-prize">Current Prize: &#8377;1,82,000</div>
+              <div class="auc-ov-sub">
+                <span class="auc-ov-grp">Silver Group B &middot; 18 Members</span>
+                <span class="auc-ov-timer">&#9200; <span id="auctionTimer">14:22</span></span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </div></div>
+  </div>
 </section>
 <!-- WHY ASSURE -->
 <section id="trust">
