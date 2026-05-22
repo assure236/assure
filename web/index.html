@@ -197,13 +197,19 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .ref-flow{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.1);border-radius:var(--r);padding:22px 26px}
 .rf{text-align:center;flex:1}.rf-icon{font-size:1.8rem;margin-bottom:8px}.rf-lbl{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.9)}.rf-arr{font-size:1.4rem;font-weight:900;color:rgba(255,255,255,.6);opacity:1}
 /* PLANTATION */
-#plantation{padding:100px 0;background:linear-gradient(135deg,#052e16,#065f46)}
+#plantation{padding:100px 0;background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 100%)}
 .plant-grid{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}
-.plant-big{font-family:'Poppins',sans-serif;font-size:clamp(2.8rem,5.5vw,4.5rem);font-weight:900;color:#6ee7b7;line-height:1;margin-bottom:8px}
+.plant-big{font-family:'Poppins',sans-serif;font-size:clamp(2.8rem,5.5vw,4.5rem);font-weight:900;color:var(--gold);line-height:1;margin-bottom:8px}
 .plant-lbl{font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:24px}
 .plant-stat-g{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.plant-s{background:rgba(255,255,255,.06);border-radius:12px;padding:14px;text-align:center}
-.plant-sv{font-family:'Poppins',sans-serif;font-size:1.3rem;font-weight:900;color:#6ee7b7}.plant-sl{font-size:.68rem;color:rgba(255,255,255,.4);margin-top:3px}
+.plant-s{background:rgba(255,255,255,.08);border-radius:12px;padding:14px;text-align:center}
+.plant-sv{font-family:'Poppins',sans-serif;font-size:1.3rem;font-weight:900;color:var(--gold)}.plant-sl{font-size:.68rem;color:rgba(255,255,255,.4);margin-top:3px}
+.plant-icons{font-size:2rem;display:flex;gap:16px;margin-bottom:24px}
+.plant-how{background:rgba(255,255,255,.08);border-radius:16px;padding:24px;margin-bottom:20px}
+.plant-how-t{font-family:'Poppins',sans-serif;font-weight:800;font-size:.92rem;color:var(--gold);margin-bottom:16px;letter-spacing:.3px}
+.plant-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;font-size:.87rem;color:rgba(255,255,255,.85);line-height:1.5}.plant-step:last-child{margin-bottom:0}
+.plant-num{width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.plant-cta{display:block;width:100%;padding:15px;background:var(--gold);color:var(--navy-dark);border-radius:12px;font-weight:900;font-size:1rem;text-align:center;transition:var(--t);letter-spacing:.2px}.plant-cta:hover{opacity:.88;transform:translateY(-2px)}
 /* DOWNLOAD */
 #download{padding:110px 0;background:var(--navy-dark)}
 .dl-inner{text-align:center;max-width:620px;margin:0 auto}
@@ -545,6 +551,38 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
       <div style="margin-top:16px;padding:16px;background:rgba(255,255,255,.1);border-radius:12px;display:flex;align-items:center;gap:12px"><span style="font-size:1.5rem">&#127942;</span><div style="font-size:.84rem;color:rgba(255,255,255,.9);line-height:1.55"><strong>Refer more, save more every month!</strong><br>Every successful referral gives you &#8377;100 off your next instalment &mdash; automatically deducted at month end.</div></div>
     </div>
   </div></div>
+</section>
+
+<!-- PLANTATION -->
+<section id="plantation">
+  <div class="container">
+    <div class="plant-grid reveal">
+      <div>
+        <div class="tag" style="margin-bottom:16px">Green Initiative</div>
+        <h2 style="font-family:'Poppins',sans-serif;font-size:clamp(1.9rem,3.5vw,2.8rem);font-weight:900;color:#fff;margin-bottom:14px;line-height:1.2">Every Member Plants a Tree &#127807;</h2>
+        <p style="font-size:.97rem;color:rgba(255,255,255,.7);line-height:1.72;margin-bottom:28px">For every new member who joins Assure, we plant one tree in Telangana on their behalf. Growing our community means growing our planet.</p>
+        <div class="plant-big">12,500</div>
+        <div class="plant-lbl">Trees Planted &amp; Growing</div>
+        <div class="plant-stat-g">
+          <div class="plant-s"><div class="plant-sv">8+</div><div class="plant-sl">States Covered</div></div>
+          <div class="plant-s"><div class="plant-sv">3 tons</div><div class="plant-sl">CO&#8322; Offset/Year</div></div>
+          <div class="plant-s"><div class="plant-sv">100%</div><div class="plant-sl">Verified Planting</div></div>
+          <div class="plant-s"><div class="plant-sv">2026</div><div class="plant-sl">Goal: 50K Trees</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="plant-icons">&#127795;&#127807;&#127822;&#127794;&#127812;</div>
+        <div class="plant-how">
+          <div class="plant-how-t">How It Works</div>
+          <div class="plant-step"><div class="plant-num">1</div><span>You join any Assure Chit Scheme</span></div>
+          <div class="plant-step"><div class="plant-num">2</div><span>We plant 1 tree in your name in Telangana</span></div>
+          <div class="plant-step"><div class="plant-num">3</div><span>Receive your Tree Certificate via email</span></div>
+          <div class="plant-step"><div class="plant-num">4</div><span>Track your tree&rsquo;s growth in our app</span></div>
+        </div>
+        <a href="/register" class="plant-cta">Join &amp; Plant Your Tree &#8594;</a>
+      </div>
+    </div>
+  </div>
 </section>
 
 <!-- FAQ -->
