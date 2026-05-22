@@ -105,9 +105,10 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .s-desc{font-size:.9rem;color:var(--text-lt);line-height:1.7;margin-bottom:16px}
 .step-chip{display:inline-block;background:rgba(39,174,96,.1);color:var(--green);font-size:.74rem;font-weight:700;padding:5px 14px;border-radius:50px}
 /* INCOME FINDER */
-#finder{padding:100px 0;background:linear-gradient(135deg,#020c1e,#0a2a5e)}
+#finder{padding:100px 0;background:var(--bg)}
 .finder-inner{max-width:820px;margin:0 auto;text-align:center}
-.finder-form{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:34px;margin-top:32px}
+.finder-inner .h2-w{color:var(--navy)!important}.finder-inner .sub-w{color:var(--text-lt)!important}
+.finder-form{background:var(--navy);border:none;border-radius:20px;padding:34px;margin-top:32px;box-shadow:0 8px 40px rgba(10,31,68,.18)}
 .f-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
 .f-lbl{font-size:.74rem;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.8px;text-transform:uppercase;text-align:left;margin-bottom:5px}
 .f-inp{width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;padding:12px 14px;color:var(--w);font-size:.93rem;font-family:inherit;outline:none;transition:border-color var(--t)}.f-inp:focus{border-color:var(--gold)}.f-inp option{background:#0A1F44}
@@ -139,7 +140,10 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .wc h3{font-weight:800;font-size:.98rem;color:var(--navy);margin-bottom:9px}.wc p{font-size:.9rem;color:var(--text-lt);line-height:1.58}
 /* AUCTION */
 #auction{padding:80px 0;background:linear-gradient(160deg,#050220 0%,#0e0533 50%,#130640 100%);border-top:3px solid rgba(245,166,35,.35)}
-.auc-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:28px;padding:56px;overflow:hidden}
+.auc-card{background:#fff;border-radius:28px;padding:56px;overflow:hidden;box-shadow:0 12px 60px rgba(5,2,32,.28)}
+.auc-card .h2-w{color:var(--navy)!important}.auc-card .sub-w{color:var(--text-lt)!important}
+.auc-card .chip{background:rgba(10,31,68,.06);border-color:rgba(10,31,68,.12);color:var(--navy)}
+.auc-card .btn-gold{background:var(--gold);color:var(--navy-dark)}
 .auc-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
 .chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:28px}
 .chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:50px;padding:7px 16px;font-size:.78rem;color:rgba(255,255,255,.8);font-weight:600;display:flex;align-items:center;gap:6px}
@@ -226,28 +230,29 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 .tbn{width:44px;height:44px;border-radius:50%;background:var(--navy);color:var(--w);display:flex;align-items:center;justify-content:center;transition:var(--t);border:none;cursor:pointer;box-shadow:0 4px 14px rgba(10,31,68,.2)}.tbn:hover{background:var(--gold);color:var(--navy-dark)}
 /* REFER */
 #refer{padding:90px 0;background:linear-gradient(135deg,var(--navy-dark) 0%,var(--navy) 100%)}
+.ref-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:28px;padding:56px}
 .ref-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
 .ref-h2{font-family:'Poppins',sans-serif;font-size:clamp(1.7rem,3vw,2.3rem);font-weight:900;color:#fff;margin-bottom:14px}
 .ref-p{font-size:1rem;color:rgba(255,255,255,.75);line-height:1.72;margin-bottom:26px}
 .ref-flow{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.1);border-radius:var(--r);padding:22px 26px}
 .rf{text-align:center;flex:1}.rf-icon{font-size:1.8rem;margin-bottom:8px}.rf-lbl{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.9)}.rf-arr{font-size:1.4rem;font-weight:900;color:rgba(255,255,255,.6);opacity:1}
 /* PLANTATION */
-#plantation{padding:80px 0;background:linear-gradient(160deg,#0a2218 0%,#0d2e1e 50%,#071a11 100%);border-top:3px solid rgba(39,174,96,.4)}
+#plantation{padding:80px 0;background:var(--bg);border-top:3px solid rgba(39,174,96,.4)}
 .plant-grid{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}
 .plant-big{font-family:'Poppins',sans-serif;font-size:clamp(2.8rem,5.5vw,4.5rem);font-weight:900;color:var(--gold);line-height:1;margin-bottom:8px}
-.plant-lbl{font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:24px}
+.plant-lbl{font-size:.82rem;color:var(--text-lt);margin-bottom:24px}
 .plant-stat-g{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .plant-s{background:rgba(255,255,255,.08);border-radius:12px;padding:14px;text-align:center}
 .plant-sv{font-family:'Poppins',sans-serif;font-size:1.3rem;font-weight:900;color:var(--gold)}.plant-sl{font-size:.68rem;color:rgba(255,255,255,.4);margin-top:3px}
 .plant-icons{font-size:2rem;display:flex;gap:16px;margin-bottom:24px}
-.plant-how{background:rgba(255,255,255,.08);border-radius:16px;padding:24px;margin-bottom:20px}
+.plant-how{background:var(--w);border:1px solid rgba(10,31,68,.08);border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 12px rgba(10,31,68,.06)}
 .plant-how-t{font-family:'Poppins',sans-serif;font-weight:800;font-size:.92rem;color:var(--gold);margin-bottom:16px;letter-spacing:.3px}
-.plant-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;font-size:.87rem;color:rgba(255,255,255,.85);line-height:1.5}.plant-step:last-child{margin-bottom:0}
+.plant-step{display:flex;align-items:flex-start;gap:12px;margin-bottom:12px;font-size:.87rem;color:var(--navy);line-height:1.5}.plant-step:last-child{margin-bottom:0}
 .plant-num{width:24px;height:24px;border-radius:50%;background:var(--gold);color:var(--navy-dark);font-size:.72rem;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
 .plant-cta{display:block;width:100%;padding:15px;background:var(--gold);color:var(--navy-dark);border-radius:12px;font-weight:900;font-size:1rem;text-align:center;transition:var(--t);letter-spacing:.2px}.plant-cta:hover{opacity:.88;transform:translateY(-2px)}
 /* DOWNLOAD */
 #download{padding:70px 0;background:linear-gradient(135deg,#030c1a 0%,#071628 50%,#030c1a 100%);border-top:2px solid rgba(245,166,35,.18);border-bottom:2px solid rgba(245,166,35,.08)}
-.dl-inner{text-align:center;max-width:620px;margin:0 auto}
+.dl-inner{text-align:center;max-width:720px;margin:0 auto;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:28px;padding:56px}
 .dl-inner h2{font-family:'Poppins',sans-serif;font-size:clamp(2rem,3.5vw,2.6rem);font-weight:900;color:var(--w);margin-bottom:16px}
 .dl-inner p{font-size:1.02rem;color:rgba(255,255,255,.6);line-height:1.72;margin-bottom:36px}
 .dl-btns{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:36px}
@@ -301,6 +306,11 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
   .stats-band{grid-template-columns:repeat(2,1fr)}.trust-grid{grid-template-columns:1fr}
   .foot-grid{grid-template-columns:1fr 1fr}.tcard{min-width:calc(50% - 12px)}
   .f-cards,.c-res-grid{grid-template-columns:1fr 1fr}.cb-grid{grid-template-columns:repeat(2,1fr)}
+  .auc-card{padding:28px}
+  .ref-card{padding:28px}
+  .dl-inner{padding:36px}
+  .ref-card{padding:28px}
+  .dl-inner{padding:36px}
   .auc-mock{max-width:100%}
 }
 @media(max-width:768px){
@@ -359,11 +369,6 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
         <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>RBI Compliant</span>
         <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Instant KYC</span>
         <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Bank-grade Security</span>
-      </div>
-      <div class="hero-stats reveal">
-        <div><div class="hstat-v">12,500+</div><div class="hstat-l">Active Members</div></div>
-        <div><div class="hstat-v">&#8377;80K</div><div class="hstat-l">Avg Annual Dividend</div></div>
-        <div><div class="hstat-v">4.9&#9733;</div><div class="hstat-l">App Store Rating</div></div>
       </div>
     </div>
     <div class="hero-visual reveal">
@@ -441,7 +446,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
     <div class="auc-card">
       <div class="auc-grid">
         <div class="reveal">
-          <div class="tag" style="color:rgba(255,255,255,.5)">Live Auctions</div>
+          <div class="tag" style="color:var(--gold)">Live Auctions</div>
           <h2 class="h2 h2-w">Every Month, a Fair &amp;<br><span style="color:var(--gold)">Transparent</span> Auction</h2>
           <p class="sub sub-w">No fixed winner. No bias. The member who accepts the lowest discount gets the prize pot. Everyone else earns a dividend.</p>
           <div class="chips">
@@ -599,7 +604,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 </section>
 <!-- REFER & EARN -->
 <section id="refer">
-  <div class="container"><div class="ref-grid">
+  <div class="container"><div class="ref-card"><div class="ref-grid">
     <div class="reveal"><div class="ref-h2">Refer a Friend, Save on Your Next Chit!</div><p class="ref-p">Share your referral link or code with a friend. When they join any chit group and pay their first instalment, &#8377;100 is automatically deducted from your next month's chit payment &mdash; every referral, no limit.</p><a href="/refer" class="btn btn-gold">Get My Referral Link</a></div>
     <div class="reveal">
       <div class="ref-flow">
@@ -611,7 +616,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
       </div>
       <div style="margin-top:16px;padding:16px;background:rgba(255,255,255,.1);border-radius:12px;display:flex;align-items:center;gap:12px"><span style="font-size:1.5rem">&#127942;</span><div style="font-size:.84rem;color:rgba(255,255,255,.9);line-height:1.55"><strong>Refer more, save more every month!</strong><br>Every successful referral gives you &#8377;100 off your next instalment &mdash; automatically deducted at month end.</div></div>
     </div>
-  </div></div>
+  </div></div></div>
 </section>
 
 <!-- PLANTATION -->
@@ -620,8 +625,8 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
     <div class="plant-grid reveal">
       <div>
         <div class="tag" style="margin-bottom:16px">Green Initiative</div>
-        <h2 style="font-family:'Poppins',sans-serif;font-size:clamp(1.9rem,3.5vw,2.8rem);font-weight:900;color:#fff;margin-bottom:14px;line-height:1.2">Every Member Plants a Tree &#127807;</h2>
-        <p style="font-size:.97rem;color:rgba(255,255,255,.7);line-height:1.72;margin-bottom:28px">For every new member who joins Assure, we plant one tree in Telangana on their behalf. Growing our community means growing our planet.</p>
+        <h2 style="font-family:'Poppins',sans-serif;font-size:clamp(1.9rem,3.5vw,2.8rem);font-weight:900;color:var(--navy);margin-bottom:14px;line-height:1.2">Every Member Plants a Tree &#127807;</h2>
+        <p style="font-size:.97rem;color:var(--text-lt);line-height:1.72;margin-bottom:28px">For every new member who joins Assure, we plant one tree in Telangana on their behalf. Growing our community means growing our planet.</p>
         <div class="plant-big">12,500</div>
         <div class="plant-lbl">Trees Planted &amp; Growing</div>
         <div class="plant-stat-g">
@@ -687,10 +692,10 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
         </div>
       </div>
       <div><h4>Quick Links</h4><ul><li><a href="/">Home</a></li><li><a href="#how">How It Works</a></li><li><a href="#schemes">Chit Schemes</a></li><li><a href="#calculator">Calculator</a></li><li><a href="#faq">FAQ</a></li></ul></div>
-      <div><h4>Company</h4><ul><li><a href="/about">About Us</a></li><li><a href="/blog">Blog</a></li><li><a href="/press">Press Kit</a></li><li><a href="/refer">Refer &amp; Earn</a></li><li><a href="/contact">Contact Us</a></li></ul></div>
-      <div class="foot-contact"><h4>Contact</h4><p>&#128205; Hyderabad, Telangana, India</p><p>&#128222; 1800-XXX-XXXX (Toll Free)</p><p>&#128231; support@assure.fund</p><p>&#128336; Mon&ndash;Sat, 9 AM &ndash; 6 PM</p><h4 style="margin-top:18px">Legal</h4><ul><li><a href="/privacy">Privacy Policy</a></li><li><a href="/terms">Terms &amp; Conditions</a></li><li><a href="/chit-act">Chit Fund Act</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="#trust">About Us</a></li><li><a href="#">Blog</a></li><li><a href="#">Press Kit</a></li><li><a href="#refer">Refer &amp; Earn</a></li><li><a href="mailto:support@assure.fund">Contact Us</a></li></ul></div>
+      <div class="foot-contact"><h4>Contact</h4><p>&#128205; Hyderabad, Telangana, India</p><p>&#128222; 1800-XXX-XXXX (Toll Free)</p><p>&#128231; support@assure.fund</p><p>&#128336; Mon&ndash;Sat, 9 AM &ndash; 6 PM</p><h4 style="margin-top:18px">Legal</h4><ul><li><a href="#">Privacy Policy</a></li><li><a href="#">Terms &amp; Conditions</a></li><li><a href="#">Chit Fund Act</a></li></ul></div>
     </div>
-    <div class="foot-btm"><p class="foot-copy">&copy; 2025 Assure Chit Funds Pvt. Ltd. All rights reserved. Regulated under Telangana Chit Funds Act, 1971.</p><div class="pgws"><span class="pgw">SSL Secured</span><span class="pgw">RBI Compliant</span><span class="pgw">DPIIT Registered</span><span class="pgw">CIBIL Partner</span></div></div>
+    <div class="foot-btm"><p class="foot-copy">&copy; 2026 Assure Chit Funds Pvt. Ltd. All rights reserved. Regulated under Telangana Chit Funds Act, 1971.</p><div class="pgws"><span class="pgw">&#128274; SSL Secured</span><span class="pgw">&#127968; RBI Compliant</span><span class="pgw">&#127942; DPIIT Registered</span><span class="pgw">&#9989; CIBIL Partner</span></div></div>
   </div>
 </footer>
 <!-- CHATBOT -->
