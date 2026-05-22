@@ -1,0 +1,759 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="description" content="Assure Chit Funds — India's smartest digital chit fund. Transparent auctions, instant enrollment, government registered."/>
+<title>Assure Chit Funds — Save Smart. Bid Right. Grow Together.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+:root{--navy:#0A1F44;--navy-dark:#060F22;--navy-mid:#0d2a5e;--gold:#F5A623;--gold-light:#ffd27a;--green:#27AE60;--bg:#F8F9FA;--text:#2D3748;--text-lt:#718096;--w:#fff;--sh:0 4px 32px rgba(10,31,68,.1);--r:16px;--t:.25s ease}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;color:var(--text);background:var(--bg);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{max-width:100%;display:block}a{text-decoration:none;color:inherit}
+button{cursor:pointer;font-family:inherit;border:none;outline:none}
+.container{width:100%;max-width:1380px;margin:0 auto;padding:0 60px}
+.tag{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);margin-bottom:12px}
+.h2{font-family:'Poppins',sans-serif;font-size:clamp(1.9rem,3.2vw,2.8rem);font-weight:800;color:var(--navy);line-height:1.18;margin-bottom:14px}
+.h2-w{color:var(--w)}.sub{font-size:1.08rem;color:var(--text-lt);line-height:1.75;max-width:580px}.sub-w{color:rgba(255,255,255,.68)}
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .6s ease,transform .6s ease}.reveal.visible{opacity:1;transform:none}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 30px;border-radius:50px;font-weight:700;font-size:.95rem;transition:var(--t);white-space:nowrap;cursor:pointer}
+.btn-gold{background:var(--gold);color:var(--navy-dark)}.btn-gold:hover{background:var(--gold-light);transform:translateY(-2px);box-shadow:0 10px 28px rgba(245,166,35,.4)}
+.btn-out{background:transparent;border:2px solid rgba(255,255,255,.7);color:var(--w)}.btn-out:hover{background:rgba(255,255,255,.12);border-color:var(--w)}
+.btn-navy{background:var(--navy);color:var(--w)}.btn-navy:hover{background:var(--navy-mid);transform:translateY(-2px)}
+.center{text-align:center}.center .sub{margin:0 auto}.sec-head{margin-bottom:64px}
+/* POPUP */
+.pop-ov{position:fixed;inset:0;background:rgba(6,15,34,.88);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;animation:fadeIn .4s ease forwards}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.pop-box{background:var(--w);border-radius:24px;max-width:500px;width:100%;padding:44px 36px;text-align:center;position:relative;animation:slideUp .45s ease forwards;box-shadow:0 40px 80px rgba(0,0,0,.4)}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+.pop-close{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:50%;background:var(--bg);border:none;cursor:pointer;color:var(--text-lt);font-size:1rem;display:flex;align-items:center;justify-content:center}
+.pop-char{font-size:3.8rem;margin-bottom:14px;display:block;animation:wave 1.5s ease-in-out infinite}
+@keyframes wave{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(8deg)}}
+.pop-title{font-family:'Poppins',sans-serif;font-size:1.45rem;font-weight:900;color:var(--navy);margin-bottom:10px}
+.pop-sub{font-size:.88rem;color:var(--text-lt);line-height:1.65;margin-bottom:22px}
+.pop-pills{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:24px}
+.pop-pill{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:50px;padding:5px 14px;font-size:.75rem;font-weight:700;color:#c27a00}
+/* NAV */
+#navbar{position:fixed;top:0;left:0;right:0;z-index:999;padding:20px 0;transition:padding var(--t),background var(--t),box-shadow var(--t);background:transparent}
+#navbar.scrolled{padding:12px 0;background:rgba(6,15,34,.96);backdrop-filter:blur(16px);box-shadow:0 2px 24px rgba(0,0,0,.3)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:20px}
+.nav-logo{display:flex;align-items:center;gap:12px;font-family:'Poppins',sans-serif;font-weight:800;font-size:1.4rem;color:var(--w);letter-spacing:-.2px}
+.nav-links{display:flex;gap:32px;list-style:none}.nav-links a{color:rgba(255,255,255,.8);font-size:.9rem;font-weight:500;transition:color var(--t)}.nav-links a:hover{color:var(--gold)}
+.nav-ctas{display:flex;gap:12px;align-items:center}
+.nav-login{padding:10px 22px;border-radius:50px;border:1.5px solid rgba(255,255,255,.45);color:var(--w);font-size:.88rem;font-weight:600;transition:var(--t)}.nav-login:hover{border-color:var(--gold);color:var(--gold)}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:4px}.hamburger span{width:24px;height:2px;background:var(--w);border-radius:2px}
+.mobile-menu{display:none;position:fixed;inset:0;background:var(--navy-dark);z-index:998;flex-direction:column;align-items:center;justify-content:center;gap:32px}
+.mobile-menu.open{display:flex}.mobile-menu a{color:var(--w);font-size:1.3rem;font-weight:700}.mobile-menu a:hover{color:var(--gold)}
+/* HERO */
+#hero{min-height:100vh;background:linear-gradient(135deg,#020c1e 0%,#0a1f44 45%,#0a3d62 100%);display:flex;align-items:center;padding:110px 0 70px;position:relative;overflow:hidden}
+#hero::before{content:'';position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(245,166,35,.12) 0%,transparent 70%);top:-100px;right:-100px;pointer-events:none}
+.hero-grid{display:grid;grid-template-columns:55% 45%;gap:60px;align-items:center}
+.hero-pill{display:inline-flex;align-items:center;gap:8px;background:rgba(245,166,35,.14);border:1px solid rgba(245,166,35,.35);border-radius:50px;padding:7px 18px;margin-bottom:22px;font-size:.78rem;font-weight:700;color:var(--gold)}
+.h1{font-family:'Poppins',sans-serif;font-size:clamp(2.4rem,5vw,4rem);font-weight:900;color:var(--w);line-height:1.1;margin-bottom:20px}
+.h1 em{font-style:normal;color:var(--gold)}
+.hero-sub{font-size:1.08rem;color:rgba(255,255,255,.72);line-height:1.78;margin-bottom:34px;max-width:520px}
+.hero-btns{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:36px}
+.hero-trust{display:flex;gap:24px;flex-wrap:wrap}
+.ht{display:flex;align-items:center;gap:7px;font-size:.82rem;color:rgba(255,255,255,.65);font-weight:500}.ht svg{color:var(--gold);flex-shrink:0}
+.phone{width:280px;background:#111827;border-radius:38px;padding:10px;box-shadow:0 50px 100px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);margin:0 auto}
+.phone-inner{background:var(--bg);border-radius:30px;overflow:hidden;min-height:510px;padding:18px}
+.ph-bar{background:var(--navy);border-radius:18px;padding:16px;margin-bottom:14px;color:var(--w)}
+.ph-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}.ph-name{font-size:.72rem;opacity:.7}
+.ph-amt{font-family:'Poppins',sans-serif;font-size:1.4rem;font-weight:800;color:var(--gold)}.ph-lbl{font-size:.62rem;opacity:.6}
+.ph-card{background:var(--w);border-radius:14px;padding:13px;margin-bottom:10px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.ph-cr{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}.ph-cl{font-size:.67rem;color:var(--text-lt)}.ph-cv{font-size:.75rem;font-weight:700;color:var(--navy)}
+.ph-auct{background:linear-gradient(135deg,var(--navy),#0d3575);border-radius:14px;padding:14px;color:var(--w);margin-bottom:10px}
+.ph-at{font-size:.65rem;opacity:.65;margin-bottom:4px}.ph-av{font-size:.95rem;font-weight:800;margin-bottom:8px}
+.ph-tr{display:flex;align-items:center;gap:8px}.ph-tl{font-size:.62rem;opacity:.65}
+.ph-tv{font-size:.9rem;font-weight:800;color:var(--gold);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}
+.ph-notif{background:rgba(39,174,96,.1);border:1px solid rgba(39,174,96,.3);border-radius:12px;padding:10px;display:flex;align-items:center;gap:9px}
+.ph-nd{width:9px;height:9px;background:var(--green);border-radius:50%;flex-shrink:0;box-shadow:0 0 8px var(--green)}.ph-nt{font-size:.62rem;color:var(--green);font-weight:700}
+/* STATS */
+#stats{background:var(--navy-dark)}.stats-band{display:grid;grid-template-columns:repeat(4,1fr)}
+.stat-box{text-align:center;padding:36px 20px;border-right:1px solid rgba(255,255,255,.08)}
+.stat-box:last-child{border-right:none}
+.sn{font-family:'Poppins',sans-serif;font-size:clamp(1.8rem,3vw,2.6rem);font-weight:900;color:var(--gold);line-height:1}
+.sl{font-size:.82rem;color:rgba(255,255,255,.5);margin-top:6px;font-weight:500}
+/* HOW IT WORKS */
+#how{padding:110px 0;background:var(--w)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:40px;position:relative}
+.steps::before{content:'';position:absolute;top:68px;left:calc(16.7% + 24px);right:calc(16.7% + 24px);height:2px;background:linear-gradient(90deg,var(--gold),rgba(10,31,68,.3));z-index:0}
+.step{background:var(--bg);border-radius:var(--r);padding:36px 28px;text-align:center;position:relative;z-index:1;transition:transform var(--t),box-shadow var(--t)}.step:hover{transform:translateY(-8px);box-shadow:var(--sh)}
+.sn-badge{width:48px;height:48px;background:var(--gold);color:var(--navy-dark);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Poppins',sans-serif;font-weight:900;font-size:1.1rem;margin:0 auto 20px;box-shadow:0 6px 20px rgba(245,166,35,.45)}
+.s-icon{width:64px;height:64px;background:var(--navy);border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;color:var(--gold)}
+.s-title{font-family:'Poppins',sans-serif;font-weight:800;font-size:1.08rem;color:var(--navy);margin-bottom:12px}
+.s-desc{font-size:.94rem;color:var(--text-lt);line-height:1.68}
+/* INCOME FINDER */
+#finder{padding:100px 0;background:linear-gradient(135deg,#020c1e,#0a2a5e)}
+.finder-inner{max-width:820px;margin:0 auto;text-align:center}
+.finder-form{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:34px;margin-top:32px}
+.f-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.f-lbl{font-size:.74rem;font-weight:700;color:rgba(255,255,255,.5);letter-spacing:.8px;text-transform:uppercase;text-align:left;margin-bottom:5px}
+.f-inp{width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:10px;padding:12px 14px;color:var(--w);font-size:.93rem;font-family:inherit;outline:none;transition:border-color var(--t)}.f-inp:focus{border-color:var(--gold)}.f-inp option{background:#0A1F44}
+.f-res{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.3);border-radius:14px;padding:20px;margin-top:18px;display:none;text-align:left}.f-res.show{display:block}
+.f-res-title{font-weight:800;color:var(--gold);margin-bottom:12px;font-size:.93rem}
+.f-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.f-card{background:rgba(255,255,255,.06);border-radius:10px;padding:12px;text-align:center}
+.f-cv{font-family:'Poppins',sans-serif;font-size:1rem;font-weight:900;color:var(--w)}.f-cl{font-size:.65rem;color:rgba(255,255,255,.4);margin-top:2px}
+/* CHIT BROWSER */
+#chitbrowser{padding:100px 0;background:var(--bg)}
+.cb-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px}
+.cb-sel{background:var(--w);border:1.5px solid rgba(10,31,68,.12);border-radius:10px;padding:9px 13px;font-size:.86rem;font-family:inherit;color:var(--navy);cursor:pointer;outline:none}
+.cb-search{flex:1;min-width:180px;background:var(--w);border:1.5px solid rgba(10,31,68,.12);border-radius:10px;padding:9px 13px;font-size:.86rem;font-family:inherit;color:var(--navy);outline:none}
+.cb-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.cbc{background:var(--w);border-radius:14px;padding:20px;box-shadow:0 2px 10px rgba(10,31,68,.07);border-left:4px solid var(--gold);transition:transform var(--t),box-shadow var(--t)}.cbc:hover{transform:translateY(-4px);box-shadow:var(--sh)}
+.cbc-top{display:flex;justify-content:space-between;margin-bottom:12px}
+.cbc-name{font-weight:800;font-size:.94rem;color:var(--navy)}
+.cbc-st{font-size:.66rem;font-weight:700;padding:3px 9px;border-radius:50px;background:rgba(39,174,96,.12);color:var(--green)}
+.cbc-rows{display:flex;flex-direction:column;gap:6px;margin-bottom:13px}
+.cbc-row{display:flex;justify-content:space-between}.cbc-rl{font-size:.77rem;color:var(--text-lt)}.cbc-rv{font-size:.8rem;font-weight:700;color:var(--navy)}
+.cbc-area{font-size:.73rem;color:var(--text-lt);margin-bottom:12px}
+.cbc-foot{display:flex;gap:7px}.cbc-apply{flex:1;padding:8px;background:var(--navy);color:var(--w);border-radius:9px;font-weight:700;font-size:.82rem;text-align:center;transition:var(--t)}.cbc-apply:hover{background:var(--gold);color:var(--navy-dark)}
+.cbc-date{font-size:.7rem;color:var(--text-lt);display:flex;align-items:center}
+/* APP FEATURES */
+#app-features{padding:110px 0;background:var(--w)}
+.feat-grid{display:grid;grid-template-columns:45% 55%;gap:80px;align-items:center}
+.feat-list{display:flex;flex-direction:column;gap:20px}
+.fi{display:flex;align-items:flex-start;gap:16px}
+.fi-ico{width:44px;height:44px;background:rgba(39,174,96,.12);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--green)}
+.fi-t{font-weight:700;font-size:.97rem;color:var(--navy);margin-bottom:3px}.fi-d{font-size:.9rem;color:var(--text-lt);line-height:1.58}
+.app-btns{display:flex;gap:14px;margin-top:30px;flex-wrap:wrap}
+.app-btn{display:flex;align-items:center;gap:12px;background:var(--navy-dark);color:var(--w);border-radius:14px;padding:12px 20px;font-size:.85rem;font-weight:700;transition:var(--t);border:1px solid rgba(255,255,255,.08)}
+.app-btn:hover{background:var(--navy-mid);transform:translateY(-2px)}.app-btn-sub{font-size:.62rem;opacity:.65;line-height:1}.app-btn-name{font-size:.95rem;font-weight:800;line-height:1.2}
+/* WEB FEATURES */
+#web-features{padding:110px 0;background:var(--bg)}
+.web-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
+.wc{background:var(--w);border-radius:var(--r);padding:30px;border-top:3px solid transparent;transition:transform var(--t),box-shadow var(--t),border-color var(--t)}.wc:hover{transform:translateY(-6px);box-shadow:var(--sh);border-top-color:var(--gold)}
+.wc-ico{width:52px;height:52px;background:rgba(10,31,68,.07);border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;color:var(--navy)}
+.wc h3{font-weight:800;font-size:.98rem;color:var(--navy);margin-bottom:9px}.wc p{font-size:.9rem;color:var(--text-lt);line-height:1.58}
+/* AUCTION */
+#auction{padding:110px 0;background:linear-gradient(135deg,#020c1e 0%,var(--navy) 100%)}
+.auc-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:30px}
+.chip{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:50px;padding:8px 18px;font-size:.8rem;color:rgba(255,255,255,.8);font-weight:600}
+.auc-mock{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:var(--r);padding:28px;max-width:400px}
+.am-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}
+.am-g{font-size:.78rem;color:rgba(255,255,255,.5);margin-bottom:3px}.am-v{font-family:'Poppins',sans-serif;font-weight:800;font-size:1.05rem;color:var(--w)}
+.am-timer{background:rgba(255,59,48,.15);border:1px solid rgba(255,59,48,.35);border-radius:12px;padding:12px 16px;text-align:center}
+.am-tl{font-size:.65rem;color:rgba(255,255,255,.45);margin-bottom:3px}.am-tv{font-family:'Poppins',sans-serif;font-size:1.4rem;font-weight:900;color:#ff4444;animation:pulse 1s infinite}
+.am-stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}
+.am-s{background:rgba(255,255,255,.06);border-radius:12px;padding:12px;text-align:center}.am-sv{font-weight:800;font-size:1rem;color:var(--w)}.am-sl{font-size:.65rem;color:rgba(255,255,255,.45);margin-top:2px}
+.am-hist{margin-bottom:16px}.am-hl{font-size:.68rem;color:rgba(255,255,255,.35);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+.am-bid{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.06)}
+.am-bn{font-size:.76rem;color:rgba(255,255,255,.7)}.am-bv{font-size:.76rem;font-weight:700;color:var(--gold)}.am-bt{font-size:.65rem;color:rgba(255,255,255,.3)}
+.am-cta{width:100%;padding:14px;background:var(--gold);color:var(--navy-dark);border-radius:12px;font-weight:800;font-size:.92rem;transition:var(--t);border:none;cursor:pointer}.am-cta:hover{background:var(--gold-light)}
+/* TRUST */
+#trust{padding:110px 0;background:var(--bg)}
+.trust-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:28px}
+.tc{background:var(--w);border-radius:var(--r);padding:32px;box-shadow:var(--sh);display:flex;gap:20px;align-items:flex-start;transition:transform var(--t)}.tc:hover{transform:translateY(-5px)}
+.tc-ico{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tc h3{font-weight:800;font-size:1rem;color:var(--navy);margin-bottom:10px}.tc p{font-size:.92rem;color:var(--text-lt);line-height:1.65}
+/* SCHEMES CAROUSEL */
+#schemes{padding:110px 0;background:var(--w)}
+.sch-carousel{overflow:hidden;position:relative}
+.sch-track{display:flex;gap:24px;transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.sch-track .sc{min-width:300px;flex-shrink:0}
+.sc{background:var(--bg);border-radius:var(--r);padding:28px;border:1px solid rgba(10,31,68,.09);transition:transform var(--t),box-shadow var(--t)}.sc:hover{transform:translateY(-6px);box-shadow:var(--sh)}
+.sc-badge{display:inline-block;padding:4px 14px;border-radius:50px;font-size:.72rem;font-weight:700;margin-bottom:16px}
+.bo{background:rgba(39,174,96,.12);color:var(--green)}.bf{background:rgba(245,166,35,.15);color:#c27a00}
+.sc-val{font-family:'Poppins',sans-serif;font-size:1.7rem;font-weight:900;color:var(--navy);margin-bottom:4px}
+.sc-lbl{font-size:.76rem;color:var(--text-lt);margin-bottom:18px}
+.sc-rows{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.sc-row{display:flex;justify-content:space-between}.sc-row span:first-child{font-size:.8rem;color:var(--text-lt)}.sc-row span:last-child{font-size:.83rem;font-weight:700;color:var(--navy)}
+.sc-cta{display:block;width:100%;padding:11px;background:var(--navy);color:var(--w);border-radius:12px;font-weight:700;font-size:.86rem;text-align:center;transition:var(--t)}.sc-cta:hover{background:var(--gold);color:var(--navy-dark)}
+.sch-nav{display:flex;justify-content:center;gap:10px;margin-top:24px}
+.scbtn{width:40px;height:40px;border-radius:50%;background:var(--navy);color:var(--w);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--t)}.scbtn:hover{background:var(--gold);color:var(--navy-dark)}
+/* CALCULATOR */
+#calculator{padding:100px 0;background:var(--bg)}
+.calc-tabs{display:flex;background:var(--w);border-radius:12px;padding:4px;max-width:400px;margin:0 auto 32px;box-shadow:var(--sh)}
+.ctab{flex:1;padding:9px;border-radius:9px;font-weight:700;font-size:.84rem;text-align:center;cursor:pointer;border:none;background:transparent;color:var(--text-lt);transition:var(--t)}.ctab.active{background:var(--navy);color:var(--w);box-shadow:0 4px 12px rgba(10,31,68,.25)}
+.calc-box{max-width:720px;margin:0 auto;background:var(--w);border-radius:18px;padding:32px;display:none;box-shadow:var(--sh)}.calc-box.active{display:block}
+.calc-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+.c-field{display:flex;flex-direction:column;gap:6px}.c-lbl{font-size:.74rem;font-weight:700;color:var(--text-lt);letter-spacing:.5px;text-transform:uppercase}
+.c-inp{background:var(--bg);border:1.5px solid rgba(10,31,68,.12);border-radius:9px;padding:11px 13px;font-size:.95rem;font-family:inherit;color:var(--navy);outline:none;transition:border-color var(--t)}.c-inp:focus{border-color:var(--gold)}
+.c-btn{width:100%;padding:13px;background:var(--gold);color:var(--navy-dark);border-radius:11px;font-weight:800;font-size:.97rem;border:none;cursor:pointer;transition:var(--t);margin-top:4px}.c-btn:hover{background:var(--gold-light)}
+.c-result{background:var(--bg);border-radius:12px;padding:20px;margin-top:18px;display:none;border-left:4px solid var(--gold)}.c-result.show{display:block}
+.c-res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.c-res-item{text-align:center;padding:14px;background:var(--w);border-radius:10px}.c-res-v{font-family:'Poppins',sans-serif;font-size:1.15rem;font-weight:900;color:var(--navy)}.c-res-l{font-size:.7rem;color:var(--text-lt);margin-top:3px}
+/* CREDIT */
+#credit{padding:110px 0;background:var(--w)}
+.cred-grid{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center}
+.meter-wrap{width:260px;height:150px;position:relative;margin:0 auto 24px}.meter-wrap svg{width:100%;height:auto}
+.m-lbl{position:absolute;bottom:0;left:50%;transform:translateX(-50%);text-align:center}
+.m-v{font-family:'Poppins',sans-serif;font-size:2.2rem;font-weight:900;color:var(--navy)}.m-t{font-size:.78rem;color:var(--green);font-weight:700;letter-spacing:.5px}
+.cred-card{background:var(--bg);border-radius:var(--r);padding:36px}
+.cred-perks{display:flex;flex-direction:column;gap:14px;margin-top:22px}
+.cp{display:flex;align-items:center;gap:12px;font-size:.9rem;color:var(--text)}.cp svg{color:var(--green);flex-shrink:0}
+/* TESTIMONIALS */
+#testi{padding:110px 0;background:var(--bg)}
+.testi-wrap{overflow:hidden;position:relative}
+.testi-track{display:flex;gap:24px;transition:transform .5s cubic-bezier(.4,0,.2,1)}
+.tcard{min-width:calc(33.33% - 16px);background:var(--w);border-radius:var(--r);padding:30px;flex-shrink:0;border:1px solid rgba(10,31,68,.07)}
+.t-stars{font-size:1.1rem;letter-spacing:2px;color:var(--gold);margin-bottom:16px}
+.t-q{font-size:.92rem;color:var(--text);line-height:1.72;margin-bottom:20px;font-style:italic}
+.t-auth{display:flex;align-items:center;gap:14px}.t-av{width:44px;height:44px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;color:var(--w);font-weight:800;font-size:.95rem;flex-shrink:0}
+.t-name{font-weight:700;font-size:.9rem;color:var(--navy)}.t-city{font-size:.78rem;color:var(--text-lt)}
+.tctl{display:flex;justify-content:center;gap:12px;margin-top:36px}
+.tbn{width:40px;height:40px;border-radius:50%;background:var(--navy);color:var(--w);display:flex;align-items:center;justify-content:center;transition:var(--t);border:none;cursor:pointer}.tbn:hover{background:var(--gold);color:var(--navy-dark)}
+.av-stack{display:flex;justify-content:center;align-items:center;margin-top:32px}
+.av{width:38px;height:38px;border-radius:50%;border:2px solid var(--w);background:var(--navy-mid);margin-left:-10px;display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:800;color:var(--w)}.av:first-child{margin-left:0}
+.av-txt{margin-left:12px;font-size:.86rem;color:var(--text-lt);font-weight:600}
+/* REFER */
+#refer{padding:90px 0;background:linear-gradient(135deg,#1b4332 0%,#2d6a4f 100%)}
+.ref-grid{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.ref-h2{font-family:'Poppins',sans-serif;font-size:clamp(1.7rem,3vw,2.3rem);font-weight:900;color:#fff;margin-bottom:14px}
+.ref-p{font-size:1rem;color:rgba(255,255,255,.75);line-height:1.72;margin-bottom:26px}
+.ref-flow{display:flex;align-items:center;gap:14px;background:rgba(255,255,255,.1);border-radius:var(--r);padding:22px 26px}
+.rf{text-align:center;flex:1}.rf-icon{font-size:1.8rem;margin-bottom:8px}.rf-lbl{font-size:.8rem;font-weight:700;color:rgba(255,255,255,.9)}.rf-arr{font-size:1.4rem;font-weight:900;color:rgba(255,255,255,.6);opacity:1}
+/* PLANTATION */
+#plantation{padding:100px 0;background:linear-gradient(135deg,#052e16,#065f46)}
+.plant-grid{display:grid;grid-template-columns:1fr 1fr;gap:70px;align-items:center}
+.plant-big{font-family:'Poppins',sans-serif;font-size:clamp(2.8rem,5.5vw,4.5rem);font-weight:900;color:#6ee7b7;line-height:1;margin-bottom:8px}
+.plant-lbl{font-size:.82rem;color:rgba(255,255,255,.5);margin-bottom:24px}
+.plant-stat-g{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.plant-s{background:rgba(255,255,255,.06);border-radius:12px;padding:14px;text-align:center}
+.plant-sv{font-family:'Poppins',sans-serif;font-size:1.3rem;font-weight:900;color:#6ee7b7}.plant-sl{font-size:.68rem;color:rgba(255,255,255,.4);margin-top:3px}
+/* SECURITY */
+#security{padding:100px 0;background:var(--bg)}
+.sec2col{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.sec-panel{background:var(--w);border-radius:var(--r);padding:28px;box-shadow:var(--sh)}
+.sec-panel h3{font-family:'Poppins',sans-serif;font-weight:800;font-size:1rem;color:var(--navy);margin-bottom:18px;padding-bottom:10px;border-bottom:2px solid var(--gold)}
+.sec-items{display:flex;flex-direction:column;gap:11px}
+.sec-item{display:flex;gap:11px;font-size:.85rem;color:var(--text);line-height:1.6;align-items:flex-start}
+.sec-ico{width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:900;margin-top:2px}
+.ico-ok{background:rgba(39,174,96,.15);color:var(--green)}.ico-sh{background:rgba(10,31,68,.1);color:var(--navy)}
+/* SUPPORT TICKET */
+#ticket{padding:100px 0;background:var(--w)}
+.tkt-grid{display:grid;grid-template-columns:1fr 1fr;gap:52px;align-items:start}
+.tkt-form{background:var(--bg);border-radius:var(--r);padding:28px}
+.tf{margin-bottom:14px}.tf label{font-size:.76rem;font-weight:700;color:var(--text-lt);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.5px}
+.tf input,.tf select,.tf textarea{width:100%;background:var(--w);border:1.5px solid rgba(10,31,68,.12);border-radius:9px;padding:10px 13px;font-size:.88rem;font-family:inherit;color:var(--navy);outline:none;transition:border-color var(--t);resize:vertical}
+.tf input:focus,.tf select:focus,.tf textarea:focus{border-color:var(--gold)}.tf textarea{min-height:90px}
+.tkt-btn{width:100%;padding:12px;background:var(--navy);color:var(--w);border-radius:11px;font-weight:800;font-size:.93rem;border:none;cursor:pointer;transition:var(--t)}.tkt-btn:hover{background:var(--gold);color:var(--navy-dark)}
+.tkt-info{display:flex;flex-direction:column;gap:18px}
+.tkt-ic{display:flex;gap:14px;align-items:flex-start}
+.tkt-icon{width:44px;height:44px;border-radius:12px;background:rgba(10,31,68,.07);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--navy)}
+.tkt-it{font-weight:700;font-size:.93rem;color:var(--navy);margin-bottom:3px}.tkt-id{font-size:.88rem;color:var(--text-lt);line-height:1.58}
+/* DOWNLOAD */
+#download{padding:110px 0;background:var(--navy-dark)}
+.dl-inner{text-align:center;max-width:620px;margin:0 auto}
+.dl-inner h2{font-family:'Poppins',sans-serif;font-size:clamp(2rem,3.5vw,2.6rem);font-weight:900;color:var(--w);margin-bottom:16px}
+.dl-inner p{font-size:1.02rem;color:rgba(255,255,255,.6);line-height:1.72;margin-bottom:36px}
+.dl-btns{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;margin-bottom:36px}
+.dl-btn{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.09);border:1.5px solid rgba(255,255,255,.2);border-radius:16px;padding:14px 24px;color:var(--w);transition:var(--t)}.dl-btn:hover{background:rgba(255,255,255,.16);transform:translateY(-2px)}
+.dl-sub{font-size:.65rem;opacity:.65;line-height:1}.dl-name{font-size:.98rem;font-weight:800;line-height:1.2}
+.qr{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:10px}
+.qr-box{width:72px;height:72px;background:var(--w);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:.55rem;color:var(--navy-dark);font-weight:700;text-align:center;padding:5px}.qr-lbl{font-size:.8rem;color:rgba(255,255,255,.45)}
+/* FAQ */
+#faq{padding:110px 0;background:var(--bg)}
+.faq-list{max-width:800px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.fi-item{background:var(--w);border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+.fi-q{display:flex;justify-content:space-between;align-items:center;padding:20px 24px;cursor:pointer;font-weight:700;font-size:.95rem;color:var(--navy);transition:background var(--t)}.fi-q:hover{background:rgba(10,31,68,.03)}
+.fi-ic{width:26px;height:26px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:transform var(--t),background var(--t);color:var(--navy)}.fi-item.open .fi-ic{transform:rotate(45deg);background:var(--gold);color:var(--navy-dark)}
+.fi-a{display:none;padding:0 24px 20px;font-size:.89rem;color:var(--text-lt);line-height:1.72}.fi-item.open .fi-a{display:block}
+.faq-link{text-align:center;margin-top:40px}
+.chat-btn{display:inline-flex;align-items:center;gap:9px;background:var(--navy);color:var(--w);border-radius:50px;padding:14px 28px;font-weight:700;font-size:.92rem;transition:var(--t)}.chat-btn:hover{background:var(--gold);color:var(--navy-dark)}
+/* FOOTER */
+footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
+.foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr 1.2fr;gap:52px;padding-bottom:52px;border-bottom:1px solid rgba(255,255,255,.07)}
+.foot-tagline{font-size:.86rem;line-height:1.65;margin:14px 0 20px;color:rgba(255,255,255,.45)}
+.socials{display:flex;gap:10px}.soc{width:38px;height:38px;background:rgba(255,255,255,.07);border-radius:50%;display:flex;align-items:center;justify-content:center;transition:var(--t)}.soc:hover{background:var(--gold);color:var(--navy-dark)}
+.foot-grid h4{font-size:.82rem;font-weight:800;color:var(--w);letter-spacing:.8px;margin-bottom:18px;text-transform:uppercase}
+.foot-grid ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+.foot-grid ul li a{font-size:.85rem;color:rgba(255,255,255,.5);transition:color var(--t)}.foot-grid ul li a:hover{color:var(--gold)}
+.foot-contact p{font-size:.85rem;color:rgba(255,255,255,.5);line-height:1.7;margin-bottom:6px}
+.foot-btm{display:flex;justify-content:space-between;align-items:center;padding:22px 0;gap:16px;flex-wrap:wrap}
+.foot-copy{font-size:.78rem;color:rgba(255,255,255,.3)}
+.pgws{display:flex;gap:8px;flex-wrap:wrap}.pgw{background:rgba(255,255,255,.07);border-radius:6px;padding:4px 10px;font-size:.72rem;font-weight:700;color:rgba(255,255,255,.45)}
+/* CHATBOT */
+.chat-fab{position:fixed;bottom:26px;right:26px;z-index:1500}
+.chat-toggle{width:56px;height:56px;border-radius:50%;background:var(--navy);color:var(--w);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(10,31,68,.45);transition:var(--t)}.chat-toggle:hover{background:var(--gold);color:var(--navy-dark);transform:scale(1.08)}
+.chat-win{position:absolute;bottom:68px;right:0;width:310px;background:var(--w);border-radius:18px;box-shadow:0 20px 50px rgba(10,31,68,.2);display:none;flex-direction:column;overflow:hidden;border:1px solid rgba(10,31,68,.08)}.chat-win.open{display:flex}
+.chat-hdr{background:var(--navy);padding:14px 16px;display:flex;justify-content:space-between;align-items:center}
+.chat-hname{font-weight:800;color:var(--w);font-size:.9rem}.chat-hsub{font-size:.66rem;color:rgba(255,255,255,.45);margin-top:1px}
+.chat-xcl{background:none;border:none;color:rgba(255,255,255,.55);cursor:pointer;font-size:1rem;line-height:1}
+.chat-msgs{height:250px;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:9px}
+.chat-m{max-width:84%;padding:9px 13px;border-radius:14px;font-size:.81rem;line-height:1.5}
+.chat-bot{background:var(--bg);color:var(--text);align-self:flex-start;border-bottom-left-radius:3px}.chat-user{background:var(--navy);color:var(--w);align-self:flex-end;border-bottom-right-radius:3px}
+.chat-quick{display:flex;flex-wrap:wrap;gap:5px;padding:9px 14px;border-top:1px solid var(--bg)}
+.chat-qb{background:rgba(10,31,68,.07);border:none;border-radius:18px;padding:5px 11px;font-size:.73rem;font-weight:600;cursor:pointer;color:var(--navy);transition:var(--t)}.chat-qb:hover{background:var(--gold);color:var(--navy-dark)}
+.chat-inrow{display:flex;gap:7px;padding:10px 14px;border-top:1px solid var(--bg)}
+.chat-txt{flex:1;border:1.5px solid rgba(10,31,68,.12);border-radius:18px;padding:7px 13px;font-size:.81rem;font-family:inherit;outline:none;color:var(--navy)}
+.chat-send{width:32px;height:32px;border-radius:50%;background:var(--navy);color:var(--w);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--t)}.chat-send:hover{background:var(--gold);color:var(--navy-dark)}
+/* RESPONSIVE */
+@media(max-width:1200px){.container{padding:0 40px}}
+@media(max-width:1024px){
+  .container{padding:0 30px}
+  .hero-grid,.feat-grid,.auc-grid,.cred-grid,.ref-grid,.plant-grid,.tkt-grid,.sec2col{grid-template-columns:1fr}
+  .steps::before{display:none}.steps,.web-grid{grid-template-columns:repeat(2,1fr)}
+  .stats-band{grid-template-columns:repeat(2,1fr)}.trust-grid{grid-template-columns:1fr}
+  .foot-grid{grid-template-columns:1fr 1fr}.tcard{min-width:calc(50% - 12px)}
+  .f-cards,.c-res-grid{grid-template-columns:1fr 1fr}.cb-grid{grid-template-columns:repeat(2,1fr)}
+  .auc-mock{max-width:100%}
+}
+@media(max-width:768px){
+  .container{padding:0 20px}
+  .nav-links,.nav-ctas{display:none}.hamburger{display:flex}
+  .h1{font-size:2.2rem}.hero-btns{flex-direction:column}.btn{justify-content:center}
+  .steps,.web-grid{grid-template-columns:1fr}.foot-grid{grid-template-columns:1fr}
+  .foot-btm{flex-direction:column;text-align:center}.tcard{min-width:100%}
+  .f-row,.calc-row{grid-template-columns:1fr}.cb-grid{grid-template-columns:1fr}
+}
+@media(max-width:480px){
+  .container{padding:0 16px}.phone{width:220px}
+  .tc{flex-direction:column}.sec-head{margin-bottom:44px}
+  .c-res-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<!-- MOBILE MENU -->
+<div class="mobile-menu" id="mobileMenu">
+  <button onclick="document.getElementById('mobileMenu').classList.remove('open')" style="position:absolute;top:24px;right:24px;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.8);padding:8px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  <a href="/">Home</a><a href="#how">How It Works</a><a href="#schemes">Schemes</a><a href="#calculator">Calculator</a><a href="#faq">FAQ</a>
+  <a href="/login" class="btn btn-gold">Login</a><a href="/register" class="btn btn-out" style="border-color:rgba(255,255,255,.5);color:#fff">Register</a>
+</div>
+<!-- NAV -->
+<nav id="navbar">
+  <div class="container"><div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <svg width="44" height="44" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="22" fill="#F5A623"/><text x="22" y="29" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="900" font-size="20" fill="#0A1F44">A</text></svg>
+      Assure <span style="font-weight:400;opacity:.6">Chit Funds</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="/">Home</a></li>
+      <li><a href="#how">How It Works</a></li>
+      <li><a href="#schemes">Schemes</a></li>
+      <li><a href="#auction">Live Auction</a></li>
+      <li><a href="#calculator">Calculator</a></li>
+      <li><a href="#faq">FAQ</a></li>
+    </ul>
+    <div class="nav-ctas"><a href="/login" class="nav-login">Login</a><a href="/register" class="btn btn-gold" style="padding:10px 22px;font-size:.88rem">Register</a></div>
+    <button class="hamburger" onclick="document.getElementById('mobileMenu').classList.add('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></div>
+</nav>
+<!-- HERO -->
+<section id="hero">
+  <div class="container"><div class="hero-grid">
+    <div class="hero-content">
+      <div class="hero-pill reveal"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>DPIIT Registered &middot; RBI Compliant &middot; Telangana Chit Funds Act</div>
+      <h1 class="h1 reveal">Save Together,<br><em>Win Together</em></h1>
+      <p class="hero-sub reveal">India's most transparent digital chit fund. Join 12,500+ members earning up to &#8377;80,000 in dividends every year &mdash; fully online, fully safe.</p>
+      <div class="hero-btns reveal"><a href="/register" class="btn btn-gold">Start Saving Today</a><a href="#how" class="btn btn-out">See How It Works</a></div>
+      <div class="hero-trust reveal">
+        <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>RBI Compliant</span>
+        <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Instant KYC</span>
+        <span class="ht"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>Bank-grade Security</span>
+      </div>
+    </div>
+    <div class="hero-visual reveal">
+      <div class="phone"><div class="phone-inner">
+        <div class="ph-bar"><div class="ph-row"><span class="ph-name">Good Morning, Ravi &#128075;</span></div><div class="ph-amt">&#8377;3,24,500</div><div class="ph-lbl">Total Chit Portfolio Value</div></div>
+        <div class="ph-card"><div class="ph-cr"><span class="ph-cl">Gold Group A &middot; &#8377;5L Chit</span><span class="ph-cv" style="color:#27AE60">Active</span></div><div class="ph-cr"><span class="ph-cl">Monthly: &#8377;5,000</span><span class="ph-cv">Month 8/24</span></div></div>
+        <div class="ph-auct"><div class="ph-at">&#9200; LIVE AUCTION &mdash; Silver Group B</div><div class="ph-av">Current Prize: &#8377;1,82,000</div><div class="ph-tr"><span class="ph-tl">Closes in:</span><span class="ph-tv" id="heroTimer">04:32</span></div></div>
+        <div class="ph-notif"><div class="ph-nd"></div><div class="ph-nt">&#10003; Dividend &#8377;1,200 credited to your bank!</div></div>
+      </div></div>
+    </div>
+  </div></div>
+</section>
+<!-- STATS -->
+<section id="stats">
+  <div class="stats-band">
+    <div class="stat-box reveal"><div class="sn" data-target="12500">0</div><div class="sl">Happy Members</div></div>
+    <div class="stat-box reveal"><div class="sn" data-target="485">0</div><div class="sl">Crores Disbursed</div></div>
+    <div class="stat-box reveal"><div class="sn" data-target="24">0</div><div class="sl">Active Schemes</div></div>
+    <div class="stat-box reveal"><div class="sn" data-target="6">0</div><div class="sl">Years of Trust</div></div>
+  </div>
+</section>
+<!-- HOW IT WORKS -->
+<section id="how">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">Simple 3-Step Process</div><h2 class="h2">From Sign-Up to First Dividend</h2><p class="sub">No branch visits. No paperwork. Just your phone and 5 minutes.</p></div>
+    <div class="steps">
+      <div class="step reveal"><div class="sn-badge">1</div><div class="s-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div><div class="s-title">Verify Your Identity</div><p class="s-desc">Complete e-KYC with PAN + DigiLocker in under 5 minutes. 100% digital &mdash; no branch visit or physical documents required.</p></div>
+      <div class="step reveal"><div class="sn-badge">2</div><div class="s-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="s-title">Pick Your Chit Group</div><p class="s-desc">Browse open chit groups with available seats. See tickets, instalment amount, chit value, start date and area &mdash; filter just like online shopping.</p></div>
+      <div class="step reveal"><div class="sn-badge">3</div><div class="s-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><div class="s-title">Bid, Win &amp; Get Paid</div><p class="s-desc">Join live transparent auctions each month. The lowest bidder wins the prize pot &mdash; everyone else earns a dividend. Payouts hit your bank automatically.</p></div>
+    </div>
+  </div>
+</section>
+<!-- INCOME FINDER -->
+<section id="finder">
+  <div class="container"><div class="finder-inner">
+    <div class="reveal"><div class="tag" style="color:#F5A623">Smart Chit Matcher</div><h2 class="h2 h2-w">Find the Right Chit for Your Income</h2><p class="sub sub-w">Tell us your monthly income and goal &mdash; we'll match you to the perfect scheme instantly.</p></div>
+    <div class="finder-form reveal">
+      <div class="f-row">
+        <div><div class="f-lbl">Monthly Income</div><select class="f-inp" id="finIncome"><option value="">Select range</option><option value="10000">&#8377;10,000 &ndash; &#8377;15,000</option><option value="25000">&#8377;15,000 &ndash; &#8377;25,000</option><option value="50000">&#8377;25,000 &ndash; &#8377;50,000</option><option value="100000">&#8377;50,000 &ndash; &#8377;1 Lakh</option><option value="200000">&#8377;1 Lakh+</option></select></div>
+        <div><div class="f-lbl">Savings Goal</div><select class="f-inp" id="finGoal"><option value="">Select goal</option><option value="education">Child's Education</option><option value="home">Home Purchase</option><option value="wedding">Wedding</option><option value="business">Business Capital</option><option value="emergency">Emergency Fund</option><option value="grow">Grow Savings</option></select></div>
+      </div>
+      <div class="f-row">
+        <div><div class="f-lbl">Preferred Duration</div><select class="f-inp" id="finDuration"><option value="">Any duration</option><option value="12">12 months</option><option value="20">20 months</option><option value="24">24 months</option><option value="30">30 months</option></select></div>
+        <div><div class="f-lbl">Your City / Area</div><select class="f-inp" id="finCity"><option value="">All areas</option><option value="hyderabad">Hyderabad</option><option value="warangal">Warangal</option><option value="karimnagar">Karimnagar</option><option value="nizamabad">Nizamabad</option></select></div>
+      </div>
+      <button class="btn btn-gold" style="width:100%;justify-content:center;border-radius:12px;font-size:1rem" onclick="findChits()">&#128269; Find My Chit Plan</button>
+      <div class="f-res" id="finResult">
+        <div class="f-res-title">&#9989; Recommended Chit Plans for You:</div>
+        <div class="f-cards" id="finCards"></div>
+        <div style="margin-top:16px;text-align:center"><a href="/register" class="btn btn-gold" style="font-size:.85rem;padding:11px 26px">Join Any of These &rarr;</a></div>
+      </div>
+    </div>
+  </div></div>
+</section>
+<!-- APP FEATURES -->
+<section id="app-features">
+  <div class="container"><div class="feat-grid">
+    <div class="feat-content reveal">
+      <div class="tag">Mobile App</div>
+      <h2 class="h2">Everything You Need in Your Pocket</h2>
+      <div class="feat-list" style="margin-top:24px">
+        <div class="fi"><div class="fi-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></div><div><div class="fi-t">Instant Enrolment</div><div class="fi-d">Pick a chit group, pay online, get enrolled in under 5 minutes.</div></div></div>
+        <div class="fi"><div class="fi-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="fi-t">Live Auction Bidding</div><div class="fi-d">Participate in monthly auctions from anywhere. Real-time countdown and bids.</div></div></div>
+        <div class="fi"><div class="fi-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div><div class="fi-t">Dividend Tracker</div><div class="fi-d">See your monthly dividends, payout history and projected earnings at a glance.</div></div></div>
+        <div class="fi"><div class="fi-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg></div><div><div class="fi-t">Auto-Pay &amp; Reminders</div><div class="fi-d">Set up auto-debit for your monthly instalment. Never miss a payment.</div></div></div>
+      </div>
+      <div class="app-btns">
+        <a href="#" class="app-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.32.07 2.22.74 3.12.7.42-.08 1.71-.82 3.2-.7.58.05 2.19.23 3.24 1.61-.09.06-1.93 1.13-1.91 3.36.02 2.67 2.34 3.56 2.35 3.56s-.78 2.17-2.48 4.35zM13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg><div><div class="app-btn-sub">Download on the</div><div class="app-btn-name">App Store</div></div></a>
+        <a href="#" class="app-btn"><svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3.18 23.5c.32.18.69.18 1.01 0l10.94-6.17-2.37-2.42L3.18 23.5zm17.49-11.04L17.9 10.9l-2.68 2.56 2.68 2.56 2.81-1.59a1.38 1.38 0 0 0 0-2.57zM4.19.5A1 1 0 0 0 3 1.5v21l9.76-9.76L4.19.5zm8.17 9.4l2.37-2.42L4.19.5l8.17 9.4z"/></svg><div><div class="app-btn-sub">Get it on</div><div class="app-btn-name">Google Play</div></div></a>
+      </div>
+    </div>
+    <div class="reveal" style="display:flex;justify-content:center">
+      <div class="phone" style="width:240px"><div class="phone-inner" style="min-height:460px;padding:14px">
+        <div style="background:var(--navy);border-radius:12px;padding:14px;margin-bottom:10px;color:#fff"><div style="font-size:.65rem;opacity:.6;margin-bottom:4px">Portfolio Overview</div><div style="font-family:'Poppins',sans-serif;font-size:1.2rem;font-weight:800;color:#F5A623">&#8377;8,24,000</div><div style="font-size:.6rem;opacity:.5">Total across 3 active chits</div></div>
+        <div style="background:var(--bg);border-radius:12px;padding:12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="font-size:.65rem;color:var(--text-lt)">Gold Group A</span><span style="font-size:.65rem;font-weight:700;color:#27AE60">Active</span></div><div style="display:flex;justify-content:space-between"><span style="font-size:.7rem;font-weight:700;color:var(--navy)">&#8377;5,00,000 Chit</span><span style="font-size:.65rem;color:var(--text-lt)">Month 8/24</span></div></div>
+        <div style="background:#fff3cd;border-radius:12px;padding:12px;margin-bottom:8px;border-left:3px solid #F5A623"><div style="font-size:.65rem;font-weight:700;color:#c27a00">&#128276; Auction Tomorrow!</div><div style="font-size:.62rem;color:var(--text-lt);margin-top:3px">Silver Group B &middot; 10:00 AM</div></div>
+        <div style="background:rgba(39,174,96,.1);border-radius:12px;padding:12px;border-left:3px solid #27AE60"><div style="font-size:.65rem;font-weight:700;color:var(--green)">&#10003; Dividend Credited</div><div style="font-family:'Poppins',sans-serif;font-size:1rem;font-weight:900;color:var(--navy)">+&#8377;1,850</div><div style="font-size:.6rem;color:var(--text-lt)">May 2025 &middot; Gold Group A</div></div>
+      </div></div>
+    </div>
+  </div></div>
+</section>
+<!-- LIVE AUCTION -->
+<section id="auction">
+  <div class="container"><div class="auc-grid">
+    <div class="reveal">
+      <div class="tag" style="color:rgba(255,255,255,.5)">Live Auctions</div>
+      <h2 class="h2 h2-w">Every Month, a Fair &amp;<br>Transparent Auction</h2>
+      <p class="sub sub-w">No fixed winner. No bias. The member who accepts the lowest discount gets the prize pot. Everyone else earns a dividend.</p>
+      <div class="chips">
+        <span class="chip">&#128250; Live video streaming</span><span class="chip">&#9200; Real-time countdown</span><span class="chip">&#128241; Bid from mobile</span><span class="chip">&#9989; Court-registered minutes</span>
+      </div>
+      <div style="margin-top:28px"><a href="/login" class="btn btn-gold">Watch a Live Auction</a></div>
+    </div>
+    <div class="reveal">
+      <div class="auc-mock">
+        <div class="am-hdr"><div><div class="am-g">&#128308; LIVE &mdash; Silver Group B</div><div class="am-v">&#8377;1,00,000 Chit</div></div><div class="am-timer"><div class="am-tl">Closes in</div><div class="am-tv" id="auctionTimer">14:22</div></div></div>
+        <div class="am-stats"><div class="am-s"><div class="am-sv">18</div><div class="am-sl">Total Members</div></div><div class="am-s"><div class="am-sv">&#8377;86,000</div><div class="am-sl">Current Bid</div></div><div class="am-s"><div class="am-sv">&#8377;14,000</div><div class="am-sl">Discount</div></div><div class="am-s"><div class="am-sv">&#8377;778</div><div class="am-sl">Your Dividend</div></div></div>
+        <div class="am-hist"><div class="am-hl">Recent Bids</div>
+          <div class="am-bid"><span class="am-bn">Member #12</span><span class="am-bv">&#8377;86,000</span><span class="am-bt">14:42:18</span></div>
+          <div class="am-bid"><span class="am-bn">Member #7</span><span class="am-bv">&#8377;88,000</span><span class="am-bt">14:41:55</span></div>
+          <div class="am-bid"><span class="am-bn">Member #3</span><span class="am-bv">&#8377;90,000</span><span class="am-bt">14:41:30</span></div>
+        </div>
+        <button class="am-cta">Place Your Bid</button>
+      </div>
+    </div>
+  </div></div>
+</section>
+<!-- WHY ASSURE -->
+<section id="trust">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">Why Assure?</div><h2 class="h2">Built for Trust. Built for India.</h2><p class="sub">Everything you'd want in a chit fund &mdash; transparency, digital-first, regulated, and fair.</p></div>
+    <div class="trust-grid">
+      <div class="tc reveal"><div class="tc-ico" style="background:rgba(39,174,96,.12)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#27AE60" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><h3>Government Registered</h3><p>Registered under Telangana Chit Funds Act, 1971. Annual audit reports published online for complete transparency.</p></div></div>
+      <div class="tc reveal"><div class="tc-ico" style="background:rgba(245,166,35,.12)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div><h3>100% Transparent Auctions</h3><p>Every auction recorded and uploaded. Court-registered chit minutes. No secret deals or pre-arranged winners.</p></div></div>
+      <div class="tc reveal"><div class="tc-ico" style="background:rgba(10,31,68,.08)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0A1F44" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div><h3>Bank-grade Security</h3><p>256-bit SSL, 2FA authentication, SBI-powered payment rails. Your money and data are always protected.</p></div></div>
+      <div class="tc reveal"><div class="tc-ico" style="background:rgba(245,166,35,.12)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#F5A623" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div><h3>Instant Digital Payouts</h3><p>Win the auction? Amount hits your bank same day via NEFT/IMPS. Dividends auto-credited to all others.</p></div></div>
+    </div>
+  </div>
+</section>
+<!-- SCHEMES CAROUSEL -->
+<section id="schemes">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">Chit Schemes</div><h2 class="h2">Plans for Every Budget</h2><p class="sub">From small savers to big investors &mdash; there's an Assure scheme for your goals.</p></div>
+    <div class="sch-carousel reveal">
+      <div class="sch-track" id="schTrack">
+        <div class="sc"><div class="sc-badge bo">&#128200; For New Savers</div><div class="sc-val">&#8377;25,000</div><div class="sc-lbl">Starter Chit &mdash; 10 months</div><div class="sc-rows"><div class="sc-row"><span>Monthly Instalment</span><span>&#8377;2,500</span></div><div class="sc-row"><span>Members</span><span>10</span></div></div><a href="/register" class="sc-cta">Join This Group</a></div>
+        <div class="sc" style="border:2px solid var(--gold);position:relative"><div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--gold);color:var(--navy-dark);font-size:.72rem;font-weight:800;padding:4px 14px;border-radius:50px;white-space:nowrap">&#127775; Most Popular</div><div class="sc-badge bf">&#128181; Best Value</div><div class="sc-val">&#8377;2,00,000</div><div class="sc-lbl">Gold Chit &mdash; 20 months</div><div class="sc-rows"><div class="sc-row"><span>Monthly Instalment</span><span>&#8377;2,000</span></div><div class="sc-row"><span>Members</span><span>20</span></div></div><a href="/register" class="sc-cta">Join This Group</a></div>
+        <div class="sc" style="border:2px solid var(--green);position:relative"><div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--green);color:var(--w);font-size:.72rem;font-weight:800;padding:4px 14px;border-radius:50px;white-space:nowrap">&#128302; Premium Pick</div><div class="sc-badge bo">&#128640; For High Earners</div><div class="sc-val">&#8377;5,00,000</div><div class="sc-lbl">Diamond Chit &mdash; 24 months</div><div class="sc-rows"><div class="sc-row"><span>Monthly Instalment</span><span>&#8377;5,000</span></div><div class="sc-row"><span>Members</span><span>24</span></div></div><a href="/register" class="sc-cta">Join This Group</a></div>
+        <div class="sc"><div class="sc-badge bo">&#127968; Home Dream Fund</div><div class="sc-val">&#8377;10,00,000</div><div class="sc-lbl">Platinum Chit &mdash; 24 months</div><div class="sc-rows"><div class="sc-row"><span>Monthly Instalment</span><span>&#8377;10,000</span></div><div class="sc-row"><span>Members</span><span>24</span></div></div><a href="/register" class="sc-cta">Join This Group</a></div>
+        <div class="sc"><div class="sc-badge bo">&#128217; 1 Lakh Special</div><div class="sc-val">&#8377;1,00,000</div><div class="sc-lbl">Silver Chit &mdash; 12 months</div><div class="sc-rows"><div class="sc-row"><span>Monthly Instalment</span><span>&#8377;1,000</span></div><div class="sc-row"><span>Members</span><span>12</span></div></div><a href="/register" class="sc-cta">Join This Group</a></div>
+        <div class="sc"><div class="sc-badge bf">&#127891; Education Fund</div><div class="sc-val">&#8377;3,00,000</div><div class="sc-lbl">Scholar Chit &mdash; 30 months</div><div class="sc-rows"><div class="sc-row"><span>Monthly Instalment</span><span>&#8377;2,000</span></div><div class="sc-row"><span>Members</span><span>30</span></div></div><a href="/register" class="sc-cta">Join This Group</a></div>
+      </div>
+    </div>
+    <div class="sch-nav"><button class="scbtn" id="schPrev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button><button class="scbtn" id="schNext"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+  </div>
+</section>
+<!-- CALCULATOR -->
+<section id="calculator">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">Chit Calculators</div><h2 class="h2">Know Your Earnings Before You Join</h2><p class="sub">Use our calculators to plan your chit fund investment smartly.</p></div>
+    <div class="calc-tabs reveal"><button class="ctab active" onclick="switchCalc('dividend')">Dividend Calculator</button><button class="ctab" onclick="switchCalc('chitval')">Chit Value Planner</button><button class="ctab" onclick="switchCalc('compare')">FD vs Chit Fund</button></div>
+    <div class="calc-box active reveal" id="calc-dividend">
+      <div class="calc-row"><div class="c-field"><label class="c-lbl">Chit Value (&#8377;)</label><input class="c-inp" id="cd-chitval" type="number" value="500000" placeholder="e.g. 500000"/></div><div class="c-field"><label class="c-lbl">No. of Members</label><input class="c-inp" id="cd-members" type="number" value="24" placeholder="e.g. 24"/></div><div class="c-field"><label class="c-lbl">Duration (months)</label><input class="c-inp" id="cd-months" type="number" value="24" placeholder="e.g. 24"/></div><div class="c-field"><label class="c-lbl">Avg Winning Bid (%)</label><input class="c-inp" id="cd-bid" type="number" value="30" placeholder="e.g. 30"/></div></div>
+      <button class="c-btn" onclick="calcDividend()">Calculate My Dividend</button>
+      <div class="c-result" id="res-dividend"><div class="c-res-grid"><div class="c-res-item"><div class="c-res-v" id="cd-monthly">&#8212;</div><div class="c-res-l">Monthly Instalment</div></div><div class="c-res-item"><div class="c-res-v" id="cd-div">&#8212;</div><div class="c-res-l">Avg Monthly Dividend</div></div><div class="c-res-item"><div class="c-res-v" id="cd-total">&#8212;</div><div class="c-res-l">Total Dividend Earned</div></div></div><p style="font-size:.75rem;color:var(--text-lt);margin-top:14px;text-align:center">*Estimates based on average auction patterns. Actual results may vary.</p></div>
+    </div>
+    <div class="calc-box" id="calc-chitval">
+      <div class="calc-row"><div class="c-field"><label class="c-lbl">Monthly Savings (&#8377;)</label><input class="c-inp" id="cv-monthly" type="number" value="5000" placeholder="e.g. 5000"/></div><div class="c-field"><label class="c-lbl">Duration (months)</label><select class="c-inp" id="cv-months"><option value="12">12 months</option><option value="20" selected>20 months</option><option value="24">24 months</option><option value="30">30 months</option></select></div></div>
+      <button class="c-btn" onclick="calcChitVal()">Find My Chit Value</button>
+      <div class="c-result" id="res-chitval"><div class="c-res-grid"><div class="c-res-item"><div class="c-res-v" id="cvv-chit">&#8212;</div><div class="c-res-l">Ideal Chit Value</div></div><div class="c-res-item"><div class="c-res-v" id="cvv-prize">&#8212;</div><div class="c-res-l">Max Prize Pot</div></div><div class="c-res-item"><div class="c-res-v" id="cvv-div">&#8212;</div><div class="c-res-l">Est. Dividend/Month</div></div></div></div>
+    </div>
+    <div class="calc-box" id="calc-compare">
+      <div class="calc-row"><div class="c-field"><label class="c-lbl">Investment Amount (&#8377;)</label><input class="c-inp" id="cmp-amt" type="number" value="100000" placeholder="e.g. 100000"/></div><div class="c-field"><label class="c-lbl">Duration (months)</label><input class="c-inp" id="cmp-months" type="number" value="24" placeholder="e.g. 24"/></div></div>
+      <button class="c-btn" onclick="calcCompare()">Compare Returns</button>
+      <div class="c-result" id="res-compare"><div class="c-res-grid"><div class="c-res-item"><div class="c-res-v" id="cmp-fd">&#8212;</div><div class="c-res-l">FD Returns (6.5% p.a.)</div></div><div class="c-res-item"><div class="c-res-v" id="cmp-chit">&#8212;</div><div class="c-res-l">Chit Returns (10% p.a.)</div></div><div class="c-res-item"><div class="c-res-v" id="cmp-diff">&#8212;</div><div class="c-res-l">Extra Earnings with Chit</div></div></div><p style="font-size:.75rem;color:var(--text-lt);margin-top:14px;text-align:center">*Based on estimated 8-12% effective annual returns from chit dividends.</p></div>
+    </div>
+  </div>
+</section>
+<!-- TESTIMONIALS -->
+<section id="testi">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">Member Stories</div><h2 class="h2">Loved by 12,500+ Members Across Telangana</h2><p class="sub">Real people. Real savings. Real results.</p></div>
+    <div class="testi-wrap reveal"><div class="testi-track" id="testiTrack">
+      <div class="tcard"><div class="t-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p class="t-q">"I joined the &#8377;2 lakh Gold scheme 18 months ago. Won the auction in month 6 and used it to pay off my car loan. Still earning dividends every month!"</p><div class="t-auth"><div class="t-av">RK</div><div><div class="t-name">Ramesh Kumar</div><div class="t-city">Hyderabad &middot; Gold Member 18 months</div></div></div></div>
+      <div class="tcard"><div class="t-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p class="t-q">"So much better than an FD! My &#8377;5 lakh Diamond chit pays me &#8377;4,200 every month just as dividend. And the app makes everything so transparent."</p><div class="t-auth"><div class="t-av">SP</div><div><div class="t-name">Sunitha Patel</div><div class="t-city">Warangal &middot; Diamond Member 22 months</div></div></div></div>
+      <div class="tcard"><div class="t-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p class="t-q">"Started with the &#8377;25,000 Starter plan. Now I'm in three chit groups. The live auction feature is amazing &mdash; I bid from my office and won!"</p><div class="t-auth"><div class="t-av">MR</div><div><div class="t-name">Mohammed Rafi</div><div class="t-city">Karimnagar &middot; Multi-Group Member</div></div></div></div>
+      <div class="tcard"><div class="t-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div><p class="t-q">"As a teacher, I save &#8377;2,000 every month. The &#8377;2 lakh Gold chit helped me fund my daughter's engineering admission. Thank you Assure!"</p><div class="t-auth"><div class="t-av">LN</div><div><div class="t-name">Lakshmi Narayana</div><div class="t-city">Nizamabad &middot; Scholar Chit Member</div></div></div></div>
+    </div></div>
+    <div class="tctl"><button class="tbn" id="testiPrev"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg></button><button class="tbn" id="testiNext"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></button></div>
+    <div class="av-stack"><div class="av">RK</div><div class="av">SP</div><div class="av">MR</div><div class="av">LN</div><div class="av">+</div><span class="av-txt">12,496 more happy members</span></div>
+  </div>
+</section>
+<!-- REFER & EARN -->
+<section id="refer">
+  <div class="container"><div class="ref-grid">
+    <div class="reveal"><div class="ref-h2">Refer a Friend, Save on Your Next Chit!</div><p class="ref-p">Share your referral link or code with a friend. When they join any chit group and pay their first instalment, &#8377;100 is automatically deducted from your next month's chit payment &mdash; every referral, no limit.</p><a href="/refer" class="btn btn-gold">Get My Referral Link</a></div>
+    <div class="reveal">
+      <div class="ref-flow">
+        <div class="rf"><div class="rf-icon">&#128279;</div><div class="rf-lbl">Share Your Link or Code</div></div>
+        <div class="rf-arr">&#8594;</div>
+        <div class="rf"><div class="rf-icon">&#128101;</div><div class="rf-lbl">Friend Joins &amp; Pays First Chit</div></div>
+        <div class="rf-arr">&#8594;</div>
+        <div class="rf"><div class="rf-icon">&#128176;</div><div class="rf-lbl">&#8377;100 Off Your Next Month</div></div>
+      </div>
+      <div style="margin-top:16px;padding:16px;background:rgba(255,255,255,.1);border-radius:12px;display:flex;align-items:center;gap:12px"><span style="font-size:1.5rem">&#127942;</span><div style="font-size:.84rem;color:rgba(255,255,255,.9);line-height:1.55"><strong>Refer more, save more every month!</strong><br>Every successful referral gives you &#8377;100 off your next instalment &mdash; automatically deducted at month end.</div></div>
+    </div>
+  </div></div>
+</section>
+<!-- SECURITY & ELIGIBILITY -->
+<section id="security">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">Security &amp; Eligibility</div><h2 class="h2">Who Can Join &amp; What's Required</h2><p class="sub">Clear criteria so you know exactly what to expect before applying.</p></div>
+    <div class="sec2col reveal">
+      <div class="sec-panel"><h3>&#9989; Eligibility Criteria</h3><div class="sec-items">
+        <div class="sec-item"><div class="sec-ico ico-ok">&#10003;</div>Indian citizen aged 18&ndash;65 years</div>
+        <div class="sec-item"><div class="sec-ico ico-ok">&#10003;</div>Valid PAN card &amp; Aadhaar (DigiLocker)</div>
+        <div class="sec-item"><div class="sec-ico ico-ok">&#10003;</div>Active bank account (any nationalized bank)</div>
+        <div class="sec-item"><div class="sec-ico ico-ok">&#10003;</div>Stable income source (salaried or self-employed)</div>
+        <div class="sec-item"><div class="sec-ico ico-ok">&#10003;</div>No active loan defaults in last 24 months</div>
+        <div class="sec-item"><div class="sec-ico ico-ok">&#10003;</div>CIBIL score 650+ preferred (not mandatory)</div>
+        <div class="sec-item"><div class="sec-ico ico-ok">&#10003;</div>Minimum monthly income: &#8377;10,000</div>
+      </div></div>
+      <div class="sec-panel"><h3>&#128274; Security &amp; Compliance</h3><div class="sec-items">
+        <div class="sec-item"><div class="sec-ico ico-sh">&#128737;</div>Registered under Telangana Chit Funds Act, 1971</div>
+        <div class="sec-item"><div class="sec-ico ico-sh">&#128737;</div>DPIIT Startup India recognized company</div>
+        <div class="sec-item"><div class="sec-ico ico-sh">&#128737;</div>256-bit SSL encryption on all transactions</div>
+        <div class="sec-item"><div class="sec-ico ico-sh">&#128737;</div>2-Factor Authentication (OTP + App PIN)</div>
+        <div class="sec-item"><div class="sec-ico ico-sh">&#128737;</div>SBI-powered escrow accounts for fund safety</div>
+        <div class="sec-item"><div class="sec-ico ico-sh">&#128737;</div>Monthly audited financial statements published</div>
+        <div class="sec-item"><div class="sec-ico ico-sh">&#128737;</div>RBI-compliant KYC and AML norms followed</div>
+      </div></div>
+    </div>
+  </div>
+</section>
+<!-- SUPPORT TICKET -->
+<section id="ticket">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">Support Center</div><h2 class="h2">Raise a Query &mdash; We Respond Fast</h2><p class="sub">Our team responds within 2 hours on business days, 24/7 via app chat.</p></div>
+    <div class="tkt-grid reveal">
+      <div class="tkt-form">
+        <div class="tf"><label>Full Name</label><input type="text" placeholder="e.g. Ramesh Kumar"/></div>
+        <div class="tf"><label>Mobile Number</label><input type="tel" placeholder="e.g. 9876543210"/></div>
+        <div class="tf"><label>Query Category</label><select><option>KYC / Enrollment</option><option>Payment Issue</option><option>Auction Query</option><option>Dividend / Payout</option><option>Account Access</option><option>Other</option></select></div>
+        <div class="tf"><label>Describe Your Issue</label><textarea placeholder="Tell us your issue in detail..."></textarea></div>
+        <button class="tkt-btn" onclick="submitTicket(event)">Submit Support Ticket &rarr;</button>
+      </div>
+      <div class="tkt-info">
+        <div style="font-family:'Poppins',sans-serif;font-weight:800;font-size:1.05rem;color:var(--navy);margin-bottom:6px">Other Ways to Reach Us</div>
+        <div class="tkt-ic"><div class="tkt-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div><div><div class="tkt-it">Live Chat (App)</div><div class="tkt-id">Available 9 AM &ndash; 6 PM, Mon&ndash;Sat. Avg response: 8 min.</div></div></div>
+        <div class="tkt-ic"><div class="tkt-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 14a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 3.18L6.6 3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L7.91 10.6a16 16 0 0 0 6 6l.9-.9a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21.27 18z"/></svg></div><div><div class="tkt-it">Toll-Free Helpline</div><div class="tkt-id">1800-XXX-XXXX &middot; Free call &middot; Mon&ndash;Sat, 9 AM&ndash;6 PM</div></div></div>
+        <div class="tkt-ic"><div class="tkt-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></div><div><div class="tkt-it">Email Support</div><div class="tkt-id">support@assure.fund &middot; Response within 4 hours</div></div></div>
+        <div style="background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.25);border-radius:12px;padding:16px"><div style="font-weight:700;color:#c27a00;font-size:.88rem;margin-bottom:5px">&#9889; Average Resolution Time</div><div style="font-size:.83rem;color:var(--text-lt);line-height:1.6">Payment issues: 2 hrs &middot; KYC queries: 4 hrs &middot; Other: 24 hrs</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- FAQ -->
+<section id="faq">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">FAQ</div><h2 class="h2">Frequently Asked Questions</h2><p class="sub">Everything you need to know before you join Assure Chit Funds.</p></div>
+    <div class="faq-list">
+      <div class="fi-item"><div class="fi-q">What is a chit fund and how does it work?<div class="fi-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div><div class="fi-a">A chit fund is a rotating savings &amp; credit scheme. A group of members pool a fixed amount monthly (e.g. 20 members x &#8377;5,000 = &#8377;1 lakh/month). Each month, an auction decides who gets the prize pot. The person who accepts the lowest amount wins the pot. The discount they accept is divided among other members as dividend. The process repeats till every member has received once.</div></div>
+      <div class="fi-item"><div class="fi-q">Is Assure Chit Funds legal and government registered?<div class="fi-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div><div class="fi-a">Yes, absolutely. We are registered under the Telangana Chit Funds Act, 1971 and comply with the Chit Funds Act, 1982 (Central). We are DPIIT Startup India recognised and RBI compliant. Our registration details and annual audit reports are publicly available on our website.</div></div>
+      <div class="fi-item"><div class="fi-q">How much can I earn as dividend per month?<div class="fi-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div><div class="fi-a">Dividend depends on the auction discount. Historically, winning bids in our groups average a 25-35% discount. For a &#8377;5 lakh chit with 24 members, a 30% discount (&#8377;1.5L) divided by 24 = &#8377;6,250 dividend for each member in that month. Use our Dividend Calculator above to estimate your earnings.</div></div>
+      <div class="fi-item"><div class="fi-q">Can I join if I don't have a high CIBIL score?<div class="fi-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div><div class="fi-a">Yes! While we prefer 650+ CIBIL, it is not mandatory for all schemes. Our Starter and Silver chits have relaxed eligibility. Regular participation in our chit fund also helps improve your CIBIL score over time by demonstrating consistent repayment behaviour.</div></div>
+      <div class="fi-item"><div class="fi-q">What happens if I miss a monthly instalment?<div class="fi-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div><div class="fi-a">You have a 5-day grace period after the due date. After that, a nominal late fee applies (as per your chit agreement). If you miss 3 consecutive months, your membership may be suspended. We recommend enabling Auto-Pay in the app to never miss a payment.</div></div>
+      <div class="fi-item"><div class="fi-q">How do I receive my prize money or dividend?<div class="fi-ic"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div></div><div class="fi-a">Prize money (if you win the auction) is transferred to your registered bank account within the same business day via NEFT/IMPS. Monthly dividends are auto-credited to all member accounts within 3 business days of the auction date.</div></div>
+    </div>
+    <div class="faq-link"><a href="#ticket" class="chat-btn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Have a different question? Contact us</a></div>
+  </div>
+</section>
+<!-- DOWNLOAD -->
+<section id="download">
+  <div class="container"><div class="dl-inner">
+    <h2>Download the Assure App</h2>
+    <p>Everything about your chit &mdash; auctions, dividends, payments, support &mdash; in one powerful, secure app. Free download on iOS and Android.</p>
+    <div class="dl-btns">
+      <a href="#" class="dl-btn"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.4c1.32.07 2.22.74 3.12.7.42-.08 1.71-.82 3.2-.7.58.05 2.19.23 3.24 1.61-.09.06-1.93 1.13-1.91 3.36.02 2.67 2.34 3.56 2.35 3.56s-.78 2.17-2.48 4.35zM13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg><div><div class="dl-sub">Download on the</div><div class="dl-name">App Store</div></div></a>
+      <a href="#" class="dl-btn"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3.18 23.5c.32.18.69.18 1.01 0l10.94-6.17-2.37-2.42L3.18 23.5zm17.49-11.04L17.9 10.9l-2.68 2.56 2.68 2.56 2.81-1.59a1.38 1.38 0 0 0 0-2.57zM4.19.5A1 1 0 0 0 3 1.5v21l9.76-9.76L4.19.5zm8.17 9.4l2.37-2.42L4.19.5l8.17 9.4z"/></svg><div><div class="dl-sub">Get it on</div><div class="dl-name">Google Play</div></div></a>
+    </div>
+    <div class="qr"><div class="qr-box">&#128241; QR Code</div><span class="qr-lbl">Scan to download instantly</span></div>
+  </div></div>
+</section>
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div>
+        <a href="/" class="nav-logo" style="gap:10px"><svg width="36" height="36" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="22" fill="#F5A623"/><text x="22" y="29" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="900" font-size="20" fill="#0A1F44">A</text></svg><span style="font-family:'Poppins',sans-serif;font-weight:800;font-size:1.2rem">Assure Chit Funds</span></a>
+        <p class="foot-tagline">India's most transparent digital chit fund. Government registered, RBI compliant, 100% online.</p>
+        <div class="socials">
+          <a href="#" class="soc"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
+          <a href="#" class="soc"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg></a>
+          <a href="#" class="soc"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.27 8.27 0 0 0 4.84 1.55V6.79a4.85 4.85 0 0 1-1.07-.1z"/></svg></a>
+        </div>
+      </div>
+      <div><h4>Quick Links</h4><ul><li><a href="/">Home</a></li><li><a href="#how">How It Works</a></li><li><a href="#schemes">Chit Schemes</a></li><li><a href="#calculator">Calculator</a></li><li><a href="#faq">FAQ</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="/about">About Us</a></li><li><a href="/careers">Careers</a></li><li><a href="/blog">Blog</a></li><li><a href="/press">Press Kit</a></li><li><a href="/refer">Refer &amp; Earn</a></li><li><a href="/contact">Contact Us</a></li></ul></div>
+      <div class="foot-contact"><h4>Contact</h4><p>&#128205; Hyderabad, Telangana, India</p><p>&#128222; 1800-XXX-XXXX (Toll Free)</p><p>&#128231; support@assure.fund</p><p>&#128336; Mon&ndash;Sat, 9 AM &ndash; 6 PM</p><h4 style="margin-top:18px">Legal</h4><ul><li><a href="/privacy">Privacy Policy</a></li><li><a href="/terms">Terms &amp; Conditions</a></li><li><a href="/chit-act">Chit Fund Act</a></li></ul></div>
+    </div>
+    <div class="foot-btm"><p class="foot-copy">&copy; 2025 Assure Chit Funds Pvt. Ltd. All rights reserved. Regulated under Telangana Chit Funds Act, 1971.</p><div class="pgws"><span class="pgw">SSL Secured</span><span class="pgw">RBI Compliant</span><span class="pgw">DPIIT Registered</span><span class="pgw">CIBIL Partner</span></div></div>
+  </div>
+</footer>
+<!-- CHATBOT -->
+<div class="chat-fab" id="chatFab">
+  <div class="chat-win" id="chatWin">
+    <div class="chat-hdr"><div><div class="chat-hname">&#129302; Assure Assistant</div><div class="chat-hsub">Ask me anything about chit funds</div></div><button class="chat-xcl" onclick="document.getElementById('chatWin').classList.remove('open')">&#10005;</button></div>
+    <div class="chat-msgs" id="chatMsgs"><div class="chat-m chat-bot">&#128075; Hi! I'm Assure's assistant. I can help with chit funds, schemes, auctions &amp; more. What would you like to know?</div></div>
+    <div class="chat-quick"><button class="chat-qb" onclick="chatAsk('What is a chit fund?')">What is chit fund?</button><button class="chat-qb" onclick="chatAsk('How to join?')">How to join?</button><button class="chat-qb" onclick="chatAsk('How much can I earn?')">Earnings?</button><button class="chat-qb" onclick="chatAsk('Is it safe?')">Is it safe?</button></div>
+    <div class="chat-inrow"><input class="chat-txt" id="chatInput" placeholder="Type your question..." onkeydown="if(event.key==='Enter')chatSend()"/><button class="chat-send" onclick="chatSend()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button></div>
+  </div>
+  <button class="chat-toggle" onclick="document.getElementById('chatWin').classList.toggle('open')" aria-label="Chat with us"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+</div>
+<script>
+// NAV SCROLL
+window.addEventListener('scroll',()=>{document.getElementById('navbar').classList.toggle('scrolled',window.scrollY>40);},{passive:true});
+
+// REVEAL ON SCROLL
+const ro=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');ro.unobserve(e.target);}});},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+// COUNT UP STATS
+function countUp(el,target,suffix){let start=0;const dur=2000;const step=target/dur*16;const t=setInterval(()=>{start=Math.min(start+step,target);el.textContent=Math.round(start).toLocaleString('en-IN')+(suffix||'');if(start>=target)clearInterval(t);},16);}
+const so=new IntersectionObserver((entries)=>{entries.forEach(e=>{if(e.isIntersecting){const el=e.currentTarget.querySelector('[data-target]');if(el){countUp(el,+el.dataset.target,el.dataset.suffix);delete el.dataset.target;}so.unobserve(e.currentTarget);}});},{threshold:.5});
+document.querySelectorAll('.stat-box').forEach(b=>so.observe(b));
+
+// HERO TIMER
+(function(){let s=4*60+32;const el=document.getElementById('heroTimer');if(!el)return;const t=setInterval(()=>{if(s<=0){clearInterval(t);el.textContent='00:00';return;}s--;const m=Math.floor(s/60),sc=s%60;el.textContent=(m<10?'0':'')+m+':'+(sc<10?'0':'')+sc;},1000);})();
+
+// AUCTION TIMER
+(function(){let s=14*60+22;const el=document.getElementById('auctionTimer');if(!el)return;const t=setInterval(()=>{if(s<=0){clearInterval(t);el.textContent='00:00';return;}s--;const m=Math.floor(s/60),sc=s%60;el.textContent=(m<10?'0':'')+m+':'+(sc<10?'0':'')+sc;},1000);})();
+
+// FAQ ACCORDION
+document.querySelectorAll('.fi-q').forEach(q=>{q.addEventListener('click',()=>{const item=q.parentElement;const isOpen=item.classList.contains('open');document.querySelectorAll('.fi-item.open').forEach(i=>i.classList.remove('open'));if(!isOpen)item.classList.add('open');});});
+
+// TESTIMONIALS CAROUSEL
+(function(){const track=document.getElementById('testiTrack');if(!track)return;let idx=0;function upd(){const w=track.children[0].offsetWidth+24;const max=track.children.length-Math.floor(track.parentElement.offsetWidth/w);idx=Math.max(0,Math.min(idx,max));track.style.transform='translateX(-'+(idx*(w))+'px)';}
+document.getElementById('testiPrev')?.addEventListener('click',()=>{idx=Math.max(0,idx-1);upd();});
+document.getElementById('testiNext')?.addEventListener('click',()=>{idx++;upd();});
+window.addEventListener('resize',upd,{passive:true});})();
+
+// SCHEMES CAROUSEL
+(function(){const track=document.getElementById('schTrack');if(!track)return;let idx=0;
+function upd(){const w=track.children[0].offsetWidth+24;const max=Math.max(0,track.children.length-Math.floor(track.parentElement.offsetWidth/w));idx=Math.max(0,Math.min(idx,max));track.style.transform='translateX(-'+(idx*w)+'px)';}
+document.getElementById('schPrev')?.addEventListener('click',()=>{idx=Math.max(0,idx-1);upd();});
+document.getElementById('schNext')?.addEventListener('click',()=>{idx++;upd();});
+let schAuto=setInterval(()=>{const w=track.children[0].offsetWidth+24;const max=Math.max(0,track.children.length-Math.floor(track.parentElement.offsetWidth/w));if(idx>=max)idx=0;else idx++;upd();},4000);
+track.parentElement.addEventListener('mouseenter',()=>clearInterval(schAuto));
+track.parentElement.addEventListener('mouseleave',()=>{schAuto=setInterval(()=>{const w=track.children[0].offsetWidth+24;const max=Math.max(0,track.children.length-Math.floor(track.parentElement.offsetWidth/w));if(idx>=max)idx=0;else idx++;upd();},4000);});
+window.addEventListener('resize',upd,{passive:true});})();
+
+// INCOME FINDER
+const chitPlans=[
+  {name:'Starter',val:'&#8377;25,000',monthly:'&#8377;2,500',duration:'10 months',min:10000},
+  {name:'Silver',val:'&#8377;1 Lakh',monthly:'&#8377;1,000',duration:'12 months',min:10000},
+  {name:'Gold',val:'&#8377;2 Lakh',monthly:'&#8377;2,000',duration:'20 months',min:15000},
+  {name:'Diamond',val:'&#8377;5 Lakh',monthly:'&#8377;5,000',duration:'24 months',min:25000},
+  {name:'Platinum',val:'&#8377;10 Lakh',monthly:'&#8377;10,000',duration:'24 months',min:50000},
+];
+function findChits(){
+  const inc=parseInt(document.getElementById('finIncome').value)||0;
+  const res=document.getElementById('finResult');
+  const cards=document.getElementById('finCards');
+  const matched=chitPlans.filter(p=>inc===0||p.min<=inc).slice(0,3);
+  if(matched.length===0||inc===0){res.innerHTML='<p style="color:rgba(255,255,255,.6);padding:10px">Please select your monthly income range above.</p>';res.classList.add('show');return;}
+  cards.innerHTML=matched.map(p=>'<div class="f-card"><div class="f-cv">'+p.val+'</div><div class="f-cl">'+p.name+' Plan</div><div class="f-cl" style="margin-top:5px">'+p.monthly+'/month</div><div class="f-cl">'+p.duration+'</div></div>').join('');
+  res.classList.add('show');
+}
+
+// CALCULATOR
+function fmt(n){return'&#8377;'+Math.round(n).toLocaleString('en-IN');}
+function switchCalc(t){
+  document.querySelectorAll('.calc-box').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.ctab').forEach((b,i)=>{b.classList.toggle('active',['dividend','chitval','compare'][i]===t);});
+  document.getElementById('calc-'+t).classList.add('active');
+}
+function calcDividend(){
+  const cv=+document.getElementById('cd-chitval').value||500000;
+  const m=+document.getElementById('cd-members').value||24;
+  const mo=+document.getElementById('cd-months').value||24;
+  const bid=+document.getElementById('cd-bid').value||30;
+  const monthly=cv/m;
+  const disc=(bid/100)*cv;
+  const div=disc/m;
+  document.getElementById('cd-monthly').innerHTML=fmt(monthly);
+  document.getElementById('cd-div').innerHTML=fmt(div);
+  document.getElementById('cd-total').innerHTML=fmt(div*mo);
+  document.getElementById('res-dividend').classList.add('show');
+}
+function calcChitVal(){
+  const mo=+document.getElementById('cv-monthly').value||5000;
+  const months=+document.getElementById('cv-months').value||20;
+  const chitVal=mo*months;
+  document.getElementById('cvv-chit').innerHTML=fmt(chitVal);
+  document.getElementById('cvv-prize').innerHTML=fmt(chitVal);
+  document.getElementById('cvv-div').innerHTML=fmt(chitVal*0.3/months)+'/mo';
+  document.getElementById('res-chitval').classList.add('show');
+}
+function calcCompare(){
+  const amt=+document.getElementById('cmp-amt').value||100000;
+  const months=+document.getElementById('cmp-months').value||24;
+  const fd=amt*(6.5/100)*(months/12);
+  const chit=amt*(10/100)*(months/12);
+  document.getElementById('cmp-fd').innerHTML=fmt(fd);
+  document.getElementById('cmp-chit').innerHTML=fmt(chit);
+  document.getElementById('cmp-diff').innerHTML='+'+fmt(chit-fd);
+  document.getElementById('res-compare').classList.add('show');
+}
+
+// SUPPORT TICKET
+function submitTicket(e){e.preventDefault();const btn=e.target;btn.textContent='Ticket Submitted! We\'ll contact you soon.';btn.style.background='#27AE60';btn.disabled=true;setTimeout(()=>{btn.textContent='Submit Support Ticket \u2192';btn.style.background='';btn.disabled=false;},4000);}
+
+// CHATBOT
+const chatR={'what is a chit fund':'A chit fund is a group savings scheme where members pool money monthly. Each month, the pot is auctioned \u2014 the lowest bidder wins. Others earn a dividend. 100% legal and regulated!','how to join':'Click "Join Free", complete e-KYC with PAN & Aadhaar (5 mins), choose your scheme, and you\'re in!','how much can i earn':'Members earn \u20b9600\u2013\u20b94,800/month in dividends depending on scheme size. Use our calculator above for exact figures!','is it safe':'100% safe! We\'re registered under Telangana Chit Funds Act, DPIIT recognized, and use SBI-powered payment infrastructure with 256-bit SSL.','earnings':'Dividends range from \u20b9600\u2013\u20b94,800/month based on your scheme. Use our Dividend Calculator for precise estimates!','default':'Great question! For detailed help, call 1800-XXX-XXXX or email support@assure.fund. You can also raise a support ticket above!'};
+function chatAsk(q){const inp=document.getElementById('chatInput');if(inp)inp.value=q;chatSend();}
+function chatSend(){
+  const inp=document.getElementById('chatInput');
+  const msgs=document.getElementById('chatMsgs');
+  if(!inp||!msgs)return;
+  const q=inp.value.trim();if(!q)return;
+  msgs.innerHTML+='<div class="chat-m chat-user">'+q+'</div>';
+  inp.value='';
+  const key=Object.keys(chatR).find(k=>q.toLowerCase().includes(k))||'default';
+  setTimeout(()=>{msgs.innerHTML+='<div class="chat-m chat-bot">'+chatR[key]+'</div>';msgs.scrollTop=msgs.scrollHeight;},600);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+</script>
+</body>
+</html>
