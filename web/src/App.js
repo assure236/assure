@@ -13,7 +13,6 @@ import { AuthProvider } from './context/AuthContext';
 
 // Eagerly loaded (always needed on first paint)
 import Login from './pages/Auth/Login';
-import Landing from './pages/Landing/Landing';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout/Layout';
 
@@ -108,7 +107,7 @@ function App() {
           <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<Landing />} />
+            <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/chit-education" element={<ChitEducation />} />
