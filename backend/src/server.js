@@ -7,6 +7,7 @@ const http = require('http');
 const socketIO = require('socket.io');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
+const mongoSanitize = require('express-mongo-sanitize');
 
 const logger = require('./utils/logger');
 const { connectDB } = require('./config/database');
@@ -77,6 +78,11 @@ app.use('/api/v1/auth/send-otp', authLimiter);
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// ─── Security: NoSQL injection sanitization ──────────────────────────────────
+app.use(mongoSanitize({ replaceWith: '_', onSanitize: ({ req, key }) => {
+  logger.warn(`[Security] Sanitized NoSQL injection attempt in ${key} from ${req.ip}`);
+}}));
 
 // ─── Logging: Skip health checks, reduce noise in production ────────────────
 app.use(morgan('combined', {
