@@ -1,0 +1,187 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="description" content="Assure Chit Fund schemes — Starter, Silver, Gold, Diamond, Platinum, Scholar. Find the perfect chit plan for your budget."/>
+<title>Chit Schemes — Assure Chit Funds</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/css/main.css"/>
+</head>
+<body>
+<div class="mobile-menu" id="mobileMenu">
+  <button onclick="document.getElementById('mobileMenu').classList.remove('open')" style="position:absolute;top:24px;right:24px;background:none;border:none;cursor:pointer;color:rgba(255,255,255,.8);padding:8px"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+  <a href="/">Home</a><a href="/about/">About Us</a><a href="/schemes/">Schemes</a><a href="/auction/">Live Auction</a><a href="/calculator/">Calculator</a><a href="/faq/">FAQ &amp; Contact</a><a href="/refer/">Refer &amp; Earn</a>
+  <a href="/login" class="btn btn-gold">Login</a><a href="/register" class="btn btn-out" style="border-color:rgba(255,255,255,.5);color:#fff">Register Free</a>
+</div>
+<nav id="navbar" class="nav-solid">
+  <div class="container"><div class="nav-inner">
+    <a href="/" class="nav-logo"><img src="/build/logo.png" alt="Assure" class="nav-logo-img"><span>Assure <span style="font-weight:400;opacity:.55">ChitFunds</span></span></a>
+    <ul class="nav-links">
+      <li class="nav-item"><a href="/">Home</a></li>
+      <li class="nav-item"><a href="/about/">About Us <span class="nav-dd-arr">&#9660;</span></a><div class="nav-dropdown"><a href="/about/">&#127968; Our Story</a><a href="/about/#trust">&#9989; Why Assure?</a><a href="/about/#testi">&#128172; Testimonials</a><div class="nav-drop-sep"></div><a href="/about/#plantation">&#127807; Green Initiative</a></div></li>
+      <li class="nav-item"><a href="/schemes/" class="active">Schemes <span class="nav-dd-arr">&#9660;</span></a><div class="nav-dropdown"><a href="/schemes/">All Schemes</a><div class="nav-drop-sep"></div><a href="/schemes/#starter">Starter &mdash; &#8377;25,000</a><a href="/schemes/#silver">Silver &mdash; &#8377;1 Lakh</a><a href="/schemes/#gold">Gold &mdash; &#8377;2 Lakh</a><a href="/schemes/#diamond">Diamond &mdash; &#8377;5 Lakh</a><a href="/schemes/#platinum">Platinum &mdash; &#8377;10 Lakh</a><a href="/schemes/#scholar">Scholar &mdash; &#8377;3 Lakh</a></div></li>
+      <li class="nav-item"><a href="/auction/">Live Auction</a></li>
+      <li class="nav-item"><a href="/calculator/">Calculator</a></li>
+      <li class="nav-item"><a href="/faq/">Contact <span class="nav-dd-arr">&#9660;</span></a><div class="nav-dropdown"><a href="/faq/">&#10067; FAQ</a><a href="mailto:support@assure.fund">&#128231; Email Support</a><div class="nav-drop-sep"></div><a href="/refer/">&#127381; Refer &amp; Earn</a></div></li>
+    </ul>
+    <div class="nav-ctas">
+      <a href="tel:1800XXXXXXX" class="nav-phone"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.39 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>1800-XXX-XXXX</a>
+      <a href="/login" class="nav-login">Login</a><a href="/register" class="nav-reg">Register Free</a>
+    </div>
+    <button class="hamburger" onclick="document.getElementById('mobileMenu').classList.add('open')" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div></div>
+</nav>
+
+<!-- PAGE HERO -->
+<section class="page-hero">
+  <div class="container"><div class="page-hero-inner">
+    <div class="tag reveal">All Chit Plans</div>
+    <h1 class="h1 h2-w reveal">Choose Your <em>Perfect</em> Scheme</h1>
+    <p class="hero-sub reveal">Six carefully crafted chit plans for every budget — from ₹25,000 starter plans to ₹10 Lakh premium schemes. All transparent, all legal, all digital.</p>
+  </div></div>
+</section>
+
+<!-- INCOME FINDER -->
+<section id="finder" style="padding:80px 0;background:#F8F9FA">
+  <div class="container">
+    <div class="finder-inner">
+      <div class="tag" style="color:var(--navy)">Income Finder</div>
+      <h2 class="h2 reveal">How Much Can You Earn?</h2>
+      <p class="sub reveal">Enter your savings capacity and we'll show you which schemes suit you best.</p>
+      <div class="finder-form reveal">
+        <div class="f-row">
+          <div><div class="f-lbl">Monthly Savings Budget</div><select class="f-inp" id="f-budget"><option value="2500">Up to &#8377;2,500/month</option><option value="5000">Up to &#8377;5,000/month</option><option value="10000">Up to &#8377;10,000/month</option><option value="20000">Up to &#8377;20,000/month</option><option value="50000">&#8377;50,000+/month</option></select></div>
+          <div><div class="f-lbl">Preferred Duration</div><select class="f-inp" id="f-dur"><option value="any">Any Duration</option><option value="12">Up to 12 months</option><option value="24">12–24 months</option></select></div>
+        </div>
+        <button onclick="findChits()" class="btn btn-gold" style="width:100%;justify-content:center;border-radius:10px;padding:14px">&#128202; Find My Best Scheme</button>
+        <div class="f-res" id="f-res"><div class="f-res-title">&#127775; Recommended Plans for You</div><div class="f-cards" id="f-cards"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ALL SCHEMES -->
+<section style="padding:90px 0;background:#fff">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">All Plans</div><h2 class="h2">Pick Your Chit Group</h2><p class="sub">Every plan is legally registered, fully digital, and pays dividends monthly.</p></div>
+    <div class="scheme-grid reveal">
+
+      <div class="sc" id="starter">
+        <div class="sc-plan plan-starter">&#127775; Starter Chit</div>
+        <div class="sc-val">&#8377;25,000</div><div class="sc-dur">10 months &middot; 10 members</div>
+        <div class="sc-badge bo">&#128200; For New Savers</div>
+        <div class="sc-rows">
+          <div class="sc-row"><span>Monthly Instalment</span><span>&#8377;2,500</span></div>
+          <div class="sc-row"><span>Monthly Dividend</span><span>&#8377;200–500</span></div>
+          <div class="sc-row"><span>Max Prize Pot</span><span>&#8377;25,000</span></div>
+          <div class="sc-row"><span>Min Bid</span><span>&#8377;10,000</span></div>
+        </div>
+        <a href="/register" class="sc-cta">Join Starter Group</a>
+      </div>
+
+      <div class="sc" id="silver">
+        <div class="sc-plan plan-silver">&#129523; Silver Chit</div>
+        <div class="sc-val">&#8377;1,00,000</div><div class="sc-dur">12 months &middot; 12 members</div>
+        <div class="sc-badge bo">&#128176; Steady Returns</div>
+        <div class="sc-rows">
+          <div class="sc-row"><span>Monthly Instalment</span><span>&#8377;1,000</span></div>
+          <div class="sc-row"><span>Monthly Dividend</span><span>&#8377;800–1,200</span></div>
+          <div class="sc-row"><span>Max Prize Pot</span><span>&#8377;1,00,000</span></div>
+          <div class="sc-row"><span>Min Bid</span><span>&#8377;10,000</span></div>
+        </div>
+        <a href="/register" class="sc-cta">Join Silver Group</a>
+      </div>
+
+      <div class="sc" id="gold" style="border:2px solid var(--gold)">
+        <div class="sc-top-ribbon" style="background:var(--gold);color:var(--navy-dark)">&#127775; Most Popular</div>
+        <div class="sc-plan plan-gold">&#129351; Gold Chit</div>
+        <div class="sc-val">&#8377;2,00,000</div><div class="sc-dur">20 months &middot; 20 members</div>
+        <div class="sc-badge bf">&#128181; Best Value</div>
+        <div class="sc-rows">
+          <div class="sc-row"><span>Monthly Instalment</span><span>&#8377;2,000</span></div>
+          <div class="sc-row"><span>Monthly Dividend</span><span>&#8377;600–2,000</span></div>
+          <div class="sc-row"><span>Max Prize Pot</span><span>&#8377;2,00,000</span></div>
+          <div class="sc-row"><span>Min Bid</span><span>&#8377;15,000</span></div>
+        </div>
+        <a href="/register" class="sc-cta">Join Gold Group</a>
+      </div>
+
+      <div class="sc" id="diamond" style="border:2px solid var(--green)">
+        <div class="sc-top-ribbon" style="background:var(--green);color:#fff">&#128302; Premium Pick</div>
+        <div class="sc-plan plan-diamond">&#128142; Diamond Chit</div>
+        <div class="sc-val">&#8377;5,00,000</div><div class="sc-dur">24 months &middot; 24 members</div>
+        <div class="sc-badge bo">&#128640; High Returns</div>
+        <div class="sc-rows">
+          <div class="sc-row"><span>Monthly Instalment</span><span>&#8377;5,000</span></div>
+          <div class="sc-row"><span>Monthly Dividend</span><span>&#8377;2,000–5,000</span></div>
+          <div class="sc-row"><span>Max Prize Pot</span><span>&#8377;5,00,000</span></div>
+          <div class="sc-row"><span>Min Bid</span><span>&#8377;25,000</span></div>
+        </div>
+        <a href="/register" class="sc-cta">Join Diamond Group</a>
+      </div>
+
+      <div class="sc" id="platinum">
+        <div class="sc-plan plan-platinum">&#129352; Platinum Chit</div>
+        <div class="sc-val">&#8377;10,00,000</div><div class="sc-dur">24 months &middot; 24 members</div>
+        <div class="sc-badge bo">&#128081; Elite Savings</div>
+        <div class="sc-rows">
+          <div class="sc-row"><span>Monthly Instalment</span><span>&#8377;10,000</span></div>
+          <div class="sc-row"><span>Monthly Dividend</span><span>&#8377;4,000–10,000</span></div>
+          <div class="sc-row"><span>Max Prize Pot</span><span>&#8377;10,00,000</span></div>
+          <div class="sc-row"><span>Min Bid</span><span>&#8377;50,000</span></div>
+        </div>
+        <a href="/register" class="sc-cta">Join Platinum Group</a>
+      </div>
+
+      <div class="sc" id="scholar">
+        <div class="sc-plan plan-scholar">&#127979; Scholar Chit</div>
+        <div class="sc-val">&#8377;3,00,000</div><div class="sc-dur">24 months &middot; 20 members</div>
+        <div class="sc-badge bf">&#127891; Education Fund</div>
+        <div class="sc-rows">
+          <div class="sc-row"><span>Monthly Instalment</span><span>&#8377;2,500</span></div>
+          <div class="sc-row"><span>Monthly Dividend</span><span>&#8377;1,200–3,000</span></div>
+          <div class="sc-row"><span>Max Prize Pot</span><span>&#8377;3,00,000</span></div>
+          <div class="sc-row"><span>Min Bid</span><span>&#8377;20,000</span></div>
+        </div>
+        <a href="/register" class="sc-cta">Join Scholar Group</a>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section style="padding:70px 0;background:var(--navy);text-align:center">
+  <div class="container reveal">
+    <h2 class="h2 h2-w" style="margin-bottom:12px">Ready to Start Saving?</h2>
+    <p style="color:rgba(255,255,255,.65);font-size:1rem;margin-bottom:28px">Join thousands of members already earning with Assure. Seats fill fast!</p>
+    <a href="/register" class="btn btn-gold">Register Free — Takes 5 Mins</a>
+    <div style="margin-top:18px;font-size:.8rem;color:rgba(255,255,255,.35)">&#128274; 256-bit SSL &middot; RBI Compliant &middot; No Hidden Fees</div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div><a href="/" class="nav-logo" style="gap:10px"><img src="/build/logo.png" alt="Assure" style="width:36px;height:36px;border-radius:50%;object-fit:cover;"><span style="font-family:'Poppins',sans-serif;font-weight:800;font-size:1.2rem">Assure Chit Funds</span></a><p class="foot-tagline">India's most transparent digital chit fund. Government registered, RBI compliant, 100% online.</p></div>
+      <div><h4>Quick Links</h4><ul><li><a href="/">Home</a></li><li><a href="/schemes/">Chit Schemes</a></li><li><a href="/auction/">Live Auction</a></li><li><a href="/calculator/">Calculator</a></li><li><a href="/faq/">FAQ</a></li></ul></div>
+      <div><h4>Company</h4><ul><li><a href="/about/">About Us</a></li><li><a href="#">Blog</a></li><li><a href="/refer/">Refer &amp; Earn</a></li><li><a href="mailto:support@assure.fund">Contact Us</a></li></ul></div>
+      <div class="foot-contact"><h4>Contact</h4><p>&#128205; Hyderabad, Telangana, India</p><p>&#128222; 1800-XXX-XXXX (Toll Free)</p><p>&#128231; support@assure.fund</p><h4 style="margin-top:18px">Legal</h4><ul><li><a href="#">Privacy Policy</a></li><li><a href="#">Terms &amp; Conditions</a></li></ul></div>
+    </div>
+    <div class="foot-btm"><p class="foot-copy">&copy; 2026 Assure Chit Funds Pvt. Ltd. All rights reserved.</p><div class="pgws"><span class="pgw">&#128274; SSL Secured</span><span class="pgw">&#127968; RBI Compliant</span><span class="pgw">&#127942; DPIIT Registered</span></div></div>
+  </div>
+</footer>
+<div class="chat-fab"><div class="chat-win" id="chatWin"><div class="chat-hdr"><div><div class="chat-hname">&#129302; Assure Assistant</div><div class="chat-hsub">Ask me anything</div></div><button class="chat-xcl" onclick="document.getElementById('chatWin').classList.remove('open')">&#10005;</button></div><div class="chat-msgs" id="chatMsgs"><div class="chat-m chat-bot">&#128075; Hi! How can I help?</div></div><div class="chat-quick"><button class="chat-qb" onclick="chatAsk('Which scheme is best?')">Which scheme?</button><button class="chat-qb" onclick="chatAsk('How to join?')">How to join?</button></div><div class="chat-inrow"><input class="chat-txt" id="chatInput" placeholder="Ask a question..." onkeydown="if(event.key==='Enter')chatSend()"/><button class="chat-send" onclick="chatSend()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg></button></div></div><button class="chat-toggle" onclick="document.getElementById('chatWin').classList.toggle('open')" aria-label="Chat"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button></div>
+<script>
+const ro=new IntersectionObserver((e)=>{e.forEach(x=>{if(x.isIntersecting){x.target.classList.add('visible');ro.unobserve(x.target);}});},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+const chatR={'which scheme is best':'The Gold Chit is most popular — great balance of monthly instalment (₹2,000) and prize pot (₹2 Lakh). Try our Income Finder above!','how to join':'Click Register Free, complete e-KYC with PAN & Aadhaar in 5 mins, choose your scheme.','default':'Call 1800-XXX-XXXX or email support@assure.fund'};
+function chatAsk(q){const inp=document.getElementById('chatInput');if(inp)inp.value=q;chatSend();}
+function chatSend(){const inp=document.getElementById('chatInput');const msgs=document.getElementById('chatMsgs');if(!inp||!msgs)return;const q=inp.value.trim();if(!q)return;msgs.innerHTML+='<div class="chat-m chat-user">'+q+'</div>';inp.value='';const key=Object.keys(chatR).find(k=>q.toLowerCase().includes(k))||'default';setTimeout(()=>{msgs.innerHTML+='<div class="chat-m chat-bot">'+chatR[key]+'</div>';msgs.scrollTop=msgs.scrollHeight;},600);}
+const plans=[{n:'Starter',v:'&#8377;25,000',m:'&#8377;2,500/mo',d:'10 months',budget:2500,dur:10},{n:'Silver',v:'&#8377;1 Lakh',m:'&#8377;1,000/mo',d:'12 months',budget:1000,dur:12},{n:'Gold',v:'&#8377;2 Lakh',m:'&#8377;2,000/mo',d:'20 months',budget:2000,dur:20},{n:'Diamond',v:'&#8377;5 Lakh',m:'&#8377;5,000/mo',d:'24 months',budget:5000,dur:24},{n:'Platinum',v:'&#8377;10 Lakh',m:'&#8377;10,000/mo',d:'24 months',budget:10000,dur:24},{n:'Scholar',v:'&#8377;3 Lakh',m:'&#8377;2,500/mo',d:'24 months',budget:2500,dur:24}];
+function findChits(){const b=+document.getElementById('f-budget').value;const durSel=document.getElementById('f-dur').value;const matched=plans.filter(p=>p.budget<=b&&(durSel==='any'||(durSel==='12'&&p.dur<=12)||(durSel==='24'&&p.dur>12)));const cards=document.getElementById('f-cards');const res=document.getElementById('f-res');if(!matched.length){cards.innerHTML='<div style="color:rgba(255,255,255,.6);font-size:.85rem;grid-column:1/-1;text-align:center;padding:12px">Try increasing your budget or duration filter.</div>';}else{cards.innerHTML=matched.slice(0,3).map(p=>'<div class="f-card"><div class="f-cv">'+p.n+'</div><div class="f-cl">'+p.v+'</div><div style="font-size:.62rem;color:rgba(255,255,255,.4);margin-top:3px">'+p.m+'</div></div>').join('');}res.classList.add('show');}
+</script>
+</body>
+</html>
