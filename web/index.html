@@ -323,13 +323,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 .chat-txt{flex:1;border:1.5px solid rgba(10,31,68,.12);border-radius:18px;padding:7px 13px;font-size:.81rem;font-family:inherit;outline:none;color:var(--navy)}
 .chat-send{width:32px;height:32px;border-radius:50%;background:var(--navy);color:var(--w);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--t)}.chat-send:hover{background:var(--gold);color:var(--navy-dark)}
 /* TOP BAR */
-.nav-topbar{padding:7px 0;border-bottom:1px solid rgba(245,166,35,.12);overflow:hidden;max-height:40px;opacity:1;transition:max-height .3s ease,opacity .3s ease,padding .3s ease,border .3s ease}
-.nav-topbar-inner{display:flex;justify-content:space-between;align-items:center}
-.nav-topbar-left{font-size:.72rem;color:rgba(255,255,255,.38);display:flex;align-items:center;gap:6px}
-.nav-topbar-right{display:flex;align-items:center;gap:14px}
-.nav-topbar a{font-size:.72rem;color:rgba(255,255,255,.5);font-weight:500;transition:color var(--t)}.nav-topbar a:hover{color:var(--gold)}
-.nav-topbar-sep{color:rgba(255,255,255,.18);padding:0 2px}
-#navbar.scrolled .nav-topbar{max-height:0;padding:0;opacity:0;pointer-events:none;border-bottom:none}
+#navbar.scrolled .nav-topbar-hide{display:none}
 /* NAV DROPDOWNS */
 .nav-item{position:relative;list-style:none}.nav-dd-arr{font-size:.56rem;opacity:.55;transition:transform .2s ease;display:inline-block;margin-left:2px;vertical-align:middle}
 .nav-item:hover .nav-dd-arr{transform:rotate(180deg);opacity:.9}
@@ -362,7 +356,6 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 }
 @media(max-width:768px){
   .container{padding:0 14px}
-  .nav-topbar{display:none}
   .nav-links,.nav-ctas,.nav-phone{display:none}.hamburger{display:flex}
   .h1{font-size:2.2rem}.hero-btns{flex-direction:column}.btn{justify-content:center}
   .steps{flex-direction:column}.web-grid{grid-template-columns:1fr}.foot-grid{grid-template-columns:1fr}
@@ -391,18 +384,6 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 </div>
 <!-- NAV -->
 <nav id="navbar">
-  <div class="nav-topbar">
-    <div class="container"><div class="nav-topbar-inner">
-      <div class="nav-topbar-left">&#128205; Hyderabad, Telangana &nbsp;&bull;&nbsp; Regulated under Telangana Chit Funds Act, 1971 &nbsp;&bull;&nbsp; Mon&ndash;Sat 9AM&ndash;6PM IST</div>
-      <div class="nav-topbar-right">
-        <a href="/login">&#128100; Customer Login</a>
-        <span class="nav-topbar-sep">|</span>
-        <a href="/register">&#128203; Become an Agent</a>
-        <span class="nav-topbar-sep">|</span>
-        <a href="mailto:support@assure.fund">support@assure.fund</a>
-      </div>
-    </div></div>
-  </div>
   <div class="container"><div class="nav-inner">
     <a href="/" class="nav-logo">
       <img src="/build/logo.png" alt="Assure" class="nav-logo-img">
