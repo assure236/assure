@@ -41,7 +41,7 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 #navbar.scrolled{padding:10px 0;background:rgba(5,12,28,.97);backdrop-filter:blur(20px);box-shadow:0 1px 0 rgba(245,166,35,.25),0 8px 32px rgba(0,0,0,.45)}
 .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:24px}
 .nav-logo{display:flex;align-items:center;gap:11px;font-family:'Poppins',sans-serif;font-weight:800;font-size:1.32rem;color:var(--w);letter-spacing:-.3px;flex-shrink:0}
-.nav-logo-badge{width:40px;height:40px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Poppins',sans-serif;font-weight:900;font-size:1.15rem;color:var(--navy-dark);flex-shrink:0;box-shadow:0 4px 14px rgba(245,166,35,.45)}
+.nav-logo-img{width:40px;height:40px;border-radius:50%;object-fit:cover;flex-shrink:0;box-shadow:0 4px 14px rgba(245,166,35,.45)}
 .nav-links{display:flex;gap:2px;list-style:none}
 .nav-links a{color:rgba(255,255,255,.72);font-size:.875rem;font-weight:500;padding:8px 15px;border-radius:8px;transition:all var(--t);letter-spacing:.05px}
 .nav-links a:hover,.nav-links a.active{color:var(--w);background:rgba(255,255,255,.1)}
@@ -377,7 +377,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
 <nav id="navbar">
   <div class="container"><div class="nav-inner">
     <a href="/" class="nav-logo">
-      <div class="nav-logo-badge">A</div>
+      <img src="/build/logo.png" alt="Assure" class="nav-logo-img">
       <span>Assure <span style="font-weight:400;opacity:.55">ChitFunds</span></span>
     </a>
     <ul class="nav-links">
@@ -795,7 +795,7 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
   <div class="container">
     <div class="foot-grid">
       <div>
-        <a href="/" class="nav-logo" style="gap:10px"><svg width="36" height="36" viewBox="0 0 44 44" fill="none"><circle cx="22" cy="22" r="22" fill="#F5A623"/><text x="22" y="29" text-anchor="middle" font-family="Poppins,sans-serif" font-weight="900" font-size="20" fill="#0A1F44">A</text></svg><span style="font-family:'Poppins',sans-serif;font-weight:800;font-size:1.2rem">Assure Chit Funds</span></a>
+        <a href="/" class="nav-logo" style="gap:10px"><img src="/build/logo.png" alt="Assure" style="width:36px;height:36px;border-radius:50%;object-fit:cover;"><span style="font-family:'Poppins',sans-serif;font-weight:800;font-size:1.2rem">Assure Chit Funds</span></a>
         <p class="foot-tagline">India's most transparent digital chit fund. Government registered, RBI compliant, 100% online.</p>
         <div class="socials">
           <a href="#" class="soc"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></a>
