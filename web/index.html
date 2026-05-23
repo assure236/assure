@@ -136,8 +136,46 @@ button{cursor:pointer;font-family:inherit;border:none;outline:none}
 #web-features{padding:110px 0;background:var(--bg)}
 .web-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
 .wc{background:var(--w);border-radius:var(--r);padding:30px;border-top:3px solid transparent;transition:transform var(--t),box-shadow var(--t),border-color var(--t)}.wc:hover{transform:translateY(-6px);box-shadow:var(--sh);border-top-color:var(--gold)}
-.wc-ico{width:52px;height:52px;background:rgba(10,31,68,.07);border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:18px;color:var(--navy)}
 .wc h3{font-weight:800;font-size:.98rem;color:var(--navy);margin-bottom:9px}.wc p{font-size:.9rem;color:var(--text-lt);line-height:1.58}
+/* WC PANEL MOCKUPS */
+.wc-panel{border-radius:12px;overflow:hidden;margin-bottom:16px;border:1px solid rgba(10,31,68,.1);background:#fff;box-shadow:0 4px 18px rgba(10,31,68,.08)}
+.wcp-bar{background:#f0f4f8;display:flex;align-items:center;gap:5px;padding:7px 12px;border-bottom:1px solid rgba(10,31,68,.08)}
+.wcp-dot{width:8px;height:8px;border-radius:50%;display:inline-block}.wcp-dot.r{background:#ff5f57}.wcp-dot.y{background:#febc2e}.wcp-dot.g{background:#28c840}
+.wcp-title{font-size:.63rem;font-weight:700;color:var(--navy);margin-left:6px;letter-spacing:.02em}
+.wcp-body{padding:10px}
+.wcp-timer{background:rgba(245,166,35,.15);color:#b8860b;font-size:.65rem;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block;margin-bottom:7px}
+.wcp-bid-list{display:flex;flex-direction:column;gap:3px;margin-bottom:7px}
+.wcp-bid{display:flex;justify-content:space-between;font-size:.63rem;padding:4px 8px;border-radius:5px;background:#f7f9fc;color:var(--navy)}
+.wcp-bid.w{background:rgba(39,174,96,.12);color:#1a7a3f;font-weight:700}
+.wcp-btn-row{display:flex;justify-content:center}
+.wcp-btn{background:var(--navy);color:#fff;font-size:.62rem;font-weight:700;padding:5px 14px;border-radius:6px;cursor:pointer;text-align:center}
+.wcp-btn.sm{background:var(--gold);color:var(--navy-dark);padding:4px 10px}
+.wcp-stat-row{display:flex;gap:8px;margin-bottom:9px}
+.wcp-stat{flex:1;background:#f7f9fc;border-radius:7px;padding:6px 8px;text-align:center}
+.wcp-sv{font-size:.78rem;font-weight:800;color:var(--navy)}.wcp-sv.g{color:#27ae60}
+.wcp-sl{font-size:.57rem;color:var(--text-lt)}
+.wcp-chart{background:#f7f9fc;border-radius:7px;padding:7px}
+.wcp-bar-g{display:flex;align-items:flex-end;gap:5px;height:44px}
+.wcp-bg{flex:1;background:rgba(10,31,68,.16);border-radius:3px 3px 0 0}
+.wcp-bg.act{background:var(--navy)}
+.wcp-doc-list{display:flex;flex-direction:column;gap:5px}
+.wcp-doc{display:flex;align-items:center;gap:7px;padding:5px 6px;background:#f7f9fc;border-radius:6px}
+.wcp-di{font-size:.85rem}.wcp-dm{display:flex;flex-direction:column;gap:1px}.wcp-dn{font-size:.63rem;font-weight:700;color:var(--navy)}.wcp-ds{font-size:.58rem}
+.wcp-ds.signed{color:#27ae60}.wcp-ds.pending{color:#e67e22}
+.wcp-pay-list{display:flex;flex-direction:column;gap:4px}
+.wcp-pay{display:flex;align-items:center;gap:6px;padding:5px 7px;background:#f7f9fc;border-radius:6px;font-size:.63rem}
+.wcp-pay-m{flex:1;color:var(--text-lt)}.wcp-pay-a{font-weight:700;color:var(--navy)}
+.wcp-pay-s{padding:2px 6px;border-radius:10px;font-size:.56rem;font-weight:700}
+.wcp-pay-s.paid{background:rgba(39,174,96,.12);color:#1a7a3f}.wcp-pay-s.due{background:rgba(245,166,35,.15);color:#b8860b}
+.wcp-nom-list{display:flex;flex-direction:column;gap:6px;margin-bottom:7px}
+.wcp-nom{display:flex;align-items:center;gap:7px}
+.wcp-nav{width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:800;flex-shrink:0}
+.wcp-nm{display:flex;flex-direction:column;gap:1px}.wcp-nn{font-size:.63rem;font-weight:700;color:var(--navy)}.wcp-nr{font-size:.57rem;color:var(--text-lt)}
+.wcp-tick-list{display:flex;flex-direction:column;gap:5px;margin-bottom:7px}
+.wcp-tick{display:flex;align-items:center;gap:5px;background:#f7f9fc;border-radius:6px;padding:5px 7px}
+.wcp-tk{font-size:.58rem;color:var(--text-lt);min-width:30px}.wcp-td{flex:1;font-size:.62rem;color:var(--navy);font-weight:600}
+.wcp-ts{font-size:.56rem;font-weight:700;padding:2px 6px;border-radius:10px}
+.wcp-ts.res{background:rgba(39,174,96,.12);color:#1a7a3f}.wcp-ts.open{background:rgba(245,166,35,.15);color:#b8860b}
 /* AUCTION */
 #auction{padding:80px 0;background:linear-gradient(160deg,#050220 0%,#0e0533 50%,#130640 100%);border-top:3px solid rgba(245,166,35,.35)}
 .auc-card{background:#fff;border-radius:28px;padding:56px;overflow:hidden;box-shadow:0 12px 60px rgba(5,2,32,.28)}
@@ -543,6 +581,100 @@ footer{background:var(--navy-dark);padding:80px 0 0;color:rgba(255,255,255,.65)}
         </div>
         <a href="/register" class="sc-cta">Join This Group</a>
       </div>
+      </div>
+    </div>
+  </div>
+</section>
+<!-- WEB FEATURES -->
+<section id="web-features">
+  <div class="container">
+    <div class="sec-head center reveal"><div class="tag">WEB DASHBOARD</div><h2 class="h2">Powerful Tools at Your Fingertips</h2><p class="sub">Everything you need to manage, track and grow your chit savings &mdash; all in one secure, fully digital web dashboard.</p></div>
+    <div class="web-grid reveal">
+      <div class="wc">
+        <div class="wc-panel">
+          <div class="wcp-bar"><span class="wcp-dot r"></span><span class="wcp-dot y"></span><span class="wcp-dot g"></span><span class="wcp-title">Live Auction Room</span></div>
+          <div class="wcp-body">
+            <div class="wcp-timer">&#9203; 04:32 remaining</div>
+            <div class="wcp-bid-list">
+              <div class="wcp-bid w"><span>M. Ravi</span><span>&#8377;68,000</span></div>
+              <div class="wcp-bid"><span>S. Priya</span><span>&#8377;71,500</span></div>
+              <div class="wcp-bid"><span>K. Anand</span><span>&#8377;74,000</span></div>
+            </div>
+            <div class="wcp-btn-row"><div class="wcp-btn">Place Bid</div></div>
+          </div>
+        </div>
+        <h3>Live Auction Board</h3>
+        <p>Bid in real-time monthly auctions from anywhere. Track live bids, countdown timer, and instant results &mdash; fully transparent and court-recorded.</p>
+      </div>
+      <div class="wc">
+        <div class="wc-panel">
+          <div class="wcp-bar"><span class="wcp-dot r"></span><span class="wcp-dot y"></span><span class="wcp-dot g"></span><span class="wcp-title">Dividend Analytics</span></div>
+          <div class="wcp-body">
+            <div class="wcp-stat-row">
+              <div class="wcp-stat"><div class="wcp-sv">&#8377;4,200</div><div class="wcp-sl">This Month</div></div>
+              <div class="wcp-stat"><div class="wcp-sv g">+18%</div><div class="wcp-sl">vs Last Month</div></div>
+            </div>
+            <div class="wcp-chart"><div class="wcp-bar-g"><div class="wcp-bg" style="height:38%"></div><div class="wcp-bg" style="height:55%"></div><div class="wcp-bg" style="height:50%"></div><div class="wcp-bg" style="height:78%"></div><div class="wcp-bg act" style="height:100%"></div></div></div>
+          </div>
+        </div>
+        <h3>Dividend Analytics</h3>
+        <p>See your month-wise dividend earnings, auction performance and projected returns in one clear, visual dashboard with charts.</p>
+      </div>
+      <div class="wc">
+        <div class="wc-panel">
+          <div class="wcp-bar"><span class="wcp-dot r"></span><span class="wcp-dot y"></span><span class="wcp-dot g"></span><span class="wcp-title">My Documents</span></div>
+          <div class="wcp-body">
+            <div class="wcp-doc-list">
+              <div class="wcp-doc"><div class="wcp-di">&#128196;</div><div class="wcp-dm"><div class="wcp-dn">Chit Agreement</div><div class="wcp-ds signed">&#10004; Signed Digitally</div></div></div>
+              <div class="wcp-doc"><div class="wcp-di">&#128203;</div><div class="wcp-dm"><div class="wcp-dn">KYC Document</div><div class="wcp-ds signed">&#10004; Verified</div></div></div>
+              <div class="wcp-doc"><div class="wcp-di">&#127968;</div><div class="wcp-dm"><div class="wcp-dn">Bank Mandate</div><div class="wcp-ds pending">&#9203; Processing</div></div></div>
+            </div>
+          </div>
+        </div>
+        <h3>e-Chit Agreement</h3>
+        <p>Sign your chit agreement online, download your certificate, check KYC status and manage all legal documents from one place.</p>
+      </div>
+      <div class="wc">
+        <div class="wc-panel">
+          <div class="wcp-bar"><span class="wcp-dot r"></span><span class="wcp-dot y"></span><span class="wcp-dot g"></span><span class="wcp-title">Payment History</span></div>
+          <div class="wcp-body">
+            <div class="wcp-pay-list">
+              <div class="wcp-pay"><span class="wcp-pay-m">Jun &rsquo;25</span><span class="wcp-pay-a">&#8377;5,000</span><span class="wcp-pay-s paid">Paid</span></div>
+              <div class="wcp-pay"><span class="wcp-pay-m">May &rsquo;25</span><span class="wcp-pay-a">&#8377;4,800</span><span class="wcp-pay-s paid">Paid</span></div>
+              <div class="wcp-pay"><span class="wcp-pay-m">Jul &rsquo;25</span><span class="wcp-pay-a">&#8377;5,000</span><span class="wcp-pay-s due">Due 5 Jul</span></div>
+            </div>
+          </div>
+        </div>
+        <h3>Payment History</h3>
+        <p>View every instalment paid, upcoming dues and dividend credits. Pay securely online via UPI, net banking or card &mdash; with auto-reminders.</p>
+      </div>
+      <div class="wc">
+        <div class="wc-panel">
+          <div class="wcp-bar"><span class="wcp-dot r"></span><span class="wcp-dot y"></span><span class="wcp-dot g"></span><span class="wcp-title">Family &amp; Nominees</span></div>
+          <div class="wcp-body">
+            <div class="wcp-nom-list">
+              <div class="wcp-nom"><div class="wcp-nav">S</div><div class="wcp-nm"><div class="wcp-nn">Sunita Devi</div><div class="wcp-nr">Spouse &middot; Primary Nominee</div></div></div>
+              <div class="wcp-nom"><div class="wcp-nav">A</div><div class="wcp-nm"><div class="wcp-nn">Arjun Kumar</div><div class="wcp-nr">Son &middot; Secondary Nominee</div></div></div>
+            </div>
+            <div class="wcp-btn-row"><div class="wcp-btn sm">+ Add Nominee</div></div>
+          </div>
+        </div>
+        <h3>Nominee Management</h3>
+        <p>Add family members as nominees, set access levels and ensure your chit benefits safely transfer to your loved ones when needed.</p>
+      </div>
+      <div class="wc">
+        <div class="wc-panel">
+          <div class="wcp-bar"><span class="wcp-dot r"></span><span class="wcp-dot y"></span><span class="wcp-dot g"></span><span class="wcp-title">Support Center</span></div>
+          <div class="wcp-body">
+            <div class="wcp-tick-list">
+              <div class="wcp-tick"><div class="wcp-tk">#1042</div><div class="wcp-td">Payment not reflected</div><div class="wcp-ts res">Resolved</div></div>
+              <div class="wcp-tick"><div class="wcp-tk">#1051</div><div class="wcp-td">Auction date query</div><div class="wcp-ts open">Open</div></div>
+            </div>
+            <div class="wcp-btn-row"><div class="wcp-btn">New Ticket</div></div>
+          </div>
+        </div>
+        <h3>24/7 Support Ticket</h3>
+        <p>Raise support tickets, track resolution status and chat with our team any time. Average response time under 2 hours.</p>
       </div>
     </div>
   </div>
