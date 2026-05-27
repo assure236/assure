@@ -45,15 +45,20 @@ class _LockScreenState extends State<LockScreen> {
   }
 
   Future<void> _checkBiometrics() async {
-    // Check if OTP is required (every 2 days)
+    final auth = context.read<AuthProvider>();
+
+    // OTP is required only after 48h of no app usage.
     final prefs = await SharedPreferences.getInstance();
-    final lastOtpTime = prefs.getInt('last_otp_auth_time') ?? 0;
+    final lastActivityMs = prefs.getInt('last_activity_at') ?? 0;
     final now = DateTime.now().millisecondsSinceEpoch;
-    final twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-    final otpRequired = (now - lastOtpTime) > twoDaysMs;
+    final reauthMs = 2 * 24 * 60 * 60 * 1000;
+    final otpRequiredByInactivity =
+        lastActivityMs > 0 && (now - lastActivityMs) >= reauthMs;
+    final otpRequiredBySession = auth.otpRequiredForUnlock;
+    final otpRequired = otpRequiredByInactivity || otpRequiredBySession;
 
     if (otpRequired) {
-      // OTP required every 2 days
+      // Long idle re-auth requires OTP.
       if (mounted) {
         setState(() {
           _biometricsAvailable = false;
@@ -63,7 +68,7 @@ class _LockScreenState extends State<LockScreen> {
       return;
     }
 
-    // Otherwise try fingerprint for inactivity lock
+    // For normal inactivity locks, use biometrics only.
     try {
       final canCheck = await _localAuth.canCheckBiometrics;
       final isSupported = await _localAuth.isDeviceSupported();
@@ -159,7 +164,7 @@ class _LockScreenState extends State<LockScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (res['success'] == true) {
-      // Save OTP auth timestamp for 2-day cycle
+      // Save OTP auth timestamp for audit/visibility.
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('last_otp_auth_time', DateTime.now().millisecondsSinceEpoch);
       if (!mounted) return;

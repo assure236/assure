@@ -93,6 +93,14 @@ class _AssureChitFundsAppState extends State<AssureChitFundsApp> {
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.light,
+        builder: (context, child) {
+          return Listener(
+            onPointerDown: (_) => _authProvider.markUserInteraction(),
+            onPointerMove: (_) => _authProvider.markUserInteraction(),
+            onPointerUp: (_) => _authProvider.markUserInteraction(),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
         routerConfig: _router, // Use the same router instance
       ),
     );

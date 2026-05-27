@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,7 +9,7 @@ import '../services/api_service.dart';
 import '../services/fcm_service.dart';
 import '../services/socket_service.dart';
 
-class AuthProvider with ChangeNotifier {
+class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   User? _user;
   String? _token;
   bool _isAuthenticated = false;
@@ -17,8 +17,13 @@ class AuthProvider with ChangeNotifier {
   bool _hasLocalAccount = false;
   Timer? _inactivityTimer;
   static const _inactivityDuration = Duration(minutes: 10);
+  static const _inactivityGraceDuration = Duration(seconds: 30);
+  static const _otpReauthDuration = Duration(hours: 48);
   String? _sessionDevice;
   DateTime? _sessionLoginAt;
+  DateTime? _lastActivityAt;
+  int _lastActivityWriteMs = 0;
+  bool _otpRequiredForUnlock = false;
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -29,8 +34,11 @@ class AuthProvider with ChangeNotifier {
   bool get hasLocalAccount => _hasLocalAccount;
   String? get sessionDevice => _sessionDevice;
   DateTime? get sessionLoginAt => _sessionLoginAt;
+  bool get otpRequiredForUnlock => _otpRequiredForUnlock;
+  DateTime? get lastActivityAt => _lastActivityAt;
 
   AuthProvider() {
+    WidgetsBinding.instance.addObserver(this);
     _loadFromStorage();
     ApiService.onUnauthorized = () async {
       await logout();
@@ -38,27 +46,56 @@ class AuthProvider with ChangeNotifier {
   }
 
   /// Call this on any user interaction (tap, scroll, type) to reset idle timer
-  void resetInactivityTimer() {
-    _inactivityTimer?.cancel();
-    if (_isAuthenticated) {
-      _inactivityTimer = Timer(_inactivityDuration, () {
-        debugPrint('Inactivity timeout — full logout');
-        logout();
-      });
-    }
+  void markUserInteraction() {
+    resetInactivityTimer();
   }
 
-  void _startInactivityTimer() {
+  void resetInactivityTimer() {
+    if (!_isAuthenticated) return;
+    _recordActivity();
+    _scheduleInactivityLock();
+  }
+
+  void _scheduleInactivityLock() {
     _inactivityTimer?.cancel();
-    _inactivityTimer = Timer(_inactivityDuration, () {
-      debugPrint('Inactivity timeout — full logout');
-      logout();
+    _inactivityTimer = Timer(_inactivityDuration + _inactivityGraceDuration, () {
+      final otpRequired = _isOtpReauthDue();
+      debugPrint('Inactivity timeout — locking app');
+      _lockSession(requireOtp: otpRequired);
     });
   }
 
   void _stopInactivityTimer() {
     _inactivityTimer?.cancel();
     _inactivityTimer = null;
+  }
+
+  bool _isOtpReauthDue() {
+    if (_lastActivityAt == null) return false;
+    return DateTime.now().difference(_lastActivityAt!) >= _otpReauthDuration;
+  }
+
+  Future<void> _recordActivity({bool forcePersist = false}) async {
+    final now = DateTime.now();
+    _lastActivityAt = now;
+
+    // Avoid writing SharedPreferences on every pointer event.
+    final nowMs = now.millisecondsSinceEpoch;
+    if (!forcePersist && (nowMs - _lastActivityWriteMs) < 30000) {
+      return;
+    }
+
+    _lastActivityWriteMs = nowMs;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('last_activity_at', nowMs);
+  }
+
+  Future<void> _lockSession({required bool requireOtp}) async {
+    if (!_isAuthenticated) return;
+    _isAuthenticated = false;
+    _otpRequiredForUnlock = requireOtp;
+    _stopInactivityTimer();
+    notifyListeners();
   }
 
   Future<void> _loadFromStorage() async {
@@ -75,7 +112,39 @@ class AuthProvider with ChangeNotifier {
     _sessionDevice = prefs.getString('session_device');
     final loginAtStr = prefs.getString('session_login_at');
     if (loginAtStr != null) _sessionLoginAt = DateTime.tryParse(loginAtStr);
+    final lastActivityMs = prefs.getInt('last_activity_at');
+    if (lastActivityMs != null && lastActivityMs > 0) {
+      _lastActivityAt = DateTime.fromMillisecondsSinceEpoch(lastActivityMs);
+      _otpRequiredForUnlock = DateTime.now().difference(_lastActivityAt!) >= _otpReauthDuration;
+    }
     notifyListeners();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_isAuthenticated) return;
+
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _recordActivity(forcePersist: true);
+      return;
+    }
+
+    if (state == AppLifecycleState.resumed) {
+      final last = _lastActivityAt;
+      final idle = last == null ? Duration.zero : DateTime.now().difference(last);
+
+      if (idle >= _otpReauthDuration) {
+        _lockSession(requireOtp: true);
+        return;
+      }
+
+      if (idle >= (_inactivityDuration + _inactivityGraceDuration)) {
+        _lockSession(requireOtp: false);
+        return;
+      }
+
+      _scheduleInactivityLock();
+    }
   }
 
   // ─── OTP / Phone ───────────────────────────────────────────────────────────
@@ -298,8 +367,9 @@ class AuthProvider with ChangeNotifier {
       SocketService.instance.connect(userId);
     }
 
-    // Start inactivity timer
-    _startInactivityTimer();
+    _otpRequiredForUnlock = false;
+    await _recordActivity(forcePersist: true);
+    _scheduleInactivityLock();
   }
 
   // ─── QR Login — confirm a web QR session from the mobile app ──────────────
@@ -307,9 +377,11 @@ class AuthProvider with ChangeNotifier {
   /// Called after successful biometric authentication with a valid stored token.
   void authenticateFromBiometric() {
     _isAuthenticated = true;
+    _otpRequiredForUnlock = false;
     notifyListeners();
     FcmService().registerTokenWithBackend();
-    _startInactivityTimer();
+    _recordActivity(forcePersist: true);
+    _scheduleInactivityLock();
     // Reconnect socket so force_logout events are received
     final userId = _user?.id ?? '';
     if (userId.isNotEmpty) {
@@ -333,6 +405,8 @@ class AuthProvider with ChangeNotifier {
     _user = null;
     _token = null;
     _isAuthenticated = false;
+    _otpRequiredForUnlock = false;
+    _lastActivityAt = null;
     _stopInactivityTimer();
 
     // Disconnect user socket
@@ -344,9 +418,17 @@ class AuthProvider with ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('token');
     await prefs.remove('user');
+    await prefs.remove('last_activity_at');
     await _secureStorage.delete(key: 'access_token');
 
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopInactivityTimer();
+    super.dispose();
   }
 
   Future<void> refreshProfile() async {

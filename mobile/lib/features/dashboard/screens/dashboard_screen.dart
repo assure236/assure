@@ -948,16 +948,14 @@ class _ChitCard extends StatelessWidget {
     required this.index,
   });
 
-  static const _gradients = [
-    [AppTheme.primaryDark, AppTheme.primaryColor],
-    [Color(0xFF1E3A8A), Color(0xFF2563EB)],
-    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
-    [Color(0xFF0F766E), Color(0xFF0D9488)],
+  static const _electricBlueGradient = [
+    Color(0xFF1E3A8A),
+    Color(0xFF2563EB),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final colors = _gradients[index % _gradients.length];
+    final colors = _electricBlueGradient;
 
     return Container(
       width: 200,

@@ -392,25 +392,44 @@ exports.qrConfirm = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'QR already used' });
     }
     const userId = req.user._id || req.user.id;
-    // QR login uses the mobile user's CURRENT token_version — does NOT bump it.
-    // This lets the same account stay active on both mobile and web simultaneously.
-    // (Logout-all-devices is the only path that bumps token_version to kick both.)
-    const tv = req.user.token_version || 0;
+
+    // Strict single-session policy: every new login invalidates existing sessions.
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    user.last_login_at = new Date();
+    user.token_version = (user.token_version || 0) + 1;
+    await user.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`user:${userId}`).emit('force_logout', {
+        message: 'You have been logged out because a new login was detected.',
+        device_name: 'Web session',
+        platform: 'web',
+        logged_in_at: new Date().toISOString(),
+      });
+    }
+
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(String(userId));
+
+    const tv = user.token_version || 0;
     const token = generateToken(userId, tv);
     const refreshToken = generateRefreshToken(userId, tv);
-    const user = {
-      id: req.user._id,
-      full_name: req.user.full_name,
-      email: req.user.email,
-      mobile: req.user.mobile,
-      role: req.user.role,
-      member_id: req.user.member_id,
-      kyc_status: req.user.kyc_status,
+    const userObj = {
+      id: user._id,
+      full_name: user.full_name,
+      email: user.email,
+      mobile: user.mobile,
+      role: user.role,
+      member_id: user.member_id,
+      kyc_status: user.kyc_status,
     };
     session.status = 'confirmed';
     session.token = token;
     session.refreshToken = refreshToken;
-    session.user = user;
+    session.user = userObj;
     res.json({ success: true, message: 'QR login confirmed. Web session activated.' });
   } catch (error) { next(error); }
 };
