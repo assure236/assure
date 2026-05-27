@@ -3,6 +3,10 @@ const ChitMember = require('../models/ChitMember');
 
 const TERMINAL_STATUSES = new Set(['closed', 'suspended', 'completed']);
 
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 function calculateDesiredStatus(group, activeMemberCount, now = new Date()) {
   const totalMembers = Number(group.total_members || 0);
   const hasReachedFull = totalMembers > 0 && activeMemberCount >= totalMembers;
@@ -16,19 +20,23 @@ function calculateDesiredStatus(group, activeMemberCount, now = new Date()) {
   }
 
   const startDate = group.commencement_date ? new Date(group.commencement_date) : null;
-  const hasStartedByDate = startDate ? startDate <= now : true;
+  const hasStartedByDate = startDate
+    ? startOfDay(startDate) <= startOfDay(now)
+    : true;
 
   let status = 'not_started';
 
-  // New group until it has ever reached full capacity.
-  if (!wasFull) {
-    status = 'not_started';
-  } else if (!hasReachedFull) {
-    // Once a full group loses members, show it as vacancy.
+  if (!hasStartedByDate) {
+    // Respect manual activation before the start date.
+    status = group.status === 'active' ? 'active' : 'not_started';
+  } else if (hasReachedFull) {
+    status = 'active';
+  } else if (wasFull) {
+    // Seats reopened after being full.
     status = 'vacant';
   } else {
-    // Full group follows admin commencement date.
-    status = hasStartedByDate ? 'active' : 'not_started';
+    // Started by date but still has seats.
+    status = 'active';
   }
 
   return {

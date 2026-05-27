@@ -23,7 +23,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChitGroupProvider>().fetchMyChitGroups();
     });
@@ -73,6 +73,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
               unselectedLabelColor: Colors.white60,
               tabs: const [
                 Tab(text: 'New'),
+                Tab(text: 'Active'),
                 Tab(text: 'Vacant'),
               ],
             ),
@@ -88,6 +89,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
               controller: _tabController,
               children: [
                 _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
+                _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'active'),
                 _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'vacant'),
               ],
             ),
@@ -139,7 +141,7 @@ class _SearchBar extends StatelessWidget {
 
 class _AvailableGroupsTab extends StatefulWidget {
   final String searchQuery;
-  final String filter; // 'new' or 'vacant'
+  final String filter; // 'new', 'active', or 'vacant'
   const _AvailableGroupsTab({required this.searchQuery, required this.filter});
 
   @override
@@ -193,6 +195,8 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
       final List<Map<String, dynamic>> data;
       if (widget.filter == 'vacant') {
         data = await provider.fetchVacantGroups();
+      } else if (widget.filter == 'active') {
+        data = await provider.fetchAvailableGroups();
       } else {
         data = await provider.fetchNewGroups();
       }
@@ -307,8 +311,15 @@ class _AvailableGroupCard extends StatelessWidget {
 
     final bool isVacant = (data['status'] ?? '') == 'vacant';
     final bool isNotStarted = (data['status'] ?? '') == 'not_started';
+    final bool isActive = (data['status'] ?? '') == 'active';
     final Color accentColor = AppTheme.primaryColor;
-    final String statusLabel = isVacant ? 'Seats Available' : isNotStarted ? 'Not Started' : 'Upcoming';
+    final String statusLabel = isVacant
+      ? 'Seats Available'
+      : isNotStarted
+        ? 'Not Started'
+        : isActive
+          ? 'Active'
+          : 'Upcoming';
 
     final bool enrollDisabled = slotsLeft <= 0;
 
@@ -396,15 +407,15 @@ class _AvailableGroupCard extends StatelessWidget {
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _DetailItem(
-                label: isVacant ? 'Slots Available' : 'Starts',
+                Expanded(child: _DetailItem(
+                label: isVacant ? 'Slots Available' : isActive ? 'Started' : 'Starts',
                 value: isVacant
-                    ? (slotsLeft > 0 ? '$slotsLeft open' : 'Almost full')
-                    : (dateStr.isNotEmpty ? dateStr : 'TBD'),
+                  ? (slotsLeft > 0 ? '$slotsLeft open' : 'Almost full')
+                  : (dateStr.isNotEmpty ? dateStr : (isActive ? 'In progress' : 'TBD')),
                 valueColor: isVacant
-                    ? (slotsLeft > 0 ? const Color(0xFF0B6E4F) : AppTheme.errorColor)
-                    : AppTheme.primaryColor,
-              )),
+                  ? (slotsLeft > 0 ? const Color(0xFF0B6E4F) : AppTheme.errorColor)
+                  : AppTheme.primaryColor,
+                )),
               if (psoNumber.toString().isNotEmpty)
                 Expanded(child: _DetailItem(label: 'PSO No.', value: psoNumber.toString())),
             ]),

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, Typography, Box, Card, CardContent, Grid, Chip, Button,
   CircularProgress, Alert, Divider, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Paper, Avatar, IconButton, Tooltip
+  TableContainer, TableHead, TableRow, Paper, Avatar, IconButton, Tooltip,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem
 } from '@mui/material';
 import { ArrowBack as BackIcon, Refresh as RefreshIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -16,6 +17,16 @@ const statusColors = {
 
 const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+const toDateInput = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+const auctionDays = Array.from({ length: 31 }, (_, i) => i + 1);
 
 export default function ChitGroupDetail() {
   const { id } = useParams();
@@ -23,6 +34,10 @@ export default function ChitGroupDetail() {
   const [group, setGroup] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
 
   const fetchGroup = useCallback(async () => {
     setLoading(true);
@@ -51,6 +66,78 @@ export default function ChitGroupDetail() {
       fetchGroup();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Action failed');
+    }
+  };
+
+  const openEdit = () => {
+    if (!group) return;
+    setEditForm({
+      group_name: group.group_name || '',
+      group_number: group.group_number || '',
+      pso_number: group.pso_number || '',
+      chit_value: group.chit_value ?? '',
+      duration_months: group.duration_months ?? '',
+      monthly_installment: group.monthly_installment ?? '',
+      total_members: group.total_members ?? '',
+      auction_day: group.auction_day ?? '',
+      commencement_date: toDateInput(group.commencement_date || group.start_date),
+      description: group.description || '',
+    });
+    setEditError(null);
+    setEditOpen(true);
+  };
+
+  const handleEditChange = (field, value) => {
+    setEditForm((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [field]: value };
+      const duration = Number(next.duration_months || 0);
+      const chitValue = Number(next.chit_value || 0);
+
+      if (field === 'duration_months') {
+        next.total_members = duration;
+      }
+
+      if (field === 'duration_months' || field === 'chit_value') {
+        next.monthly_installment = duration > 0 ? Math.round(chitValue / duration) : 0;
+      }
+
+      return next;
+    });
+  };
+
+  const handleEditSave = async () => {
+    if (!editForm) return;
+    if (!editForm.group_name || !editForm.chit_value || !editForm.duration_months || !editForm.commencement_date || !editForm.auction_day) {
+      setEditError('Please fill in all required fields.');
+      return;
+    }
+
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      const payload = {
+        group_name: editForm.group_name.trim(),
+        pso_number: editForm.pso_number || '',
+        chit_value: Number(editForm.chit_value),
+        duration_months: Number(editForm.duration_months),
+        total_members: Number(editForm.duration_months),
+        monthly_installment: Number(editForm.monthly_installment),
+        auction_day: Number(editForm.auction_day),
+        commencement_date: editForm.commencement_date,
+        description: editForm.description || '',
+      };
+
+      const res = await axios.put(`${process.env.REACT_APP_API_URL}/admin/chit-groups/${id}`, payload);
+      if (res.data.success) {
+        setGroup((prev) => (prev ? { ...prev, ...res.data.data } : res.data.data));
+        toast.success('Group updated');
+        setEditOpen(false);
+      }
+    } catch (err) {
+      setEditError(err.response?.data?.message || 'Update failed');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -98,6 +185,9 @@ export default function ChitGroupDetail() {
           <Chip label={group.status} color={statusColors[group.status] || 'default'} />
         </Box>
         <Box display="flex" gap={1}>
+          <Tooltip title="Edit">
+            <IconButton onClick={openEdit}><EditIcon /></IconButton>
+          </Tooltip>
           <Tooltip title="Refresh">
             <IconButton onClick={fetchGroup}><RefreshIcon /></IconButton>
           </Tooltip>
@@ -215,6 +305,119 @@ export default function ChitGroupDetail() {
           </Card>
         </Grid>
       </Grid>
+
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Edit Chit Group</DialogTitle>
+        <DialogContent dividers>
+          {editError && <Alert severity="error" sx={{ mb: 2 }}>{editError}</Alert>}
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Group Number"
+                value={editForm?.group_number || ''}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Group Name"
+                value={editForm?.group_name || ''}
+                onChange={(e) => handleEditChange('group_name', e.target.value)}
+                fullWidth
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="PSO Number"
+                value={editForm?.pso_number || ''}
+                onChange={(e) => handleEditChange('pso_number', e.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Chit Value"
+                type="number"
+                value={editForm?.chit_value ?? ''}
+                onChange={(e) => handleEditChange('chit_value', e.target.value)}
+                fullWidth
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Duration (months)"
+                type="number"
+                value={editForm?.duration_months ?? ''}
+                onChange={(e) => handleEditChange('duration_months', e.target.value)}
+                fullWidth
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Total Members"
+                type="number"
+                value={editForm?.total_members ?? ''}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Monthly Installment"
+                type="number"
+                value={editForm?.monthly_installment ?? ''}
+                fullWidth
+                disabled
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Auction Day"
+                select
+                value={editForm?.auction_day ?? ''}
+                onChange={(e) => handleEditChange('auction_day', e.target.value)}
+                fullWidth
+                required
+              >
+                {auctionDays.map((day) => (
+                  <MenuItem key={day} value={day}>{day}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Commencement Date"
+                type="date"
+                value={editForm?.commencement_date || ''}
+                onChange={(e) => handleEditChange('commencement_date', e.target.value)}
+                fullWidth
+                required
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label="Description"
+                value={editForm?.description || ''}
+                onChange={(e) => handleEditChange('description', e.target.value)}
+                fullWidth
+                multiline
+                minRows={3}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)} disabled={editSaving}>Cancel</Button>
+          <Button variant="contained" onClick={handleEditSave} disabled={editSaving}>
+            {editSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
