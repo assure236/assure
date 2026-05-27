@@ -54,6 +54,9 @@ const authMiddleware = async (req, res, next) => {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
     }
+    if (!token && typeof req.query?.token === 'string' && req.query.token.trim()) {
+      token = req.query.token.trim();
+    }
     if (!token) {
       return res.status(401).json({ success: false, message: 'No token provided.' });
     }

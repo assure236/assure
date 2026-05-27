@@ -27,8 +27,8 @@ function calculateDesiredStatus(group, activeMemberCount, now = new Date()) {
   let status = 'not_started';
 
   if (!hasStartedByDate) {
-    // Respect manual activation before the start date.
-    status = group.status === 'active' ? 'active' : 'not_started';
+    // Before commencement date, chit must remain not started.
+    status = 'not_started';
   } else if (hasReachedFull) {
     status = 'active';
   } else if (wasFull) {

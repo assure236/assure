@@ -34,6 +34,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _currentPincodeCtrl;
   String? _selectedGender;
   bool _digilockerConnected = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -67,6 +68,113 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         setState(() => _digilockerConnected = res['data']?['digilocker_connected'] == true);
       }
     } catch (_) {}
+  }
+
+  Future<void> _pickDateOfBirth() async {
+    final now = DateTime.now();
+    final initial = DateTime.tryParse(_dobCtrl.text) ?? DateTime(now.year - 25, 1, 1);
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(1940, 1, 1),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() {
+        _dobCtrl.text = picked.toIso8601String().split('T').first;
+      });
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate() || _isSaving) return;
+
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Confirm Details'),
+            content: const Text(
+              'Please confirm all profile details are correct. Submitted details will be saved to your account.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Review Again'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Submit'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed) return;
+
+    final payload = {
+      'address': _addressCtrl.text.trim(),
+      'city': _cityCtrl.text.trim(),
+      'state': _stateCtrl.text.trim(),
+      'pincode': _pincodeCtrl.text.trim(),
+      'date_of_birth': _dobCtrl.text.trim(),
+      'gender': _selectedGender,
+      'pan_number': _panCtrl.text.trim().toUpperCase(),
+      'nominee_name': _nomineeNameCtrl.text.trim(),
+      'nominee_relationship': _nomineeRelCtrl.text.trim(),
+      'bank_name': _bankNameCtrl.text.trim(),
+      'bank_account_number': _bankAccCtrl.text.trim(),
+      'bank_ifsc_code': _bankIfscCtrl.text.trim().toUpperCase(),
+      'current_address': _currentAddressCtrl.text.trim(),
+      'current_city': _currentCityCtrl.text.trim(),
+      'current_state': _currentStateCtrl.text.trim(),
+      'current_pincode': _currentPincodeCtrl.text.trim(),
+    };
+
+    payload.removeWhere((key, value) => value == null);
+
+    setState(() => _isSaving = true);
+    try {
+      final response = await ApiService.put('/users/profile', payload);
+      if (!mounted) return;
+
+      final ok = response['success'] == true;
+      if (ok) {
+        await context.read<AuthProvider>().refreshProfile();
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text((response['message'] ?? 'Profile updated successfully').toString()),
+            backgroundColor: AppTheme.successColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        context.pop();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text((response['message'] ?? 'Unable to update profile').toString()),
+            backgroundColor: AppTheme.errorColor,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to update profile right now. Please try again.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -142,24 +250,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         child: Form(
           key: _formKey,
           child: Column(children: [
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withAlpha(12),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppTheme.primaryColor.withAlpha(30)),
-              ),
-              child: Row(children: [
-                Icon(Icons.lock_outline, color: AppTheme.primaryColor, size: 16),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text('Profile details are read-only. Contact Support for any change request.',
-                      style: TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
-                ),
-              ]),
-            ),
             // Pending approval banner
             if (user?.profileEditStatus == 'pending')
               Container(
@@ -306,7 +396,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   textCapitalization: TextCapitalization.characters,
                   hint: 'ABCDE1234F',
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
+                    if (v == null || v.trim().isEmpty) return 'PAN Number is required';
                     if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
                         .hasMatch(v.trim().toUpperCase())) {
                       return 'Invalid PAN format';
@@ -326,6 +416,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 icon: Icons.cake_outlined,
                 hint: 'DD/MM/YYYY',
                 keyboardType: TextInputType.datetime,
+                readOnly: true,
+                onTap: _pickDateOfBirth,
+                validator: (v) => _requiredValidator(v, 'Date of Birth'),
               ),
               const Divider(height: 1),
               Padding(
@@ -342,7 +435,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     DropdownMenuItem(value: 'female', child: Text('Female')),
                     DropdownMenuItem(value: 'other', child: Text('Other')),
                   ],
-                  onChanged: null,
+                  onChanged: (value) => setState(() => _selectedGender = value),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Gender is required';
+                    }
+                    return null;
+                  },
                 ),
               ),
             ]),
@@ -356,18 +455,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Address',
                 icon: Icons.home_outlined,
                 hint: 'Street / Area / Locality',
+                validator: (v) => _requiredValidator(v, 'Address'),
               ),
               const Divider(height: 1),
               _FormField(
                 controller: _cityCtrl,
                 label: 'City',
                 icon: Icons.location_city_outlined,
+                validator: (v) => _requiredValidator(v, 'City'),
               ),
               const Divider(height: 1),
               _FormField(
                 controller: _stateCtrl,
                 label: 'State',
                 icon: Icons.map_outlined,
+                validator: (v) => _requiredValidator(v, 'State'),
               ),
               const Divider(height: 1),
               _FormField(
@@ -377,7 +479,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 keyboardType: TextInputType.number,
                 hint: '500001',
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null;
+                  if (v == null || v.trim().isEmpty) return 'Pincode is required';
                   if (!RegExp(r'^\d{6}$').hasMatch(v.trim())) return 'Enter 6-digit pincode';
                   return null;
                 },
@@ -421,18 +523,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Current Address',
                 icon: Icons.location_on_outlined,
                 hint: 'Street / Area / Locality',
+                validator: (v) => _requiredValidator(v, 'Current Address'),
               ),
               const Divider(height: 1),
               _FormField(
                 controller: _currentCityCtrl,
                 label: 'City',
                 icon: Icons.location_city_outlined,
+                validator: (v) => _requiredValidator(v, 'Current City'),
               ),
               const Divider(height: 1),
               _FormField(
                 controller: _currentStateCtrl,
                 label: 'State',
                 icon: Icons.map_outlined,
+                validator: (v) => _requiredValidator(v, 'Current State'),
               ),
               const Divider(height: 1),
               _FormField(
@@ -442,7 +547,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 keyboardType: TextInputType.number,
                 hint: '500001',
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null;
+                  if (v == null || v.trim().isEmpty) return 'Current pincode is required';
                   if (!RegExp(r'^\d{6}$').hasMatch(v.trim())) return 'Enter 6-digit pincode';
                   return null;
                 },
@@ -457,6 +562,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _nomineeNameCtrl,
                 label: 'Nominee Name',
                 icon: Icons.person_add_outlined,
+                validator: (v) => _requiredValidator(v, 'Nominee Name'),
               ),
               const Divider(height: 1),
               _FormField(
@@ -464,6 +570,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Relationship',
                 icon: Icons.people_outline,
                 hint: 'e.g. Spouse, Parent, Sibling',
+                validator: (v) => _requiredValidator(v, 'Nominee Relationship'),
               ),
             ]),
             const SizedBox(height: 16),
@@ -475,6 +582,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _bankNameCtrl,
                 label: 'Bank Name',
                 icon: Icons.account_balance_outlined,
+                validator: (v) => _requiredValidator(v, 'Bank Name'),
               ),
               const Divider(height: 1),
               _FormField(
@@ -482,6 +590,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Account Number',
                 icon: Icons.numbers_outlined,
                 keyboardType: TextInputType.number,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Account Number is required';
+                  if (!RegExp(r'^\d{9,18}$').hasMatch(v.trim())) {
+                    return 'Enter a valid account number';
+                  }
+                  return null;
+                },
               ),
               const Divider(height: 1),
               _FormField(
@@ -491,7 +606,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 textCapitalization: TextCapitalization.characters,
                 hint: 'SBIN0001234',
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null;
+                  if (v == null || v.trim().isEmpty) return 'IFSC Code is required';
                   if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$')
                       .hasMatch(v.trim().toUpperCase())) {
                     return 'Invalid IFSC format';
@@ -515,11 +630,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'All profile fields are managed through Support only. Contact Support to request any update.',
+                    'Profile changes are saved instantly. Keep details accurate for smoother KYC and payouts.',
                     style: TextStyle(color: Colors.blue, fontSize: 12),
                   ),
                 ),
               ]),
+            ),
+            const SizedBox(height: 16),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSaving ? null : _saveProfile,
+                icon: _isSaving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.save_outlined),
+                label: Text(_isSaving ? 'Saving...' : 'Save Profile'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
             ),
             const SizedBox(height: 32),
           ]),
@@ -550,6 +687,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 }
 
+String? _requiredValidator(String? value, String fieldLabel) {
+  if (value == null || value.trim().isEmpty) {
+    return '$fieldLabel is required';
+  }
+  return null;
+}
+
 class _FormField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
@@ -558,6 +702,8 @@ class _FormField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
   final String? hint;
+  final bool readOnly;
+  final VoidCallback? onTap;
 
   const _FormField({
     required this.controller,
@@ -567,6 +713,8 @@ class _FormField extends StatelessWidget {
     this.keyboardType,
     this.textCapitalization = TextCapitalization.words,
     this.hint,
+    this.readOnly = false,
+    this.onTap,
   });
 
   @override
@@ -575,8 +723,8 @@ class _FormField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: TextFormField(
         controller: controller,
-        readOnly: true,
-        enabled: false,
+        readOnly: readOnly,
+        onTap: onTap,
         keyboardType: keyboardType,
         textCapitalization: textCapitalization,
         validator: validator,

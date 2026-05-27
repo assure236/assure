@@ -16,77 +16,65 @@ exports.getProfile = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
-    if ((req.user.role || 'member') === 'member') {
-      return res.status(403).json({
-        success: false,
-        message: 'Profile fields are read-only. Please contact support to request changes.',
-      });
-    }
-
     const userId = req.user._id || req.user.id;
-    const { full_name, email, address, date_of_birth, city, state, pincode, pan_number, bank_account_number, bank_ifsc_code, bank_name, gender, nominee_name, nominee_relationship, current_address, current_city, current_state, current_pincode } = req.body;
+    const allowedFields = [
+      'full_name',
+      'email',
+      'address',
+      'date_of_birth',
+      'city',
+      'state',
+      'pincode',
+      'pan_number',
+      'bank_account_number',
+      'bank_ifsc_code',
+      'bank_name',
+      'gender',
+      'nominee_name',
+      'nominee_relationship',
+      'current_address',
+      'current_city',
+      'current_state',
+      'current_pincode',
+    ];
 
-    // Sensitive fields that require admin approval
-    const sensitiveFields = ['pan_number', 'bank_account_number', 'bank_ifsc_code', 'bank_name', 'email', 'full_name'];
-    const allFields = { full_name, email, address, date_of_birth, city, state, pincode, pan_number, bank_account_number, bank_ifsc_code, bank_name, gender, nominee_name, nominee_relationship, current_address, current_city, current_state, current_pincode };
-    
-    // Separate sensitive from non-sensitive
-    const sensitiveChanges = {};
-    const directUpdate = {};
-    for (const [key, value] of Object.entries(allFields)) {
-      if (value === undefined) continue;
-      if (sensitiveFields.includes(key)) {
-        sensitiveChanges[key] = value;
-      } else {
-        directUpdate[key] = value;
+    const updates = {};
+    for (const key of allowedFields) {
+      if (req.body[key] !== undefined) {
+        updates[key] = typeof req.body[key] === 'string' ? req.body[key].trim() : req.body[key];
       }
     }
 
-    // Apply non-sensitive changes directly
-    if (Object.keys(directUpdate).length > 0) {
-      await User.findByIdAndUpdate(userId, directUpdate);
-    }
+    if (updates.pan_number) updates.pan_number = updates.pan_number.toUpperCase();
+    if (updates.bank_ifsc_code) updates.bank_ifsc_code = updates.bank_ifsc_code.toUpperCase();
 
-    // If sensitive changes, create approval request
-    if (Object.keys(sensitiveChanges).length > 0) {
-      await User.findByIdAndUpdate(userId, {
-        profile_edit_status: 'pending',
-        pending_profile_changes: sensitiveChanges,
-        profile_edit_requested_at: new Date(),
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        ...updates,
+        profile_edit_status: null,
+        pending_profile_changes: null,
+        profile_edit_requested_at: null,
         profile_edit_rejection_reason: null,
-      });
+      },
+      { new: true }
+    ).select('-password_hash');
 
-      // Notify admins
-      const { Notification } = require('../models');
-      const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
-      const adminNotifications = admins.map(admin => ({
-        user_id: admin._id,
-        type: 'profile_edit_request',
-        title: 'Profile Edit Request',
-        message: `${req.user.full_name} requested changes to: ${Object.keys(sensitiveChanges).join(', ')}`,
-        metadata: { request_user_id: userId, changes: sensitiveChanges },
-      }));
-      if (adminNotifications.length > 0) await Notification.insertMany(adminNotifications);
-    }
-
-    const user = await User.findById(userId).select('-password_hash');
-    const hasPending = Object.keys(sensitiveChanges).length > 0;
+    const userObj = user.toObject();
+    userObj.id = userObj._id;
 
     res.json({
       success: true,
-      message: hasPending
-        ? 'Non-sensitive fields updated. Sensitive changes require admin approval.'
-        : 'Profile updated',
-      data: user,
-      pending_approval: hasPending,
+      message: 'Profile updated successfully',
+      data: userObj,
     });
 
     audit({
       userId, userName: req.user.full_name, userRole: req.user.role,
-      action: hasPending ? 'profile_edit_requested' : 'profile_updated',
+      action: 'profile_updated',
       resourceType: 'user', resourceId: String(userId),
-      description: hasPending ? 'Profile edit request submitted for approval' : 'Profile updated',
-      metadata: { fields_updated: Object.keys(directUpdate), pending_fields: Object.keys(sensitiveChanges) },
+      description: 'Profile updated',
+      metadata: { fields_updated: Object.keys(updates) },
       ipAddress: getIp(req),
     });
   } catch (err) { next(err); }

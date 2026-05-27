@@ -313,13 +313,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Account Actions',
                     children: [
                       _MenuItem(
-                        icon: Icons.devices,
-                        label: 'Logout All Devices',
-                        subtitle: 'Sign out from all logged in devices',
-                        isDestructive: true,
-                        onTap: () => _confirmLogoutAll(context, auth),
-                      ),
-                      _MenuItem(
                         icon: Icons.logout,
                         label: 'Logout',
                         isDestructive: true,
@@ -343,7 +336,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _confirmLogout(BuildContext context, AuthProvider auth) {
-    _doLogout(context, auth, logoutAll: false);
+    _doLogout(context, auth);
   }
 
   Widget _buildCurrentSessionCard(AuthProvider auth) {
@@ -416,25 +409,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _confirmLogoutAll(BuildContext context, AuthProvider auth) {
-    _doLogout(context, auth, logoutAll: true);
-  }
-
-  Future<void> _doLogout(
-    BuildContext context,
-    AuthProvider auth, {
-    required bool logoutAll,
-  }) async {
+  Future<void> _doLogout(BuildContext context, AuthProvider auth) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(logoutAll ? 'Logout All Devices' : 'Logout'),
-        content: Text(
-          logoutAll
-              ? 'This will sign you out from ALL devices (mobile, web & other phones).'
-              : 'You will be signed out of this device.',
-        ),
+        title: const Text('Logout'),
+        content: const Text('You will be signed out of this device.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
@@ -443,22 +424,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
               backgroundColor: AppTheme.errorColor,
               foregroundColor: Colors.white,
             ),
-            child: Text(logoutAll ? 'Logout All' : 'Logout'),
+            child: const Text('Logout'),
           ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
-
-    if (logoutAll) {
-      // Backend bumps token_version (invalidating ALL tokens incl. web) and emits
-      // force_logout to every connected socket for this user.
-      try {
-        await ApiService.post('/auth/logout-all-devices', {});
-      } catch (_) {
-        // Even if server fails, log out locally so user isn't stuck.
-      }
-    }
     await auth.logout();
     if (context.mounted) context.go('/welcome');
   }

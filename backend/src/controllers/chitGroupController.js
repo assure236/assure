@@ -89,7 +89,7 @@ exports.enrollInChitGroup = async (req, res, next) => {
     const group = await ChitGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
 
-    if (!['not_started', 'active', 'vacant'].includes(group.status)) {
+    if (!['active', 'vacant'].includes(group.status)) {
       return res.status(400).json({ success: false, message: 'Group not open for enrollment' });
     }
 

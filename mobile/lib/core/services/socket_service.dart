@@ -5,7 +5,6 @@ import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
-import 'api_service.dart';
 
 /// Persistent socket connection for user-level events (multi-device alerts, etc.).
 /// Call [setContext] from DashboardScreen to allow dialog display.
@@ -136,20 +135,7 @@ class SocketService {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('It\'s me', style: TextStyle(color: Colors.grey[600])),
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorColor,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              _logoutAllDevices(ctx);
-            },
-            icon: const Icon(Icons.logout, size: 18),
-            label: const Text('Logout All Devices'),
+            child: Text('OK', style: TextStyle(color: Colors.grey[600])),
           ),
         ],
       ),
@@ -179,17 +165,6 @@ class SocketService {
     } catch (_) {
       return isoString;
     }
-  }
-
-  Future<void> _logoutAllDevices(BuildContext context) async {
-    try {
-      final result = await ApiService.post('/auth/logout-all-devices', {});
-      if (result['success'] == true && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('All devices logged out. Please login again.')),
-        );
-      }
-    } catch (_) {}
   }
 
   static String get deviceName {

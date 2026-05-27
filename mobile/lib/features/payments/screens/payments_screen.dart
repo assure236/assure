@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -25,6 +27,81 @@ class PaymentsScreen extends StatefulWidget {
 class PaymentsScreenState extends State<PaymentsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+
+  Future<String?> _readAuthToken() async {
+    const storage = FlutterSecureStorage();
+    String? token = await storage.read(key: 'access_token');
+    if (token == null || token.isEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      token = prefs.getString('token');
+    }
+    return token;
+  }
+
+  Future<void> _downloadStatementPdf() async {
+    final token = await _readAuthToken();
+    if (token == null || token.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Session expired. Please login again.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiService.baseUrl}/payments/statement?format=pdf'),
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Accept': 'application/pdf',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final now = DateTime.now();
+        final fileName =
+            'account_statement_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.pdf';
+        final file = File('${Directory.systemTemp.path}/$fileName');
+        await file.writeAsBytes(response.bodyBytes);
+
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path, mimeType: 'application/pdf')],
+            subject: 'Account Statement - Assure Chit Funds',
+          ),
+        );
+        return;
+      }
+
+      String message = 'Unable to download statement right now.';
+      try {
+        final decoded = jsonDecode(response.body);
+        final apiMessage = decoded is Map ? decoded['message']?.toString() : null;
+        if (apiMessage != null && apiMessage.isNotEmpty) {
+          message = apiMessage;
+        }
+      } catch (_) {}
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to download statement right now.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
 
   /// Switch to a specific tab programmatically
   void switchToTab(int index) {
@@ -62,12 +139,7 @@ class PaymentsScreenState extends State<PaymentsScreen>
           IconButton(
             icon: const Icon(Icons.receipt_long_rounded),
             tooltip: 'Account Statement',
-            onPressed: () async {
-              const storage = FlutterSecureStorage();
-              final token = await storage.read(key: 'access_token');
-              final url = '${ApiService.baseUrl}/payments/statement?format=pdf&token=$token';
-              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-            },
+            onPressed: _downloadStatementPdf,
           ),
         ],
         bottom: TabBar(

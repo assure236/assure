@@ -7,8 +7,9 @@ import {
   DialogContent, DialogActions
 } from '@mui/material';
 import {
-  Search as SearchIcon, Add as AddIcon, Edit as EditIcon,
-  Pause as PauseIcon, PlayArrow as ResumeIcon, Visibility as ViewIcon
+  Search as SearchIcon, Add as AddIcon,
+  Pause as PauseIcon, PlayArrow as ResumeIcon, Visibility as ViewIcon,
+  Delete as DeleteIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -49,6 +50,20 @@ const ChitGroups = () => {
 
   const handleStatusAction = async () => {
     const { group, action } = confirmDialog;
+    if (!group) return;
+
+    if (action === 'delete') {
+      try {
+        await axios.delete(`${process.env.REACT_APP_API_URL}/admin/chit-groups/${group._id || group.id}`);
+        toast.success('Group deleted successfully');
+        setConfirmDialog({ open: false, group: null, action: '' });
+        fetchGroups();
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Delete failed');
+      }
+      return;
+    }
+
     let newStatus;
     if (action === 'start') newStatus = 'active';
     else if (action === 'suspend') newStatus = 'suspended';
@@ -141,6 +156,15 @@ const ChitGroups = () => {
                               </IconButton>
                             </Tooltip>
                           )}
+                          <Tooltip title="Delete Group">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => setConfirmDialog({ open: true, group: g, action: 'delete' })}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         </TableCell>
                       </TableRow>
                     );
@@ -164,14 +188,20 @@ const ChitGroups = () => {
         <DialogTitle>Confirm Action</DialogTitle>
         <DialogContent>
           <Typography>
-            Are you sure you want to {confirmDialog.action} <strong>{confirmDialog.group?.group_name}</strong>?
+            {confirmDialog.action === 'delete'
+              ? <>Are you sure you want to delete <strong>{confirmDialog.group?.group_name}</strong>?</>
+              : <>Are you sure you want to {confirmDialog.action} <strong>{confirmDialog.group?.group_name}</strong>?</>}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmDialog({ open: false, group: null, action: '' })}>Cancel</Button>
-          <Button variant="contained" color={confirmDialog.action === 'suspend' ? 'error' : 'success'}
+          <Button variant="contained" color={confirmDialog.action === 'suspend' || confirmDialog.action === 'delete' ? 'error' : 'success'}
             onClick={handleStatusAction}>
-            {confirmDialog.action === 'suspend' ? 'Suspend' : 'Activate'}
+            {confirmDialog.action === 'delete'
+              ? 'Delete'
+              : confirmDialog.action === 'suspend'
+                ? 'Suspend'
+                : 'Activate'}
           </Button>
         </DialogActions>
       </Dialog>

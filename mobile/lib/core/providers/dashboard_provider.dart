@@ -8,6 +8,7 @@ class DashboardProvider with ChangeNotifier {
   Map<String, dynamic>? _data;
   bool _isLoading = false;
   String? _error;
+  int _availableChitsCount = 0;
 
   static const _cacheKey = 'dashboard_cache';
   static const _cacheTsKey = 'dashboard_cache_ts';
@@ -20,6 +21,7 @@ class DashboardProvider with ChangeNotifier {
 
   int get totalGroups => (_data?['totalGroups'] ?? 0) as int;
   int get activeGroups => (_data?['activeGroups'] ?? 0) as int;
+  int get availableChitsCount => _availableChitsCount;
   double get totalInvested =>
       double.tryParse(_data?['totalInvested']?.toString() ?? '0') ?? 0;
   int get creditScore =>
@@ -54,6 +56,7 @@ class DashboardProvider with ChangeNotifier {
       if (cached != null) {
         try {
           _data = Map<String, dynamic>.from(jsonDecode(cached));
+          _availableChitsCount = (_data?['availableChitsCount'] ?? 0) as int;
         } catch (_) {}
       }
     }
@@ -81,6 +84,25 @@ class DashboardProvider with ChangeNotifier {
       final res = await ApiService.get('/dashboard/member');
       if (res['success'] == true) {
         _data = Map<String, dynamic>.from(res['data']);
+
+        final groupResponses = await Future.wait([
+          ApiService.get('/chit-groups?status=not_started&limit=1'),
+          ApiService.get('/chit-groups?status=active&limit=1'),
+          ApiService.get('/chit-groups?status=vacant&limit=1'),
+        ]);
+
+        int availableCount = 0;
+        for (final response in groupResponses) {
+          if (response['success'] != true) continue;
+          final data = response['data'];
+          if (data is Map && data['total'] != null) {
+            availableCount += int.tryParse(data['total'].toString()) ?? 0;
+          }
+        }
+
+        _availableChitsCount = availableCount;
+        _data?['availableChitsCount'] = _availableChitsCount;
+
         // Persist to cache
         await prefs.setString(_cacheKey, jsonEncode(_data));
         await prefs.setInt(_cacheTsKey, DateTime.now().millisecondsSinceEpoch);

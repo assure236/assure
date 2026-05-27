@@ -364,6 +364,8 @@ router.post('/kyc/:userId/reject', adminOnly, async (req, res, next) => {
 // ============ CHIT GROUPS ============
 router.get('/chit-groups', adminOnly, async (req, res, next) => {
   try {
+    await syncChitGroupStatuses();
+
     const { page = 1, limit = 20, status, search } = req.query;
     const filter = {};
     if (status) filter.status = status;
@@ -384,6 +386,8 @@ router.get('/chit-groups', adminOnly, async (req, res, next) => {
 
 router.get('/chit-groups/:id', adminOnly, async (req, res, next) => {
   try {
+    await syncChitGroupStatuses({ groupIds: [req.params.id] });
+
     const group = await ChitGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ success: false, message: 'Not found' });
     const [members, auctions, payments] = await Promise.all([
@@ -406,16 +410,63 @@ router.post('/chit-groups', adminOnly, async (req, res, next) => {
       const count = await ChitGroup.countDocuments();
       req.body.group_number = `GRP-${String(count + 1).padStart(6, '0')}`;
     }
+
+    if (!req.body.status && req.body.commencement_date) {
+      const startDate = new Date(req.body.commencement_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      req.body.status = startDate <= today ? 'active' : 'not_started';
+    }
+
     const group = await ChitGroup.create(req.body);
+    await syncChitGroupStatuses({ groupIds: [group._id] });
     res.status(201).json({ success: true, message: 'Chit group created', data: group });
   } catch (err) { next(err); }
 });
 
 router.put('/chit-groups/:id', adminOnly, async (req, res, next) => {
   try {
-    const group = await ChitGroup.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updatePayload = { ...req.body };
+
+    if (updatePayload.commencement_date !== undefined && updatePayload.status === undefined) {
+      const startDate = new Date(updatePayload.commencement_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (!Number.isNaN(startDate.getTime())) {
+        updatePayload.status = startDate <= today ? 'active' : 'not_started';
+      }
+    }
+
+    const group = await ChitGroup.findByIdAndUpdate(req.params.id, updatePayload, { new: true });
     if (!group) return res.status(404).json({ success: false, message: 'Not found' });
+
+    await syncChitGroupStatuses({ groupIds: [group._id] });
+
     res.json({ success: true, message: 'Chit group updated', data: group });
+  } catch (err) { next(err); }
+});
+
+router.delete('/chit-groups/:id', adminOnly, async (req, res, next) => {
+  try {
+    const group = await ChitGroup.findById(req.params.id);
+    if (!group) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const [memberCount, auctionCount, paymentCount] = await Promise.all([
+      ChitMember.countDocuments({ chit_group_id: group._id }),
+      Auction.countDocuments({ chit_group_id: group._id }),
+      Payment.countDocuments({ chit_group_id: group._id }),
+    ]);
+
+    if (memberCount > 0 || auctionCount > 0 || paymentCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete this chit group because member, auction, or payment records already exist.',
+      });
+    }
+
+    await ChitGroup.deleteOne({ _id: group._id });
+    res.json({ success: true, message: 'Chit group deleted successfully' });
   } catch (err) { next(err); }
 });
 

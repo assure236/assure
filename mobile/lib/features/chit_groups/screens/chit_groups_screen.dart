@@ -321,7 +321,7 @@ class _AvailableGroupCard extends StatelessWidget {
           ? 'Active'
           : 'Upcoming';
 
-    final bool enrollDisabled = slotsLeft <= 0;
+    final bool enrollDisabled = slotsLeft <= 0 || isNotStarted;
 
     return GestureDetector(
       onTap: onTap,
@@ -430,7 +430,13 @@ class _AvailableGroupCard extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: enrollDisabled ? null : onEnroll,
               icon: const Icon(Icons.how_to_reg_rounded, size: 18),
-              label: Text(enrollDisabled ? 'Group Full' : 'Enroll Now'),
+              label: Text(
+                isNotStarted
+                    ? 'Enrollment Closed'
+                    : enrollDisabled
+                        ? 'Group Full'
+                        : 'Enroll Now',
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: accentColor,
                 foregroundColor: Colors.white,

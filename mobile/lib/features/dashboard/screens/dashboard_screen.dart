@@ -756,8 +756,8 @@ class _StatsRow extends StatelessWidget {
             child: GestureDetector(
               onTap: () => switchTab(1),
               child: _StatCard(
-                label: 'Active Chits',
-                value: '${dash.activeGroups}',
+                label: 'New/Vacant',
+                value: '${dash.availableChitsCount}',
                 icon: Icons.group_work_rounded,
                 iconBg: AppTheme.lightBlueBg,
                 iconColor: AppTheme.accentBlue,
@@ -917,7 +917,6 @@ class _ActiveChits extends StatelessWidget {
                           currentMonth: current,
                           totalMonths: total,
                           progress: progress,
-                          index: i,
                         ),
                       );
                     },
@@ -936,7 +935,6 @@ class _ChitCard extends StatelessWidget {
   final int currentMonth;
   final int totalMonths;
   final double progress;
-  final int index;
 
   const _ChitCard({
     required this.name,
@@ -945,29 +943,22 @@ class _ChitCard extends StatelessWidget {
     required this.currentMonth,
     required this.totalMonths,
     required this.progress,
-    required this.index,
   });
-
-  static const _electricBlueGradient = [
-    Color(0xFF1E3A8A),
-    Color(0xFF2563EB),
-  ];
 
   @override
   Widget build(BuildContext context) {
-    final colors = _electricBlueGradient;
+    const cardColor = AppTheme.primaryColor;
 
     return Container(
       width: 200,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        gradient:
-            LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
+        color: cardColor,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: colors[0].withAlpha(102),
+              color: cardColor.withAlpha(102),
               blurRadius: 12,
               offset: const Offset(0, 4)),
         ],

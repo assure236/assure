@@ -70,11 +70,6 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     _inactivityTimer = null;
   }
 
-  bool _isOtpReauthDue() {
-    if (_lastActivityAt == null) return false;
-    return DateTime.now().difference(_lastActivityAt!) >= _otpReauthDuration;
-  }
-
   Future<void> _recordActivity({bool forcePersist = false}) async {
     final now = DateTime.now();
     _lastActivityAt = now;

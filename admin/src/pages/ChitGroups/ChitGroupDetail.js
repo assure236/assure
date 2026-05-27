@@ -2,10 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   Container, Typography, Box, Card, CardContent, Grid, Chip, Button,
   CircularProgress, Alert, Divider, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Paper, Avatar, IconButton, Tooltip,
+  TableContainer, TableHead, TableRow, Avatar, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem
 } from '@mui/material';
-import { ArrowBack as BackIcon, Refresh as RefreshIcon, Edit as EditIcon } from '@mui/icons-material';
+import {
+  ArrowBack as BackIcon,
+  Refresh as RefreshIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+} from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -38,6 +43,8 @@ export default function ChitGroupDetail() {
   const [editForm, setEditForm] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const fetchGroup = useCallback(async () => {
     setLoading(true);
@@ -66,6 +73,20 @@ export default function ChitGroupDetail() {
       fetchGroup();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Action failed');
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    setDeleteLoading(true);
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_URL}/admin/chit-groups/${id}`);
+      toast.success('Group deleted successfully');
+      navigate('/chit-groups');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Delete failed');
+    } finally {
+      setDeleteLoading(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -187,6 +208,11 @@ export default function ChitGroupDetail() {
         <Box display="flex" gap={1}>
           <Tooltip title="Edit">
             <IconButton onClick={openEdit}><EditIcon /></IconButton>
+          </Tooltip>
+          <Tooltip title="Delete Group">
+            <IconButton color="error" onClick={() => setDeleteOpen(true)}>
+              <DeleteIcon />
+            </IconButton>
           </Tooltip>
           <Tooltip title="Refresh">
             <IconButton onClick={fetchGroup}><RefreshIcon /></IconButton>
@@ -415,6 +441,26 @@ export default function ChitGroupDetail() {
           <Button onClick={() => setEditOpen(false)} disabled={editSaving}>Cancel</Button>
           <Button variant="contained" onClick={handleEditSave} disabled={editSaving}>
             {editSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
+        <DialogTitle>Delete Chit Group</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Are you sure you want to delete <strong>{group.group_name}</strong>? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteOpen(false)} disabled={deleteLoading}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={handleDeleteGroup}
+            disabled={deleteLoading}
+          >
+            {deleteLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
