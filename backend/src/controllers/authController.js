@@ -13,11 +13,11 @@ const QR_SESSION_TTL_MS = 2 * 60 * 1000; // 2 minutes
 
 function genOtp() { return Math.floor(100000 + Math.random() * 900000).toString(); }
 
-const generateToken = (userId, tokenVersion = 0) =>
-  jwt.sign({ userId, tv: tokenVersion }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+const generateToken = (userId, tokenVersion = 0, extraClaims = {}) =>
+  jwt.sign({ userId, tv: tokenVersion, ...extraClaims }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
 
-const generateRefreshToken = (userId, tokenVersion = 0) =>
-  jwt.sign({ userId, tv: tokenVersion }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' });
+const generateRefreshToken = (userId, tokenVersion = 0, extraClaims = {}) =>
+  jwt.sign({ userId, tv: tokenVersion, ...extraClaims }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' });
 
 exports.resendOtp = async (req, res, next) => {
   try {
@@ -224,29 +224,51 @@ exports.loginWithOtp = async (req, res, next) => {
     if (!user) return res.status(401).json({ success: false, message: 'No account found with this mobile number' });
     if (!user.is_active) return res.status(403).json({ success: false, message: 'Account deactivated' });
 
+    const platform = String(req.body.platform || '').toLowerCase();
+    const isWebLogin = platform === 'web';
+
     user.last_login_at = new Date();
-    user.token_version = (user.token_version || 0) + 1; // Invalidate all other sessions on new login
+    if (isWebLogin) {
+      // Web login should only invalidate other web sessions.
+      user.web_token_version = (user.web_token_version || 0) + 1;
+    } else {
+      // Mobile login should invalidate all sessions (mobile + web).
+      user.token_version = (user.token_version || 0) + 1;
+    }
     await user.save();
     otpStore.delete(key);
 
-    // Notify existing sessions about new login & force logout
+    // Notify existing sessions about new login / force logout
     const io = req.app.get('io');
     if (io) {
       const { device_name, platform: devicePlatform } = req.body;
-      io.to(`user:${user._id}`).emit('force_logout', {
-        message: 'You have been logged out because a new login was detected.',
-        device_name: device_name || 'Unknown device',
-        platform: devicePlatform || 'Unknown',
-        logged_in_at: new Date().toISOString(),
-      });
+      if (isWebLogin) {
+        io.to(`user:${user._id}`).emit('force_logout_web', {
+          message: 'Your web session was logged out because a new web login was detected.',
+          device_name: device_name || 'Web browser',
+          platform: 'web',
+          logged_in_at: new Date().toISOString(),
+        });
+      } else {
+        io.to(`user:${user._id}`).emit('force_logout', {
+          message: 'You have been logged out because a new login was detected.',
+          device_name: device_name || 'Unknown device',
+          platform: devicePlatform || 'Unknown',
+          logged_in_at: new Date().toISOString(),
+        });
+      }
     }
 
     // Invalidate auth middleware cache so old tokens fail immediately
     const { invalidateUserCache } = require('../middleware/auth');
     invalidateUserCache(String(user._id));
 
-    const token = generateToken(user._id, user.token_version || 0);
-    const refreshToken = generateRefreshToken(user._id, user.token_version || 0);
+    const token = isWebLogin
+      ? generateToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
+      : generateToken(user._id, user.token_version || 0);
+    const refreshToken = isWebLogin
+      ? generateRefreshToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
+      : generateRefreshToken(user._id, user.token_version || 0);
 
     const userObj = user.toObject();
     delete userObj.password_hash;
@@ -273,7 +295,16 @@ exports.refreshToken = async (req, res, next) => {
     if (decoded.tv !== undefined && decoded.tv !== (user.token_version || 0)) {
       return res.status(401).json({ success: false, message: 'Session invalidated. Please login again.' });
     }
-    const token = generateToken(user._id, user.token_version || 0);
+    // For web sessions, also validate web_token_version so only one web session stays active.
+    if (decoded.ch === 'web') {
+      if (decoded.wv !== undefined && decoded.wv !== (user.web_token_version || 0)) {
+        return res.status(401).json({ success: false, message: 'Web session invalidated. Please login again.' });
+      }
+    }
+
+    const token = decoded.ch === 'web'
+      ? generateToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
+      : generateToken(user._id, user.token_version || 0);
     res.json({ success: true, data: { token } });
   } catch (error) { next(error); }
 };
@@ -393,18 +424,18 @@ exports.qrConfirm = async (req, res, next) => {
     }
     const userId = req.user._id || req.user.id;
 
-    // Strict single-session policy: every new login invalidates existing sessions.
+    // QR is a web login: invalidate only web sessions, not mobile sessions.
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     user.last_login_at = new Date();
-    user.token_version = (user.token_version || 0) + 1;
+    user.web_token_version = (user.web_token_version || 0) + 1;
     await user.save();
 
     const io = req.app.get('io');
     if (io) {
-      io.to(`user:${userId}`).emit('force_logout', {
-        message: 'You have been logged out because a new login was detected.',
+      io.to(`user:${userId}`).emit('force_logout_web', {
+        message: 'Your web session was logged out because a new web login was detected.',
         device_name: 'Web session',
         platform: 'web',
         logged_in_at: new Date().toISOString(),
@@ -415,8 +446,9 @@ exports.qrConfirm = async (req, res, next) => {
     invalidateUserCache(String(userId));
 
     const tv = user.token_version || 0;
-    const token = generateToken(userId, tv);
-    const refreshToken = generateRefreshToken(userId, tv);
+    const wv = user.web_token_version || 0;
+    const token = generateToken(userId, tv, { ch: 'web', wv });
+    const refreshToken = generateRefreshToken(userId, tv, { ch: 'web', wv });
     const userObj = {
       id: user._id,
       full_name: user.full_name,

@@ -78,6 +78,13 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Session invalidated. Please login again.' });
     }
 
+    // For web channel tokens, enforce single active web session.
+    if (decoded.ch === 'web') {
+      if (decoded.wv !== undefined && decoded.wv !== (user.web_token_version || 0)) {
+        return res.status(401).json({ success: false, message: 'Web session invalidated. Please login again.' });
+      }
+    }
+
     req.user = user;
     next();
   } catch (error) {

@@ -137,7 +137,12 @@ export default function Login() {
   const verifyOtp = async (otp) => {
     setLoading(true);
     try {
-      const res = await axios.post('/auth/login-otp', { mobile, otp });
+      const res = await axios.post('/auth/login-otp', {
+        mobile,
+        otp,
+        platform: 'web',
+        device_name: 'Web Browser',
+      });
       if (res.data.success) {
         const { token, user } = res.data.data;
         await loginWithToken(token, user);

@@ -108,6 +108,10 @@ export const AuthProvider = ({ children }) => {
       toast.warning(data?.message || 'You have been logged out from all devices.');
       logout();
     });
+    socket.on('force_logout_web', (data) => {
+      toast.warning(data?.message || 'You have been logged out because a new web login was detected.');
+      logout();
+    });
     socket.on('new_login_detected', (data) => {
       toast.info(data?.message || 'New login detected on another device.');
     });
