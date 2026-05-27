@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/chit_group_provider.dart';
+import '../../../core/providers/dashboard_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/celebration_overlay.dart';
 
@@ -23,7 +24,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChitGroupProvider>().fetchMyChitGroups();
     });
@@ -73,7 +74,6 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
               unselectedLabelColor: Colors.white60,
               tabs: const [
                 Tab(text: 'New'),
-                Tab(text: 'Active'),
                 Tab(text: 'Vacant'),
               ],
             ),
@@ -89,7 +89,6 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
               controller: _tabController,
               children: [
                 _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
-                _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'active'),
                 _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'vacant'),
               ],
             ),
@@ -141,7 +140,7 @@ class _SearchBar extends StatelessWidget {
 
 class _AvailableGroupsTab extends StatefulWidget {
   final String searchQuery;
-  final String filter; // 'new', 'active', or 'vacant'
+  final String filter; // 'new' or 'vacant'
   const _AvailableGroupsTab({required this.searchQuery, required this.filter});
 
   @override
@@ -195,8 +194,6 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
       final List<Map<String, dynamic>> data;
       if (widget.filter == 'vacant') {
         data = await provider.fetchVacantGroups();
-      } else if (widget.filter == 'active') {
-        data = await provider.fetchAvailableGroups();
       } else {
         data = await provider.fetchNewGroups();
       }
@@ -268,6 +265,9 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
 
             if (ok) {
               await _fetchAvailable();
+              if (!context.mounted) return;
+
+              await context.read<DashboardProvider>().refresh();
               if (!context.mounted) return;
 
               CelebrationOverlay.showGroupJoined(context, groupName: group['group_name'] ?? 'Chit Group');

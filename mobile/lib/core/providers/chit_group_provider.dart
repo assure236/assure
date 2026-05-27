@@ -141,7 +141,7 @@ class ChitGroupProvider with ChangeNotifier {
 
   Future<List<Map<String, dynamic>>> fetchNewGroups() async {
     try {
-      final response = await ApiService.get('/chit-groups?status=not_started&limit=50');
+      final response = await ApiService.get('/chit-groups?status=not_started,active&limit=50');
       if (response['success'] == true) {
         final data = response['data'];
         final list = (data is Map) ? data['groups'] : data;

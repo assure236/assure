@@ -8,7 +8,11 @@ exports.getAllChitGroups = async (req, res, next) => {
 
     const { page = 1, limit = 10, status } = req.query;
     const filter = {};
-    if (status) filter.status = status;
+    if (status) {
+      const raw = Array.isArray(status) ? status.join(',') : String(status);
+      const statuses = raw.split(',').map(s => s.trim()).filter(Boolean);
+      filter.status = statuses.length > 1 ? { $in: statuses } : statuses[0];
+    }
     else if (req.user.role === 'member') filter.status = 'active';
 
     // Exclude groups the member has already joined
