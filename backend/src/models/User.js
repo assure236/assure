@@ -45,6 +45,7 @@ const userSchema = new mongoose.Schema({
   profile_edit_reviewed_at: Date,
   profile_edit_reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   profile_edit_rejection_reason: String,
+  profile_edit_rejection_fields: [{ type: String }],
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 userSchema.pre('save', async function () {

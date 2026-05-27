@@ -37,6 +37,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _selectedBankName;
   bool _digilockerConnected = false;
   bool _isSaving = false;
+  bool _isIfscLoading = false;
+  String? _ifscBankName;
+  String? _ifscBranch;
+  String? _ifscLookupError;
 
   @override
   void initState() {
@@ -62,6 +66,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _selectedGender = user?.gender;
     _selectedBankName = user?.bankName?.trim().isNotEmpty == true ? user!.bankName!.trim() : null;
     _fetchKycStatus();
+    final existingIfsc = (user?.bankIfscCode ?? '').trim().toUpperCase();
+    if (RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(existingIfsc)) {
+      _lookupIfsc(existingIfsc);
+    }
   }
 
   Future<void> _fetchKycStatus() async {
@@ -86,6 +94,76 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         _dobCtrl.text = picked.toIso8601String().split('T').first;
       });
+    }
+  }
+
+  Future<void> _lookupIfsc(String rawValue) async {
+    final ifsc = rawValue.trim().toUpperCase();
+    if (ifsc.length < 11) {
+      if (mounted) {
+        setState(() {
+          _ifscBankName = null;
+          _ifscBranch = null;
+          _ifscLookupError = null;
+        });
+      }
+      return;
+    }
+
+    if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc)) {
+      if (mounted) {
+        setState(() {
+          _ifscBankName = null;
+          _ifscBranch = null;
+          _ifscLookupError = 'Invalid IFSC format';
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isIfscLoading = true;
+        _ifscLookupError = null;
+      });
+    }
+
+    try {
+      final response = await ApiService.get('/users/bank/ifsc/$ifsc');
+      if (!mounted) return;
+
+      if (response['success'] == true) {
+        final data = Map<String, dynamic>.from(response['data'] ?? const {});
+        final bank = (data['bank'] ?? '').toString().trim();
+        final branch = (data['branch'] ?? '').toString().trim();
+
+        setState(() {
+          _ifscBankName = bank.isNotEmpty ? bank : null;
+          _ifscBranch = branch.isNotEmpty ? branch : null;
+          _ifscLookupError = null;
+          if (bank.isNotEmpty) {
+            _selectedBankName = bank;
+            _bankNameCtrl.text = bank;
+          }
+        });
+      } else {
+        setState(() {
+          _ifscBankName = null;
+          _ifscBranch = null;
+          _ifscLookupError = (response['message'] ?? 'Unable to validate IFSC').toString();
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _ifscBankName = null;
+        _ifscBranch = null;
+        _ifscLookupError = 'Unable to validate IFSC right now';
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isIfscLoading = false);
+      }
     }
   }
 
@@ -206,7 +284,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
     final profileStatus = (user?.profileEditStatus ?? 'none').toString();
-    final isProfileLocked = profileStatus == 'pending' || profileStatus == 'approved' || profileStatus == 'rejected';
+    final isProfileLocked = profileStatus == 'pending' || profileStatus == 'approved';
+    final rejectionFields = (user?.profileEditRejectionFields ?? user?.raw?['profile_edit_rejection_fields'] as List?)
+            ?.map((e) => e.toString())
+            .where((e) => e.trim().isNotEmpty)
+            .toList() ??
+        const [];
     final bankOptions = <String>{..._indianBanks};
     if (_selectedBankName != null && _selectedBankName!.trim().isNotEmpty) {
       bankOptions.add(_selectedBankName!.trim());
@@ -339,6 +422,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         const SizedBox(height: 2),
                         Text(user?.profileEditRejectionReason ?? 'Profile submission rejected. Contact support for help.',
                             style: TextStyle(fontSize: 11, color: Colors.red.shade700)),
+                        if (rejectionFields.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Please update: ${rejectionFields.map((f) => f.replaceAll('_', ' ')).join(', ')}',
+                            style: TextStyle(fontSize: 11, color: Colors.red.shade800, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                        const SizedBox(height: 4),
+                        Text('You can edit and submit again.',
+                            style: TextStyle(fontSize: 11, color: Colors.red.shade700, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -689,6 +782,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 textCapitalization: TextCapitalization.characters,
                 hint: 'SBIN0001234',
                 enabled: !isProfileLocked,
+                onChanged: isProfileLocked ? null : _lookupIfsc,
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
                   LengthLimitingTextInputFormatter(11),
@@ -703,6 +797,48 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   return null;
                 },
               ),
+              if (_isIfscLoading)
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: 8),
+                      Text('Validating IFSC...'),
+                    ],
+                  ),
+                )
+              else if (_ifscBankName != null || _ifscBranch != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withAlpha(14),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.green.withAlpha(60)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_ifscBankName != null)
+                          Text('Bank: $_ifscBankName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        if (_ifscBranch != null)
+                          Text('Branch: $_ifscBranch', style: const TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                )
+              else if (_ifscLookupError != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  child: Text(_ifscLookupError!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+                ),
             ]),
             const SizedBox(height: 16),
 
@@ -719,7 +855,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'You can submit profile details only once. Bank and profile details will be verified by admin before approval.',
+                    'Profile is verified by admin. If rejected, update requested fields and submit again.',
                     style: TextStyle(color: Colors.blue, fontSize: 12),
                   ),
                 ),
@@ -812,6 +948,7 @@ class _FormField extends StatelessWidget {
   final bool enabled;
   final bool readOnly;
   final VoidCallback? onTap;
+  final ValueChanged<String>? onChanged;
   final List<TextInputFormatter>? inputFormatters;
 
   const _FormField({
@@ -825,6 +962,7 @@ class _FormField extends StatelessWidget {
     this.enabled = true,
     this.readOnly = false,
     this.onTap,
+    this.onChanged,
     this.inputFormatters,
   });
 
@@ -837,6 +975,7 @@ class _FormField extends StatelessWidget {
         enabled: enabled,
         readOnly: readOnly,
         onTap: onTap,
+        onChanged: onChanged,
         keyboardType: keyboardType,
         textCapitalization: textCapitalization,
         inputFormatters: inputFormatters,

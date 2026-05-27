@@ -28,6 +28,11 @@ router.get('/profile', userController.getProfile);
 // @access  Private
 router.put('/profile', userController.updateProfile);
 
+// @route   GET /api/v1/users/bank/ifsc/:ifsc
+// @desc    Lookup bank/branch details by IFSC
+// @access  Private
+router.get('/bank/ifsc/:ifsc', userController.lookupIfsc);
+
 // @route   PUT /api/v1/users/change-password
 // @desc    Change user password
 // @access  Private

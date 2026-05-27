@@ -28,6 +28,7 @@ class User {
   final String? currentPincode;
   final String? profileEditStatus;
   final String? profileEditRejectionReason;
+  final List<String>? profileEditRejectionFields;
   final Map<String, dynamic>? raw;
 
   User({
@@ -60,6 +61,7 @@ class User {
     this.currentPincode,
     this.profileEditStatus,
     this.profileEditRejectionReason,
+    this.profileEditRejectionFields,
     this.raw,
   });
 
@@ -94,6 +96,9 @@ class User {
       currentPincode: json['current_pincode'],
       profileEditStatus: json['profile_edit_status'],
       profileEditRejectionReason: json['profile_edit_rejection_reason'],
+      profileEditRejectionFields: (json['profile_edit_rejection_fields'] as List?)
+          ?.map((e) => e.toString())
+          .toList(),
       raw: json,
     );
   }
@@ -127,6 +132,9 @@ class User {
       'current_city': currentCity,
       'current_state': currentState,
       'current_pincode': currentPincode,
+      'profile_edit_status': profileEditStatus,
+      'profile_edit_rejection_reason': profileEditRejectionReason,
+      'profile_edit_rejection_fields': profileEditRejectionFields,
     };
   }
 }

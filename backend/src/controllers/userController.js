@@ -1,6 +1,7 @@
 const { User, ChitGroup, ChitMember, Payment, Auction } = require('../models');
 const AgentRequest = require('../models/AgentRequest');
 const bcrypt = require('bcrypt');
+const axios = require('axios');
 const { uploadToGridFS } = require('../utils/gridfs');
 const { audit, getIp } = require('../utils/audit');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
@@ -50,12 +51,12 @@ exports.updateProfile = async (req, res, next) => {
     if (!currentUser) return res.status(404).json({ success: false, message: 'User not found' });
 
     const status = currentUser.profile_edit_status || 'none';
-    if (['pending', 'approved', 'rejected'].includes(status)) {
+    if (['pending', 'approved'].includes(status)) {
       return res.status(403).json({
         success: false,
         message: status === 'pending'
           ? 'Your profile submission is already pending admin approval.'
-          : 'Profile can be submitted only once. Contact support for further changes.',
+          : 'Profile already approved. Contact support for further changes.',
       });
     }
 
@@ -111,6 +112,7 @@ exports.updateProfile = async (req, res, next) => {
         pending_profile_changes: updates,
         profile_edit_requested_at: new Date(),
         profile_edit_rejection_reason: null,
+        profile_edit_rejection_fields: [],
       },
       { new: true }
     ).select('-password_hash');
@@ -170,6 +172,8 @@ exports.approveProfileEdit = async (req, res, next) => {
       pending_profile_changes: null,
       profile_edit_reviewed_at: new Date(),
       profile_edit_reviewed_by: req.user._id || req.user.id,
+      profile_edit_rejection_reason: null,
+      profile_edit_rejection_fields: [],
     });
 
     // Notify user
@@ -198,12 +202,35 @@ exports.approveProfileEdit = async (req, res, next) => {
 exports.rejectProfileEdit = async (req, res, next) => {
   try {
     const { user_id } = req.params;
-    const { reason } = req.body;
+    const { reason, rejection_fields } = req.body;
     const targetUser = await User.findById(user_id);
     if (!targetUser) return res.status(404).json({ success: false, message: 'User not found' });
     if (targetUser.profile_edit_status !== 'pending') {
       return res.status(400).json({ success: false, message: 'No pending edit request' });
     }
+
+    const allowedRejectionFields = [
+      'pan_number',
+      'bank_account_number',
+      'bank_ifsc_code',
+      'bank_name',
+      'address',
+      'city',
+      'state',
+      'pincode',
+      'date_of_birth',
+      'gender',
+      'nominee_name',
+      'nominee_relationship',
+      'current_address',
+      'current_city',
+      'current_state',
+      'current_pincode',
+    ];
+
+    const rejectionFields = Array.isArray(rejection_fields)
+      ? rejection_fields.filter((field) => allowedRejectionFields.includes(field))
+      : [];
 
     await User.findByIdAndUpdate(user_id, {
       profile_edit_status: 'rejected',
@@ -211,6 +238,7 @@ exports.rejectProfileEdit = async (req, res, next) => {
       profile_edit_reviewed_at: new Date(),
       profile_edit_reviewed_by: req.user._id || req.user.id,
       profile_edit_rejection_reason: reason || 'Rejected by admin',
+      profile_edit_rejection_fields: rejectionFields,
     });
 
     // Notify user
@@ -220,6 +248,7 @@ exports.rejectProfileEdit = async (req, res, next) => {
       type: 'profile_edit_rejected',
       title: 'Profile Changes Rejected',
       message: `Your profile changes were rejected. Reason: ${reason || 'See admin.'}`,
+      metadata: { rejection_fields: rejectionFields },
     });
 
     res.json({ success: true, message: 'Profile edit rejected' });
@@ -231,6 +260,43 @@ exports.rejectProfileEdit = async (req, res, next) => {
       ipAddress: getIp(req),
     });
   } catch (err) { next(err); }
+};
+
+exports.lookupIfsc = async (req, res, next) => {
+  try {
+    const ifsc = String(req.params.ifsc || '').trim().toUpperCase();
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      return res.status(400).json({ success: false, message: 'Invalid IFSC format.' });
+    }
+
+    const response = await axios.get(`https://ifsc.razorpay.com/${ifsc}`, {
+      timeout: 8000,
+      validateStatus: () => true,
+    });
+
+    if (response.status !== 200 || !response.data) {
+      return res.status(404).json({ success: false, message: 'IFSC details not found.' });
+    }
+
+    const data = response.data;
+    return res.json({
+      success: true,
+      data: {
+        ifsc,
+        bank: data.BANK || '',
+        branch: data.BRANCH || '',
+        address: data.ADDRESS || '',
+        city: data.CITY || '',
+        district: data.DISTRICT || '',
+        state: data.STATE || '',
+      },
+    });
+  } catch (err) {
+    return res.status(503).json({
+      success: false,
+      message: 'Unable to verify IFSC right now. Please try again.',
+    });
+  }
 };
 
 exports.changePassword = async (req, res, next) => {

@@ -4,7 +4,7 @@ import {
   TableContainer, TableHead, TableRow, TablePagination, Chip,
   TextField, InputAdornment, Button, CircularProgress, Alert,
   Avatar, IconButton, Tooltip, Dialog, DialogTitle, DialogContent,
-  DialogActions, Grid, Divider, Tabs, Tab, List, ListItem,
+  DialogActions, DialogContentText, Grid, Divider, Tabs, Tab, List, ListItem,
   ListItemText, ListItemAvatar
 } from '@mui/material';
 import {
@@ -19,6 +19,26 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 
 const kycColors = { verified: 'success', pending: 'warning', rejected: 'error' };
+const profileStatusColors = { approved: 'success', pending: 'warning', rejected: 'error', none: 'default' };
+
+const PROFILE_FIELDS = [
+  { key: 'pan_number', label: 'PAN Number' },
+  { key: 'bank_name', label: 'Bank Name' },
+  { key: 'bank_account_number', label: 'Account Number' },
+  { key: 'bank_ifsc_code', label: 'IFSC Code' },
+  { key: 'address', label: 'Address' },
+  { key: 'city', label: 'City' },
+  { key: 'state', label: 'State' },
+  { key: 'pincode', label: 'Pincode' },
+  { key: 'current_address', label: 'Current Address' },
+  { key: 'current_city', label: 'Current City' },
+  { key: 'current_state', label: 'Current State' },
+  { key: 'current_pincode', label: 'Current Pincode' },
+  { key: 'date_of_birth', label: 'Date of Birth' },
+  { key: 'gender', label: 'Gender' },
+  { key: 'nominee_name', label: 'Nominee Name' },
+  { key: 'nominee_relationship', label: 'Nominee Relationship' },
+];
 
 const Users = () => {
   const [users, setUsers] = useState([]);
@@ -33,6 +53,13 @@ const Users = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailTab, setDetailTab] = useState(0);
   const [kycDialog, setKycDialog] = useState({ open: false, user: null });
+  const [profileRejectDialog, setProfileRejectDialog] = useState({
+    open: false,
+    userId: null,
+    reason: '',
+    fields: [],
+    saving: false,
+  });
 
   const openDetail = async (user) => {
     setSelectedUser(user);
@@ -92,6 +119,47 @@ const Users = () => {
       fetchUsers();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Action failed');
+    }
+  };
+
+  const handleApproveProfile = async (userId) => {
+    try {
+      const res = await axios.post(`${process.env.REACT_APP_API_URL}/users/${userId}/approve-profile-edit`);
+      if (res.data.success) {
+        toast.success('Profile approved');
+        if (selectedUser) openDetail(selectedUser);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Profile approve failed');
+    }
+  };
+
+  const openRejectProfileDialog = (userId) => {
+    setProfileRejectDialog({ open: true, userId, reason: '', fields: [], saving: false });
+  };
+
+  const handleRejectProfile = async () => {
+    if (!profileRejectDialog.reason.trim()) {
+      toast.error('Please enter rejection reason');
+      return;
+    }
+    setProfileRejectDialog((prev) => ({ ...prev, saving: true }));
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_URL}/users/${profileRejectDialog.userId}/reject-profile-edit`,
+        {
+          reason: profileRejectDialog.reason.trim(),
+          rejection_fields: profileRejectDialog.fields,
+        }
+      );
+      if (res.data.success) {
+        toast.success('Profile rejected');
+        setProfileRejectDialog({ open: false, userId: null, reason: '', fields: [], saving: false });
+        if (selectedUser) openDetail(selectedUser);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Profile reject failed');
+      setProfileRejectDialog((prev) => ({ ...prev, saving: false }));
     }
   };
 
@@ -212,6 +280,12 @@ const Users = () => {
                   {allDocsReady && !hasDigilocker && (
                     <Typography variant="caption" color="warning.main">DigiLocker not linked</Typography>
                   )}
+                  <Chip
+                    label={`Profile: ${(detailData.profile_edit_status || 'none').replace('_', ' ')}`}
+                    size="small"
+                    color={profileStatusColors[detailData.profile_edit_status || 'none'] || 'default'}
+                    sx={{ textTransform: 'capitalize' }}
+                  />
                 </Box>
               );
             })()}
@@ -231,17 +305,79 @@ const Users = () => {
             <>
               {/* Profile Tab */}
               {detailTab === 0 && (
-                <Grid container spacing={1.5}>
-                  {[
+                <>
+                  <Box
+                    mb={2}
+                    p={1.5}
+                    borderRadius={1.5}
+                    bgcolor="grey.50"
+                    border="1px solid"
+                    borderColor="grey.200"
+                    display="flex"
+                    flexWrap="wrap"
+                    gap={1}
+                    alignItems="center"
+                    justifyContent="space-between"
+                  >
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Typography variant="body2" color="text.secondary">Profile Approval:</Typography>
+                      <Chip
+                        label={(detailData.profile_edit_status || 'none').replace('_', ' ')}
+                        size="small"
+                        color={profileStatusColors[detailData.profile_edit_status || 'none'] || 'default'}
+                        sx={{ textTransform: 'capitalize' }}
+                      />
+                    </Box>
+                    {detailData.profile_edit_status === 'pending' && (
+                      <Box display="flex" gap={1}>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          onClick={() => handleApproveProfile(detailData._id || detailData.id)}
+                        >
+                          Verify
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="error"
+                          onClick={() => openRejectProfileDialog(detailData._id || detailData.id)}
+                        >
+                          Reject
+                        </Button>
+                      </Box>
+                    )}
+                  </Box>
+
+                  {detailData.profile_edit_status === 'rejected' && detailData.profile_edit_rejection_reason && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                      {detailData.profile_edit_rejection_reason}
+                      {Array.isArray(detailData.profile_edit_rejection_fields) && detailData.profile_edit_rejection_fields.length > 0 && (
+                        <Box mt={0.5}>
+                          <Typography variant="caption">
+                            Requested changes: {detailData.profile_edit_rejection_fields.map((f) => f.replace(/_/g, ' ')).join(', ')}
+                          </Typography>
+                        </Box>
+                      )}
+                    </Alert>
+                  )}
+
+                  <Grid container spacing={1.5}>
+                    {[
                     { label: 'Full Name', value: detailData.full_name, field: 'full_name' },
                     { label: 'Phone', value: detailData.mobile },
                     { label: 'Email', value: detailData.email || '—', field: 'email' },
                     { label: 'KYC Status', value: detailData.kyc_status },
+                    { label: 'Profile Status', value: detailData.profile_edit_status || 'none' },
                     { label: 'Credit Score', value: detailData.credit_score ?? '—' },
                     { label: 'Referral Code', value: detailData.referral_code || '—' },
                     { label: 'Status', value: detailData.is_active ? 'Active' : 'Inactive' },
                     { label: 'PAN', value: detailData.pan_number || '—', field: 'pan_number' },
                     { label: 'Aadhaar', value: detailData.aadhaar_number ? '****' + detailData.aadhaar_number.slice(-4) : '—', field: 'aadhaar_number' },
+                    { label: 'Bank Name', value: detailData.bank_name || '—', field: 'bank_name' },
+                    { label: 'Bank IFSC', value: detailData.bank_ifsc_code || '—', field: 'bank_ifsc_code' },
+                    { label: 'Bank Account', value: detailData.bank_account_number ? `****${String(detailData.bank_account_number).slice(-4)}` : '—', field: 'bank_account_number' },
                     { label: 'City', value: detailData.city || '—', field: 'city' },
                     { label: 'State', value: detailData.state || '—', field: 'state' },
                     { label: 'Current Address', value: detailData.current_address || '—', field: 'current_address' },
@@ -249,51 +385,52 @@ const Users = () => {
                     { label: 'Current State', value: detailData.current_state || '—', field: 'current_state' },
                     { label: 'Current Pincode', value: detailData.current_pincode || '—', field: 'current_pincode' },
                     { label: 'Joined', value: detailData.created_at ? new Date(detailData.created_at).toLocaleDateString('en-IN') : '—' },
-                  ].map(({ label, value, field }) => (
-                    <Grid item xs={6} key={label}>
-                      <Box display="flex" alignItems="center" justifyContent="space-between">
-                        <Box>
-                          <Typography variant="caption" color="text.secondary">{label}</Typography>
-                          <Typography variant="body2" fontWeight={500} sx={{ textTransform: 'capitalize' }}>{value}</Typography>
-                        </Box>
-                        {field && (
-                          <Box display="flex" gap={0.5}>
-                            <Tooltip title={`Edit ${label}`}>
-                              <IconButton size="small" color="primary" onClick={() => {
-                                const currentVal = field === 'aadhaar_number' ? (detailData.aadhaar_number || '') : (value === '—' ? '' : String(value));
-                                const newVal = window.prompt(`Edit ${label}:`, currentVal);
-                                if (newVal === null) return;
-                                if (newVal.trim() === '') {
-                                  toast.error(`${label} cannot be empty. Use the delete button to clear.`);
-                                  return;
-                                }
-                                (async () => {
-                                  try {
-                                    await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${selectedUser._id || selectedUser.id}`, { [field]: newVal.trim() });
-                                    toast.success(`${label} updated`);
-                                    openDetail(selectedUser);
-                                  } catch (e) { toast.error('Failed to update field'); }
-                                })();
-                              }}><EditIcon fontSize="small" /></IconButton>
-                            </Tooltip>
-                            {value !== '—' && (
-                              <Tooltip title={`Clear ${label}`}>
-                                <IconButton size="small" color="error" onClick={async () => {
-                                  if (!window.confirm(`Clear ${label} for this user?`)) return;
-                                  try {
-                                    await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${selectedUser._id || selectedUser.id}`, { clear_fields: [field] });
-                                    toast.success(`${label} cleared`);
-                                    openDetail(selectedUser);
-                                  } catch (e) { toast.error('Failed to clear field'); }
-                                }}><ClearIcon fontSize="small" /></IconButton>
-                              </Tooltip>
-                            )}
+                    ].map(({ label, value, field }) => (
+                      <Grid item xs={6} key={label}>
+                        <Box display="flex" alignItems="center" justifyContent="space-between">
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">{label}</Typography>
+                            <Typography variant="body2" fontWeight={500} sx={{ textTransform: 'capitalize' }}>{value}</Typography>
                           </Box>
-                        )}
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
+                          {field && (
+                            <Box display="flex" gap={0.5}>
+                              <Tooltip title={`Edit ${label}`}>
+                                <IconButton size="small" color="primary" onClick={() => {
+                                  const currentVal = field === 'aadhaar_number' ? (detailData.aadhaar_number || '') : (value === '—' ? '' : String(value));
+                                  const newVal = window.prompt(`Edit ${label}:`, currentVal);
+                                  if (newVal === null) return;
+                                  if (newVal.trim() === '') {
+                                    toast.error(`${label} cannot be empty. Use the delete button to clear.`);
+                                    return;
+                                  }
+                                  (async () => {
+                                    try {
+                                      await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${selectedUser._id || selectedUser.id}`, { [field]: newVal.trim() });
+                                      toast.success(`${label} updated`);
+                                      openDetail(selectedUser);
+                                    } catch (e) { toast.error('Failed to update field'); }
+                                  })();
+                                }}><EditIcon fontSize="small" /></IconButton>
+                              </Tooltip>
+                              {value !== '—' && (
+                                <Tooltip title={`Clear ${label}`}>
+                                  <IconButton size="small" color="error" onClick={async () => {
+                                    if (!window.confirm(`Clear ${label} for this user?`)) return;
+                                    try {
+                                      await axios.put(`${process.env.REACT_APP_API_URL}/admin/users/${selectedUser._id || selectedUser.id}`, { clear_fields: [field] });
+                                      toast.success(`${label} cleared`);
+                                      openDetail(selectedUser);
+                                    } catch (e) { toast.error('Failed to clear field'); }
+                                  }}><ClearIcon fontSize="small" /></IconButton>
+                                </Tooltip>
+                              )}
+                            </Box>
+                          )}
+                        </Box>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </>
               )}
               {/* Payments Tab - Full Schedule per Group */}
               {detailTab === 1 && (
@@ -436,6 +573,57 @@ const Users = () => {
           <Button onClick={() => setKycDialog({ open: false, user: null })}>Cancel</Button>
           <Button color="error" onClick={() => handleKycAction(kycDialog.user?._id || kycDialog.user?.id, 'rejected')}>Reject</Button>
           <Button color="success" variant="contained" onClick={() => handleKycAction(kycDialog.user?._id || kycDialog.user?.id, 'verified')}>Approve</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={profileRejectDialog.open}
+        onClose={() => setProfileRejectDialog({ open: false, userId: null, reason: '', fields: [], saving: false })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Reject Profile Submission</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Add rejection reason and choose fields the member should correct.
+          </DialogContentText>
+          <TextField
+            fullWidth
+            multiline
+            minRows={3}
+            label="Reason"
+            value={profileRejectDialog.reason}
+            onChange={(e) => setProfileRejectDialog((prev) => ({ ...prev, reason: e.target.value }))}
+            sx={{ mb: 2 }}
+          />
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>Requested fields to update</Typography>
+          <Box display="flex" flexWrap="wrap" gap={1}>
+            {PROFILE_FIELDS.map((field) => {
+              const checked = profileRejectDialog.fields.includes(field.key);
+              return (
+                <Chip
+                  key={field.key}
+                  label={field.label}
+                  color={checked ? 'error' : 'default'}
+                  variant={checked ? 'filled' : 'outlined'}
+                  onClick={() => {
+                    setProfileRejectDialog((prev) => ({
+                      ...prev,
+                      fields: checked
+                        ? prev.fields.filter((f) => f !== field.key)
+                        : [...prev.fields, field.key],
+                    }));
+                  }}
+                />
+              );
+            })}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProfileRejectDialog({ open: false, userId: null, reason: '', fields: [], saving: false })}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={handleRejectProfile} disabled={profileRejectDialog.saving}>
+            {profileRejectDialog.saving ? 'Rejecting...' : 'Reject'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Container>
