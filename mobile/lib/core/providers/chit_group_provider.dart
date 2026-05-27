@@ -41,10 +41,23 @@ class ChitGroupProvider with ChangeNotifier {
       final response = await ApiService.get('/users/my-chit-groups');
 
       if (response['success']) {
-        _chitGroups = (response['data'] as List)
-            .map((json) => ChitGroup.fromJson(json['chit_group_id'] as Map<String, dynamic>))
-            .where((g) => g.id.isNotEmpty)
-            .toList();
+        final rows = (response['data'] as List?) ?? const [];
+        final parsed = <ChitGroup>[];
+
+        for (final row in rows) {
+          try {
+            if (row is! Map) continue;
+            final membership = Map<String, dynamic>.from(row);
+            final groupRaw = membership['chit_group_id'];
+            if (groupRaw is! Map) continue;
+            final group = ChitGroup.fromJson(Map<String, dynamic>.from(groupRaw));
+            if (group.id.isNotEmpty) parsed.add(group);
+          } catch (_) {
+            // Skip malformed rows instead of dropping the whole response.
+          }
+        }
+
+        _chitGroups = parsed;
         // Persist to cache
         try {
           final prefs = await SharedPreferences.getInstance();
@@ -94,13 +107,19 @@ class ChitGroupProvider with ChangeNotifier {
   Future<Map<String, dynamic>> enrollInChitGroup(String groupId) async {
     try {
       final response = await ApiService.post('/chit-groups/$groupId/enroll', {});
-      final success = response['success'] == true;
+      final apiMessage = (response['message'] ?? '').toString();
+      final alreadyEnrolled = apiMessage.toLowerCase().contains('already exists');
+      final success = response['success'] == true || alreadyEnrolled;
+
       if (success) {
         await fetchMyChitGroups();
       }
+
       return {
         'success': success,
-        'message': response['message'] ?? (success ? 'Enrolled successfully' : 'Enrollment failed'),
+        'message': success
+            ? (alreadyEnrolled ? 'Already enrolled. Added to My Chits.' : (response['message'] ?? 'Enrolled successfully'))
+            : (response['message'] ?? 'Enrollment failed'),
       };
     } catch (e) {
       debugPrint('Error enrolling in chit group: $e');
@@ -141,12 +160,31 @@ class ChitGroupProvider with ChangeNotifier {
 
   Future<List<Map<String, dynamic>>> fetchNewGroups() async {
     try {
-      final response = await ApiService.get('/chit-groups?status=not_started,active&limit=50');
-      if (response['success'] == true) {
+      final responses = await Future.wait([
+        ApiService.get('/chit-groups?status=not_started&limit=50'),
+        ApiService.get('/chit-groups?status=active&limit=50'),
+      ]);
+
+      final mergedById = <String, Map<String, dynamic>>{};
+      for (final response in responses) {
+        if (response['success'] != true) continue;
         final data = response['data'];
         final list = (data is Map) ? data['groups'] : data;
-        return List<Map<String, dynamic>>.from(list ?? []);
+        for (final row in List<Map<String, dynamic>>.from(list ?? const [])) {
+          final id = (row['_id'] ?? row['id'] ?? '').toString();
+          if (id.isEmpty) continue;
+          mergedById[id] = row;
+        }
       }
+
+      final merged = mergedById.values.toList()
+        ..sort((a, b) {
+          final aDate = DateTime.tryParse((a['commencement_date'] ?? '').toString()) ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate = DateTime.tryParse((b['commencement_date'] ?? '').toString()) ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bDate.compareTo(aDate);
+        });
+
+      return merged;
     } catch (e) {
       debugPrint('Error fetching new groups: $e');
     }
