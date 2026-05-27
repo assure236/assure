@@ -316,7 +316,7 @@ class _AvailableGroupCard extends StatelessWidget {
     final String statusLabel = isVacant
       ? 'Seats Available'
       : isNotStarted
-        ? 'Not Started'
+        ? 'Starting Soon'
         : isActive
           ? 'Active'
           : 'Upcoming';

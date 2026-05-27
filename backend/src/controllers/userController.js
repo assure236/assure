@@ -9,6 +9,35 @@ exports.getProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id || req.user.id).select('-password_hash');
     const userObj = user.toObject();
+
+    // Show submitted values while waiting for admin approval.
+    if (userObj.profile_edit_status === 'pending' && userObj.pending_profile_changes) {
+      const previewFields = [
+        'address',
+        'date_of_birth',
+        'city',
+        'state',
+        'pincode',
+        'pan_number',
+        'bank_account_number',
+        'bank_ifsc_code',
+        'bank_name',
+        'gender',
+        'nominee_name',
+        'nominee_relationship',
+        'current_address',
+        'current_city',
+        'current_state',
+        'current_pincode',
+      ];
+
+      for (const field of previewFields) {
+        if (userObj.pending_profile_changes[field] !== undefined) {
+          userObj[field] = userObj.pending_profile_changes[field];
+        }
+      }
+    }
+
     userObj.id = userObj._id;
     res.json({ success: true, data: userObj });
   } catch (err) { next(err); }
@@ -17,9 +46,20 @@ exports.getProfile = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
+    const currentUser = await User.findById(userId).select('profile_edit_status full_name');
+    if (!currentUser) return res.status(404).json({ success: false, message: 'User not found' });
+
+    const status = currentUser.profile_edit_status || 'none';
+    if (['pending', 'approved', 'rejected'].includes(status)) {
+      return res.status(403).json({
+        success: false,
+        message: status === 'pending'
+          ? 'Your profile submission is already pending admin approval.'
+          : 'Profile can be submitted only once. Contact support for further changes.',
+      });
+    }
+
     const allowedFields = [
-      'full_name',
-      'email',
       'address',
       'date_of_birth',
       'city',
@@ -45,35 +85,68 @@ exports.updateProfile = async (req, res, next) => {
       }
     }
 
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ success: false, message: 'No profile changes provided.' });
+    }
+
     if (updates.pan_number) updates.pan_number = updates.pan_number.toUpperCase();
     if (updates.bank_ifsc_code) updates.bank_ifsc_code = updates.bank_ifsc_code.toUpperCase();
+
+    if (updates.pan_number && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(updates.pan_number)) {
+      return res.status(400).json({ success: false, message: 'Invalid PAN format.' });
+    }
+
+    if (updates.bank_account_number && !/^\d{9,18}$/.test(String(updates.bank_account_number))) {
+      return res.status(400).json({ success: false, message: 'Invalid bank account number format.' });
+    }
+
+    if (updates.bank_ifsc_code && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(updates.bank_ifsc_code)) {
+      return res.status(400).json({ success: false, message: 'Invalid IFSC format.' });
+    }
 
     const user = await User.findByIdAndUpdate(
       userId,
       {
-        ...updates,
-        profile_edit_status: null,
-        pending_profile_changes: null,
-        profile_edit_requested_at: null,
+        profile_edit_status: 'pending',
+        pending_profile_changes: updates,
+        profile_edit_requested_at: new Date(),
         profile_edit_rejection_reason: null,
       },
       { new: true }
     ).select('-password_hash');
 
     const userObj = user.toObject();
+    for (const [field, value] of Object.entries(updates)) {
+      userObj[field] = value;
+    }
     userObj.id = userObj._id;
+
+    const { Notification } = require('../models');
+    const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
+    if (admins.length > 0) {
+      await Notification.insertMany(
+        admins.map((admin) => ({
+          user_id: admin._id,
+          type: 'profile_edit_request',
+          title: 'Profile Approval Needed',
+          message: `${currentUser.full_name || 'Member'} submitted profile details for approval.`,
+          metadata: { request_user_id: userId, changes: updates },
+        }))
+      );
+    }
 
     res.json({
       success: true,
-      message: 'Profile updated successfully',
+      message: 'Profile submitted successfully. Waiting for admin approval.',
+      pending_approval: true,
       data: userObj,
     });
 
     audit({
       userId, userName: req.user.full_name, userRole: req.user.role,
-      action: 'profile_updated',
+      action: 'profile_edit_requested',
       resourceType: 'user', resourceId: String(userId),
-      description: 'Profile updated',
+      description: 'Profile edit submitted for approval',
       metadata: { fields_updated: Object.keys(updates) },
       ipAddress: getIp(req),
     });

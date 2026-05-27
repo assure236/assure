@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -33,6 +34,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _currentStateCtrl;
   late TextEditingController _currentPincodeCtrl;
   String? _selectedGender;
+  String? _selectedBankName;
   bool _digilockerConnected = false;
   bool _isSaving = false;
 
@@ -58,6 +60,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _currentStateCtrl = TextEditingController(text: user?.currentState ?? '');
     _currentPincodeCtrl = TextEditingController(text: user?.currentPincode ?? '');
     _selectedGender = user?.gender;
+    _selectedBankName = user?.bankName?.trim().isNotEmpty == true ? user!.bankName!.trim() : null;
     _fetchKycStatus();
   }
 
@@ -126,7 +129,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'pan_number': _panCtrl.text.trim().toUpperCase(),
       'nominee_name': _nomineeNameCtrl.text.trim(),
       'nominee_relationship': _nomineeRelCtrl.text.trim(),
-      'bank_name': _bankNameCtrl.text.trim(),
+      'bank_name': (_selectedBankName ?? _bankNameCtrl.text).trim(),
       'bank_account_number': _bankAccCtrl.text.trim(),
       'bank_ifsc_code': _bankIfscCtrl.text.trim().toUpperCase(),
       'current_address': _currentAddressCtrl.text.trim(),
@@ -149,7 +152,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text((response['message'] ?? 'Profile updated successfully').toString()),
+            content: Text((response['message'] ?? 'Profile submitted for admin approval').toString()),
             backgroundColor: AppTheme.successColor,
             behavior: SnackBarBehavior.floating,
           ),
@@ -202,6 +205,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
+    final profileStatus = (user?.profileEditStatus ?? 'none').toString();
+    final isProfileLocked = profileStatus == 'pending' || profileStatus == 'approved' || profileStatus == 'rejected';
+    final bankOptions = <String>{..._indianBanks};
+    if (_selectedBankName != null && _selectedBankName!.trim().isNotEmpty) {
+      bankOptions.add(_selectedBankName!.trim());
+    }
+    final sortedBanks = bankOptions.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
     final sameAsPermanent =
         (_currentAddressCtrl.text.trim().isEmpty &&
             _currentCityCtrl.text.trim().isEmpty &&
@@ -278,6 +290,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   ),
                 ]),
               ),
+            if (user?.profileEditStatus == 'approved')
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(children: [
+                  Icon(Icons.verified_rounded, color: Colors.green.shade700, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Profile Approved',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green.shade900)),
+                        const SizedBox(height: 2),
+                        Text('Your submitted profile details were approved by admin and are now locked.',
+                            style: TextStyle(fontSize: 11, color: Colors.green.shade700)),
+                      ],
+                    ),
+                  ),
+                ]),
+              ),
             if (user?.profileEditStatus == 'rejected')
               Container(
                 width: double.infinity,
@@ -298,7 +337,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         Text('Changes Rejected',
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red.shade900)),
                         const SizedBox(height: 2),
-                        Text(user?.profileEditRejectionReason ?? 'Your profile changes were rejected by admin.',
+                        Text(user?.profileEditRejectionReason ?? 'Profile submission rejected. Contact support for help.',
                             style: TextStyle(fontSize: 11, color: Colors.red.shade700)),
                       ],
                     ),
@@ -395,6 +434,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   icon: Icons.credit_card,
                   textCapitalization: TextCapitalization.characters,
                   hint: 'ABCDE1234F',
+                  enabled: !isProfileLocked,
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'PAN Number is required';
                     if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
@@ -417,7 +457,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 hint: 'DD/MM/YYYY',
                 keyboardType: TextInputType.datetime,
                 readOnly: true,
-                onTap: _pickDateOfBirth,
+                enabled: !isProfileLocked,
+                onTap: isProfileLocked ? null : _pickDateOfBirth,
                 validator: (v) => _requiredValidator(v, 'Date of Birth'),
               ),
               const Divider(height: 1),
@@ -435,7 +476,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     DropdownMenuItem(value: 'female', child: Text('Female')),
                     DropdownMenuItem(value: 'other', child: Text('Other')),
                   ],
-                  onChanged: (value) => setState(() => _selectedGender = value),
+                  onChanged: isProfileLocked ? null : (value) => setState(() => _selectedGender = value),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
                       return 'Gender is required';
@@ -455,6 +496,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Address',
                 icon: Icons.home_outlined,
                 hint: 'Street / Area / Locality',
+                enabled: !isProfileLocked,
                 validator: (v) => _requiredValidator(v, 'Address'),
               ),
               const Divider(height: 1),
@@ -462,6 +504,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _cityCtrl,
                 label: 'City',
                 icon: Icons.location_city_outlined,
+                enabled: !isProfileLocked,
                 validator: (v) => _requiredValidator(v, 'City'),
               ),
               const Divider(height: 1),
@@ -469,6 +512,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _stateCtrl,
                 label: 'State',
                 icon: Icons.map_outlined,
+                enabled: !isProfileLocked,
                 validator: (v) => _requiredValidator(v, 'State'),
               ),
               const Divider(height: 1),
@@ -478,6 +522,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 icon: Icons.pin_drop_outlined,
                 keyboardType: TextInputType.number,
                 hint: '500001',
+                enabled: !isProfileLocked,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Pincode is required';
                   if (!RegExp(r'^\d{6}$').hasMatch(v.trim())) return 'Enter 6-digit pincode';
@@ -523,6 +572,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Current Address',
                 icon: Icons.location_on_outlined,
                 hint: 'Street / Area / Locality',
+                enabled: !isProfileLocked,
                 validator: (v) => _requiredValidator(v, 'Current Address'),
               ),
               const Divider(height: 1),
@@ -530,6 +580,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _currentCityCtrl,
                 label: 'City',
                 icon: Icons.location_city_outlined,
+                enabled: !isProfileLocked,
                 validator: (v) => _requiredValidator(v, 'Current City'),
               ),
               const Divider(height: 1),
@@ -537,6 +588,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _currentStateCtrl,
                 label: 'State',
                 icon: Icons.map_outlined,
+                enabled: !isProfileLocked,
                 validator: (v) => _requiredValidator(v, 'Current State'),
               ),
               const Divider(height: 1),
@@ -546,6 +598,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 icon: Icons.pin_drop_outlined,
                 keyboardType: TextInputType.number,
                 hint: '500001',
+                enabled: !isProfileLocked,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(6),
+                ],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Current pincode is required';
                   if (!RegExp(r'^\d{6}$').hasMatch(v.trim())) return 'Enter 6-digit pincode';
@@ -562,6 +619,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 controller: _nomineeNameCtrl,
                 label: 'Nominee Name',
                 icon: Icons.person_add_outlined,
+                enabled: !isProfileLocked,
                 validator: (v) => _requiredValidator(v, 'Nominee Name'),
               ),
               const Divider(height: 1),
@@ -570,6 +628,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Relationship',
                 icon: Icons.people_outline,
                 hint: 'e.g. Spouse, Parent, Sibling',
+                enabled: !isProfileLocked,
                 validator: (v) => _requiredValidator(v, 'Nominee Relationship'),
               ),
             ]),
@@ -578,11 +637,30 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             // Bank Details
             _buildSectionLabel('Bank Details'),
             _buildFormCard([
-              _FormField(
-                controller: _bankNameCtrl,
-                label: 'Bank Name',
-                icon: Icons.account_balance_outlined,
-                validator: (v) => _requiredValidator(v, 'Bank Name'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: DropdownButtonFormField<String>(
+                  value: _selectedBankName,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Bank Name',
+                    prefixIcon: Icon(Icons.account_balance_outlined, size: 20),
+                    border: InputBorder.none,
+                  ),
+                  items: sortedBanks
+                      .map((bank) => DropdownMenuItem<String>(
+                            value: bank,
+                            child: Text(bank, overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: isProfileLocked
+                      ? null
+                      : (value) {
+                          setState(() => _selectedBankName = value);
+                          _bankNameCtrl.text = value ?? '';
+                        },
+                  validator: (v) => _requiredValidator(v, 'Bank Name'),
+                ),
               ),
               const Divider(height: 1),
               _FormField(
@@ -590,6 +668,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 label: 'Account Number',
                 icon: Icons.numbers_outlined,
                 keyboardType: TextInputType.number,
+                enabled: !isProfileLocked,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(18),
+                ],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Account Number is required';
                   if (!RegExp(r'^\d{9,18}$').hasMatch(v.trim())) {
@@ -605,6 +688,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 icon: Icons.code_outlined,
                 textCapitalization: TextCapitalization.characters,
                 hint: 'SBIN0001234',
+                enabled: !isProfileLocked,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
+                  LengthLimitingTextInputFormatter(11),
+                  UpperCaseTextFormatter(),
+                ],
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'IFSC Code is required';
                   if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$')
@@ -630,7 +719,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Profile changes are saved instantly. Keep details accurate for smoother KYC and payouts.',
+                    'You can submit profile details only once. Bank and profile details will be verified by admin before approval.',
                     style: TextStyle(color: Colors.blue, fontSize: 12),
                   ),
                 ),
@@ -638,26 +727,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             const SizedBox(height: 16),
 
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _isSaving ? null : _saveProfile,
-                icon: _isSaving
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.save_outlined),
-                label: Text(_isSaving ? 'Saving...' : 'Save Profile'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            if (!isProfileLocked)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _saveProfile,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(_isSaving ? 'Saving...' : 'Save Profile'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Text(
+                  profileStatus == 'pending'
+                      ? 'Profile is locked while approval is pending.'
+                      : 'Profile is in read-only mode.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 12, fontWeight: FontWeight.w600),
                 ),
               ),
-            ),
             const SizedBox(height: 32),
           ]),
         ),
@@ -702,8 +809,10 @@ class _FormField extends StatelessWidget {
   final TextInputType? keyboardType;
   final TextCapitalization textCapitalization;
   final String? hint;
+  final bool enabled;
   final bool readOnly;
   final VoidCallback? onTap;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _FormField({
     required this.controller,
@@ -713,8 +822,10 @@ class _FormField extends StatelessWidget {
     this.keyboardType,
     this.textCapitalization = TextCapitalization.words,
     this.hint,
+    this.enabled = true,
     this.readOnly = false,
     this.onTap,
+    this.inputFormatters,
   });
 
   @override
@@ -723,10 +834,12 @@ class _FormField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: TextFormField(
         controller: controller,
+        enabled: enabled,
         readOnly: readOnly,
         onTap: onTap,
         keyboardType: keyboardType,
         textCapitalization: textCapitalization,
+        inputFormatters: inputFormatters,
         validator: validator,
         decoration: InputDecoration(
           labelText: label,
@@ -775,3 +888,75 @@ class _ReadOnlyField extends StatelessWidget {
     );
   }
 }
+
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    final upperText = newValue.text.toUpperCase();
+    return TextEditingValue(
+      text: upperText,
+      selection: newValue.selection,
+      composing: TextRange.empty,
+    );
+  }
+}
+
+const List<String> _indianBanks = [
+  'Allahabad Bank',
+  'AU Small Finance Bank',
+  'Axis Bank',
+  'Bandhan Bank',
+  'Bank of Baroda',
+  'Bank of India',
+  'Bank of Maharashtra',
+  'Canara Bank',
+  'Catholic Syrian Bank',
+  'Central Bank of India',
+  'City Union Bank',
+  'CSB Bank',
+  'DCB Bank',
+  'Dhanlaxmi Bank',
+  'Equitas Small Finance Bank',
+  'ESAF Small Finance Bank',
+  'Federal Bank',
+  'FINO Payments Bank',
+  'HDFC Bank',
+  'HSBC Bank India',
+  'ICICI Bank',
+  'IDBI Bank',
+  'IDFC FIRST Bank',
+  'India Post Payments Bank',
+  'Indian Bank',
+  'Indian Overseas Bank',
+  'IndusInd Bank',
+  'Jammu and Kashmir Bank',
+  'Jana Small Finance Bank',
+  'Karnataka Bank',
+  'Karur Vysya Bank',
+  'Kotak Mahindra Bank',
+  'Nainital Bank',
+  'Punjab and Sind Bank',
+  'Punjab National Bank',
+  'RBL Bank',
+  'Saraswat Co-operative Bank',
+  'Shivalik Small Finance Bank',
+  'South Indian Bank',
+  'Standard Chartered Bank India',
+  'State Bank of India',
+  'Suryoday Small Finance Bank',
+  'Tamilnad Mercantile Bank',
+  'The Gujarat State Co-operative Bank',
+  'The Jammu and Kashmir State Co-operative Bank',
+  'The Kalupur Commercial Co-operative Bank',
+  'The Kerala State Co-operative Bank',
+  'The Nainital Bank',
+  'The Rajasthan State Co-operative Bank',
+  'The Shamrao Vithal Co-operative Bank',
+  'The Tamil Nadu State Apex Co-operative Bank',
+  'The Varachha Co-operative Bank',
+  'UCO Bank',
+  'Ujjivan Small Finance Bank',
+  'Union Bank of India',
+  'Utkarsh Small Finance Bank',
+  'YES Bank',
+];
