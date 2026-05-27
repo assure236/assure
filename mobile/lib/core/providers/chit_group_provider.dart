@@ -91,17 +91,24 @@ class ChitGroupProvider with ChangeNotifier {
     return [];
   }
 
-  Future<bool> enrollInChitGroup(String groupId) async {
+  Future<Map<String, dynamic>> enrollInChitGroup(String groupId) async {
     try {
       final response = await ApiService.post('/chit-groups/$groupId/enroll', {});
-      if (response['success']) {
+      final success = response['success'] == true;
+      if (success) {
         await fetchMyChitGroups();
-        return true;
       }
+      return {
+        'success': success,
+        'message': response['message'] ?? (success ? 'Enrolled successfully' : 'Enrollment failed'),
+      };
     } catch (e) {
       debugPrint('Error enrolling in chit group: $e');
+      return {
+        'success': false,
+        'message': 'Unable to enroll right now. Please try again.',
+      };
     }
-    return false;
   }
 
   Future<List<Map<String, dynamic>>> fetchAvailableGroups() async {

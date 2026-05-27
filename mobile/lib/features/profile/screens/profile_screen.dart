@@ -18,29 +18,11 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  Map<String, dynamic>? _kycStatus;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetchKycStatus();
-  }
-
-  Future<void> _fetchKycStatus() async {
-    try {
-      final res = await ApiService.get('/kyc/status');
-      if (res['success'] == true && mounted) {
-        setState(() => _kycStatus = res['data']);
-      }
-    } catch (_) {}
-  }
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
-    final digilockerConnected = _kycStatus?['digilocker_connected'] == true;
-
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: RefreshIndicator(

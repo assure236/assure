@@ -137,54 +137,6 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-class _StatusGroupsTab extends StatelessWidget {
-  final String searchQuery;
-  final String status;
-  const _StatusGroupsTab({required this.searchQuery, required this.status});
-
-  @override
-  Widget build(BuildContext context) {
-    return Consumer<ChitGroupProvider>(
-      builder: (context, provider, _) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final groups = provider.chitGroups
-            .where((g) =>
-                g.status == status &&
-                (g.groupName.toLowerCase().contains(searchQuery.toLowerCase()) ||
-                g.groupNumber.toLowerCase().contains(searchQuery.toLowerCase())))
-            .toList();
-
-        if (groups.isEmpty) {
-          return _EmptyState(
-            icon: status == 'completed' ? Icons.check_circle_outline : Icons.cancel_outlined,
-            title: searchQuery.isNotEmpty
-                ? 'No groups match "$searchQuery"'
-                : 'No ${status[0].toUpperCase()}${status.substring(1)} Groups',
-            subtitle: searchQuery.isNotEmpty
-                ? 'Try a different search'
-                : 'You have no ${status} chit groups.',
-          );
-        }
-
-        return RefreshIndicator(
-          onRefresh: () => context.read<ChitGroupProvider>().fetchMyChitGroups(),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: groups.length,
-            itemBuilder: (context, i) => _ChitGroupCard(
-              group: groups[i],
-              onTap: () => context.push('/chit-groups/${groups[i].id}'),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _AvailableGroupsTab extends StatefulWidget {
   final String searchQuery;
   final String filter; // 'new' or 'vacant'
@@ -198,6 +150,35 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
   bool _loading = true;
   List<Map<String, dynamic>> _available = [];
   String? _error;
+
+  Future<bool> _confirmEnrollment(Map<String, dynamic> group) async {
+    final groupName = (group['group_name'] ?? 'this chit group').toString();
+    final monthly = double.tryParse(group['monthly_installment']?.toString() ?? '0') ?? 0;
+
+    final decision = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Enrollment'),
+        content: Text(
+          'Do you want to enroll in $groupName?\n\n'
+          'Monthly installment: ₹${NumberFormat('#,##,###').format(monthly)}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+            child: const Text('Enroll'),
+          ),
+        ],
+      ),
+    );
+
+    return decision ?? false;
+  }
 
   @override
   void initState() {
@@ -260,173 +241,39 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
           data: filtered[i],
           onTap: () => context.push('/chit-groups/${(filtered[i]['_id'] ?? filtered[i]['id']).toString()}'),
           onEnroll: () async {
-            final ok = await context
+            final group = filtered[i];
+            final groupId = (group['_id'] ?? group['id']).toString();
+
+            final shouldEnroll = await _confirmEnrollment(group);
+            if (!context.mounted || !shouldEnroll) return;
+
+            final result = await context
                 .read<ChitGroupProvider>()
-                .enrollInChitGroup((filtered[i]['_id'] ?? filtered[i]['id']).toString());
-            if (ok && context.mounted) {
-              CelebrationOverlay.showGroupJoined(context, groupName: filtered[i]['group_name'] ?? 'Chit Group');
+                .enrollInChitGroup(groupId);
+            final ok = result['success'] == true;
+
+            if (!context.mounted) return;
+
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text((result['message'] ?? (ok ? 'Enrolled successfully' : 'Enrollment failed')).toString()),
+                backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+
+            if (ok) {
+              await _fetchAvailable();
+              if (!context.mounted) return;
+
+              CelebrationOverlay.showGroupJoined(context, groupName: group['group_name'] ?? 'Chit Group');
               await Future.delayed(const Duration(seconds: 2));
-              if (context.mounted) context.go('/dashboard');
+              if (!context.mounted) return;
+              context.go('/dashboard');
             }
           },
-        );
-      ),
-    );
-  }
-}
-
-class _ChitGroupCard extends StatelessWidget {
-  final dynamic group;
-  final VoidCallback onTap;
-
-  const _ChitGroupCard({required this.group, required this.onTap});
-
-  Color get _statusColor {
-    switch (group.status) {
-      case 'active': return AppTheme.successColor;
-      case 'completed': return Colors.grey;
-      case 'upcoming': return AppTheme.secondaryColor;
-      default: return Colors.blue;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = group.durationMonths > 0
-        ? (group.currentMonth / group.durationMonths).clamp(0.0, 1.0)
-        : 0.0;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withAlpha(26),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(Icons.account_balance, color: AppTheme.primaryColor),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(group.groupName,
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    Text(group.groupNumber,
-                        style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                  ]),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: _statusColor.withAlpha(31),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    group.status.toUpperCase(),
-                    style: TextStyle(
-                        color: _statusColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 16),
-              Row(children: [
-                _InfoChip(
-                    icon: Icons.currency_rupee,
-                    label: '${_fmt(group.chitValue)} Chit'),
-                const SizedBox(width: 8),
-                _InfoChip(
-                    icon: Icons.calendar_month,
-                    label: '${group.durationMonths} months'),
-                const SizedBox(width: 8),
-                _InfoChip(
-                    icon: Icons.people_outline,
-                    label: '${group.totalMembers} members'),
-              ]),
-              const SizedBox(height: 14),
-              Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Month ${group.currentMonth} of ${group.durationMonths}',
-                        style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                    Text('${(progress * 100).toStringAsFixed(0)}% complete',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
-                  ]),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: progress,
-                  minHeight: 6,
-                  backgroundColor: Colors.grey[200],
-                  valueColor:
-                      const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Monthly Installment',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 11)),
-                    Text('₹${_fmt(group.monthlyInstallment)}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryColor,
-                            fontSize: 16)),
-                  ]),
-                  TextButton.icon(
-                    onPressed: onTap,
-                    icon: const Icon(Icons.arrow_forward, size: 16),
-                    label: const Text('View Details'),
-                    style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
-                  ),
-                ],
-              ),
-            ],
-          ),
         ),
       ),
-    );
-  }
-
-  String _fmt(double v) {
-    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}K';
-    return v.toStringAsFixed(0);
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const _InfoChip({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-          color: Colors.grey[100], borderRadius: BorderRadius.circular(8)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, size: 12, color: Colors.grey[600]),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[700])),
-      ]),
     );
   }
 }
@@ -463,12 +310,7 @@ class _AvailableGroupCard extends StatelessWidget {
     final Color accentColor = AppTheme.primaryColor;
     final String statusLabel = isVacant ? 'Seats Available' : isNotStarted ? 'Not Started' : 'Upcoming';
 
-    DateTime? commencementDt;
-    if (commencementDate != null) {
-      try { commencementDt = DateTime.parse(commencementDate.toString()); } catch (_) {}
-    }
-    final bool enrollDisabled = isNotStarted &&
-        (commencementDt == null || commencementDt.isAfter(DateTime.now()));
+    final bool enrollDisabled = slotsLeft <= 0;
 
     return GestureDetector(
       onTap: onTap,
@@ -577,7 +419,7 @@ class _AvailableGroupCard extends StatelessWidget {
             child: ElevatedButton.icon(
               onPressed: enrollDisabled ? null : onEnroll,
               icon: const Icon(Icons.how_to_reg_rounded, size: 18),
-              label: Text(enrollDisabled ? 'Opens ${dateStr.isNotEmpty ? dateStr : 'Soon'}' : 'Enroll Now'),
+              label: Text(enrollDisabled ? 'Group Full' : 'Enroll Now'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: accentColor,
                 foregroundColor: Colors.white,

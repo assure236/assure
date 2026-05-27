@@ -7,6 +7,7 @@ import { Gavel as GavelIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { getSocketUrl } from '../../config/env';
 
 const Auctions = () => {
   const navigate = useNavigate();
@@ -20,10 +21,7 @@ const Auctions = () => {
   // Real-time: auto-refresh when admin starts/ends auctions
   const socketRef = useRef(null);
   useEffect(() => {
-    const SOCKET_URL = process.env.REACT_APP_API_URL
-      ? process.env.REACT_APP_API_URL.replace('/api/v1', '')
-      : 'http://localhost:5000';
-    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'], reconnectionAttempts: 3 });
+    const socket = io(getSocketUrl(), { transports: ['websocket', 'polling'], reconnectionAttempts: 3 });
     socketRef.current = socket;
     socket.on('auction_status_changed', () => fetchAuctions());
     socket.on('auction_created', () => fetchAuctions());

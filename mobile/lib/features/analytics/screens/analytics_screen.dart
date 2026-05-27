@@ -165,9 +165,9 @@ class _PaymentOverviewTab extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
-            Expanded(child: _SummaryCard(label: 'Total Invested', value: '${_fmt(totalInvested)}', icon: Icons.account_balance_wallet, color: AppTheme.primaryColor)),
+            Expanded(child: _SummaryCard(label: 'Total Invested', value: _fmt(totalInvested), icon: Icons.account_balance_wallet, color: AppTheme.primaryColor)),
             const SizedBox(width: 12),
-            Expanded(child: _SummaryCard(label: 'Active Chits', value: '$activeChits', icon: Icons.group, color: AppTheme.secondaryColor)),
+            Expanded(child: _SummaryCard(label: 'Active Chits', value: activeChits.toString(), icon: Icons.group, color: AppTheme.secondaryColor)),
           ]),
           const SizedBox(height: 20),
           if (monthly.isNotEmpty) ...[
@@ -202,7 +202,7 @@ class _PaymentOverviewTab extends StatelessWidget {
               getDrawingHorizontalLine: (v) => FlLine(color: Colors.grey.shade200, strokeWidth: 1)),
             titlesData: FlTitlesData(
               leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 50,
-                getTitlesWidget: (v, m) => Text('${_fmt(v)}', style: const TextStyle(fontSize: 9, color: Colors.grey)))),
+                getTitlesWidget: (v, m) => Text(_fmt(v), style: const TextStyle(fontSize: 9, color: Colors.grey)))),
               bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: true,
                 getTitlesWidget: (v, m) {
                   final idx = v.toInt();
@@ -278,7 +278,7 @@ class _DividendAnalyticsTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: _SummaryCard(label: 'Total Dividends', value: '${_fmt(totalDividends)}', icon: Icons.savings_outlined, color: AppTheme.successColor)),
+          Expanded(child: _SummaryCard(label: 'Total Dividends', value: _fmt(totalDividends), icon: Icons.savings_outlined, color: AppTheme.successColor)),
           const SizedBox(width: 12),
           Expanded(child: _SummaryCard(label: 'Avg Bid Ratio', value: '${(avgBidRatio*100).toStringAsFixed(1)}%', icon: Icons.trending_up, color: AppTheme.secondaryColor)),
         ]),

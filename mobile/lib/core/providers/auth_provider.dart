@@ -329,13 +329,6 @@ class AuthProvider with ChangeNotifier {
 
   // ─── Logout ────────────────────────────────────────────────────────────────
 
-  /// Soft lock — keeps token so biometric can re-authenticate quickly
-  void _softLock() {
-    _isAuthenticated = false;
-    _stopInactivityTimer();
-    notifyListeners();
-  }
-
   Future<void> logout() async {
     _user = null;
     _token = null;

@@ -160,9 +160,39 @@ const Payments = () => {
     }
   };
 
-  const handleDownloadReceipt = (paymentId) => {
-    const token = localStorage.getItem('token');
-    window.open(`${axios.defaults.baseURL}/payments/receipt/${paymentId}?token=${token}`, '_blank');
+  const handleDownloadReceipt = async (paymentId) => {
+    try {
+      const res = await axios.get(`/payments/receipt/${paymentId}`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `receipt_${paymentId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Could not download receipt.');
+    }
+  };
+
+  const handleOpenStatement = async () => {
+    try {
+      const res = await axios.get('/payments/statement?format=html', {
+        responseType: 'text',
+        headers: { Accept: 'text/html' },
+      });
+
+      const popup = window.open('', '_blank', 'noopener,noreferrer');
+      if (!popup) {
+        toast.error('Please allow pop-ups to view statement.');
+        return;
+      }
+
+      popup.document.open();
+      popup.document.write(res.data);
+      popup.document.close();
+    } catch {
+      toast.error('Could not open statement.');
+    }
   };
 
   const handleDownloadStatement = async () => {
@@ -223,7 +253,7 @@ const Payments = () => {
           </Button>
           <Button
             variant="contained" startIcon={<StatementIcon />}
-            onClick={() => window.open(`${axios.defaults.baseURL}/payments/statement?format=html&token=${localStorage.getItem('token')}`, '_blank')}
+            onClick={handleOpenStatement}
           >
             Statement
           </Button>

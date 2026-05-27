@@ -213,7 +213,7 @@
 |------|--------|
 | Remove dev "Skip" button from login | ❌ |
 | Lock all routes behind auth in router | ❌ |
-| Rotate exposed AWS credentials (AKIA4YPYRI6L3OPES6ZN) | ❌ URGENT |
+| Rotate any previously exposed AWS credentials | ❌ URGENT |
 | HTTPS / SSL certificate | ❌ |
 | Rate limiting on OTP + auth endpoints | ❌ |
 | Input sanitization / SQL injection protection | ❌ |

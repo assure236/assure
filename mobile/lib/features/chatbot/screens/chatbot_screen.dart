@@ -12,7 +12,7 @@ import '../../../core/theme/app_theme.dart';
 final _inr = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 
 class ChatbotScreen extends StatefulWidget {
-  const ChatbotScreen({Key? key}) : super(key: key);
+  const ChatbotScreen({super.key});
 
   @override
   State<ChatbotScreen> createState() => _ChatbotScreenState();

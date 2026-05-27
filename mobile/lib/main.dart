@@ -53,7 +53,7 @@ void main() async {
 }
 
 class AssureChitFundsApp extends StatefulWidget {
-  const AssureChitFundsApp({Key? key}) : super(key: key);
+  const AssureChitFundsApp({super.key});
 
   @override
   State<AssureChitFundsApp> createState() => _AssureChitFundsAppState();

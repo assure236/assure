@@ -14,6 +14,7 @@ const { notifyUser, notifyMultiple } = require('../utils/notifyUser');
 const erpnextService = require('../services/erpnextService');
 const accountingService = require('../services/accountingService');
 const logger = require('../utils/logger');
+const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
 const adminOnly = [authMiddleware, authorizeRoles('admin', 'manager')];
 const superAdminOnly = [authMiddleware, authorizeRoles('super_admin')];
@@ -62,6 +63,11 @@ router.post('/otp/verify', adminOnly, async (req, res) => {
 
 const toId = (id) => {
   try { return new mongoose.Types.ObjectId(id); } catch (_) { return null; }
+};
+
+const getRequestPayload = (notification) => {
+  if (!notification) return {};
+  return notification.data || notification.metadata || {};
 };
 
 // ---------- HELPERS ----------
@@ -420,9 +426,14 @@ router.post('/chit-groups/:id/add-member', adminOnly, async (req, res, next) => 
     if (!group) return res.status(404).json({ success: false, message: 'Group not found' });
     const existing = await ChitMember.findOne({ chit_group_id: group._id, user_id });
     if (existing) return res.status(400).json({ success: false, message: 'Already a member' });
-    const currentCount = await ChitMember.countDocuments({ chit_group_id: group._id });
+    const [currentCount, lastTicket] = await Promise.all([
+      ChitMember.countDocuments({ chit_group_id: group._id, is_active: true }),
+      ChitMember.findOne({ chit_group_id: group._id }).sort({ ticket_number: -1 }).select('ticket_number'),
+    ]);
     if (currentCount >= group.total_members) return res.status(400).json({ success: false, message: 'Group is full' });
-    const member = await ChitMember.create({ chit_group_id: group._id, user_id, ticket_number: currentCount + 1, is_active: true });
+    const nextTicketNumber = (lastTicket?.ticket_number || 0) + 1;
+    const member = await ChitMember.create({ chit_group_id: group._id, user_id, ticket_number: nextTicketNumber, is_active: true });
+    await syncChitGroupStatuses({ groupIds: [group._id] });
     notifyUser(user_id, 'Added to Chit Group 🎉', `You have been added to ${group.group_name}. Welcome!`, 'general', { group_id: String(group._id) }).catch(() => {});
     res.status(201).json({ success: true, message: 'Member added', data: member });
   } catch (err) { next(err); }
@@ -949,6 +960,339 @@ router.get('/support/tickets', adminOnly, async (req, res, next) => {
       .sort({ created_at: -1 })
       .skip((page - 1) * parseInt(limit)).limit(parseInt(limit));
     res.json({ success: true, data: { tickets, total, page: parseInt(page), totalPages: Math.ceil(total / parseInt(limit)) } });
+  } catch (err) { next(err); }
+});
+
+// ============ CHIT REQUESTS (TRANSFER / CANCEL) ============
+router.get('/chit-requests', adminOnly, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, type = 'all', status = 'pending' } = req.query;
+
+    const allowedTypes = {
+      all: ['admin_chit_transfer', 'admin_chit_cancel'],
+      transfer: ['admin_chit_transfer'],
+      cancel: ['admin_chit_cancel'],
+    };
+    const requestTypes = allowedTypes[type] || allowedTypes.all;
+
+    const adminNotifications = await Notification.find({ type: { $in: requestTypes } })
+      .sort({ created_at: -1 })
+      .lean();
+
+    const normalized = adminNotifications.map((n) => {
+      const payload = getRequestPayload(n);
+      const requestStatus = payload.status || payload.request_status || 'pending';
+      return {
+        _id: n._id,
+        type: n.type,
+        title: n.title,
+        message: n.message,
+        created_at: n.created_at,
+        status: requestStatus,
+        payload,
+      };
+    });
+
+    const filtered = status === 'all'
+      ? normalized
+      : normalized.filter((r) => r.status === status);
+
+    const userIds = new Set();
+    const groupIds = new Set();
+    for (const r of filtered) {
+      const p = r.payload || {};
+      if (p.from_user) userIds.add(String(p.from_user));
+      if (p.to_user) userIds.add(String(p.to_user));
+      if (p.user_id) userIds.add(String(p.user_id));
+      if (p.chit_group_id) groupIds.add(String(p.chit_group_id));
+    }
+
+    const [users, groups] = await Promise.all([
+      userIds.size > 0
+        ? User.find({ _id: { $in: Array.from(userIds).map((id) => toId(id)).filter(Boolean) } })
+          .select('full_name member_id mobile')
+          .lean()
+        : [],
+      groupIds.size > 0
+        ? ChitGroup.find({ _id: { $in: Array.from(groupIds).map((id) => toId(id)).filter(Boolean) } })
+          .select('group_name group_number')
+          .lean()
+        : [],
+    ]);
+
+    const userMap = new Map(users.map((u) => [String(u._id), u]));
+    const groupMap = new Map(groups.map((g) => [String(g._id), g]));
+
+    const rows = filtered.map((r) => {
+      const p = r.payload || {};
+      const group = p.chit_group_id ? groupMap.get(String(p.chit_group_id)) : null;
+      const fromUser = (p.from_user || p.user_id) ? userMap.get(String(p.from_user || p.user_id)) : null;
+      const toUser = p.to_user ? userMap.get(String(p.to_user)) : null;
+
+      return {
+        id: r._id,
+        request_type: r.type === 'admin_chit_transfer' ? 'transfer' : 'cancel',
+        status: r.status,
+        title: r.title,
+        message: r.message,
+        created_at: r.created_at,
+        chit_group_id: p.chit_group_id || null,
+        chit_group_name: group?.group_name || null,
+        chit_group_number: group?.group_number || null,
+        from_user_id: p.from_user || p.user_id || null,
+        from_user_name: fromUser?.full_name || null,
+        from_member_id: fromUser?.member_id || null,
+        to_user_id: p.to_user || null,
+        to_user_name: toUser?.full_name || null,
+        to_member_id: toUser?.member_id || null,
+        ticket_number: p.ticket_number || null,
+        reason: p.reason || null,
+        reviewed_at: p.reviewed_at || null,
+        reviewed_by: p.reviewed_by || null,
+        review_note: p.review_note || null,
+      };
+    });
+
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const start = (pageNum - 1) * limitNum;
+    const paged = rows.slice(start, start + limitNum);
+
+    res.json({
+      success: true,
+      data: {
+        requests: paged,
+        total: rows.length,
+        page: pageNum,
+        totalPages: Math.ceil(rows.length / limitNum),
+      }
+    });
+  } catch (err) { next(err); }
+});
+
+router.post('/chit-requests/:id/approve', adminOnly, async (req, res, next) => {
+  try {
+    const adminId = req.user._id || req.user.id;
+    const { note } = req.body;
+
+    const requestNotification = await Notification.findById(req.params.id);
+    if (!requestNotification) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+    if (!['admin_chit_transfer', 'admin_chit_cancel'].includes(requestNotification.type)) {
+      return res.status(400).json({ success: false, message: 'Invalid request type' });
+    }
+
+    const payload = getRequestPayload(requestNotification);
+    const currentStatus = payload.status || payload.request_status || 'pending';
+    if (currentStatus !== 'pending') {
+      return res.status(400).json({ success: false, message: `Request already ${currentStatus}` });
+    }
+
+    if (requestNotification.type === 'admin_chit_transfer') {
+      const groupId = payload.chit_group_id;
+      const fromUserId = payload.from_user;
+      const toUserId = payload.to_user;
+      if (!groupId || !fromUserId || !toUserId) {
+        return res.status(400).json({ success: false, message: 'Invalid transfer payload' });
+      }
+
+      const [group, fromMembership, toExistingMembership] = await Promise.all([
+        ChitGroup.findById(groupId),
+        ChitMember.findOne({ chit_group_id: groupId, user_id: fromUserId, is_active: true }),
+        ChitMember.findOne({ chit_group_id: groupId, user_id: toUserId, is_active: true }),
+      ]);
+
+      if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
+      if (!fromMembership) return res.status(400).json({ success: false, message: 'Source member is not active in this group' });
+      if (toExistingMembership) return res.status(400).json({ success: false, message: 'Target member is already active in this group' });
+
+      const lastTicket = await ChitMember.findOne({ chit_group_id: groupId }).sort({ ticket_number: -1 }).select('ticket_number');
+      const nextTicket = (lastTicket?.ticket_number || 0) + 1;
+
+      await ChitMember.findByIdAndUpdate(fromMembership._id, {
+        is_active: false,
+        exit_date: new Date(),
+        exit_reason: 'Transferred by admin approval',
+      });
+
+      const newMembership = await ChitMember.create({
+        chit_group_id: groupId,
+        user_id: toUserId,
+        ticket_number: nextTicket,
+        is_active: true,
+      });
+
+      await syncChitGroupStatuses({ groupIds: [groupId] });
+
+      const reviewedData = {
+        ...payload,
+        status: 'approved',
+        reviewed_at: new Date(),
+        reviewed_by: adminId,
+        review_note: note || null,
+        new_ticket_number: nextTicket,
+        new_membership_id: String(newMembership._id),
+      };
+      await Notification.findByIdAndUpdate(requestNotification._id, {
+        data: reviewedData,
+        is_read: true,
+        read_at: new Date(),
+      });
+
+      const userReq = await Notification.findOne({
+        user_id: fromUserId,
+        type: 'chit_transfer_request',
+        'data.chit_group_id': groupId,
+        'data.recipient_member_id': toUserId,
+      }).sort({ created_at: -1 });
+      if (userReq) {
+        const userData = getRequestPayload(userReq);
+        await Notification.findByIdAndUpdate(userReq._id, {
+          data: { ...userData, status: 'approved', reviewed_at: new Date(), reviewed_by: adminId, review_note: note || null },
+        });
+      }
+
+      notifyUser(String(fromUserId), 'Chit Transfer Approved ✅', `Your transfer request for ${group.group_name} was approved.`, 'chit_transfer_request', { group_id: String(groupId) }).catch(() => {});
+      notifyUser(String(toUserId), 'New Chit Assigned 🎉', `You were assigned to ${group.group_name} (Ticket #${nextTicket}).`, 'general', { group_id: String(groupId) }).catch(() => {});
+
+      return res.json({
+        success: true,
+        message: 'Transfer request approved',
+        data: { group_id: String(groupId), old_membership_id: String(fromMembership._id), new_membership_id: String(newMembership._id), new_ticket_number: nextTicket },
+      });
+    }
+
+    // admin_chit_cancel
+    const groupId = payload.chit_group_id;
+    const userId = payload.user_id;
+    if (!groupId || !userId) {
+      return res.status(400).json({ success: false, message: 'Invalid cancellation payload' });
+    }
+
+    const [group, membership] = await Promise.all([
+      ChitGroup.findById(groupId),
+      ChitMember.findOne({ chit_group_id: groupId, user_id: userId, is_active: true }),
+    ]);
+    if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
+    if (!membership) return res.status(400).json({ success: false, message: 'Member is not active in this group' });
+    if (membership.has_won_auction) {
+      return res.status(400).json({ success: false, message: 'Cannot cancel: member has already won auction' });
+    }
+
+    await ChitMember.findByIdAndUpdate(membership._id, {
+      is_active: false,
+      exit_date: new Date(),
+      exit_reason: 'Cancelled by admin approval',
+    });
+    await syncChitGroupStatuses({ groupIds: [groupId] });
+
+    const reviewedData = {
+      ...payload,
+      status: 'approved',
+      reviewed_at: new Date(),
+      reviewed_by: adminId,
+      review_note: note || null,
+    };
+    await Notification.findByIdAndUpdate(requestNotification._id, {
+      data: reviewedData,
+      is_read: true,
+      read_at: new Date(),
+    });
+
+    const userReq = await Notification.findOne({
+      user_id: userId,
+      type: 'chit_cancel_request',
+      'data.chit_group_id': groupId,
+    }).sort({ created_at: -1 });
+    if (userReq) {
+      const userData = getRequestPayload(userReq);
+      await Notification.findByIdAndUpdate(userReq._id, {
+        data: { ...userData, status: 'approved', reviewed_at: new Date(), reviewed_by: adminId, review_note: note || null },
+      });
+    }
+
+    notifyUser(String(userId), 'Chit Cancellation Approved ✅', `Your cancellation request for ${group.group_name} was approved.`, 'chit_cancel_request', { group_id: String(groupId) }).catch(() => {});
+
+    res.json({ success: true, message: 'Cancellation request approved', data: { group_id: String(groupId), membership_id: String(membership._id) } });
+  } catch (err) { next(err); }
+});
+
+router.post('/chit-requests/:id/reject', adminOnly, async (req, res, next) => {
+  try {
+    const adminId = req.user._id || req.user.id;
+    const { note } = req.body;
+
+    const requestNotification = await Notification.findById(req.params.id);
+    if (!requestNotification) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+    if (!['admin_chit_transfer', 'admin_chit_cancel'].includes(requestNotification.type)) {
+      return res.status(400).json({ success: false, message: 'Invalid request type' });
+    }
+
+    const payload = getRequestPayload(requestNotification);
+    const currentStatus = payload.status || payload.request_status || 'pending';
+    if (currentStatus !== 'pending') {
+      return res.status(400).json({ success: false, message: `Request already ${currentStatus}` });
+    }
+
+    const reviewedData = {
+      ...payload,
+      status: 'rejected',
+      reviewed_at: new Date(),
+      reviewed_by: adminId,
+      review_note: note || 'Rejected by admin',
+    };
+    await Notification.findByIdAndUpdate(requestNotification._id, {
+      data: reviewedData,
+      is_read: true,
+      read_at: new Date(),
+    });
+
+    if (requestNotification.type === 'admin_chit_transfer') {
+      const fromUserId = payload.from_user;
+      const toUserId = payload.to_user;
+      const groupId = payload.chit_group_id;
+
+      const userReq = await Notification.findOne({
+        user_id: fromUserId,
+        type: 'chit_transfer_request',
+        'data.chit_group_id': groupId,
+        'data.recipient_member_id': toUserId,
+      }).sort({ created_at: -1 });
+      if (userReq) {
+        const userData = getRequestPayload(userReq);
+        await Notification.findByIdAndUpdate(userReq._id, {
+          data: { ...userData, status: 'rejected', reviewed_at: new Date(), reviewed_by: adminId, review_note: note || 'Rejected by admin' },
+        });
+      }
+
+      if (fromUserId) {
+        notifyUser(String(fromUserId), 'Chit Transfer Rejected ❌', note || 'Your transfer request was rejected by admin.', 'chit_transfer_request', { group_id: String(groupId || '') }).catch(() => {});
+      }
+    } else {
+      const userId = payload.user_id;
+      const groupId = payload.chit_group_id;
+
+      const userReq = await Notification.findOne({
+        user_id: userId,
+        type: 'chit_cancel_request',
+        'data.chit_group_id': groupId,
+      }).sort({ created_at: -1 });
+      if (userReq) {
+        const userData = getRequestPayload(userReq);
+        await Notification.findByIdAndUpdate(userReq._id, {
+          data: { ...userData, status: 'rejected', reviewed_at: new Date(), reviewed_by: adminId, review_note: note || 'Rejected by admin' },
+        });
+      }
+
+      if (userId) {
+        notifyUser(String(userId), 'Chit Cancellation Rejected ❌', note || 'Your cancellation request was rejected by admin.', 'chit_cancel_request', { group_id: String(groupId || '') }).catch(() => {});
+      }
+    }
+
+    res.json({ success: true, message: 'Request rejected' });
   } catch (err) { next(err); }
 });
 

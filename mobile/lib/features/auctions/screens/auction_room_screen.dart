@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../../../core/providers/auction_provider.dart';
 import '../../../core/services/api_service.dart';
@@ -28,7 +28,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
   List<Map<String, dynamic>> _bids = [];
   String? _error;
 
-  IO.Socket? _socket;
+  io.Socket? _socket;
   bool _socketConnected = false;
   Timer? _pollTimer;
   Timer? _localTimer;
@@ -223,6 +223,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
       }
 
       final res = await ApiService.put('/auctions/${widget.auctionId}', body);
+      if (!mounted) return;
       if (res['success'] == true) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Auction updated successfully')),
@@ -234,6 +235,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
         );
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
       );
@@ -263,9 +265,9 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     try {
       // IMPORTANT: Use enableForceNew so this gets its own connection
       // separate from AuctionProvider's socket (same URL = shared by default)
-      _socket = IO.io(
+      _socket = io.io(
         ApiService.socketUrl,
-        IO.OptionBuilder()
+        io.OptionBuilder()
             .setTransports(['websocket', 'polling'])
             .disableAutoConnect()
             .enableForceNew()
@@ -1382,11 +1384,6 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     final bidUserId = rawUserId is Map
         ? (rawUserId['_id']?.toString() ?? '')
         : rawUserId?.toString() ?? '';
-    final bidderName = (rawUserId is Map ? rawUserId['full_name'] : null) ??
-        (bid['bidder'] is Map ? bid['bidder']['full_name'] : null) ??
-        bid['bidder_name'] ??
-        (bid['member'] is Map ? bid['member']['full_name'] : null) ??
-        'Member';
     final ticketNo = bid['ticket_number'] ?? bid['ticketNumber'];
     final timestamp = bid['created_at'] ?? bid['bid_time'] ?? bid['timestamp'];
     final bidTimeMs = bid['bid_time_ms'] as int?;

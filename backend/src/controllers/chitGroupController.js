@@ -1,8 +1,11 @@
-const { ChitGroup, ChitMember, User, Auction, Payment } = require('../models');
+const { ChitGroup, ChitMember, User, Auction, Payment, Referral } = require('../models');
 const { audit, getIp } = require('../utils/audit');
+const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
 exports.getAllChitGroups = async (req, res, next) => {
   try {
+    await syncChitGroupStatuses();
+
     const { page = 1, limit = 10, status } = req.query;
     const filter = {};
     if (status) filter.status = status;
@@ -50,6 +53,8 @@ exports.getAllChitGroups = async (req, res, next) => {
 
 exports.getChitGroupById = async (req, res, next) => {
   try {
+    await syncChitGroupStatuses({ groupIds: [req.params.id] });
+
     const group = await ChitGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
     const [members, auctions] = await Promise.all([
@@ -74,16 +79,59 @@ exports.getChitGroupMembers = async (req, res, next) => {
 
 exports.enrollInChitGroup = async (req, res, next) => {
   try {
+    const userId = req.user._id || req.user.id;
+    await syncChitGroupStatuses({ groupIds: [req.params.id] });
+
     const group = await ChitGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
-    if (!['active', 'vacant'].includes(group.status)) return res.status(400).json({ success: false, message: 'Group not open for enrollment' });
-    const currentCount = await ChitMember.countDocuments({ chit_group_id: group._id });
+
+    if (!['not_started', 'active', 'vacant'].includes(group.status)) {
+      return res.status(400).json({ success: false, message: 'Group not open for enrollment' });
+    }
+
+    const currentCount = await ChitMember.countDocuments({ chit_group_id: group._id, is_active: true });
     if (currentCount >= group.total_members) return res.status(400).json({ success: false, message: 'Group is full' });
-    const userId = req.user._id || req.user.id;
+
     const existing = await ChitMember.findOne({ chit_group_id: group._id, user_id: userId });
-    if (existing) return res.status(400).json({ success: false, message: 'Already enrolled' });
-    const member = await ChitMember.create({ chit_group_id: group._id, user_id: userId, ticket_number: currentCount + 1, is_active: true });
-    res.status(201).json({ success: true, message: 'Enrolled successfully', data: member });
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Enrollment already exists for this group' });
+    }
+
+    const [priorMembershipCount, lastTicket] = await Promise.all([
+      ChitMember.countDocuments({ user_id: userId }),
+      ChitMember.findOne({ chit_group_id: group._id }).sort({ ticket_number: -1 }).select('ticket_number'),
+    ]);
+
+    const nextTicketNumber = (lastTicket?.ticket_number || 0) + 1;
+
+    const member = await ChitMember.create({
+      chit_group_id: group._id,
+      user_id: userId,
+      ticket_number: nextTicketNumber,
+      is_active: true,
+    });
+
+    // First enrollment of referred user qualifies one-time referral reward.
+    if (priorMembershipCount === 0) {
+      const referralBonusAmount = Number(process.env.REFERRAL_BONUS_AMOUNT) || 100;
+      await Referral.updateMany(
+        { referred_id: userId, status: 'pending' },
+        {
+          $set: {
+            status: 'credited',
+            bonus_credited: true,
+            bonus_amount: referralBonusAmount,
+            credited_at: new Date(),
+            qualified_at: new Date(),
+            qualified_chit_group_id: group._id,
+          },
+        }
+      );
+    }
+
+    await syncChitGroupStatuses({ groupIds: [group._id] });
+
+    res.status(201).json({ success: true, message: 'Enrolled successfully. Added to My Chits.', data: member });
   } catch (err) { next(err); }
 };
 
@@ -240,7 +288,7 @@ exports.transferChitRequest = async (req, res, next) => {
       type: 'chit_transfer_request',
       title: 'Chit Transfer Request Submitted',
       message: `Your request to transfer chit group "${group.group_name}" to member ${recipient.full_name} has been submitted for admin approval.`,
-      metadata: { chit_group_id, recipient_member_id, reason, status: 'pending' },
+      data: { chit_group_id, recipient_member_id, reason, status: 'pending' },
     });
 
     // Also notify admins
@@ -250,7 +298,7 @@ exports.transferChitRequest = async (req, res, next) => {
       type: 'admin_chit_transfer',
       title: 'New Chit Transfer Request',
       message: `${req.user.full_name} requests to transfer ticket #${membership.ticket_number} in "${group.group_name}" to ${recipient.full_name}.`,
-      metadata: { chit_group_id, from_user: userId, to_user: recipient_member_id, reason, ticket_number: membership.ticket_number },
+      data: { chit_group_id, from_user: userId, to_user: recipient_member_id, reason, ticket_number: membership.ticket_number, status: 'pending' },
     }));
     if (adminNotifications.length > 0) await Notification.insertMany(adminNotifications);
 
@@ -292,7 +340,7 @@ exports.cancelChitRequest = async (req, res, next) => {
       type: 'chit_cancel_request',
       title: 'Chit Cancellation Request Submitted',
       message: `Your request to cancel membership in "${group.group_name}" has been submitted for admin review.`,
-      metadata: { chit_group_id, reason, status: 'pending' },
+      data: { chit_group_id, reason, status: 'pending' },
     });
 
     // Notify admins
@@ -302,7 +350,7 @@ exports.cancelChitRequest = async (req, res, next) => {
       type: 'admin_chit_cancel',
       title: 'New Chit Cancellation Request',
       message: `${req.user.full_name} requests to cancel membership (ticket #${membership.ticket_number}) in "${group.group_name}".`,
-      metadata: { chit_group_id, user_id: userId, reason, ticket_number: membership.ticket_number },
+      data: { chit_group_id, user_id: userId, reason, ticket_number: membership.ticket_number, status: 'pending' },
     }));
     if (adminNotifications.length > 0) await Notification.insertMany(adminNotifications);
 

@@ -86,7 +86,7 @@ class DashboardProvider with ChangeNotifier {
         await prefs.setInt(_cacheTsKey, DateTime.now().millisecondsSinceEpoch);
       } else {
         _error = res['message'] ?? 'Failed to load dashboard';
-        if (_data == null) _data = {};
+        _data ??= {};
       }
 
       // Fetch profile completion
@@ -99,7 +99,7 @@ class DashboardProvider with ChangeNotifier {
       } catch (_) {}
     } catch (e) {
       _error = 'Could not connect to server';
-      if (_data == null) _data = {};
+      _data ??= {};
       debugPrint('DashboardProvider error: $e');
     } finally {
       _isLoading = false;

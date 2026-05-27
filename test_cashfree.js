@@ -1,10 +1,19 @@
 const axios = require('axios');
+const path = require('path');
+
+require('dotenv').config({ path: path.join(__dirname, 'backend', '.env') });
+
+if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+  console.error('Missing CASHFREE_APP_ID/CASHFREE_SECRET_KEY. Set them in environment or backend/.env on your machine.');
+  process.exit(1);
+}
+
 const cf = {
   baseUrl: 'https://api.cashfree.com/pg',
   headers: {
     'x-api-version': '2023-08-01',
-    'x-client-id': '1238159f5d7bcf5587d7d72fbd29518321',
-    'x-client-secret': 'cfsk_ma_prod_609a7e6a3eb94b73202856f22547189b_1bc50651',
+    'x-client-id': process.env.CASHFREE_APP_ID,
+    'x-client-secret': process.env.CASHFREE_SECRET_KEY,
     'Content-Type': 'application/json'
   }
 };

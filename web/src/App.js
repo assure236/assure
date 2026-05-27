@@ -7,6 +7,7 @@ import { ToastContainer } from 'react-toastify';
 import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 import 'react-toastify/dist/ReactToastify.css';
+import { getApiBaseUrl } from './config/env';
 
 // Context Providers
 import { AuthProvider } from './context/AuthContext';
@@ -46,7 +47,7 @@ const PageLoader = () => (
 );
 
 // Ensure API base URL is always set (fallback for when .env is not loaded)
-axios.defaults.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api/v1';
+axios.defaults.baseURL = getApiBaseUrl();
 
 // Theme configuration
 const theme = createTheme({

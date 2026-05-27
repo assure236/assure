@@ -18,6 +18,7 @@ const timerManager = require('./services/auctionTimerManager');
 
 require('./cron/reminders');
 require('./cron/pushAutomation');
+require('./cron/chitGroupStatusSync');
 const { initFirebase } = require('./config/firebase');
 
 // Initialize Firebase Admin SDK for push notifications
@@ -37,10 +38,11 @@ app.use(compression({
 }));
 
 const server = http.createServer(app);
+const ACCOUNTING_SYNC_INTERVAL_MS = Number(process.env.ACCOUNTING_SYNC_INTERVAL_MS || 5000);
 
 // ─── Performance: Socket.IO with optimized settings ─────────────────────────
 const io = socketIO(server, {
-  cors: { origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, process.env.MOBILE_CLIENT_URL || '*'], credentials: true },
+  cors: { origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, process.env.MOBILE_CLIENT_URL].filter(Boolean), credentials: true },
   pingTimeout: 60000,
   pingInterval: 25000,
   maxHttpBufferSize: 1e6,
@@ -52,7 +54,7 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginEmbedderPolicy: false,
 }));
-app.use(cors({ origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, 'https://www.assure.fund', 'https://assure.fund'].filter(Boolean), credentials: true }));
+app.use(cors({ origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, process.env.MOBILE_CLIENT_URL, 'https://www.assure.fund', 'https://assure.fund'].filter(Boolean), credentials: true }));
 
 // ─── Rate Limiting: scaled for 50K concurrent users ─────────────────────────
 const apiLimiter = rateLimit({
@@ -122,17 +124,26 @@ server.keepAliveTimeout = 65000; // slightly above nginx's 60s
 server.headersTimeout = 66000;
 
 const startServer = async () => {
-  server.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode (PID: ${process.pid})`);
-    logger.info('API at http://localhost:' + PORT + '/api/' + process.env.API_VERSION);
-  });
   try {
     await connectDB();
-    // Start accounting auto-sync (every 60 seconds)
+
+    // Startup data consistency tasks
+    try {
+      const { syncChitGroupStatuses } = require('./utils/chitGroupStatusSync');
+      const { migrateLegacyReferralDiscountState } = require('./utils/referralMigration');
+
+      await migrateLegacyReferralDiscountState();
+      const syncResult = await syncChitGroupStatuses();
+      logger.info(`Startup chit status sync complete. Updated: ${syncResult.updated || 0}`);
+    } catch (err) {
+      logger.warn('Startup consistency tasks skipped:', err.message);
+    }
+
+    // Start accounting auto-sync
     try {
       const accountingService = require('./services/accountingService');
-      accountingService.startAutoSync(5000, io);
-      logger.info('Accounting auto-sync started (5s interval)');
+      accountingService.startAutoSync(ACCOUNTING_SYNC_INTERVAL_MS, io);
+      logger.info(`Accounting auto-sync started (${Math.round(ACCOUNTING_SYNC_INTERVAL_MS / 1000)}s interval)`);
     } catch (err) {
       logger.warn('Could not start accounting auto-sync:', err.message);
     }
@@ -153,8 +164,15 @@ const startServer = async () => {
     }
   } catch (error) {
     logger.error('MongoDB connection failed:', error.message);
-    logger.warn('Set MONGO_URI in backend/.env to enable database features');
+    logger.error('Server startup aborted because database connection is required.');
+    process.exit(1);
+    return;
   }
+
+  server.listen(PORT, () => {
+    logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode (PID: ${process.pid})`);
+    logger.info('API at http://localhost:' + PORT + '/api/' + process.env.API_VERSION);
+  });
 };
 
 process.on('SIGTERM', () => {

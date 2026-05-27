@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
-import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfdropcheckoutpayment.dart';
-import 'package:flutter_cashfree_pg_sdk/api/cfpaymentcomponents/cfpaymentcomponent.dart';
+import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfwebcheckoutpayment.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayservice.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cftheme/cftheme.dart';
@@ -57,22 +56,12 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
           .setSecondaryFont("Roboto")
           .build();
 
-      final paymentComponent = CFPaymentComponentBuilder()
-          .setComponents(<CFPaymentModes>[
-            CFPaymentModes.UPI,
-            CFPaymentModes.CARD,
-            CFPaymentModes.WALLET,
-            CFPaymentModes.NETBANKING,
-          ])
-          .build();
-
-      final dropPayment = CFDropCheckoutPaymentBuilder()
+      final webPayment = CFWebCheckoutPaymentBuilder()
           .setSession(session)
-          .setPaymentComponent(paymentComponent)
           .setTheme(theme)
           .build();
 
-      _cfService.doPayment(dropPayment);
+      _cfService.doPayment(webPayment);
     } on CFException catch (e) {
       if (mounted) {
         setState(() {

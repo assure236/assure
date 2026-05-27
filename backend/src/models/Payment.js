@@ -19,6 +19,9 @@ const paymentSchema = new mongoose.Schema({
   due_date: Date,
   notes: String,
   overdue_days: { type: Number, default: 0 },
+  referral_discount_amount: { type: Number, default: 0 },
+  referral_discount_referral_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Referral' }],
+  referral_discount_consumed: { type: Boolean, default: false },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 paymentSchema.index({ user_id: 1 });

@@ -1,5 +1,6 @@
 const { Wallet, WalletTransaction, User } = require('../models');
 const axios = require('axios');
+const { getWebClientUrl } = require('../utils/runtimeUrls');
 
 const getCashfree = () => {
   const isTest = process.env.CASHFREE_ENV !== 'PROD';
@@ -207,9 +208,8 @@ exports.createDepositOrder = async (req, res, next) => {
 
     const orderId = 'WD-' + Date.now().toString(36).toUpperCase() + '-' + String(userId).slice(-6);
     const cf = getCashfree();
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-    const webUrl = process.env.WEB_CLIENT_URL || 'http://localhost:3000';
-    const returnUrl = webUrl + '/wallet?deposit_order=' + orderId;
+    const webUrl = getWebClientUrl();
+    const returnUrl = webUrl ? (webUrl + '/wallet?deposit_order=' + orderId) : undefined;
 
     if (!process.env.CASHFREE_APP_ID) {
       return res.json({ success: true, data: { order_id: orderId, payment_url: null, message: 'Cashfree not configured' } });
@@ -225,7 +225,7 @@ exports.createDepositOrder = async (req, res, next) => {
         customer_email: user.email || 'noemail@example.com',
         customer_phone: '91' + user.mobile,
       },
-      order_meta: { return_url: returnUrl },
+      order_meta: returnUrl ? { return_url: returnUrl } : undefined,
     }, { headers: cf.headers });
 
     const paymentSessionId = cfRes.data?.payment_session_id;

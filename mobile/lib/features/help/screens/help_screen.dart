@@ -101,7 +101,7 @@ class _HelpScreenState extends State<HelpScreen>
     },
     {
       'q': 'What is the referral program?',
-      'a': 'Share your unique referral code with friends. When they enroll in a chit group, you earn cash rewards credited to your account. Rewards are unlocked after their first successful installment.',
+      'a': 'Share your unique referral code with friends. When they enroll in their first chit group, you unlock a one-time ₹100 discount on your next installment for one chit group.',
     },
     {
       'q': 'How do I contact customer support?',

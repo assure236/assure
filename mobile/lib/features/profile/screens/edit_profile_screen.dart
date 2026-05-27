@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
@@ -32,8 +33,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _currentStateCtrl;
   late TextEditingController _currentPincodeCtrl;
   String? _selectedGender;
-  bool _saving = false;
-  bool _isEditing = false;
   bool _digilockerConnected = false;
 
   @override
@@ -92,61 +91,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     super.dispose();
   }
 
-  Future<void> _save() async {
-    if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
-    try {
-      final res = await ApiService.put('/users/profile', {
-        'full_name': _nameCtrl.text.trim(),
-        if (_panCtrl.text.trim().isNotEmpty) 'pan_number': _panCtrl.text.trim().toUpperCase(),
-        'address': _addressCtrl.text.trim(),
-        'city': _cityCtrl.text.trim(),
-        'state': _stateCtrl.text.trim(),
-        'pincode': _pincodeCtrl.text.trim(),
-        if (_dobCtrl.text.trim().isNotEmpty) 'date_of_birth': _dobCtrl.text.trim(),
-        if (_selectedGender != null) 'gender': _selectedGender,
-        'nominee_name': _nomineeNameCtrl.text.trim(),
-        'nominee_relationship': _nomineeRelCtrl.text.trim(),
-        'bank_account_number': _bankAccCtrl.text.trim(),
-        'bank_ifsc_code': _bankIfscCtrl.text.trim().toUpperCase(),
-        'bank_name': _bankNameCtrl.text.trim(),
-        if (_currentAddressCtrl.text.trim().isNotEmpty) 'current_address': _currentAddressCtrl.text.trim(),
-        if (_currentCityCtrl.text.trim().isNotEmpty) 'current_city': _currentCityCtrl.text.trim(),
-        if (_currentStateCtrl.text.trim().isNotEmpty) 'current_state': _currentStateCtrl.text.trim(),
-        if (_currentPincodeCtrl.text.trim().isNotEmpty) 'current_pincode': _currentPincodeCtrl.text.trim(),
-      });
-      if (mounted) {
-        await context.read<AuthProvider>().refreshProfile();
-        final pendingApproval = res['pending_approval'] == true;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(pendingApproval
-                ? 'Saved! Some changes need admin approval.'
-                : 'Profile updated successfully'),
-            backgroundColor: pendingApproval ? Colors.orange : AppTheme.successColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Update failed: ${e.toString()}'),
-            backgroundColor: AppTheme.errorColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
+    final sameAsPermanent =
+        (_currentAddressCtrl.text.trim().isEmpty &&
+            _currentCityCtrl.text.trim().isEmpty &&
+            _currentStateCtrl.text.trim().isEmpty &&
+            _currentPincodeCtrl.text.trim().isEmpty) ||
+        (_currentAddressCtrl.text.trim().toLowerCase() == _addressCtrl.text.trim().toLowerCase() &&
+            _currentCityCtrl.text.trim().toLowerCase() == _cityCtrl.text.trim().toLowerCase() &&
+            _currentStateCtrl.text.trim().toLowerCase() == _stateCtrl.text.trim().toLowerCase() &&
+            _currentPincodeCtrl.text.trim() == _pincodeCtrl.text.trim());
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -155,73 +111,55 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         actions: [
-          if (_isEditing)
-            TextButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                  : const Text('Save',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16)),
-            )
-          else
-            TextButton.icon(
-              onPressed: () => setState(() => _isEditing = true),
-              icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 18),
-              label: const Text('Edit',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16)),
-            ),
+          TextButton.icon(
+            onPressed: () => context.push('/support'),
+            icon: const Icon(Icons.support_agent, color: Colors.white, size: 18),
+            label: const Text('Support',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16)),
+          ),
         ],
       ),
       body: AbsorbPointer(
-        absorbing: !_isEditing,
+        absorbing: false,
         child: Theme(
           data: Theme.of(context).copyWith(
-            inputDecorationTheme: _isEditing
-                ? const InputDecorationTheme()
-                : InputDecorationTheme(
-                    filled: true,
-                    fillColor: const Color(0xFFF5F5F5),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    errorBorder: InputBorder.none,
-                    disabledBorder: InputBorder.none,
-                    labelStyle: const TextStyle(color: Colors.black54, fontSize: 12),
-                  ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFFF5F5F5),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              errorBorder: InputBorder.none,
+              disabledBorder: InputBorder.none,
+              labelStyle: const TextStyle(color: Colors.black54, fontSize: 12),
+            ),
           ),
           child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(children: [
-            // View-mode hint banner
-            if (!_isEditing)
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withAlpha(12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppTheme.primaryColor.withAlpha(30)),
-                ),
-                child: Row(children: [
-                  Icon(Icons.lock_outline, color: AppTheme.primaryColor, size: 16),
-                  const SizedBox(width: 8),
-                  Text('Tap Edit (top right) to modify your details',
-                      style: TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
-                ]),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withAlpha(12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: AppTheme.primaryColor.withAlpha(30)),
               ),
+              child: Row(children: [
+                Icon(Icons.lock_outline, color: AppTheme.primaryColor, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('Profile details are read-only. Contact Support for any change request.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.primaryColor)),
+                ),
+              ]),
+            ),
             // Pending approval banner
             if (user?.profileEditStatus == 'pending')
               Container(
@@ -328,15 +266,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             // Editable fields
             _buildFormCard([
-              _FormField(
-                controller: _nameCtrl,
+              _ReadOnlyField(
                 label: 'Full Name',
+                value: _nameCtrl.text.isNotEmpty ? _nameCtrl.text : '—',
                 icon: Icons.person_outline,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Name is required';
-                  if (v.trim().length < 3) return 'Name too short';
-                  return null;
-                },
+                note: 'Synced from PAN/Aadhaar/DigiLocker',
               ),
               const Divider(height: 1),
               _ReadOnlyField(
@@ -408,7 +342,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     DropdownMenuItem(value: 'female', child: Text('Female')),
                     DropdownMenuItem(value: 'other', child: Text('Other')),
                   ],
-                  onChanged: (v) => setState(() => _selectedGender = v),
+                  onChanged: null,
                 ),
               ),
             ]),
@@ -453,6 +387,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
             // Current Address
             _buildSectionLabel('Current Address'),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    sameAsPermanent ? Icons.check_box : Icons.check_box_outline_blank,
+                    size: 18,
+                    color: sameAsPermanent ? AppTheme.primaryColor : Colors.grey,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Same as Permanent Address',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: sameAsPermanent ? AppTheme.primaryColor : Colors.grey[700],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             _buildFormCard([
               _FormField(
                 controller: _currentAddressCtrl,
@@ -553,7 +515,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Changes to Name, PAN and Bank details require admin approval for security.',
+                    'All profile fields are managed through Support only. Contact Support to request any update.',
                     style: TextStyle(color: Colors.blue, fontSize: 12),
                   ),
                 ),
@@ -613,6 +575,8 @@ class _FormField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: TextFormField(
         controller: controller,
+        readOnly: true,
+        enabled: false,
         keyboardType: keyboardType,
         textCapitalization: textCapitalization,
         validator: validator,

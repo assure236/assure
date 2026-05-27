@@ -16,6 +16,7 @@ const chitGroupSchema = new mongoose.Schema({
   auction_day: { type: Number, required: true },
   auction_time: { type: String, default: '10:00:00' },
   status: { type: String, enum: ['not_started', 'active', 'vacant', 'closed', 'suspended', 'completed'], default: 'not_started' },
+  was_full: { type: Boolean, default: false },
   description: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 

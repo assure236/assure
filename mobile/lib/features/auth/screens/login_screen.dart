@@ -76,6 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Save OTP auth timestamp for 2-day cycle
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('last_otp_auth_time', DateTime.now().millisecondsSinceEpoch);
+      if (!mounted) return;
       context.go('/dashboard');
     } else {
       _showError(res['message'] ?? 'Invalid OTP');

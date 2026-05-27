@@ -46,7 +46,7 @@ class ChitHistoryScreen extends StatelessWidget {
                       style: const TextStyle(
                           color: Colors.grey, fontSize: 16, fontWeight: FontWeight.w500)),
                   const SizedBox(height: 8),
-                  Text('Your ${status} chit groups will appear here',
+                    Text('Your $status chit groups will appear here',
                       style: TextStyle(color: Colors.grey[400], fontSize: 13)),
                 ],
               ),

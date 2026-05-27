@@ -14,6 +14,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
+import { getSocketUrl } from '../../config/env';
 
 const AuctionRoom = () => {
   const { id } = useParams();
@@ -138,11 +139,8 @@ const AuctionRoom = () => {
     fetchAuction();
 
     // Socket.io real-time connection
-    const SOCKET_URL = process.env.REACT_APP_API_URL
-      ? process.env.REACT_APP_API_URL.replace('/api/v1', '')
-      : 'http://localhost:5000';
     const token = localStorage.getItem('token') || axios.defaults.headers.common['Authorization']?.replace('Bearer ', '');
-    const socket = io(SOCKET_URL, {
+    const socket = io(getSocketUrl(), {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 5,

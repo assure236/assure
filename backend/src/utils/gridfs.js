@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { Readable } = require('stream');
+const { getBackendBaseUrl } = require('./runtimeUrls');
 
 let bucket = null;
 
@@ -33,8 +34,9 @@ async function uploadToGridFS(buffer, filename, mimetype, metadata = {}) {
     readable.pipe(uploadStream)
       .on('error', reject)
       .on('finish', () => {
-        const backendUrl = process.env.BACKEND_URL || ('http://localhost:' + (process.env.PORT || 5000));
-        const fileUrl = backendUrl + '/api/' + (process.env.API_VERSION || 'v1') + '/files/' + fileId;
+        const backendUrl = getBackendBaseUrl();
+        const apiPath = '/api/' + (process.env.API_VERSION || 'v1') + '/files/' + fileId;
+        const fileUrl = backendUrl ? (backendUrl + apiPath) : apiPath;
         resolve({ fileId: fileId.toString(), fileUrl });
       });
   });

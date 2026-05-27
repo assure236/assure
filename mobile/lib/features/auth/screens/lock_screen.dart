@@ -96,6 +96,7 @@ class _LockScreenState extends State<LockScreen> {
         setState(() => _isLoading = true);
         final prefs = await SharedPreferences.getInstance();
         final token = prefs.getString('token');
+        if (!mounted) return;
 
         if (token != null) {
           final auth = context.read<AuthProvider>();
@@ -161,6 +162,7 @@ class _LockScreenState extends State<LockScreen> {
       // Save OTP auth timestamp for 2-day cycle
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('last_otp_auth_time', DateTime.now().millisecondsSinceEpoch);
+      if (!mounted) return;
       context.go('/dashboard');
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(

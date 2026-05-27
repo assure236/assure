@@ -3,7 +3,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/auction_provider.dart';
@@ -28,7 +27,7 @@ final _dtFmt = DateFormat('dd MMM yyyy');
 // ─── Main Shell with Bottom Nav ───────────────────────────────────────────────
 class DashboardScreen extends StatefulWidget {
   final String? digilockerStatus;
-  const DashboardScreen({Key? key, this.digilockerStatus}) : super(key: key);
+  const DashboardScreen({super.key, this.digilockerStatus});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -316,7 +315,11 @@ class _HeaderSection extends StatelessWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: AppTheme.primaryColor,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.primaryDark, AppTheme.accentBlue, AppTheme.primaryColor],
+        ),
       ),
       child: SafeArea(
         bottom: false,
@@ -513,14 +516,15 @@ class _KycProfileBanner extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppTheme.lightYellowBg,
         borderRadius: BorderRadius.circular(12),
-        border: const Border(
-          left: BorderSide(color: AppTheme.secondaryColor, width: 3),
-          top: BorderSide(color: Color(0xFFE2E8F0)),
-          right: BorderSide(color: Color(0xFFE2E8F0)),
-          bottom: BorderSide(color: Color(0xFFE2E8F0)),
-        ),
+        border: Border.all(color: AppTheme.secondaryColor, width: 1),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.orange.withAlpha(26),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
+        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -610,14 +614,13 @@ class _DuePaymentsReminder extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              border: const Border(
-                left: BorderSide(color: AppTheme.warningColor, width: 3),
-                top: BorderSide(color: Color(0xFFE2E8F0)),
-                right: BorderSide(color: Color(0xFFE2E8F0)),
-                bottom: BorderSide(color: Color(0xFFE2E8F0)),
+              gradient: const LinearGradient(
+                colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.secondaryColor.withAlpha(100)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -637,7 +640,7 @@ class _DuePaymentsReminder extends StatelessWidget {
                     const Spacer(),
                     TextButton(
                       onPressed: () {
-                        PaymentsScreen.initialTabIndex = 0;
+                        PaymentsScreen.initialTabIndex = 1;
                         switchTab(3);
                       },
                       style: TextButton.styleFrom(
@@ -696,7 +699,7 @@ class _DuePaymentsReminder extends StatelessWidget {
                           height: 32,
                           child: ElevatedButton(
                             onPressed: () {
-                              PaymentsScreen.initialTabIndex = 0;
+                              PaymentsScreen.initialTabIndex = 1;
                               switchTab(3); // Go to Payments → Upcoming tab
                             },
                             style: ElevatedButton.styleFrom(
@@ -798,36 +801,35 @@ class _StatCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withAlpha(15),
+              blurRadius: 8,
+              offset: const Offset(0, 2)),
+        ],
       ),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, color: iconColor, size: 18),
-          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: iconBg, shape: BoxShape.circle),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(height: 10),
           Text(
             value,
-            style: const TextStyle(
-                fontWeight: FontWeight.w700, fontSize: 15, color: AppTheme.primaryColor),
+            style: TextStyle(
+                fontWeight: FontWeight.bold, fontSize: 16, color: iconColor),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 3),
           Text(
             label,
-            style: const TextStyle(fontSize: 10, color: Color(0xFF94A3B8)),
+            style: const TextStyle(fontSize: 10, color: Colors.grey),
             textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: 2,
-            width: 20,
-            decoration: BoxDecoration(
-              color: iconColor,
-              borderRadius: BorderRadius.circular(1),
-            ),
           ),
         ],
       ),
@@ -844,7 +846,17 @@ class _ActiveChits extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final memberships = dash.memberships;
+    DateTime parseMembershipDate(Map<String, dynamic> m) {
+      final dynamic raw = m['enrollment_date'] ?? m['created_at'] ?? m['updated_at'];
+      if (raw == null) return DateTime.fromMillisecondsSinceEpoch(0);
+      return DateTime.tryParse(raw.toString()) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    }
+
+    final memberships = dash.memberships
+        .whereType<Map>()
+        .map((m) => Map<String, dynamic>.from(m))
+        .toList()
+      ..sort((a, b) => parseMembershipDate(b).compareTo(parseMembershipDate(a)));
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 0, 0),
@@ -853,13 +865,9 @@ class _ActiveChits extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(right: 16),
-            child: const Text('MY ACTIVE CHITS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.2,
-                      color: Color(0xFF64748B),
-                    )),
+            child: const Text('My Active Chits',
+                    style:
+                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 10),
           memberships.isEmpty
@@ -877,7 +885,7 @@ class _ActiveChits extends StatelessWidget {
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.only(right: 16),
-                    itemCount: memberships.length.clamp(0, 3),
+                    itemCount: memberships.length,
                     itemBuilder: (context, i) {
                       final m = memberships[i];
                       final group = (m['chit_group_id'] as Map<String, dynamic>?) ??
@@ -915,25 +923,6 @@ class _ActiveChits extends StatelessWidget {
                     },
                   ),
                 ),
-          if (memberships.length > 3) ...[
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.only(right: 16),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: TextButton.icon(
-                  onPressed: () => switchTab(1),
-                  icon: const Icon(Icons.arrow_forward_ios, size: 14),
-                  label: Text('View More (${memberships.length - 3} more)'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: AppTheme.primaryColor,
-                    textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  ),
-                ),
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -959,20 +948,30 @@ class _ChitCard extends StatelessWidget {
     required this.index,
   });
 
+  static const _gradients = [
+    [AppTheme.primaryDark, AppTheme.primaryColor],
+    [Color(0xFF1E3A8A), Color(0xFF2563EB)],
+    [Color(0xFF4A148C), Color(0xFF7B1FA2)],
+    [Color(0xFF0F766E), Color(0xFF0D9488)],
+  ];
+
   @override
   Widget build(BuildContext context) {
+    final colors = _gradients[index % _gradients.length];
+
     return Container(
       width: 200,
       margin: const EdgeInsets.only(right: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor,
+        gradient:
+            LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: colors),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-              color: AppTheme.primaryColor.withAlpha(60),
-              blurRadius: 10,
-              offset: const Offset(0, 3)),
+              color: colors[0].withAlpha(102),
+              blurRadius: 12,
+              offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -1005,8 +1004,8 @@ class _ChitCard extends StatelessWidget {
                 fontWeight: FontWeight.bold),
           ),
           Text(
-            'Chit Value  ·  Auction: Monthly',
-            style: const TextStyle(color: Colors.white54, fontSize: 10),
+            'Chit Value',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const Spacer(),
           Row(
@@ -1060,13 +1059,9 @@ class _UpcomingAuctions extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('UPCOMING AUCTIONS',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2,
-                    color: Color(0xFF64748B),
-                  )),
+              const Text('Upcoming Auctions',
+                  style:
+                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: () => switchTab(2),
                 child: const Text('View All'),
@@ -1096,10 +1091,15 @@ class _UpcomingAuctions extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isLive ? AppTheme.errorColor.withAlpha(80) : const Color(0xFFE2E8F0),
-                  width: isLive ? 1.5 : 1,
-                ),
+                border: isLive
+                    ? Border.all(color: Colors.red.shade300, width: 1.5)
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                      color: Colors.black.withAlpha(13),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2)),
+                ],
               ),
               child: Row(
                 children: [
@@ -1107,12 +1107,12 @@ class _UpcomingAuctions extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: isLive
-                          ? AppTheme.errorColor.withAlpha(15)
-                          : const Color(0xFFF1F5F9),
+                          ? Colors.red.shade50
+                          : Colors.purple.shade50,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.gavel_rounded,
-                        color: isLive ? AppTheme.errorColor : AppTheme.primaryColor,
+                        color: isLive ? Colors.red : Colors.purple,
                         size: 20),
                   ),
                   const SizedBox(width: 12),
@@ -1166,7 +1166,7 @@ class _UpcomingAuctions extends StatelessWidget {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
@@ -1254,12 +1254,30 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppTheme.primaryColor,
+            gradient: const LinearGradient(
+              colors: [AppTheme.primaryDark, AppTheme.primaryColor],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: AppTheme.primaryColor.withAlpha(60),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Row(
             children: [
-              const Icon(Icons.verified_rounded, color: AppTheme.secondaryColor, size: 28),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(30),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.verified, color: Colors.white, size: 28),
+              ),
               const SizedBox(width: 16),
               const Expanded(
                 child: Column(
@@ -1286,8 +1304,21 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
         child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: isPending ? AppTheme.secondaryColor : AppTheme.primaryColor,
+          gradient: LinearGradient(
+            colors: isPending
+                ? [const Color(0xFFB7952E), AppTheme.secondaryColor]
+                : [AppTheme.primaryColor, AppTheme.accentBlue],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: (isPending ? AppTheme.secondaryColor : AppTheme.primaryColor).withAlpha(60),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -1359,7 +1390,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text(
-              'Earn commissions by referring new members to Assure Chit Funds. Our team will contact you within 24 hours.',
+              'Earn commissions by referring new members to Assure ChitFunds. Our team will contact you within 24 hours.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.black54, fontSize: 14),
             ),
@@ -1377,18 +1408,16 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                   Navigator.pop(ctx);
                   try {
                     final res = await ApiService.post('/users/agent-request', {});
-                    if (mounted) {
-                      setState(() => _agentStatus = 'pending');
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(res['message'] ?? 'Agent request submitted!'), backgroundColor: Colors.green),
-                      );
-                    }
+                    if (!context.mounted) return;
+                    setState(() => _agentStatus = 'pending');
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(res['message'] ?? 'Agent request submitted!'), backgroundColor: Colors.green),
+                    );
                   } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
-                      );
-                    }
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
+                    );
                   }
                 },
                 style: FilledButton.styleFrom(
@@ -1420,13 +1449,8 @@ class _TrustBadges extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('TRUSTED & CERTIFIED',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-                color: Color(0xFF64748B),
-              )),
+          const Text('Trusted & Certified',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -1465,21 +1489,30 @@ class _BadgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
       ),
       child: Column(
         children: [
-          Icon(icon, color: AppTheme.primaryColor, size: 22),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withAlpha(26),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
           const SizedBox(height: 8),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: AppTheme.primaryColor,
+            style: TextStyle(
+              color: color,
               fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
@@ -1501,12 +1534,11 @@ class _PaymentPartners extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('TRUSTED PARTNERS',
+          const Text('Trusted Partners',
               style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                  color: Color(0xFF64748B))),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87)),
           const SizedBox(height: 12),
           Row(
             children: [

@@ -41,7 +41,6 @@ class AppTheme {
       tertiary: accentBlue,
       error: errorColor,
       surface: Colors.white,
-      background: backgroundColor,
       onPrimary: Colors.white,
       onSecondary: primaryColor,
     ),

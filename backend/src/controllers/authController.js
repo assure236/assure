@@ -1,4 +1,4 @@
-const { User, Referral, Wallet, WalletTransaction, Notification } = require('../models');
+const { User, Referral, Notification } = require('../models');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
@@ -105,33 +105,14 @@ exports.register = async (req, res, next) => {
     await user.save();
 
     if (referred_by) {
-      const bonusAmount = parseInt(process.env.REFERRAL_BONUS_AMOUNT) || 500;
-      const referral = await Referral.create({
+      const bonusAmount = parseInt(process.env.REFERRAL_BONUS_AMOUNT) || 100;
+      await Referral.create({
         referrer_id: referred_by,
         referred_id: user._id,
         referral_code_used: referral_code,
         bonus_amount: bonusAmount,
-        bonus_credited: true,
-        credited_at: new Date(),
-        status: 'credited',
-      });
-
-      // Credit bonus to referrer's wallet
-      let wallet = await Wallet.findOne({ user_id: referred_by });
-      if (!wallet) {
-        wallet = await Wallet.create({ user_id: referred_by, balance: 0 });
-      }
-      wallet.balance += bonusAmount;
-      await wallet.save();
-
-      await WalletTransaction.create({
-        user_id: referred_by,
-        wallet_id: wallet._id,
-        type: 'reward',
-        amount: bonusAmount,
-        balance_after: wallet.balance,
-        description: `Referral bonus — ${user.full_name} joined using your code`,
-        reference_id: String(referral._id),
+        bonus_credited: false,
+        status: 'pending',
       });
 
       // Notify referrer
@@ -139,8 +120,8 @@ exports.register = async (req, res, next) => {
         await Notification.create({
           user_id: referred_by,
           type: 'referral_bonus',
-          title: 'Referral Bonus Credited! 🎉',
-          message: `₹${bonusAmount} credited to your wallet! ${user.full_name} joined Assure ChitFunds using your referral code.`,
+          title: 'Referral Registered 🎉',
+          message: `${user.full_name} joined using your referral code. ₹${bonusAmount} will be applied to your next installment after their first chit enrollment.`,
         });
       } catch (_) { /* ignore notification errors */ }
     }

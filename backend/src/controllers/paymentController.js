@@ -1,10 +1,10 @@
-const { Payment, ChitGroup, ChitMember, User, Auction } = require('../models');
+const { Payment, ChitGroup, ChitMember, User, Auction, Referral } = require('../models');
 const axios = require('axios');
 const crypto = require('crypto');
-const PDFDocument = require('pdfkit');
 const notificationService = require('../services/notificationService');
 const { notifyUser } = require('../utils/notifyUser');
 const { audit, getIp } = require('../utils/audit');
+const { getBackendBaseUrl, getWebClientUrl, isLocalUrl } = require('../utils/runtimeUrls');
 
 const getCashfree = () => {
   const isTest = process.env.CASHFREE_ENV !== 'PROD';
@@ -15,12 +15,50 @@ const getCashfree = () => {
   };
 };
 
+async function getEligibleReferralForDiscount(userId) {
+  return Referral.findOne({
+    referrer_id: userId,
+    status: 'credited',
+    bonus_credited: true,
+    discount_applied: { $ne: true },
+  }).sort({ qualified_at: 1, credited_at: 1, created_at: 1 });
+}
+
 async function handlePaymentSuccess(payment) {
   try {
     const user = await User.findById(payment.user_id).select('full_name email mobile credit_score');
     if (!user) return;
     const newScore = Math.min(900, (user.credit_score || 650) + 10);
     await User.findByIdAndUpdate(user._id, { credit_score: newScore });
+
+    // Consume referral discount only after payment is successful.
+    if ((payment.referral_discount_amount || 0) > 0 && !payment.referral_discount_consumed) {
+      let referralIds = (payment.referral_discount_referral_ids || []).map((id) => String(id));
+
+      if (!referralIds.length) {
+        const fallback = await getEligibleReferralForDiscount(payment.user_id);
+        if (fallback) referralIds = [String(fallback._id)];
+      }
+
+      if (referralIds.length) {
+        await Referral.updateMany(
+          {
+            _id: { $in: referralIds },
+            discount_applied: { $ne: true },
+          },
+          {
+            $set: {
+              discount_applied: true,
+              discount_applied_at: new Date(),
+              discount_payment_id: payment._id,
+            },
+          }
+        );
+      }
+
+      await Payment.findByIdAndUpdate(payment._id, { referral_discount_consumed: true });
+    }
+
     if (user) {
       const msg = 'Dear ' + user.full_name + ', your payment of ₹' + parseFloat(payment.total_amount || payment.amount).toFixed(2) + ' has been received. Ref: ' + payment.payment_number;
       notifyUser(String(user._id), 'Payment Received', msg, 'payment', { payment_id: String(payment._id) }).catch(() => {});
@@ -36,10 +74,6 @@ exports.createPaymentOrder = async (req, res, next) => {
     const userId = req.user._id || req.user.id;
     const member = await ChitMember.findOne({ chit_group_id, user_id: userId, is_active: true });
     if (!member) return res.status(403).json({ success: false, message: 'Not an active member' });
-
-    const existing = await Payment.findOne({ chit_group_id, user_id: userId, month_number, payment_status: 'success' });
-    if (existing) return res.status(400).json({ success: false, message: 'Month already paid' });
-
     // Clean up stale pending payments for this user+group+month (prevent duplicates)
     await Payment.deleteMany({ chit_group_id, user_id: userId, month_number, payment_status: 'pending' });
 
@@ -55,7 +89,21 @@ exports.createPaymentOrder = async (req, res, next) => {
 
     const parsedAmount = parseFloat(amount);
     const parsedLateFee = parseFloat(late_fee) || 0;
-    const totalAmount = Math.round((parsedAmount + parsedLateFee) * 100) / 100;
+
+    let referralDiscountAmount = 0;
+    let referralDiscountReferralIds = [];
+
+    if (payment_type === 'installment' && parsedAmount > 0) {
+      const eligibleReferral = await getEligibleReferralForDiscount(userId);
+      if (eligibleReferral) {
+        const discount = Number(eligibleReferral.bonus_amount || 100);
+        referralDiscountAmount = Math.min(parsedAmount, discount);
+        referralDiscountReferralIds = [eligibleReferral._id];
+      }
+    }
+
+    const discountedInstallmentAmount = Math.max(0, parsedAmount - referralDiscountAmount);
+    const totalAmount = Math.round((discountedInstallmentAmount + parsedLateFee) * 100) / 100;
     const paymentNumber = 'PAY' + new Date().getFullYear() + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
 
     const payment = await Payment.create({
@@ -64,24 +112,29 @@ exports.createPaymentOrder = async (req, res, next) => {
       chit_group_id,
       month_number,
       payment_type,
-      amount: parsedAmount,
+      amount: discountedInstallmentAmount,
       late_fee: parsedLateFee,
       total_amount: totalAmount,
       payment_method: 'online',
       payment_gateway: 'Cashfree',
       payment_status: 'pending',
       due_date: dueDate,
+      referral_discount_amount: referralDiscountAmount,
+      referral_discount_referral_ids: referralDiscountReferralIds,
+      referral_discount_consumed: false,
     });
 
     const cfOrderId = 'ACF-' + payment.payment_number + '-' + Date.now().toString(36).toUpperCase();
     const cf = getCashfree();
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
-    const webUrl = process.env.WEB_CLIENT_URL || 'http://localhost:3000';
-    const isLocalhost = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') || webUrl.includes('localhost');
-    const notifyUrl = isLocalhost ? undefined : baseUrl + '/api/v1/payments/webhook/cashfree';
+    const backendUrl = getBackendBaseUrl(req);
+    const webUrl = getWebClientUrl();
+    const isLocalhost = isLocalUrl(backendUrl) || isLocalUrl(webUrl);
+    const notifyUrl = (!isLocalhost && backendUrl) ? (backendUrl + '/api/v1/payments/webhook/cashfree') : undefined;
 
     // Cashfree PROD requires HTTPS return_url; skip for localhost
-    const returnUrl = webUrl.startsWith('https://') ? (webUrl + '/payments?order_id=' + cfOrderId + '&payment_id=' + payment._id) : undefined;
+    const returnUrl = (webUrl && webUrl.startsWith('https://'))
+      ? (webUrl + '/payments?order_id=' + cfOrderId + '&payment_id=' + payment._id)
+      : undefined;
 
     if (!process.env.CASHFREE_APP_ID) {
       return res.json({
@@ -117,9 +170,21 @@ exports.createPaymentOrder = async (req, res, next) => {
     await Payment.findByIdAndUpdate(payment._id, { cashfree_order_id: cfOrderId, payment_session_id: paymentSessionId });
 
     // Build checkout URL served by our own backend (loads Cashfree JS SDK)
-    const paymentUrl = baseUrl + '/api/v1/payments/checkout/' + String(payment._id);
+    const paymentPath = '/api/v1/payments/checkout/' + String(payment._id);
+    const paymentUrl = backendUrl ? (backendUrl + paymentPath) : paymentPath;
 
-    res.json({ success: true, data: { payment_id: String(payment._id), order_id: cfOrderId, payment_session_id: paymentSessionId, payment_url: paymentUrl } });
+    res.json({
+      success: true,
+      data: {
+        payment_id: String(payment._id),
+        order_id: cfOrderId,
+        payment_session_id: paymentSessionId,
+        payment_url: paymentUrl,
+        referral_discount_amount: referralDiscountAmount,
+        payable_installment_amount: discountedInstallmentAmount,
+        payable_total_amount: totalAmount,
+      }
+    });
   } catch (err) { next(err); }
 };
 
@@ -196,6 +261,7 @@ exports.getUpcomingPayments = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
     const now = new Date();
+    const eligibleReferral = await getEligibleReferralForDiscount(userId);
 
     // Get user's active memberships
     const memberships = await ChitMember.find({ user_id: userId, is_active: true })
@@ -280,6 +346,22 @@ exports.getUpcomingPayments = async (req, res, next) => {
       return new Date(a.due_date) - new Date(b.due_date);
     });
 
+    // Preview referral benefit on the next payable installment only.
+    if (eligibleReferral) {
+      const idx = schedule.findIndex((p) => p.can_pay === true && p.is_future !== true);
+      if (idx >= 0) {
+        const benefit = Math.min(Number(eligibleReferral.bonus_amount || 100), Number(schedule[idx].amount || 0));
+        if (benefit > 0) {
+          schedule[idx].referral_discount_amount = benefit;
+          schedule[idx].referral_discount_referral_id = String(eligibleReferral._id);
+          schedule[idx].amount_before_referral_discount = schedule[idx].amount;
+          schedule[idx].total_amount_before_referral_discount = schedule[idx].total_amount;
+          schedule[idx].amount = Math.max(0, Number(schedule[idx].amount || 0) - benefit);
+          schedule[idx].total_amount = Math.max(0, Number(schedule[idx].total_amount || 0) - benefit);
+        }
+      }
+    }
+
     res.json({ success: true, data: schedule });
   } catch (err) { next(err); }
 };
@@ -297,8 +379,7 @@ exports.checkoutPage = async (req, res, next) => {
 
     const isTest = process.env.CASHFREE_ENV !== 'PROD';
     const mode = isTest ? 'sandbox' : 'production';
-    const webUrl = process.env.WEB_CLIENT_URL || 'http://localhost:3000';
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    const backendUrl = getBackendBaseUrl(req);
     const returnUrl = backendUrl + '/api/v1/payments/checkout-return?order_id=' + orderId + '&payment_id=' + payment._id;
 
     const html = `<!DOCTYPE html><html><head>

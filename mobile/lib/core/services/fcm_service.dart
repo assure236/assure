@@ -129,7 +129,6 @@ class FcmService {
     debugPrint('Foreground message: ${message.notification?.title}');
 
     final notification = message.notification;
-    final android = message.notification?.android;
 
     if (notification != null) {
       _localNotifications.show(

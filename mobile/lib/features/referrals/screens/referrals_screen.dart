@@ -53,12 +53,15 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
     );
   }
 
-  void _shareCode(String code) {
-    Share.share(
-      'Join Assure Chit Funds and invest smartly!\n'
-      'Use my referral code: $code\n'
-      'Sign up at: https://assurechitfunds.com/register',
-      subject: 'Assure Chit Funds - Referral Invitation',
+  Future<void> _shareCode(String code) async {
+    await SharePlus.instance.share(
+      ShareParams(
+        text: 'Join Assure Chit Funds and invest smartly!\n'
+            'Use my referral code: $code\n'
+            'When you enroll in your first chit group, I get ₹100 off my next installment.\n'
+            'Sign up at: https://assurechitfunds.com/register',
+        subject: 'Assure Chit Funds - Referral Invitation',
+      ),
     );
   }
 
@@ -129,7 +132,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
               const Text('Referred Members',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
-              ...referredMembers.map((m) => _buildMemberTile(m)).toList(),
+              ...referredMembers.map((m) => _buildMemberTile(m)),
             ],
           ],
         ),
@@ -271,9 +274,9 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             _buildStep('1', 'Share your referral code with friends & family'),
-            _buildStep('2', 'They register using your code'),
-            _buildStep('3', 'Once they join a chit group, you earn rewards'),
-            _buildStep('4', 'Rewards credited to your account within 7 days'),
+            _buildStep('2', 'Your friend registers and enrolls in a chit group'),
+            _buildStep('3', 'Each successful referral unlocks one-time ₹100 benefit'),
+            _buildStep('4', '₹100 is auto-deducted from your next installment'),
           ],
         ),
       ),
@@ -327,12 +330,12 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: (status == 'active' ? AppTheme.successColor : AppTheme.secondaryColor)
+            color: (status == 'credited' ? AppTheme.successColor : AppTheme.secondaryColor)
                 .withAlpha(26),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
-            status == 'credited' ? 'Active' : 'Pending',
+            status == 'credited' ? 'Qualified' : 'Pending',
             style: TextStyle(
                 color: status == 'credited' ? AppTheme.successColor : AppTheme.secondaryColor,
                 fontSize: 11,

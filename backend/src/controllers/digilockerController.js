@@ -58,8 +58,7 @@ exports.getAuthUrl = async (req, res, next) => {
     });
 
     const authUrl = `${DL_BASE}/public/oauth2/1/authorize?${params.toString()}`;
-    console.log('DigiLocker auth URL generated:', authUrl);
-    console.log('DigiLocker redirect_uri config:', DL_REDIRECT_URI);
+    logger.info('DigiLocker authorization URL generated successfully');
     res.json({ success: true, data: { auth_url: authUrl, authUrl, state } });
   } catch (err) { next(err); }
 };
@@ -82,19 +81,12 @@ exports.handleCallback = async (req, res, next) => {
   let sessionPlatform = 'web';
 
   try {
-    // Log everything DigiLocker sends back for debugging (console.log for PM2 visibility)
-    console.log('=== DIGILOCKER CALLBACK ===');
-    console.log('Method:', req.method);
-    console.log('URL:', req.originalUrl);
-    console.log('Query:', JSON.stringify(req.query));
-    console.log('Body:', JSON.stringify(req.body));
-    console.log('Headers host:', req.headers.host);
-    console.log('=== END CALLBACK DEBUG ===');
+    logger.info('DigiLocker callback received');
 
     // DigiLocker may send error on denial or misconfiguration
     if (req.query.error) {
       const errDesc = req.query.error_description || req.query.error;
-      console.log('DigiLocker returned error:', req.query.error, errDesc);
+      logger.warn(`DigiLocker returned error: ${req.query.error || 'unknown'}`);
       return res.redirect(buildRedirect(sessionPlatform, 'error', errDesc));
     }
 
@@ -102,9 +94,7 @@ exports.handleCallback = async (req, res, next) => {
     const code = req.query.code || req.body?.code;
     const state = req.query.state || req.body?.state;
     if (!code || !state) {
-      console.log('MISSING PARAMS - code:', !!code, 'state:', !!state);
-      console.log('All query keys:', Object.keys(req.query));
-      console.log('All body keys:', req.body ? Object.keys(req.body) : 'no body');
+      logger.warn(`DigiLocker callback missing required params: code=${Boolean(code)}, state=${Boolean(state)}`);
       return res.redirect(buildRedirect(sessionPlatform, 'error', 'Missing authorization code from DigiLocker'));
     }
 
@@ -126,21 +116,19 @@ exports.handleCallback = async (req, res, next) => {
       code_verifier: stored.code_verifier,
     });
 
-    console.log('DigiLocker token exchange request:', `${DL_BASE}/public/oauth2/1/token`, tokenBody.toString().replace(DL_CLIENT_SECRET, '***'));
-
     const tokenRes = await fetch(`${DL_BASE}/public/oauth2/1/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: tokenBody,
     });
     const tokenText = await tokenRes.text();
-    console.log('DigiLocker token response:', tokenRes.status, tokenText);
+    logger.info(`DigiLocker token exchange response status: ${tokenRes.status}`);
 
     let tokenData;
     try { tokenData = JSON.parse(tokenText); } catch { tokenData = {}; }
 
     if (!tokenData.access_token) {
-      console.error('DigiLocker token exchange failed:', tokenRes.status, tokenText);
+      logger.error(`DigiLocker token exchange failed with status ${tokenRes.status}`);
       return res.redirect(buildRedirect(sessionPlatform, 'error', 'Failed to authenticate with DigiLocker'));
     }
 
@@ -154,13 +142,10 @@ exports.handleCallback = async (req, res, next) => {
     const dlMobile = tokenData.mobile || null;
     const dlEaadhaar = tokenData.eaadhaar === 'Y';
 
-    console.log('DigiLocker user details:', { digilockerId, dlName, dlDob, dlGender, dlMobile, dlEaadhaar });
-
     // Parse scope to find which documents were consented
     // e.g. "files.issueddocs issued/in.gov.pan-PANCR-HRVPP2182R userdetails"
     const scope = tokenData.scope || '';
     const scopeParts = scope.split(' ');
-    console.log('DigiLocker scope:', scope);
 
     // Extract PAN number from scope (issued/in.gov.pan-PANCR-XXXXXXXXXX)
     let panFromScope = null;
@@ -168,7 +153,6 @@ exports.handleCallback = async (req, res, next) => {
       const panMatch = part.match(/PANCR-([A-Z0-9]+)/i);
       if (panMatch) panFromScope = panMatch[1];
     }
-    console.log('PAN from scope:', panFromScope);
 
     // Build user update: save DigiLocker profile data
     const userUpdate = { digilocker_id: digilockerId };
@@ -184,7 +168,6 @@ exports.handleCallback = async (req, res, next) => {
     if (panFromScope) userUpdate.pan_number = panFromScope;
 
     await User.findByIdAndUpdate(userId, userUpdate);
-    console.log('User updated with DigiLocker data:', JSON.stringify(userUpdate));
 
     // Fetch Aadhaar eKYC data (may return 403 if not in scope)
     let ekyc = null;
@@ -193,16 +176,16 @@ exports.handleCallback = async (req, res, next) => {
         const ekycRes = await fetch(`${DL_BASE}/public/oauth2/1/xml/eaadhaar`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
-        console.log('DigiLocker eKYC response:', ekycRes.status);
+        logger.info(`DigiLocker eKYC fetch status: ${ekycRes.status}`);
         if (ekycRes.ok) {
           ekyc = await ekycRes.text();
-          console.log('DigiLocker eKYC data length:', ekyc.length);
+          logger.info('DigiLocker eKYC data fetched successfully');
         } else {
-          const ekycErr = await ekycRes.text();
-          console.log('DigiLocker eKYC error body:', ekycErr);
+          await ekycRes.text();
+          logger.warn('DigiLocker eKYC fetch returned non-success response');
         }
       } catch (e) {
-        console.warn('DigiLocker eKYC fetch failed:', e.message);
+        logger.warn(`DigiLocker eKYC fetch failed: ${e.message}`);
       }
     }
 
@@ -212,17 +195,16 @@ exports.handleCallback = async (req, res, next) => {
       const docsRes = await fetch(`${DL_BASE}/public/oauth2/1/files/issued`, {
         headers: { Authorization: `Bearer ${accessToken}` },
       });
-      console.log('DigiLocker issued docs response:', docsRes.status);
+      logger.info(`DigiLocker issued docs fetch status: ${docsRes.status}`);
       if (docsRes.ok) {
         const docsData = await docsRes.json();
-        console.log('DigiLocker issued docs:', JSON.stringify(docsData));
         issuedDocs = docsData.items || docsData.documents || [];
       } else {
-        const docsErr = await docsRes.text();
-        console.log('DigiLocker issued docs error:', docsErr);
+        await docsRes.text();
+        logger.warn('DigiLocker issued docs fetch returned non-success response');
       }
     } catch (e) {
-      console.warn('DigiLocker docs fetch failed:', e.message);
+      logger.warn(`DigiLocker docs fetch failed: ${e.message}`);
     }
 
     // Auto-create document records for Aadhaar/PAN
@@ -248,7 +230,7 @@ exports.handleCallback = async (req, res, next) => {
           verified_at: new Date(),
           notes: 'Auto-verified via DigiLocker',
         });
-        console.log('Created document from issued docs:', docType);
+        logger.info(`Created DigiLocker document record: ${docType}`);
       }
     }
 
@@ -266,7 +248,7 @@ exports.handleCallback = async (req, res, next) => {
           verified_at: new Date(),
           notes: `Auto-verified via DigiLocker. PAN: ${panFromScope}`,
         });
-        console.log('Created PAN document from scope:', panFromScope);
+        logger.info('Created DigiLocker PAN document record from scope');
       }
     }
 
@@ -284,7 +266,7 @@ exports.handleCallback = async (req, res, next) => {
           verified_at: new Date(),
           notes: 'Aadhaar verified via DigiLocker eKYC',
         });
-        console.log('Created Aadhaar document from eaadhaar flag');
+        logger.info('Created DigiLocker Aadhaar document record');
       }
     }
 
@@ -338,19 +320,19 @@ exports.handleCallback = async (req, res, next) => {
               </div>
             </div>
           `;
-          notificationService.sendEmail(verifiedUser.email, 'KYC Verification Complete - Assure ChitFunds', emailHtml).catch(err => console.error('KYC email failed:', err.message));
+          notificationService.sendEmail(verifiedUser.email, 'KYC Verification Complete - Assure ChitFunds', emailHtml).catch(err => logger.error(`KYC email failed: ${err.message}`));
         }
 
-        console.log('KYC verification notifications dispatched for user:', userId);
+        logger.info(`KYC verification notifications dispatched for user: ${userId}`);
       } catch (notifErr) {
-        console.error('KYC notification dispatch error (non-blocking):', notifErr.message);
+        logger.error(`KYC notification dispatch error (non-blocking): ${notifErr.message}`);
       }
     }
 
     // Redirect back to app with success
     return res.redirect(buildRedirect(sessionPlatform, 'success'));
   } catch (err) {
-    console.error('DigiLocker callback error:', err);
+    logger.error(`DigiLocker callback error: ${err.message || String(err)}`);
     return res.redirect(buildRedirect(sessionPlatform, 'error', 'Something went wrong. Please try again.'));
   }
 };

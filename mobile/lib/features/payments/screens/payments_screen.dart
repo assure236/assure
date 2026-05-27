@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -114,7 +113,7 @@ class PaymentsScreenState extends State<PaymentsScreen>
     final group = (payment['chit_group'] ?? payment['chitGroup'])?['group_name'] ?? 'Chit Group';
     final monthNum = payment['month_number'] ?? 1;
     final isOverdue = payment['payment_status'] == 'overdue';
-    bool _isCreatingOrder = false;
+    bool isCreatingOrder = false;
 
     showModalBottomSheet(
       context: context,
@@ -206,105 +205,108 @@ class PaymentsScreenState extends State<PaymentsScreen>
               ]),
             ),
             const SizedBox(height: 20),
-            Row(children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: _isCreatingOrder ? null : () => Navigator.pop(ctx),
-                  style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                  child: const Text('Cancel'),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: isCreatingOrder ? null : () => Navigator.pop(ctx),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                    child: const Text('Cancel'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: ElevatedButton.icon(
-                  onPressed: _isCreatingOrder
-                      ? null
-                      : () async {
-                          setSheetState(() => _isCreatingOrder = true);
-                          final provider = context.read<PaymentProvider>();
-                          // Extract chit group ID — backend populates 'chit_group_id' as an object, so extract _id or id from it
-                          final cgField = payment['chit_group_id'] ?? payment['chit_group'] ?? payment['chitGroup'];
-                          String extractedGroupId = '';
-                          if (cgField is Map) {
-                            extractedGroupId = cgField['_id']?.toString() ?? cgField['id']?.toString() ?? '';
-                          } else if (cgField is String) {
-                            extractedGroupId = cgField;
-                          }
-                          final res = await provider.createOrder(
-                            chitGroupId: extractedGroupId,
-                            monthNumber: payment['month_number'] ?? 1,
-                            amount: baseAmount,
-                            lateFee: lateFee,
-                          );
-                          if (!ctx.mounted) return;
-                          Navigator.pop(ctx);
-                          if (res['success'] == true) {
-                            final data = res['data'] as Map<String, dynamic>;
-                            final paymentSessionId = data['payment_session_id'] as String?;
-                            final orderId = data['order_id'] as String?;
-                            final paymentId = data['payment_id'] as String?;
-                            if (paymentSessionId != null && paymentSessionId.isNotEmpty && orderId != null) {
-                              final result = await Navigator.push<Map<String, dynamic>>(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => CashfreePaymentScreen(
-                                    paymentSessionId: paymentSessionId,
-                                    orderId: orderId,
-                                    paymentId: paymentId ?? '',
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: isCreatingOrder
+                        ? null
+                        : () async {
+                            setSheetState(() => isCreatingOrder = true);
+                            final provider = context.read<PaymentProvider>();
+                            // Extract chit group ID — backend populates 'chit_group_id' as an object, so extract _id or id from it
+                            final cgField = payment['chit_group_id'] ?? payment['chit_group'] ?? payment['chitGroup'];
+                            String extractedGroupId = '';
+                            if (cgField is Map) {
+                              extractedGroupId = cgField['_id']?.toString() ?? cgField['id']?.toString() ?? '';
+                            } else if (cgField is String) {
+                              extractedGroupId = cgField;
+                            }
+                            final res = await provider.createOrder(
+                              chitGroupId: extractedGroupId,
+                              monthNumber: payment['month_number'] ?? 1,
+                              amount: baseAmount,
+                              lateFee: lateFee,
+                            );
+                            if (!ctx.mounted) return;
+                            Navigator.pop(ctx);
+                            if (res['success'] == true) {
+                              final data = res['data'] as Map<String, dynamic>;
+                              final paymentSessionId = data['payment_session_id'] as String?;
+                              final orderId = data['order_id'] as String?;
+                              final paymentId = data['payment_id'] as String?;
+                              if (paymentSessionId != null && paymentSessionId.isNotEmpty && orderId != null) {
+                                final result = await Navigator.push<Map<String, dynamic>>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CashfreePaymentScreen(
+                                      paymentSessionId: paymentSessionId,
+                                      orderId: orderId,
+                                      paymentId: paymentId ?? '',
+                                    ),
                                   ),
-                                ),
-                              );
-                              if (result?['success'] == true && context.mounted) {
+                                );
+                                if (result?['success'] == true && context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Payment successful! ✓'),
+                                      backgroundColor: Colors.green,
+                                      behavior: SnackBarBehavior.floating,
+                                    ),
+                                  );
+                                  provider.fetchPayments();
+                                }
+                              } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Payment successful! ✓'),
-                                    backgroundColor: Colors.green,
+                                  SnackBar(
+                                    content: Text(res['message'] ?? 'Cashfree not configured — set CASHFREE_APP_ID'),
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
-                                provider.fetchPayments();
                               }
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(res['message'] ?? 'Cashfree not configured — set CASHFREE_APP_ID'),
+                                  content: Text(res['message'] ?? 'Could not create payment order'),
+                                  backgroundColor: Colors.red,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
                             }
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(res['message'] ?? 'Could not create payment order'),
-                                backgroundColor: Colors.red,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        },
-                  icon: _isCreatingOrder
-                      ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.lock, size: 18),
-                  label: Text(_isCreatingOrder ? 'Creating order...' : 'Pay with Cashfree'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          },
+                    icon: isCreatingOrder
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : const Icon(Icons.lock, size: 18),
+                    label: Text(isCreatingOrder ? 'Creating order...' : 'Pay with Cashfree'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ]),
         ),
       ),
     );
   }
 }
-
 // ─── PAYMENT HISTORY TAB ─────────────────────────────────────────────────────
 
 class _PaymentHistoryTab extends StatelessWidget {
@@ -542,19 +544,23 @@ class _PaymentTile extends StatelessWidget {
                       final dir = Directory.systemTemp;
                       final file = File('${dir.path}/receipt_$paymentId.pdf');
                       await file.writeAsBytes(response.bodyBytes);
-                      await Share.shareXFiles(
-                        [XFile(file.path, mimeType: 'application/pdf')],
-                        subject: 'Payment Receipt - Assure Chit Funds',
+                      await SharePlus.instance.share(
+                        ShareParams(
+                          files: [XFile(file.path, mimeType: 'application/pdf')],
+                          subject: 'Payment Receipt - Assure Chit Funds',
+                        ),
                       );
                     }
                   } catch (_) {
                     // Fallback to text share
-                    Share.share(
-                      'Assure Chit Funds - Payment Receipt\n'
-                      'Group: $group | Amount: ₹${NumberFormat('#,##,###').format(amount)}\n'
-                      'Month: $monthNum | Status: ${status.toUpperCase()}\n'
-                      'Date: $dateStr | Txn ID: #$txnId',
-                      subject: 'Payment Receipt - Assure Chit Funds',
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        text: 'Assure Chit Funds - Payment Receipt\n'
+                            'Group: $group | Amount: ₹${NumberFormat('#,##,###').format(amount)}\n'
+                            'Month: $monthNum | Status: ${status.toUpperCase()}\n'
+                            'Date: $dateStr | Txn ID: #$txnId',
+                        subject: 'Payment Receipt - Assure Chit Funds',
+                      ),
                     );
                   }
                 },

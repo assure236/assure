@@ -1,15 +1,20 @@
 const { User, ChitGroup, ChitMember, Auction, Payment, Document } = require('../models');
 const AppSetting = require('../models/AppSetting');
+const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
 exports.getMemberDashboard = async (req, res, next) => {
   try {
+    await syncChitGroupStatuses();
+
     const userId = req.user._id || req.user.id;
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
     const [memberships, recentPayments, upcomingAuctions, user, showCreditScoreSetting] = await Promise.all([
-      ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id'),
+      ChitMember.find({ user_id: userId, is_active: true })
+        .sort({ enrollment_date: -1, created_at: -1 })
+        .populate('chit_group_id'),
       Payment.find({ user_id: userId, payment_status: 'success' }).populate('chit_group_id', 'group_name').sort({ payment_date: -1 }).limit(5),
       Auction.find({ status: { $in: ['scheduled', 'in_progress', 'active'] } }).populate('chit_group_id', 'group_name group_number chit_value').sort({ auction_date: 1 }).limit(3),
       User.findById(userId).select('full_name credit_score kyc_status pan_number aadhaar_number digilocker_id'),

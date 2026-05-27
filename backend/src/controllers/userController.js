@@ -3,6 +3,7 @@ const AgentRequest = require('../models/AgentRequest');
 const bcrypt = require('bcrypt');
 const { uploadToGridFS } = require('../utils/gridfs');
 const { audit, getIp } = require('../utils/audit');
+const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
 exports.getProfile = async (req, res, next) => {
   try {
@@ -15,6 +16,13 @@ exports.getProfile = async (req, res, next) => {
 
 exports.updateProfile = async (req, res, next) => {
   try {
+    if ((req.user.role || 'member') === 'member') {
+      return res.status(403).json({
+        success: false,
+        message: 'Profile fields are read-only. Please contact support to request changes.',
+      });
+    }
+
     const userId = req.user._id || req.user.id;
     const { full_name, email, address, date_of_birth, city, state, pincode, pan_number, bank_account_number, bank_ifsc_code, bank_name, gender, nominee_name, nominee_relationship, current_address, current_city, current_state, current_pincode } = req.body;
 
@@ -195,7 +203,10 @@ exports.uploadProfileImage = async (req, res, next) => {
 
 exports.getMyChitGroups = async (req, res, next) => {
   try {
+    await syncChitGroupStatuses();
+
     const memberships = await ChitMember.find({ user_id: req.user._id || req.user.id })
+      .sort({ enrollment_date: -1, created_at: -1 })
       .populate('chit_group_id');
 
     // Compute current_month from completed auction count for accurate months tracking

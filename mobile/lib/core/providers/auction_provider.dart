@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../services/api_service.dart';
 import '../services/location_service.dart';
@@ -11,7 +11,7 @@ class AuctionProvider with ChangeNotifier {
   List<Map<String, dynamic>> _auctions = [];
   bool _isLoading = false;
   String? _error;
-  IO.Socket? _socket;
+  io.Socket? _socket;
   double _walletBalance = 0;
   Timer? _reconnectTimer;
   Timer? _pollTimer;
@@ -43,9 +43,9 @@ class AuctionProvider with ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('token');
 
-      _socket = IO.io(
+      _socket = io.io(
         ApiService.socketUrl,
-        IO.OptionBuilder()
+        io.OptionBuilder()
             .setTransports(['websocket', 'polling'])
             .disableAutoConnect()
             .setAuth({'token': token ?? ''})

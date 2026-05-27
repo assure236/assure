@@ -1,13 +1,50 @@
 const admin = require('firebase-admin');
+const fs = require('fs');
 const path = require('path');
 const logger = require('../utils/logger');
 
 let firebaseApp = null;
 
+const loadServiceAccount = () => {
+  const inlineJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (inlineJson) {
+    try {
+      return JSON.parse(inlineJson);
+    } catch (err) {
+      logger.error('Invalid FIREBASE_SERVICE_ACCOUNT_JSON: ' + (err.message || String(err)));
+      return null;
+    }
+  }
+
+  const configuredPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+  const defaultPath = path.join(__dirname, '../../firebase-service-account.json');
+  const candidatePaths = [configuredPath, defaultPath].filter(Boolean);
+
+  for (const candidate of candidatePaths) {
+    try {
+      if (!fs.existsSync(candidate)) continue;
+      const fileContent = fs.readFileSync(candidate, 'utf8');
+      return JSON.parse(fileContent);
+    } catch (err) {
+      logger.error(`Failed loading Firebase service account from ${candidate}: ${err.message || String(err)}`);
+    }
+  }
+
+  return null;
+};
+
 const initFirebase = () => {
   try {
-    const serviceAccountPath = path.join(__dirname, '../../firebase-service-account.json');
-    const serviceAccount = require(serviceAccountPath);
+    if (admin.apps.length > 0) {
+      firebaseApp = admin.app();
+      return firebaseApp;
+    }
+
+    const serviceAccount = loadServiceAccount();
+    if (!serviceAccount) {
+      logger.warn('Firebase Admin SDK initialization skipped: no service account found. Set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH on server.');
+      return null;
+    }
 
     firebaseApp = admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),

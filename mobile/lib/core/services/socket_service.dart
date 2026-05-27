@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../config/app_config.dart';
 import '../theme/app_theme.dart';
@@ -14,7 +14,7 @@ class SocketService {
   static final SocketService _instance = SocketService._();
   static SocketService get instance => _instance;
 
-  IO.Socket? _socket;
+  io.Socket? _socket;
   String? _userId;
   BuildContext? _context;
   VoidCallback? _onForceLogout;
@@ -37,9 +37,9 @@ class SocketService {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
-    _socket = IO.io(
+    _socket = io.io(
       AppConfig.socketUrl,
-      IO.OptionBuilder()
+      io.OptionBuilder()
           .setTransports(['websocket', 'polling'])
           .disableAutoConnect()
           .setAuth({'token': token ?? ''})

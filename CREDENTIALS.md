@@ -1,10 +1,12 @@
 # Assure ChitFunds — Login Credentials
 
+Security note: keep real credentials only on your VPS/local secret manager. Do not commit actual passwords or tokens to git.
+
 ## Admin Panel (http://localhost:3001)
 
 | Role  | Email                        | Password      |
 |-------|------------------------------|---------------|
-| Admin | admin@assurechitfunds.com    | Admin@123456  |
+| Admin | admin@assurechitfunds.com    | <set-locally> |
 
 ---
 
@@ -12,8 +14,8 @@
 
 | Name          | Email                         | Password       | Mobile     |
 |---------------|-------------------------------|----------------|------------|
-| Test Member   | test@assurechitfunds.com      | Test@123456    | 9876543210 |
-| Priya Sharma  | priya@assurechitfunds.com     | Member@123456  | 9123456780 |
+| Test Member   | test@assurechitfunds.com      | <set-locally>  | 9876543210 |
+| Priya Sharma  | priya@assurechitfunds.com     | <set-locally>  | 9123456780 |
 
 ---
 
@@ -32,4 +34,4 @@
 | Port     | 5432              |
 | Database | assure_chitfunds  |
 | User     | postgres          |
-| Password | postgres123       |
+| Password | <set-locally>     |
