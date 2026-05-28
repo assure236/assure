@@ -47,7 +47,7 @@ exports.getProfile = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const currentUser = await User.findById(userId).select('profile_edit_status full_name');
+    const currentUser = await User.findById(userId).select('profile_edit_status full_name digilocker_id date_of_birth gender');
     if (!currentUser) return res.status(404).json({ success: false, message: 'User not found' });
 
     const status = currentUser.profile_edit_status || 'none';
@@ -103,6 +103,40 @@ exports.updateProfile = async (req, res, next) => {
 
     if (updates.bank_ifsc_code && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(updates.bank_ifsc_code)) {
       return res.status(400).json({ success: false, message: 'Invalid IFSC format.' });
+    }
+
+    // Keep DOB and gender aligned with DigiLocker/PAN verified identity.
+    if (currentUser.digilocker_id) {
+      const normalizeDate = (value) => {
+        if (!value) return null;
+        if (value instanceof Date && !Number.isNaN(value.getTime())) {
+          return value.toISOString().split('T')[0];
+        }
+        const text = String(value).trim();
+        if (!text) return null;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+        const parsed = new Date(text);
+        if (Number.isNaN(parsed.getTime())) return null;
+        return parsed.toISOString().split('T')[0];
+      };
+
+      const verifiedDob = normalizeDate(currentUser.date_of_birth);
+      const requestedDob = normalizeDate(updates.date_of_birth);
+      if (verifiedDob && requestedDob && verifiedDob !== requestedDob) {
+        return res.status(400).json({
+          success: false,
+          message: 'Date of birth must match your DigiLocker/PAN verified details.',
+        });
+      }
+
+      const verifiedGender = (currentUser.gender || '').toString().trim().toLowerCase();
+      const requestedGender = (updates.gender || '').toString().trim().toLowerCase();
+      if (verifiedGender && requestedGender && verifiedGender !== requestedGender) {
+        return res.status(400).json({
+          success: false,
+          message: 'Gender must match your DigiLocker/PAN verified details.',
+        });
+      }
     }
 
     const user = await User.findByIdAndUpdate(

@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_provider.dart';
-import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_prefs.dart';
 import '../../../core/widgets/onboarding_tour.dart';
@@ -18,7 +17,6 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -45,91 +43,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 16),
-                        // Avatar
-                        GestureDetector(
-                          onTap: () => context.push('/edit-profile'),
-                          child: Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
-                                    ? CircleAvatar(
-                                        radius: 44,
-                                        backgroundColor: Colors.white24,
-                                        backgroundImage: NetworkImage(user.profileImageUrl!),
-                                      )
-                                    : CircleAvatar(
-                                        radius: 44,
-                                        backgroundColor: Colors.white24,
-                                        child: Text(
-                                          user != null && user.fullName.isNotEmpty
-                                              ? user.fullName[0].toUpperCase()
-                                              : '?',
-                                          style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 36,
-                                              fontWeight: FontWeight.bold),
-                                        ),
-                                      ),
-                            Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: const BoxDecoration(
-                                  color: AppTheme.secondaryColor,
-                                  shape: BoxShape.circle),
-                              child: const Icon(Icons.edit,
-                                  size: 14, color: Colors.white),
-                            ),
-                          ],
-                        ),
+                        // Generic icon only. Personal profile details are hidden on More page.
+                        const CircleAvatar(
+                          radius: 44,
+                          backgroundColor: Colors.white24,
+                          child: Icon(
+                            Icons.menu_rounded,
+                            color: Colors.white,
+                            size: 36,
+                          ),
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          user?.fullName ?? 'Member',
-                          style: const TextStyle(
+                        const Text(
+                          'More',
+                          style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 18),
                         ),
-                        if (user?.memberId != null)
-                          Text(
-                            'ID: ${user!.memberId}',
-                            style: const TextStyle(
-                                color: Colors.white60, fontSize: 12),
-                          ),
+                        const Text(
+                          'Quick Actions & Settings',
+                          style: TextStyle(color: Colors.white60, fontSize: 12),
+                        ),
                       ],
                     ),
                   ),
                 ),
               ),
             ),
-
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(children: [
-                  if (user?.bankAccountNumber != null && user!.bankAccountNumber!.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: 'Bank Details',
-                      children: [
-                        if (user.bankName != null)
-                          _ProfileRow(
-                              icon: Icons.account_balance_outlined,
-                              label: 'Bank',
-                              value: user.bankName!),
-                        _ProfileRow(
-                            icon: Icons.numbers_outlined,
-                            label: 'Account',
-                            value: 'XXXX${user.bankAccountNumber!.substring(user.bankAccountNumber!.length > 4 ? user.bankAccountNumber!.length - 4 : 0)}'),
-                        if (user.bankIfscCode != null)
-                          _ProfileRow(
-                              icon: Icons.code_outlined,
-                              label: 'IFSC',
-                              value: user.bankIfscCode!),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-
                   // Account
                   _SectionCard(
                     title: 'Account',
@@ -222,26 +167,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Nominee Details (before Preferences)
-                  if (user?.nomineeName != null && user!.nomineeName!.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: 'Nominee Details',
-                      children: [
-                        _ProfileRow(
-                            icon: Icons.person_add_outlined,
-                            label: 'Nominee',
-                            value: user.nomineeName!),
-                        if (user.nomineeRelationship != null)
-                          _ProfileRow(
-                              icon: Icons.people_outline,
-                              label: 'Relationship',
-                              value: user.nomineeRelationship!),
-                      ],
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-
                   // Preferences
                   _SectionCard(
                     title: 'Preferences',
@@ -323,8 +248,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 32),
 
                   Text('Assure Chit Funds v1.0.0',
-                      style:
-                          TextStyle(color: Colors.grey[400], fontSize: 12)),
+                      style: TextStyle(color: Colors.grey[400], fontSize: 12)),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -349,13 +273,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final amPm = local.hour >= 12 ? 'PM' : 'AM';
       final hStr = (h == 0 ? 12 : h).toString();
       final minStr = local.minute.toString().padLeft(2, '0');
-      timeStr = '${local.day}/${local.month}/${local.year}  $hStr:$minStr $amPm';
+      timeStr =
+          '${local.day}/${local.month}/${local.year}  $hStr:$minStr $amPm';
     }
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withAlpha(10),
+              blurRadius: 8,
+              offset: const Offset(0, 2))
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -363,7 +293,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
             child: Text('Current Session',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey[600])),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.grey[600])),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -375,7 +308,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: AppTheme.primaryColor.withAlpha(15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.phone_android, color: AppTheme.primaryColor, size: 22),
+                  child: Icon(Icons.phone_android,
+                      color: AppTheme.primaryColor, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -383,23 +317,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(device,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Text('Signed in: $timeStr',
-                          style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                          style:
+                              TextStyle(fontSize: 12, color: Colors.grey[500])),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: Colors.green.shade50,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: Colors.green.shade200),
                   ),
-                  child: Text('Active', style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.w600)),
+                  child: Text('Active',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -417,7 +358,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Logout'),
         content: const Text('You will be signed out of this device.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
@@ -436,14 +379,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   String _kycLabel(String? status) {
     switch (status) {
-      case 'verified': return 'Verified';
-      case 'pending': return 'Under Review';
-      case 'rejected': return 'Rejected';
-      case 'not_verified': return 'Not Verified';
-      default: return 'Not Verified';
+      case 'verified':
+        return 'Verified';
+      case 'pending':
+        return 'Under Review';
+      case 'rejected':
+        return 'Rejected';
+      case 'not_verified':
+        return 'Not Verified';
+      default:
+        return 'Not Verified';
     }
   }
-
 }
 
 class _SectionCard extends StatelessWidget {
@@ -479,34 +426,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-class _ProfileRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  const _ProfileRow(
-      {required this.icon, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(children: [
-        Icon(icon, size: 20, color: AppTheme.primaryColor),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label,
-                style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-            Text(value,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600, fontSize: 14)),
-          ]),
-        ),
-      ]),
-    );
-  }
-}
-
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -530,23 +449,23 @@ class _MenuItem extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(children: [
-          Icon(icon, size: 22, color: isDestructive ? AppTheme.errorColor : AppTheme.primaryColor),
+          Icon(icon,
+              size: 22,
+              color:
+                  isDestructive ? AppTheme.errorColor : AppTheme.primaryColor),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(label,
                   style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                      color: color)),
+                      fontWeight: FontWeight.w500, fontSize: 14, color: color)),
               if (subtitle != null)
                 Text(subtitle!,
-                    style:
-                        TextStyle(fontSize: 11, color: Colors.grey[500])),
+                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
             ]),
           ),
-          Icon(Icons.arrow_forward_ios,
-              size: 14, color: Colors.grey[400]),
+          Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey[400]),
         ]),
       ),
     );
@@ -606,9 +525,11 @@ class _ToggleMenuItemState extends State<_ToggleMenuItem> {
         Icon(widget.icon, size: 22, color: AppTheme.primaryColor),
         const SizedBox(width: 12),
         Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(widget.label,
-                style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                style:
+                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
             if (widget.subtitle != null)
               Text(widget.subtitle!,
                   style: TextStyle(fontSize: 11, color: Colors.grey[500])),
@@ -623,4 +544,3 @@ class _ToggleMenuItemState extends State<_ToggleMenuItem> {
     );
   }
 }
-
