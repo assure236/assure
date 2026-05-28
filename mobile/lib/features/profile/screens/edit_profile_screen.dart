@@ -50,11 +50,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _sameAsPermanent = false;
   String? _verifiedDobIso;
   String? _verifiedGender;
-  Timer? _ifscLookupDebounce;
-  Timer? _accountLookupDebounce;
   int _ifscLookupRequestId = 0;
   int _accountLookupRequestId = 0;
   String _lastVerifiedAccountKey = '';
+  String _lastRequestedAccountKey = '';
+  String _lastRequestedIfsc = '';
 
   String? _normalizeGender(String? raw) {
     final value = (raw ?? '').trim().toLowerCase();
@@ -102,7 +102,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(existingIfsc)) {
       _lookupIfsc(existingIfsc);
     }
-    _scheduleAccountLookup();
+    _verifyBankAccountHolder();
   }
 
   String? _normalizeDate(String? raw) {
@@ -156,20 +156,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _currentCityCtrl.text = _cityCtrl.text;
     _currentStateCtrl.text = _stateCtrl.text;
     _currentPincodeCtrl.text = _pincodeCtrl.text;
-  }
-
-  void _scheduleIfscLookup(String value) {
-    _ifscLookupDebounce?.cancel();
-    _ifscLookupDebounce = Timer(const Duration(milliseconds: 350), () {
-      _lookupIfsc(value);
-      _scheduleAccountLookup();
-    });
-  }
-
-  void _scheduleAccountLookup() {
-    _accountLookupDebounce?.cancel();
-    _accountLookupDebounce =
-        Timer(const Duration(milliseconds: 500), _verifyBankAccountHolder);
   }
 
   void _toggleSameAsPermanent(bool value) {
@@ -255,6 +241,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (ifsc.length < 11) {
       if (mounted) {
         setState(() {
+          _lastRequestedIfsc = '';
           _bankNameCtrl.clear();
           _ifscBankName = null;
           _ifscBranch = null;
@@ -268,6 +255,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc)) {
       if (mounted) {
         setState(() {
+          _lastRequestedIfsc = '';
           _bankNameCtrl.clear();
           _ifscBankName = null;
           _ifscBranch = null;
@@ -277,6 +265,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
       return;
     }
+
+    if ((ifsc == _lastRequestedIfsc && _ifscBankName != null) ||
+        (ifsc == _lastRequestedIfsc && _isIfscLoading)) {
+      return;
+    }
+    _lastRequestedIfsc = ifsc;
 
     if (mounted) {
       setState(() {
@@ -300,7 +294,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscLookupError = null;
           _bankNameCtrl.text = bank;
         });
-        _scheduleAccountLookup();
+        _verifyBankAccountHolder();
       } else {
         final fallback = await _lookupIfscFromPublicApi(ifsc);
         if (!mounted || requestId != _ifscLookupRequestId) return;
@@ -313,9 +307,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _ifscLookupError = null;
             _bankNameCtrl.text = fallback['bank']!;
           });
-          _scheduleAccountLookup();
+          _verifyBankAccountHolder();
         } else {
           setState(() {
+            _lastRequestedIfsc = '';
             _bankNameCtrl.clear();
             _ifscBankName = null;
             _ifscBranch = null;
@@ -336,9 +331,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscLookupError = null;
           _bankNameCtrl.text = fallback['bank']!;
         });
-        _scheduleAccountLookup();
+        _verifyBankAccountHolder();
       } else {
         setState(() {
+          _lastRequestedIfsc = '';
           _bankNameCtrl.clear();
           _ifscBankName = null;
           _ifscBranch = null;
@@ -384,6 +380,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         !RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc)) {
       if (mounted) {
         setState(() {
+          _lastRequestedAccountKey = '';
           _isAccountLookupLoading = false;
           _accountHolderName = null;
           _accountLookupError = null;
@@ -394,9 +391,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     final currentKey = '$accountNumber|$ifsc';
+    if ((currentKey == _lastRequestedAccountKey && _isAccountLookupLoading) ||
+        (currentKey == _lastRequestedAccountKey &&
+            _accountHolderName != null &&
+            _accountLookupError == null)) {
+      return;
+    }
     if (currentKey == _lastVerifiedAccountKey && _accountHolderName != null) {
       return;
     }
+    _lastRequestedAccountKey = currentKey;
 
     final requestId = ++_accountLookupRequestId;
     if (mounted) {
@@ -447,6 +451,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _accountLookupError = (response['message'] ??
                   'Unable to verify account holder right now.')
               .toString();
+          _lastRequestedAccountKey = '';
           _lastVerifiedAccountKey = '';
         });
       }
@@ -455,6 +460,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       setState(() {
         _accountHolderName = null;
         _accountLookupError = 'Unable to verify account holder right now.';
+        _lastRequestedAccountKey = '';
         _lastVerifiedAccountKey = '';
       });
     } finally {
@@ -594,8 +600,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   void dispose() {
-    _ifscLookupDebounce?.cancel();
-    _accountLookupDebounce?.cancel();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _panCtrl.dispose();
@@ -1188,7 +1192,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ],
                     onChanged: (_) {
                       setState(() {});
-                      _scheduleAccountLookup();
+                      _verifyBankAccountHolder();
                     },
                     validator: (v) {
                       if (v == null || v.trim().isEmpty)
@@ -1259,7 +1263,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     textCapitalization: TextCapitalization.characters,
                     hint: 'SBIN0001234',
                     enabled: !isProfileLocked,
-                    onChanged: isProfileLocked ? null : _scheduleIfscLookup,
+                    onChanged: isProfileLocked ? null : _lookupIfsc,
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
                       LengthLimitingTextInputFormatter(11),
