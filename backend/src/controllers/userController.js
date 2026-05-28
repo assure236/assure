@@ -584,9 +584,23 @@ exports.verifyBankAccount = async (req, res, next) => {
       }
     }
 
+    const rawError = String(lastErrorMessage || '').trim();
+    const normalizedError = rawError.toLowerCase();
+    const isProviderInfraIssue =
+      normalizedError.includes('token is not valid') ||
+      normalizedError.includes('something went wrong') ||
+      normalizedError.includes('internal server error') ||
+      normalizedError.includes('api_error') ||
+      normalizedError.includes('endpoint or method is not valid') ||
+      normalizedError.includes('route not found');
+
+    const publicErrorMessage = isProviderInfraIssue
+      ? 'Live bank verification service is temporarily unavailable. Please try again later.'
+      : rawError || 'Live bank verification service is temporarily unavailable. Please try again later.';
+
     return res.status(502).json({
       success: false,
-      message: lastErrorMessage || 'Live bank verification service is temporarily unavailable. Please try again later.',
+      message: publicErrorMessage,
     });
   } catch (err) {
     return res.status(503).json({
