@@ -21,7 +21,8 @@ import '../../payments/screens/payments_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
-final _inr = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
+final _inr =
+    NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 0);
 final _dtFmt = DateFormat('dd MMM yyyy');
 
 // ─── Main Shell with Bottom Nav ───────────────────────────────────────────────
@@ -59,7 +60,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('DigiLocker verification failed. Please try again.'),
+              content:
+                  Text('DigiLocker verification failed. Please try again.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -97,66 +99,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
         if (!didPop) setState(() => _currentIndex = 0);
       },
       child: Listener(
-        onPointerDown: (_) => context.read<AuthProvider>().resetInactivityTimer(),
-        onPointerMove: (_) => context.read<AuthProvider>().resetInactivityTimer(),
+        onPointerDown: (_) =>
+            context.read<AuthProvider>().resetInactivityTimer(),
+        onPointerMove: (_) =>
+            context.read<AuthProvider>().resetInactivityTimer(),
         child: Stack(
-        children: [
-        Scaffold(
-        body: IndexedStack(
-          index: _currentIndex,
           children: [
-            _HomeTab(switchTab: _switchTab),
-            const ChitGroupsScreen(),
-            const AuctionsScreen(),
-            PaymentsScreen(key: _paymentsKey),
-            ProfileScreen(switchTab: _switchTab),
+            Scaffold(
+              body: IndexedStack(
+                index: _currentIndex,
+                children: [
+                  _HomeTab(switchTab: _switchTab),
+                  const ChitGroupsScreen(),
+                  const AuctionsScreen(),
+                  PaymentsScreen(key: _paymentsKey),
+                  ProfileScreen(switchTab: _switchTab),
+                ],
+              ),
+              bottomNavigationBar: NavigationBar(
+                selectedIndex: _currentIndex,
+                onDestinationSelected: _switchTab,
+                backgroundColor: Colors.white,
+                surfaceTintColor: Colors.transparent,
+                elevation: 8,
+                shadowColor: Colors.black26,
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.home_outlined),
+                    selectedIcon: Icon(Icons.home_rounded),
+                    label: 'Home',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.add_circle_outline),
+                    selectedIcon: Icon(Icons.add_circle_rounded),
+                    label: 'New Chits',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.gavel_outlined),
+                    selectedIcon: Icon(Icons.gavel_rounded),
+                    label: 'Auctions',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.account_balance_wallet_outlined),
+                    selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+                    label: 'Payments',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.menu_rounded),
+                    selectedIcon: Icon(Icons.menu_rounded),
+                    label: 'More',
+                  ),
+                ],
+              ),
+            ),
+            ValueListenableBuilder<bool>(
+              valueListenable: AppPrefs.chatbotVisible,
+              builder: (context, chatbotOn, _) {
+                if (!chatbotOn) return const SizedBox.shrink();
+                return _DraggableFab(onTap: () => context.push('/chatbot'));
+              },
+            ),
+            if (_showTour)
+              OnboardingTour(
+                  onComplete: () => setState(() => _showTour = false)),
           ],
-        ),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _currentIndex,
-          onDestinationSelected: _switchTab,
-          backgroundColor: Colors.white,
-          surfaceTintColor: Colors.transparent,
-          elevation: 8,
-          shadowColor: Colors.black26,
-          destinations: const [
-            NavigationDestination(
-              icon: Icon(Icons.home_outlined),
-              selectedIcon: Icon(Icons.home_rounded),
-              label: 'Home',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.add_circle_outline),
-              selectedIcon: Icon(Icons.add_circle_rounded),
-              label: 'New Chits',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.gavel_outlined),
-              selectedIcon: Icon(Icons.gavel_rounded),
-              label: 'Auctions',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-              label: 'Payments',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.menu_rounded),
-              selectedIcon: Icon(Icons.menu_rounded),
-              label: 'More',
-            ),
-          ],
-        ),
-        ),
-        ValueListenableBuilder<bool>(
-          valueListenable: AppPrefs.chatbotVisible,
-          builder: (context, chatbotOn, _) {
-            if (!chatbotOn) return const SizedBox.shrink();
-            return _DraggableFab(onTap: () => context.push('/chatbot'));
-          },
-        ),
-        if (_showTour) OnboardingTour(onComplete: () => setState(() => _showTour = false)),
-        ],
         ),
       ),
     );
@@ -225,8 +231,13 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
             backgroundColor: AppTheme.surfaceLight,
             body: Column(
               children: [
-                _HeaderSection(user: user, dash: dash, loading: true, onProfileTap: () => context.push('/edit-profile')),
-                const Expanded(child: Center(child: CircularProgressIndicator())),
+                _HeaderSection(
+                    user: user,
+                    dash: dash,
+                    loading: true,
+                    onProfileTap: () => context.push('/edit-profile')),
+                const Expanded(
+                    child: Center(child: CircularProgressIndicator())),
               ],
             ),
           );
@@ -237,20 +248,25 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
             backgroundColor: AppTheme.surfaceLight,
             body: Column(
               children: [
-                _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => context.push('/edit-profile')),
+                _HeaderSection(
+                    user: user,
+                    dash: dash,
+                    loading: false,
+                    onProfileTap: () => context.push('/edit-profile')),
                 Expanded(
                   child: Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.wifi_off_rounded, size: 60, color: Colors.grey),
+                        const Icon(Icons.wifi_off_rounded,
+                            size: 60, color: Colors.grey),
                         const SizedBox(height: 16),
                         const Text('Could not load dashboard',
                             style: TextStyle(fontSize: 16, color: Colors.grey)),
                         const SizedBox(height: 4),
                         Text(dash.error!,
-                            style:
-                                const TextStyle(fontSize: 12, color: Colors.grey),
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey),
                             textAlign: TextAlign.center),
                         const SizedBox(height: 20),
                         ElevatedButton.icon(
@@ -276,15 +292,33 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
-                  child: _HeaderSection(user: user, dash: dash, loading: false, onProfileTap: () => context.push('/edit-profile')),
+                  child: _HeaderSection(
+                      user: user,
+                      dash: dash,
+                      loading: false,
+                      onProfileTap: () => context.push('/edit-profile')),
                 ),
-                if (dash.kycStatus != 'verified' || !dash.isProfileComplete)
-                  SliverToBoxAdapter(child: _KycProfileBanner(dash: dash, switchTab: widget.switchTab)),
-                SliverToBoxAdapter(child: _DuePaymentsReminder(switchTab: widget.switchTab)),
-                SliverToBoxAdapter(child: _StatsRow(dash: dash, switchTab: widget.switchTab)),
-                SliverToBoxAdapter(child: _ActiveChits(dash: dash, switchTab: widget.switchTab)),
+                if (dash.kycStatus != 'verified' ||
+                    !dash.isProfileComplete ||
+                    dash.profileApprovalStatus != 'approved')
+                  SliverToBoxAdapter(
+                    child: _KycProfileBanner(
+                      dash: dash,
+                      switchTab: widget.switchTab,
+                      user: user,
+                    ),
+                  ),
+                SliverToBoxAdapter(
+                    child: _DuePaymentsReminder(switchTab: widget.switchTab)),
+                SliverToBoxAdapter(
+                    child: _StatsRow(dash: dash, switchTab: widget.switchTab)),
+                SliverToBoxAdapter(
+                    child:
+                        _ActiveChits(dash: dash, switchTab: widget.switchTab)),
                 if (dash.upcomingAuctions.isNotEmpty)
-                  SliverToBoxAdapter(child: _UpcomingAuctions(dash: dash, switchTab: widget.switchTab)),
+                  SliverToBoxAdapter(
+                      child: _UpcomingAuctions(
+                          dash: dash, switchTab: widget.switchTab)),
                 const SliverToBoxAdapter(child: _BecomeAgentCard()),
                 const SliverToBoxAdapter(child: _TrustBadges()),
                 const SliverToBoxAdapter(child: _PaymentPartners()),
@@ -306,7 +340,10 @@ class _HeaderSection extends StatelessWidget {
   final VoidCallback? onProfileTap;
 
   const _HeaderSection(
-      {required this.user, required this.dash, required this.loading, this.onProfileTap});
+      {required this.user,
+      required this.dash,
+      required this.loading,
+      this.onProfileTap});
 
   @override
   Widget build(BuildContext context) {
@@ -318,7 +355,11 @@ class _HeaderSection extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [AppTheme.primaryDark, AppTheme.accentBlue, AppTheme.primaryColor],
+          colors: [
+            AppTheme.primaryDark,
+            AppTheme.accentBlue,
+            AppTheme.primaryColor
+          ],
         ),
       ),
       child: SafeArea(
@@ -334,46 +375,48 @@ class _HeaderSection extends StatelessWidget {
                   GestureDetector(
                     onTap: () => onProfileTap?.call(),
                     child: Row(
-                    children: [
-                      (user?.profileImageUrl != null && user!.profileImageUrl!.isNotEmpty)
-                          ? CircleAvatar(
-                              radius: 24,
-                              backgroundColor: Colors.white24,
-                              backgroundImage: NetworkImage(user.profileImageUrl!),
-                            )
-                          : CircleAvatar(
-                        radius: 24,
-                        backgroundColor: Colors.white24,
-                        child: Text(
-                          firstName.isNotEmpty
-                              ? firstName[0].toUpperCase()
-                              : 'M',
-                          style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold),
+                      children: [
+                        (user?.profileImageUrl != null &&
+                                user!.profileImageUrl!.isNotEmpty)
+                            ? CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Colors.white24,
+                                backgroundImage:
+                                    NetworkImage(user.profileImageUrl!),
+                              )
+                            : CircleAvatar(
+                                radius: 24,
+                                backgroundColor: Colors.white24,
+                                child: Text(
+                                  firstName.isNotEmpty
+                                      ? firstName[0].toUpperCase()
+                                      : 'M',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Hi, $firstName',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            const Text(
+                              'Partners in Growth',
+                              style: TextStyle(
+                                  color: Colors.white54, fontSize: 12),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Hi, $firstName',
-                            style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold),
-                          ),
-                          const Text(
-                            'Partners in Growth',
-                            style: TextStyle(
-                                color: Colors.white54, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                      ],
+                    ),
                   ),
                   Row(
                     children: [
@@ -386,7 +429,8 @@ class _HeaderSection extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: ClipOval(
-                          child: Image.asset('assets/images/logo.png', width: 30, height: 30, fit: BoxFit.cover),
+                          child: Image.asset('assets/images/logo.png',
+                              width: 30, height: 30, fit: BoxFit.cover),
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -410,10 +454,14 @@ class _HeaderSection extends StatelessWidget {
                                       color: AppTheme.secondaryColor,
                                       shape: BoxShape.circle,
                                     ),
-                                    constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                                    constraints: const BoxConstraints(
+                                        minWidth: 18, minHeight: 18),
                                     child: Text(
                                       unread > 9 ? '9+' : '$unread',
-                                      style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold),
                                       textAlign: TextAlign.center,
                                     ),
                                   ),
@@ -425,8 +473,10 @@ class _HeaderSection extends StatelessWidget {
                       IconButton(
                         onPressed: () => context.push('/support'),
                         icon: SvgPicture.asset('assets/icons/support.svg',
-                            width: 26, height: 26,
-                            colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)),
+                            width: 26,
+                            height: 26,
+                            colorFilter: const ColorFilter.mode(
+                                Colors.white, BlendMode.srcIn)),
                         tooltip: 'Support',
                       ),
                     ],
@@ -437,59 +487,61 @@ class _HeaderSection extends StatelessWidget {
               // KYC badge + QR
               Row(
                 children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(
-                  color: kycVerified
-                      ? Colors.green.withAlpha(51)
-                      : Colors.orange.withAlpha(51),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color:
-                        kycVerified ? Colors.greenAccent : Colors.orangeAccent,
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      kycVerified
-                          ? Icons.verified_rounded
-                          : Icons.pending_rounded,
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
                       color: kycVerified
-                          ? Colors.greenAccent
-                          : Colors.orangeAccent,
-                      size: 14,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      kycVerified ? 'KYC Verified' : 'KYC Not Verified',
-                      style: TextStyle(
+                          ? Colors.green.withAlpha(51)
+                          : Colors.orange.withAlpha(51),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
                         color: kycVerified
                             ? Colors.greenAccent
                             : Colors.orangeAccent,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        width: 1,
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              // QR Scan button
-              GestureDetector(
-                onTap: () => context.push('/qr-scan'),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white12,
-                    borderRadius: BorderRadius.circular(20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          kycVerified
+                              ? Icons.verified_rounded
+                              : Icons.pending_rounded,
+                          color: kycVerified
+                              ? Colors.greenAccent
+                              : Colors.orangeAccent,
+                          size: 14,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          kycVerified ? 'KYC Verified' : 'KYC Not Verified',
+                          style: TextStyle(
+                            color: kycVerified
+                                ? Colors.greenAccent
+                                : Colors.orangeAccent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: const Icon(Icons.qr_code_scanner, color: Colors.white70, size: 18),
-                ),
-              ),
+                  const SizedBox(width: 10),
+                  // QR Scan button
+                  GestureDetector(
+                    onTap: () => context.push('/qr-scan'),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white12,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Icon(Icons.qr_code_scanner,
+                          color: Colors.white70, size: 18),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -504,13 +556,56 @@ class _HeaderSection extends StatelessWidget {
 class _KycProfileBanner extends StatelessWidget {
   final DashboardProvider dash;
   final void Function(int) switchTab;
-  const _KycProfileBanner({required this.dash, required this.switchTab});
+  final dynamic user;
+  const _KycProfileBanner(
+      {required this.dash, required this.switchTab, this.user});
 
   @override
   Widget build(BuildContext context) {
-    final kycPending = dash.kycStatus != 'verified';
     final profileIncomplete = !dash.isProfileComplete;
     final pct = dash.profilePercentage;
+
+    final profileStatus =
+        (user?.profileEditStatus ?? dash.profileApprovalStatus)
+            .toString()
+            .toLowerCase();
+    final isFinalApproved = profileStatus == 'approved';
+    final isUnderReview = profileStatus == 'pending';
+    final isRejected = profileStatus == 'rejected';
+
+    final hasDigilocker = dash.digilockerConnected;
+    final hasSelfie = dash.selfieVerified;
+    final hasCheque = dash.chequeUploaded;
+
+    final bankIfsc =
+        (user?.bankIfscCode ?? dash.data?['user']?['bank_ifsc_code'] ?? '')
+            .toString()
+            .trim();
+    final bankAccount = (user?.bankAccountNumber ??
+            dash.data?['user']?['bank_account_number'] ??
+            '')
+        .toString()
+        .trim();
+    final hasBankDetails = bankIfsc.isNotEmpty && bankAccount.isNotEmpty;
+
+    String actionLabel = '';
+    VoidCallback? action;
+
+    if (!hasDigilocker) {
+      actionLabel = 'Connect DigiLocker';
+      action = () => context.push('/kyc');
+    } else if (!hasSelfie) {
+      actionLabel = 'Complete Face ID';
+      action = () => context.push('/documents');
+    } else if (!hasBankDetails) {
+      actionLabel = 'Add Bank IFSC Details';
+      action = () => context.push('/edit-profile');
+    } else if (!isFinalApproved) {
+      actionLabel = isUnderReview
+          ? 'Waiting For Admin Approval'
+          : 'Submit Profile For Approval';
+      action = isUnderReview ? null : () => context.push('/edit-profile');
+    }
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -529,66 +624,131 @@ class _KycProfileBanner extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (kycPending)
-            Row(
-              children: [
-                const Icon(Icons.warning_amber_rounded,
-                    color: AppTheme.secondaryColor, size: 22),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text('Complete Your KYC to unlock all features',
-                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          Row(
+            children: [
+              Icon(
+                isFinalApproved
+                    ? Icons.verified_rounded
+                    : Icons.assignment_turned_in_outlined,
+                color: isFinalApproved
+                    ? AppTheme.successColor
+                    : AppTheme.secondaryColor,
+                size: 22,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  isFinalApproved
+                      ? 'Onboarding completed. All features unlocked.'
+                      : 'Complete onboarding to unlock full member access.',
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700),
                 ),
-                TextButton(
-                  onPressed: () => context.push('/kyc'),
-                  style: TextButton.styleFrom(
-                      foregroundColor: AppTheme.secondaryColor,
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
-                  child: const Text('Verify',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                ),
-              ],
-            ),
-          if (kycPending && profileIncomplete)
-            const Divider(height: 16),
-          if (profileIncomplete)
-            InkWell(
-              onTap: () => context.push('/edit-profile'),
-              child: Row(
-                children: [
-                  const Icon(Icons.person_outline_rounded,
-                      color: AppTheme.primaryColor, size: 22),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Profile $pct% complete',
-                            style: const TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 4),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: pct / 100,
-                            minHeight: 6,
-                            backgroundColor: AppTheme.lightBlueBg,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                                AppTheme.primaryColor),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  const Icon(Icons.chevron_right, color: AppTheme.primaryColor, size: 20),
-                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _stepRow('1. DigiLocker verification', hasDigilocker),
+          const SizedBox(height: 6),
+          _stepRow('2. Face ID (live selfie)', hasSelfie),
+          const SizedBox(height: 6),
+          _stepRow('3. Cancelled cheque (optional)', hasCheque, optional: true),
+          const SizedBox(height: 6),
+          _stepRow('4. IFSC + bank details', hasBankDetails),
+          const SizedBox(height: 6),
+          _stepRow(
+              '5. Submit profile details', isUnderReview || isFinalApproved),
+          const SizedBox(height: 6),
+          _stepRow('6. Admin final approval', isFinalApproved),
+          if (isUnderReview) ...[
+            const SizedBox(height: 10),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Your application is under review. Verification is usually completed within 24 hours and you will receive app notification.',
+                style: TextStyle(fontSize: 12, color: Colors.black87),
               ),
             ),
+          ],
+          if (isRejected) ...[
+            const SizedBox(height: 10),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Your previous submission was rejected. Update requested fields and resubmit profile.',
+                style: TextStyle(
+                    fontSize: 12,
+                    color: AppTheme.errorColor,
+                    fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+          if (profileIncomplete) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Profile $pct% complete',
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: pct / 100,
+                minHeight: 6,
+                backgroundColor: AppTheme.lightBlueBg,
+                valueColor:
+                    const AlwaysStoppedAnimation<Color>(AppTheme.primaryColor),
+              ),
+            ),
+          ],
+          if (!isFinalApproved && actionLabel.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: action,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor:
+                      action == null ? Colors.grey : AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text(actionLabel),
+              ),
+            ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _stepRow(String label, bool done, {bool optional = false}) {
+    return Row(
+      children: [
+        Icon(
+          done
+              ? Icons.check_circle
+              : (optional
+                  ? Icons.circle_outlined
+                  : Icons.radio_button_unchecked),
+          size: 16,
+          color: done ? AppTheme.successColor : Colors.black54,
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: done ? Colors.black87 : Colors.black54,
+              fontWeight: done ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -655,9 +815,16 @@ class _DuePaymentsReminder extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 ...due.take(1).map((p) {
-                  final group = (p['chit_group'] ?? p['chitGroup']) as Map<String, dynamic>? ?? {};
-                  final groupName = group['group_name']?.toString() ?? 'Chit Group';
-                  final amount = double.tryParse(p['total_amount']?.toString() ?? p['amount']?.toString() ?? '0') ?? 0;
+                  final group = (p['chit_group'] ?? p['chitGroup'])
+                          as Map<String, dynamic>? ??
+                      {};
+                  final groupName =
+                      group['group_name']?.toString() ?? 'Chit Group';
+                  final amount = double.tryParse(
+                          p['total_amount']?.toString() ??
+                              p['amount']?.toString() ??
+                              '0') ??
+                      0;
                   final isOverdue = p['payment_status'] == 'overdue';
                   final month = p['month_number'] ?? '';
 
@@ -671,8 +838,12 @@ class _DuePaymentsReminder extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(
-                          isOverdue ? Icons.warning_amber_rounded : Icons.schedule,
-                          color: isOverdue ? AppTheme.errorColor : AppTheme.secondaryColor,
+                          isOverdue
+                              ? Icons.warning_amber_rounded
+                              : Icons.schedule,
+                          color: isOverdue
+                              ? AppTheme.errorColor
+                              : AppTheme.secondaryColor,
                           size: 18,
                         ),
                         const SizedBox(width: 8),
@@ -682,13 +853,18 @@ class _DuePaymentsReminder extends StatelessWidget {
                             children: [
                               Text(groupName,
                                   style: const TextStyle(
-                                      fontWeight: FontWeight.w600, fontSize: 12),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 12),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis),
                               Text(
-                                isOverdue ? 'Overdue — Month $month' : 'Due — Month $month',
+                                isOverdue
+                                    ? 'Overdue — Month $month'
+                                    : 'Due — Month $month',
                                 style: TextStyle(
-                                    color: isOverdue ? AppTheme.errorColor : Colors.grey,
+                                    color: isOverdue
+                                        ? AppTheme.errorColor
+                                        : Colors.grey,
                                     fontSize: 11),
                               ),
                             ],
@@ -705,8 +881,10 @@ class _DuePaymentsReminder extends StatelessWidget {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primaryColor,
                               foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 12),
+                              textStyle: const TextStyle(
+                                  fontSize: 12, fontWeight: FontWeight.w600),
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8)),
                             ),
@@ -847,16 +1025,19 @@ class _ActiveChits extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     DateTime parseMembershipDate(Map<String, dynamic> m) {
-      final dynamic raw = m['enrollment_date'] ?? m['created_at'] ?? m['updated_at'];
+      final dynamic raw =
+          m['enrollment_date'] ?? m['created_at'] ?? m['updated_at'];
       if (raw == null) return DateTime.fromMillisecondsSinceEpoch(0);
-      return DateTime.tryParse(raw.toString()) ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return DateTime.tryParse(raw.toString()) ??
+          DateTime.fromMillisecondsSinceEpoch(0);
     }
 
     final memberships = dash.memberships
         .whereType<Map>()
         .map((m) => Map<String, dynamic>.from(m))
         .toList()
-      ..sort((a, b) => parseMembershipDate(b).compareTo(parseMembershipDate(a)));
+      ..sort(
+          (a, b) => parseMembershipDate(b).compareTo(parseMembershipDate(a)));
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 24, 0, 0),
@@ -866,8 +1047,7 @@ class _ActiveChits extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: const Text('My Active Chits',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 10),
           memberships.isEmpty
@@ -888,30 +1068,31 @@ class _ActiveChits extends StatelessWidget {
                     itemCount: memberships.length,
                     itemBuilder: (context, i) {
                       final m = memberships[i];
-                      final group = (m['chit_group_id'] as Map<String, dynamic>?) ??
-                          (m['ChitGroup'] as Map<String, dynamic>?) ?? {};
-                      final current =
-                          (group['current_month'] ?? 0) as int;
-                      final total =
-                          (group['duration_months'] ?? 1) as int;
+                      final group =
+                          (m['chit_group_id'] as Map<String, dynamic>?) ??
+                              (m['ChitGroup'] as Map<String, dynamic>?) ??
+                              {};
+                      final current = (group['current_month'] ?? 0) as int;
+                      final total = (group['duration_months'] ?? 1) as int;
                       final progress =
                           total > 0 ? (current / total).clamp(0.0, 1.0) : 0.0;
                       final chitValue = double.tryParse(
                               group['chit_value']?.toString() ?? '0') ??
                           0;
                       final monthly = double.tryParse(
-                              group['monthly_installment']
-                                      ?.toString() ??
+                              group['monthly_installment']?.toString() ??
                                   '0') ??
                           0;
-                      final groupId = (group['_id'] ?? group['id'] ?? '').toString();
+                      final groupId =
+                          (group['_id'] ?? group['id'] ?? '').toString();
                       return GestureDetector(
                         onTap: () {
-                          if (groupId.isNotEmpty) context.push('/chit-groups/$groupId');
+                          if (groupId.isNotEmpty) {
+                            context.push('/chit-groups/$groupId');
+                          }
                         },
                         child: _ChitCard(
-                          name: group['group_name']?.toString() ??
-                              'Chit Group',
+                          name: group['group_name']?.toString() ?? 'Chit Group',
                           chitValue: chitValue,
                           monthly: monthly,
                           currentMonth: current,
@@ -988,9 +1169,7 @@ class _ChitCard extends StatelessWidget {
           Text(
             _inr.format(chitValue),
             style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold),
+                color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
           ),
           Text(
             'Chit Value',
@@ -1002,13 +1181,14 @@ class _ChitCard extends StatelessWidget {
             children: [
               Text(
                 'Monthly: ${_inr.format(monthly)}',
-                style:
-                    const TextStyle(color: Colors.white70, fontSize: 11),
+                style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
               Text(
                 '$currentMonth/$totalMonths',
-                style:
-                    const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold),
               ),
             ],
           ),
@@ -1018,8 +1198,7 @@ class _ChitCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: Colors.white24,
-              valueColor:
-                  const AlwaysStoppedAnimation<Color>(Colors.white),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               minHeight: 5,
             ),
           ),
@@ -1049,8 +1228,7 @@ class _UpcomingAuctions extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Upcoming Auctions',
-                  style:
-                      TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               TextButton(
                 onPressed: () => switchTab(2),
                 child: const Text('View All'),
@@ -1060,19 +1238,21 @@ class _UpcomingAuctions extends StatelessWidget {
           const SizedBox(height: 10),
           ...auctions.take(3).map((a) {
             final auction = a as Map<String, dynamic>;
-            final isLive = auction['status'] == 'active' || auction['status'] == 'live';
+            final isLive =
+                auction['status'] == 'active' || auction['status'] == 'live';
             final group = (auction['chit_group_id'] as Map<String, dynamic>?) ??
-                (auction['ChitGroup'] as Map<String, dynamic>?) ?? {};
+                (auction['ChitGroup'] as Map<String, dynamic>?) ??
+                {};
             final scheduledRaw = auction['scheduled_date'];
             String dateStr = '';
             if (scheduledRaw != null) {
               try {
-                dateStr = _dtFmt.format(DateTime.parse(scheduledRaw.toString()));
+                dateStr =
+                    _dtFmt.format(DateTime.parse(scheduledRaw.toString()));
               } catch (_) {}
             }
-            final chitValue = double.tryParse(
-                    group['chit_value']?.toString() ?? '0') ??
-                0;
+            final chitValue =
+                double.tryParse(group['chit_value']?.toString() ?? '0') ?? 0;
 
             return Container(
               margin: const EdgeInsets.only(bottom: 10),
@@ -1095,14 +1275,12 @@ class _UpcomingAuctions extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: isLive
-                          ? Colors.red.shade50
-                          : Colors.purple.shade50,
+                      color:
+                          isLive ? Colors.red.shade50 : Colors.purple.shade50,
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.gavel_rounded,
-                        color: isLive ? Colors.red : Colors.purple,
-                        size: 20),
+                        color: isLive ? Colors.red : Colors.purple, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1185,8 +1363,7 @@ class _EmptyCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(
-              color: Colors.black.withAlpha(13), blurRadius: 6),
+          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6),
         ],
       ),
       child: Column(
@@ -1197,8 +1374,7 @@ class _EmptyCard extends StatelessWidget {
               style: const TextStyle(color: Colors.grey, fontSize: 13)),
           if (actionLabel != null && onAction != null) ...[
             const SizedBox(height: 12),
-            TextButton(
-                onPressed: onAction, child: Text(actionLabel!)),
+            TextButton(onPressed: onAction, child: Text(actionLabel!)),
           ],
         ],
       ),
@@ -1265,7 +1441,8 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                   color: Colors.white.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.verified, color: Colors.white, size: 28),
+                child:
+                    const Icon(Icons.verified, color: Colors.white, size: 28),
               ),
               const SizedBox(width: 16),
               const Expanded(
@@ -1273,7 +1450,10 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('You\'re an Assure Agent',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16)),
                     SizedBox(height: 4),
                     Text('Earn commissions by referring new members',
                         style: TextStyle(color: Colors.white70, fontSize: 12)),
@@ -1291,61 +1471,71 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
       child: GestureDetector(
         onTap: isPending ? null : () => _showBecomeAgentSheet(context),
         child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isPending
-                ? [const Color(0xFFB7952E), AppTheme.secondaryColor]
-                : [AppTheme.primaryColor, AppTheme.accentBlue],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isPending
+                  ? [const Color(0xFFB7952E), AppTheme.secondaryColor]
+                  : [AppTheme.primaryColor, AppTheme.accentBlue],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: (isPending
+                        ? AppTheme.secondaryColor
+                        : AppTheme.primaryColor)
+                    .withAlpha(60),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: (isPending ? AppTheme.secondaryColor : AppTheme.primaryColor).withAlpha(60),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withAlpha(30),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  isPending
+                      ? Icons.hourglass_top_rounded
+                      : Icons.handshake_outlined,
+                  color: isPending ? Colors.white : AppTheme.secondaryColor,
+                  size: 28,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isPending ? 'Application In Progress' : 'Become an Agent',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      isPending
+                          ? 'Our team will contact you within 24 hours'
+                          : 'Earn commissions by referring new members',
+                      style: TextStyle(
+                          color: Colors.white.withAlpha(180), fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              if (!isPending)
+                const Icon(Icons.chevron_right, color: Colors.white70),
+            ],
+          ),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white.withAlpha(30),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(
-                isPending ? Icons.hourglass_top_rounded : Icons.handshake_outlined,
-                color: isPending ? Colors.white : AppTheme.secondaryColor,
-                size: 28,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    isPending ? 'Application In Progress' : 'Become an Agent',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    isPending
-                        ? 'Our team will contact you within 24 hours'
-                        : 'Earn commissions by referring new members',
-                    style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-            if (!isPending) const Icon(Icons.chevron_right, color: Colors.white70),
-          ],
-        ),
-      ),
       ),
     );
   }
@@ -1362,8 +1552,11 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 40, height: 4,
-              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2)),
             ),
             const SizedBox(height: 20),
             Container(
@@ -1372,7 +1565,8 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                 color: AppTheme.primaryColor.withAlpha(26),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.handshake_outlined, color: AppTheme.primaryColor, size: 40),
+              child: const Icon(Icons.handshake_outlined,
+                  color: AppTheme.primaryColor, size: 40),
             ),
             const SizedBox(height: 16),
             const Text('Become an Assure Agent',
@@ -1396,26 +1590,37 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                 onPressed: () async {
                   Navigator.pop(ctx);
                   try {
-                    final res = await ApiService.post('/users/agent-request', {});
+                    final res =
+                        await ApiService.post('/users/agent-request', {});
                     if (!context.mounted) return;
                     setState(() => _agentStatus = 'pending');
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(res['message'] ?? 'Agent request submitted!'), backgroundColor: Colors.green),
+                      SnackBar(
+                          content: Text(
+                              res['message'] ?? 'Agent request submitted!'),
+                          backgroundColor: Colors.green),
                     );
                   } catch (e) {
                     if (!context.mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
+                      SnackBar(
+                          content:
+                              Text(e.toString().replaceAll('Exception: ', '')),
+                          backgroundColor: Colors.red),
                     );
                   }
                 },
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.primaryColor,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
                 child: Text(
-                  _agentStatus == 'rejected' ? 'Submit Request Again' : 'Submit Request',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  _agentStatus == 'rejected'
+                      ? 'Submit Request Again'
+                      : 'Submit Request',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
@@ -1443,19 +1648,22 @@ class _TrustBadges extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
-              Expanded(child: _BadgeCard(
+              Expanded(
+                  child: _BadgeCard(
                 icon: Icons.verified_outlined,
                 label: 'ISO Certified',
                 color: AppTheme.accentBlue,
               )),
               const SizedBox(width: 10),
-              Expanded(child: _BadgeCard(
+              Expanded(
+                  child: _BadgeCard(
                 icon: Icons.account_balance_outlined,
                 label: 'Telangana Govt.\nRegistered',
                 color: AppTheme.primaryColor,
               )),
               const SizedBox(width: 10),
-              Expanded(child: _BadgeCard(
+              Expanded(
+                  child: _BadgeCard(
                 icon: Icons.shield_outlined,
                 label: 'DPIIT\nRegistered',
                 color: AppTheme.secondaryColor,
@@ -1473,7 +1681,8 @@ class _BadgeCard extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _BadgeCard({required this.icon, required this.label, required this.color});
+  const _BadgeCard(
+      {required this.icon, required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -1483,7 +1692,10 @@ class _BadgeCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withAlpha(13),
+              blurRadius: 6,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1553,7 +1765,10 @@ class _SbiLogo extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withAlpha(13),
+              blurRadius: 6,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1589,7 +1804,10 @@ class _CashfreeLogo extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(13), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(
+              color: Colors.black.withAlpha(13),
+              blurRadius: 6,
+              offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1646,12 +1864,11 @@ class _DraggableFabState extends State<_DraggableFab>
 
   void _snapToEdge(Size screen) {
     final center = _offset!.dx + 30;
-    final targetX =
-        center < screen.width / 2 ? 8.0 : screen.width - 68.0;
+    final targetX = center < screen.width / 2 ? 8.0 : screen.width - 68.0;
 
     final startX = _offset!.dx;
-    _snapAnimation = Tween<double>(begin: startX, end: targetX)
-        .animate(CurvedAnimation(parent: _snapController, curve: Curves.easeOut))
+    _snapAnimation = Tween<double>(begin: startX, end: targetX).animate(
+        CurvedAnimation(parent: _snapController, curve: Curves.easeOut))
       ..addListener(() {
         setState(() {
           _offset = Offset(_snapAnimation!.value, _offset!.dy);
@@ -1687,7 +1904,11 @@ class _DraggableFabState extends State<_DraggableFab>
             shape: BoxShape.circle,
             border: Border.all(color: AppTheme.primaryColor, width: 2.5),
             boxShadow: [
-              BoxShadow(color: AppTheme.primaryColor.withAlpha(60), blurRadius: 12, spreadRadius: 1, offset: const Offset(0, 3)),
+              BoxShadow(
+                  color: AppTheme.primaryColor.withAlpha(60),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 3)),
             ],
           ),
           child: Padding(

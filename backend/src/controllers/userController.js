@@ -5,6 +5,8 @@ const axios = require('axios');
 const fs = require('fs');
 const crypto = require('crypto');
 const { uploadToGridFS } = require('../utils/gridfs');
+const { notifyUser } = require('../utils/notifyUser');
+const { sendEmail } = require('../services/notificationService');
 const { audit, getIp } = require('../utils/audit');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
@@ -191,9 +193,33 @@ exports.updateProfile = async (req, res, next) => {
       );
     }
 
+    notifyUser(
+      String(userId),
+      'Profile Submitted Successfully',
+      'Your application is submitted and will be reviewed within 24 hours. You will receive an app notification after admin verification.',
+      'profile_edit_request',
+      { pending_approval: true }
+    ).catch(() => {});
+
+    const submitter = await User.findById(userId).select('email full_name');
+    if (submitter?.email) {
+      const safeName = (submitter.full_name || 'Member').toString();
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; color: #1f2937; line-height: 1.6;">
+          <h2 style="margin-bottom: 8px;">Profile Submitted</h2>
+          <p>Hi ${safeName},</p>
+          <p>Your profile and KYC application has been submitted successfully.</p>
+          <p><strong>Review timeline:</strong> within 24 hours.</p>
+          <p>You will receive an app notification once admin verification is completed.</p>
+          <p>Thank you,<br/>Assure ChitFunds Team</p>
+        </div>
+      `;
+      sendEmail(submitter.email, 'Profile Submitted - Review in 24 Hours', emailHtml).catch(() => {});
+    }
+
     res.json({
       success: true,
-      message: 'Profile submitted successfully. Waiting for admin approval.',
+      message: 'Profile submitted successfully. Your application will be verified within 24 hours. You will receive app/email notification after admin review.',
       pending_approval: true,
       data: userObj,
     });

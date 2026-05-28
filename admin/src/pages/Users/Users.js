@@ -336,7 +336,7 @@ const Users = () => {
                           color="success"
                           onClick={() => handleApproveProfile(detailData._id || detailData.id)}
                         >
-                          Verify
+                          Final Approve
                         </Button>
                         <Button
                           size="small"

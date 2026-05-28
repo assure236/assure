@@ -84,6 +84,32 @@ exports.getChitGroupMembers = async (req, res, next) => {
 exports.enrollInChitGroup = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId).select('kyc_status profile_edit_status');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const kycStatus = (user.kyc_status || '').toString().toLowerCase();
+    const profileStatus = (user.profile_edit_status || '').toString().toLowerCase();
+
+    if (kycStatus !== 'verified') {
+      return res.status(403).json({
+        success: false,
+        message: 'Please complete KYC verification first to join chit groups.',
+        next_step: 'kyc',
+      });
+    }
+
+    if (profileStatus !== 'approved') {
+      return res.status(403).json({
+        success: false,
+        message: profileStatus === 'pending'
+          ? 'Your profile is under admin review. You can join chit groups after final approval.'
+          : 'Please submit your profile details for admin approval before joining chit groups.',
+        next_step: profileStatus === 'pending' ? 'wait_for_admin' : 'profile_submission',
+      });
+    }
+
     await syncChitGroupStatuses({ groupIds: [req.params.id] });
 
     const group = await ChitGroup.findById(req.params.id);

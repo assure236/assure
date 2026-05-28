@@ -6,6 +6,7 @@ import '../services/api_service.dart';
 
 class DashboardProvider with ChangeNotifier {
   Map<String, dynamic>? _data;
+  Map<String, dynamic>? _kycFlowStatus;
   bool _isLoading = false;
   String? _error;
   int _availableChitsCount = 0;
@@ -24,12 +25,31 @@ class DashboardProvider with ChangeNotifier {
   int get availableChitsCount => _availableChitsCount;
   double get totalInvested =>
       double.tryParse(_data?['totalInvested']?.toString() ?? '0') ?? 0;
-  int get creditScore =>
-      (_data?['user']?['credit_score'] ?? 500) as int;
+  int get creditScore => (_data?['user']?['credit_score'] ?? 500) as int;
   String get kycStatus => _data?['user']?['kyc_status'] ?? 'pending';
   List get memberships => (_data?['memberships'] as List?) ?? [];
   List get recentPayments => (_data?['recentPayments'] as List?) ?? [];
   List get upcomingAuctions => (_data?['upcomingAuctions'] as List?) ?? [];
+  Map<String, dynamic>? get kycFlowStatus => _kycFlowStatus;
+  String get profileApprovalStatus =>
+      (_data?['user']?['profile_edit_status'] ?? 'none').toString();
+
+  bool get digilockerConnected =>
+      _kycFlowStatus?['digilocker_connected'] == true;
+  bool get selfieVerified =>
+      _kycFlowStatus?['selfie_verified'] == true ||
+      _hasDocumentType('selfie_photo');
+  bool get chequeUploaded => _hasDocumentType('cancelled_cheque');
+
+  bool _hasDocumentType(String type) {
+    final docs = (_kycFlowStatus?['documents'] as List?) ?? const [];
+    for (final doc in docs) {
+      if (doc is Map && doc['document_type']?.toString() == type) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   // Profile completion
   Map<String, dynamic>? _profileCompletion;
@@ -64,7 +84,8 @@ class DashboardProvider with ChangeNotifier {
       final cachedProfile = prefs.getString(_profileCacheKey);
       if (cachedProfile != null) {
         try {
-          _profileCompletion = Map<String, dynamic>.from(jsonDecode(cachedProfile));
+          _profileCompletion =
+              Map<String, dynamic>.from(jsonDecode(cachedProfile));
         } catch (_) {}
       }
     }
@@ -72,7 +93,18 @@ class DashboardProvider with ChangeNotifier {
 
     // Check if cache is still fresh — skip API if so
     final cacheTs = prefs.getInt(_cacheTsKey) ?? 0;
-    if (_data != null && DateTime.now().millisecondsSinceEpoch - cacheTs < _cacheTtl.inMilliseconds) {
+    if (_data != null &&
+        DateTime.now().millisecondsSinceEpoch - cacheTs <
+            _cacheTtl.inMilliseconds) {
+      if (_kycFlowStatus == null) {
+        try {
+          final kycRes = await ApiService.get('/kyc/status');
+          if (kycRes['success'] == true && kycRes['data'] is Map) {
+            _kycFlowStatus = Map<String, dynamic>.from(kycRes['data']);
+            notifyListeners();
+          }
+        } catch (_) {}
+      }
       return;
     }
 
@@ -84,6 +116,13 @@ class DashboardProvider with ChangeNotifier {
       final res = await ApiService.get('/dashboard/member');
       if (res['success'] == true) {
         _data = Map<String, dynamic>.from(res['data']);
+
+        try {
+          final kycRes = await ApiService.get('/kyc/status');
+          if (kycRes['success'] == true && kycRes['data'] is Map) {
+            _kycFlowStatus = Map<String, dynamic>.from(kycRes['data']);
+          }
+        } catch (_) {}
 
         final groupResponses = await Future.wait([
           ApiService.get('/chit-groups?status=not_started&limit=1'),
@@ -113,10 +152,12 @@ class DashboardProvider with ChangeNotifier {
 
       // Fetch profile completion
       try {
-        final profileRes = await ApiService.get('/dashboard/profile-completion');
+        final profileRes =
+            await ApiService.get('/dashboard/profile-completion');
         if (profileRes['success'] == true) {
           _profileCompletion = Map<String, dynamic>.from(profileRes['data']);
-          await prefs.setString(_profileCacheKey, jsonEncode(_profileCompletion));
+          await prefs.setString(
+              _profileCacheKey, jsonEncode(_profileCompletion));
         }
       } catch (_) {}
     } catch (e) {

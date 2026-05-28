@@ -17,7 +17,7 @@ exports.getMemberDashboard = async (req, res, next) => {
         .populate('chit_group_id'),
       Payment.find({ user_id: userId, payment_status: 'success' }).populate('chit_group_id', 'group_name').sort({ payment_date: -1 }).limit(5),
       Auction.find({ status: { $in: ['scheduled', 'in_progress', 'active'] } }).populate('chit_group_id', 'group_name group_number chit_value').sort({ auction_date: 1 }).limit(3),
-      User.findById(userId).select('full_name credit_score kyc_status pan_number aadhaar_number digilocker_id'),
+      User.findById(userId).select('full_name credit_score kyc_status pan_number aadhaar_number digilocker_id profile_edit_status bank_ifsc_code bank_account_number'),
       AppSetting.findOne({ key: 'show_credit_score' }),
     ]);
 
