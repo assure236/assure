@@ -518,13 +518,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 'Unable to verify account holder right now.')
             .toString();
         final normalized = backendMessage.toLowerCase();
-        final userFriendly = normalized.contains('something went wrong') ||
-                normalized.contains('try after some time') ||
-                normalized.contains('unable to verify') ||
-                normalized.contains('failed') ||
-                normalized.contains('right now')
-            ? 'Could not verify this account right now. Please check number/IFSC and try again.'
-            : backendMessage;
+        final userFriendly = normalized.contains('temporarily unavailable') ||
+                normalized.contains('service is unavailable')
+            ? 'Live bank verification is temporarily unavailable. You can continue and admin will verify bank details.'
+            : normalized.contains('too many verification attempts')
+                ? 'Too many verification attempts. Please wait a few minutes and try again.'
+                : normalized.contains('something went wrong') ||
+                        normalized.contains('try after some time') ||
+                        normalized.contains('unable to verify') ||
+                        normalized.contains('failed') ||
+                        normalized.contains('right now')
+                    ? 'Could not verify this account right now. Please check number/IFSC and try again.'
+                    : backendMessage;
         setState(() {
           _accountHolderName = null;
           _accountLookupError = null;
