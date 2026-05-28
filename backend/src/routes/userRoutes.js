@@ -33,6 +33,11 @@ router.put('/profile', userController.updateProfile);
 // @access  Private
 router.get('/bank/ifsc/:ifsc', userController.lookupIfsc);
 
+// @route   POST /api/v1/users/bank/verify-account
+// @desc    Verify bank account holder details with account number + IFSC
+// @access  Private
+router.post('/bank/verify-account', userController.verifyBankAccount);
+
 // @route   PUT /api/v1/users/change-password
 // @desc    Change user password
 // @access  Private

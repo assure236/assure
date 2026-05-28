@@ -410,7 +410,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     await auth.logout();
     if (context.mounted) context.go('/welcome');
   }
-
 }
 
 class _SectionCard extends StatelessWidget {

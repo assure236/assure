@@ -333,6 +333,121 @@ exports.lookupIfsc = async (req, res, next) => {
   }
 };
 
+exports.verifyBankAccount = async (req, res, next) => {
+  try {
+    const accountNumber = String(req.body.account_number || req.body.bank_account_number || '').trim();
+    const ifsc = String(req.body.ifsc || req.body.bank_ifsc_code || '').trim().toUpperCase();
+
+    if (!/^\d{9,18}$/.test(accountNumber)) {
+      return res.status(400).json({ success: false, message: 'Invalid bank account number format.' });
+    }
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
+      return res.status(400).json({ success: false, message: 'Invalid IFSC format.' });
+    }
+
+    const clientId = process.env.CASHFREE_APP_ID || '';
+    const clientSecret =
+      process.env.BANK_ACCOUNT_VERIFICATION_API_KEY ||
+      process.env.PAN_VERIFICATION_API_KEY ||
+      process.env.CASHFREE_SECRET_KEY || '';
+
+    if (!clientId || !clientSecret) {
+      return res.status(503).json({
+        success: false,
+        message: 'Bank account verification is not configured right now.',
+      });
+    }
+
+    const baseUrl = process.env.CASHFREE_ENV === 'PROD'
+      ? 'https://api.cashfree.com'
+      : 'https://sandbox.cashfree.com';
+
+    const endpoints = [
+      process.env.BANK_ACCOUNT_VERIFICATION_URL || `${baseUrl}/verification/bank-account`,
+      `${baseUrl}/verification/bank-account/sync`,
+    ];
+
+    const payload = {
+      bank_account: accountNumber,
+      ifsc,
+    };
+
+    let lastErrorMessage = null;
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await axios.post(endpoint, payload, {
+          headers: {
+            'x-client-id': clientId,
+            'x-client-secret': clientSecret,
+            'Content-Type': 'application/json',
+          },
+          timeout: 12000,
+          validateStatus: () => true,
+        });
+
+        const body = response.data && typeof response.data === 'object'
+          ? response.data
+          : {};
+
+        if (response.status >= 200 && response.status < 300) {
+          const data = body.data && typeof body.data === 'object' ? body.data : body;
+
+          const accountHolderName =
+            (data.account_holder_name || data.name_at_bank || data.account_name || data.beneficiary_name || data.registered_name || '').toString().trim() ||
+            null;
+
+          const bankName =
+            (data.bank_name || data.bank || data.bankName || '').toString().trim() ||
+            null;
+
+          const branch =
+            (data.branch || data.branch_name || data.branchName || '').toString().trim() ||
+            null;
+
+          const accountStatus = (data.account_status || data.status || '').toString().trim().toUpperCase();
+          const verified =
+            data.verified === true ||
+            data.valid === true ||
+            accountStatus === 'VALID' ||
+            accountStatus === 'VERIFIED' ||
+            (!!accountHolderName && response.status < 300);
+
+          return res.json({
+            success: true,
+            data: {
+              verified,
+              account_holder_name: accountHolderName,
+              bank_name: bankName,
+              branch,
+              ifsc,
+              account_number_masked: `XXXXXX${accountNumber.slice(-4)}`,
+              provider: 'cashfree',
+            },
+          });
+        }
+
+        lastErrorMessage =
+          body.message ||
+          body.error ||
+          `Bank account verification failed (status ${response.status}).`;
+      } catch (err) {
+        lastErrorMessage = err.message || 'Bank account verification failed.';
+      }
+    }
+
+    return res.status(502).json({
+      success: false,
+      message: lastErrorMessage || 'Unable to verify bank account right now. Please try again.',
+    });
+  } catch (err) {
+    return res.status(503).json({
+      success: false,
+      message: 'Unable to verify bank account right now. Please try again.',
+    });
+  }
+};
+
 exports.changePassword = async (req, res, next) => {
   try {
     const currentPassword = req.body.currentPassword || req.body.current_password;
