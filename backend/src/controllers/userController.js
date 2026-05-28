@@ -338,7 +338,7 @@ exports.verifyBankAccount = async (req, res, next) => {
     const accountNumber = String(req.body.account_number || req.body.bank_account_number || '').trim();
     const ifsc = String(req.body.ifsc || req.body.bank_ifsc_code || '').trim().toUpperCase();
 
-    if (!/^\d{9,18}$/.test(accountNumber)) {
+    if (!/^\d{6,20}$/.test(accountNumber)) {
       return res.status(400).json({ success: false, message: 'Invalid bank account number format.' });
     }
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
@@ -378,6 +378,7 @@ exports.verifyBankAccount = async (req, res, next) => {
       try {
         const response = await axios.post(endpoint, payload, {
           headers: {
+            'x-api-version': process.env.CASHFREE_API_VERSION || '2023-08-01',
             'x-client-id': clientId,
             'x-client-secret': clientSecret,
             'Content-Type': 'application/json',
@@ -391,18 +392,26 @@ exports.verifyBankAccount = async (req, res, next) => {
           : {};
 
         if (response.status >= 200 && response.status < 300) {
-          const data = body.data && typeof body.data === 'object' ? body.data : body;
+          const data = body.data && typeof body.data === 'object'
+            ? body.data
+            : body.result && typeof body.result === 'object'
+              ? body.result
+              : body;
+
+          const ifscDetails = data.ifsc_details && typeof data.ifsc_details === 'object'
+            ? data.ifsc_details
+            : {};
 
           const accountHolderName =
-            (data.account_holder_name || data.name_at_bank || data.account_name || data.beneficiary_name || data.registered_name || '').toString().trim() ||
+            (data.account_holder_name || data.name_at_bank || data.account_name || data.beneficiary_name || data.registered_name || data.name || '').toString().trim() ||
             null;
 
           const bankName =
-            (data.bank_name || data.bank || data.bankName || '').toString().trim() ||
+            (data.bank_name || data.bank || data.bankName || ifscDetails.bank_name || '').toString().trim() ||
             null;
 
           const branch =
-            (data.branch || data.branch_name || data.branchName || '').toString().trim() ||
+            (data.branch || data.branch_name || data.branchName || ifscDetails.branch || '').toString().trim() ||
             null;
 
           const accountStatus = (data.account_status || data.status || '').toString().trim().toUpperCase();

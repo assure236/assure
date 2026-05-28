@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
@@ -36,7 +38,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _currentStateCtrl;
   late TextEditingController _currentPincodeCtrl;
   String? _selectedGender;
-  String? _selectedBankName;
   bool _digilockerConnected = false;
   bool _isSaving = false;
   bool _isIfscLoading = false;
@@ -92,9 +93,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _selectedGender = _normalizeGender(user?.gender);
     _verifiedDobIso = _normalizeDate(user?.dateOfBirth);
     _verifiedGender = _normalizeGender(user?.gender);
-    _selectedBankName = user?.bankName?.trim().isNotEmpty == true
-        ? user!.bankName!.trim()
-        : null;
     _sameAsPermanent = _isCurrentSameAsPermanent();
     if (_sameAsPermanent) {
       _copyPermanentToCurrent();
@@ -231,111 +229,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (_) {}
   }
 
-  Future<void> _pickBankName(List<String> banks) async {
-    if (banks.isEmpty) return;
-    var query = '';
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-      ),
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            final filtered = banks
-                .where(
-                    (bank) => bank.toLowerCase().contains(query.toLowerCase()))
-                .toList();
-            return SafeArea(
-              child: SizedBox(
-                height: MediaQuery.of(ctx).size.height * 0.62,
-                child: Column(
-                  children: [
-                    const SizedBox(height: 10),
-                    Container(
-                      width: 42,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade400,
-                        borderRadius: BorderRadius.circular(99),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          'Select Bank',
-                          style: TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w700),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: TextField(
-                        autofocus: true,
-                        decoration: InputDecoration(
-                          hintText: 'Search bank name',
-                          prefixIcon: const Icon(Icons.search),
-                          isDense: true,
-                          filled: true,
-                          fillColor: Colors.grey.shade100,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                        onChanged: (value) {
-                          setModalState(() {
-                            query = value.trim();
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Expanded(
-                      child: filtered.isEmpty
-                          ? const Center(child: Text('No banks found'))
-                          : ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                              itemBuilder: (_, index) {
-                                final bank = filtered[index];
-                                return ListTile(
-                                  dense: true,
-                                  title: Text(
-                                    bank,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(fontSize: 13),
-                                  ),
-                                  onTap: () => Navigator.of(ctx).pop(bank),
-                                );
-                              },
-                              separatorBuilder: (_, __) =>
-                                  const Divider(height: 1),
-                              itemCount: filtered.length,
-                            ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (!mounted || selected == null) return;
-    setState(() {
-      _selectedBankName = selected;
-      _bankNameCtrl.text = selected;
-    });
-  }
-
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();
     final initialIso = _normalizeDate(_dobCtrl.text);
@@ -362,6 +255,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (ifsc.length < 11) {
       if (mounted) {
         setState(() {
+          _bankNameCtrl.clear();
           _ifscBankName = null;
           _ifscBranch = null;
           _ifscLookupError = null;
@@ -374,6 +268,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc)) {
       if (mounted) {
         setState(() {
+          _bankNameCtrl.clear();
           _ifscBankName = null;
           _ifscBranch = null;
           _ifscLookupError = 'Invalid IFSC format';
@@ -403,27 +298,53 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscBankName = bank.isNotEmpty ? bank : null;
           _ifscBranch = branch.isNotEmpty ? branch : null;
           _ifscLookupError = null;
-          if (bank.isNotEmpty) {
-            _selectedBankName = bank;
-            _bankNameCtrl.text = bank;
-          }
+          _bankNameCtrl.text = bank;
+        });
+        _scheduleAccountLookup();
+      } else {
+        final fallback = await _lookupIfscFromPublicApi(ifsc);
+        if (!mounted || requestId != _ifscLookupRequestId) return;
+        if (fallback != null) {
+          setState(() {
+            _ifscBankName =
+                fallback['bank']!.isNotEmpty ? fallback['bank'] : null;
+            _ifscBranch =
+                fallback['branch']!.isNotEmpty ? fallback['branch'] : null;
+            _ifscLookupError = null;
+            _bankNameCtrl.text = fallback['bank']!;
+          });
+          _scheduleAccountLookup();
+        } else {
+          setState(() {
+            _bankNameCtrl.clear();
+            _ifscBankName = null;
+            _ifscBranch = null;
+            _ifscLookupError =
+                (response['message'] ?? 'Unable to validate IFSC').toString();
+          });
+        }
+      }
+    } catch (_) {
+      final fallback = await _lookupIfscFromPublicApi(ifsc);
+      if (!mounted || requestId != _ifscLookupRequestId) return;
+      if (fallback != null) {
+        setState(() {
+          _ifscBankName =
+              fallback['bank']!.isNotEmpty ? fallback['bank'] : null;
+          _ifscBranch =
+              fallback['branch']!.isNotEmpty ? fallback['branch'] : null;
+          _ifscLookupError = null;
+          _bankNameCtrl.text = fallback['bank']!;
         });
         _scheduleAccountLookup();
       } else {
         setState(() {
+          _bankNameCtrl.clear();
           _ifscBankName = null;
           _ifscBranch = null;
-          _ifscLookupError =
-              (response['message'] ?? 'Unable to validate IFSC').toString();
+          _ifscLookupError = 'Unable to validate IFSC right now';
         });
       }
-    } catch (_) {
-      if (!mounted || requestId != _ifscLookupRequestId) return;
-      setState(() {
-        _ifscBankName = null;
-        _ifscBranch = null;
-        _ifscLookupError = 'Unable to validate IFSC right now';
-      });
     } finally {
       if (mounted && requestId == _ifscLookupRequestId) {
         setState(() => _isIfscLoading = false);
@@ -431,11 +352,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  Future<Map<String, String>?> _lookupIfscFromPublicApi(String ifsc) async {
+    try {
+      final response = await http
+          .get(Uri.parse('https://ifsc.razorpay.com/$ifsc'))
+          .timeout(const Duration(seconds: 8));
+      if (response.statusCode != 200 || response.body.trim().isEmpty) {
+        return null;
+      }
+
+      final body = jsonDecode(response.body);
+      if (body is! Map<String, dynamic>) return null;
+      final bank = (body['BANK'] ?? '').toString().trim();
+      final branch = (body['BRANCH'] ?? '').toString().trim();
+      if (bank.isEmpty && branch.isEmpty) return null;
+
+      return {
+        'bank': bank,
+        'branch': branch,
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<void> _verifyBankAccountHolder() async {
     final accountNumber = _bankAccCtrl.text.trim();
     final ifsc = _bankIfscCtrl.text.trim().toUpperCase();
 
-    if (!RegExp(r'^\d{9,18}$').hasMatch(accountNumber) ||
+    if (!RegExp(r'^\d{6,20}$').hasMatch(accountNumber) ||
         !RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc)) {
       if (mounted) {
         setState(() {
@@ -485,7 +430,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
           if (bankFromVerify.isNotEmpty && _bankNameCtrl.text.trim().isEmpty) {
             _bankNameCtrl.text = bankFromVerify;
-            _selectedBankName = bankFromVerify;
+          }
+          if (bankFromVerify.isNotEmpty) {
+            _bankNameCtrl.text = bankFromVerify;
           }
           if (bankFromVerify.isNotEmpty) {
             _ifscBankName = bankFromVerify;
@@ -590,7 +537,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       'pan_number': _panCtrl.text.trim().toUpperCase(),
       'nominee_name': _nomineeNameCtrl.text.trim(),
       'nominee_relationship': _nomineeRelCtrl.text.trim(),
-      'bank_name': (_selectedBankName ?? _bankNameCtrl.text).trim(),
+      'bank_name': (_ifscBankName ?? _bankNameCtrl.text).trim(),
       'bank_account_number': _bankAccCtrl.text.trim(),
       'bank_ifsc_code': _bankIfscCtrl.text.trim().toUpperCase(),
       'current_address': _currentAddressCtrl.text.trim(),
@@ -685,13 +632,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             .where((e) => e.trim().isNotEmpty)
             .toList() ??
         const [];
-    final bankOptions = <String>{..._indianBanks};
-    if (_selectedBankName != null && _selectedBankName!.trim().isNotEmpty) {
-      bankOptions.add(_selectedBankName!.trim());
-    }
-    final sortedBanks = bankOptions.toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -1219,26 +1159,23 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _buildSectionLabel('Bank Details'),
                 _buildFormCard([
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: TextFormField(
-                      controller: _bankNameCtrl,
-                      readOnly: true,
-                      enabled: !isProfileLocked,
-                      onTap: isProfileLocked
-                          ? null
-                          : () => _pickBankName(sortedBanks),
-                      decoration: const InputDecoration(
-                        labelText: 'Bank Name',
-                        prefixIcon:
-                            Icon(Icons.account_balance_outlined, size: 20),
-                        suffixIcon: Icon(Icons.search, size: 20),
-                        border: InputBorder.none,
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withAlpha(12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.blue.withAlpha(45)),
                       ),
-                      validator: (v) => _requiredValidator(v, 'Bank Name'),
+                      child: Text(
+                        _ifscBankName != null || _ifscBranch != null
+                            ? 'Bank: ${_ifscBankName ?? '-'}\nBranch: ${_ifscBranch ?? '-'}'
+                            : 'Bank name and branch are fetched automatically from IFSC code.',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
-                  const Divider(height: 1),
                   _FormField(
                     controller: _bankAccCtrl,
                     label: 'Account Number',
@@ -1247,7 +1184,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     enabled: !isProfileLocked,
                     inputFormatters: [
                       FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(18),
+                      LengthLimitingTextInputFormatter(20),
                     ],
                     onChanged: (_) {
                       setState(() {});
@@ -1256,7 +1193,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     validator: (v) {
                       if (v == null || v.trim().isEmpty)
                         return 'Account Number is required';
-                      if (!RegExp(r'^\d{9,18}$').hasMatch(v.trim())) {
+                      if (!RegExp(r'^\d{6,20}$').hasMatch(v.trim())) {
                         return 'Enter a valid account number';
                       }
                       return null;
@@ -1590,63 +1527,3 @@ class UpperCaseTextFormatter extends TextInputFormatter {
     );
   }
 }
-
-const List<String> _indianBanks = [
-  'Allahabad Bank',
-  'AU Small Finance Bank',
-  'Axis Bank',
-  'Bandhan Bank',
-  'Bank of Baroda',
-  'Bank of India',
-  'Bank of Maharashtra',
-  'Canara Bank',
-  'Catholic Syrian Bank',
-  'Central Bank of India',
-  'City Union Bank',
-  'CSB Bank',
-  'DCB Bank',
-  'Dhanlaxmi Bank',
-  'Equitas Small Finance Bank',
-  'ESAF Small Finance Bank',
-  'Federal Bank',
-  'FINO Payments Bank',
-  'HDFC Bank',
-  'HSBC Bank India',
-  'ICICI Bank',
-  'IDBI Bank',
-  'IDFC FIRST Bank',
-  'India Post Payments Bank',
-  'Indian Bank',
-  'Indian Overseas Bank',
-  'IndusInd Bank',
-  'Jammu and Kashmir Bank',
-  'Jana Small Finance Bank',
-  'Karnataka Bank',
-  'Karur Vysya Bank',
-  'Kotak Mahindra Bank',
-  'Nainital Bank',
-  'Punjab and Sind Bank',
-  'Punjab National Bank',
-  'RBL Bank',
-  'Saraswat Co-operative Bank',
-  'Shivalik Small Finance Bank',
-  'South Indian Bank',
-  'Standard Chartered Bank India',
-  'State Bank of India',
-  'Suryoday Small Finance Bank',
-  'Tamilnad Mercantile Bank',
-  'The Gujarat State Co-operative Bank',
-  'The Jammu and Kashmir State Co-operative Bank',
-  'The Kalupur Commercial Co-operative Bank',
-  'The Kerala State Co-operative Bank',
-  'The Nainital Bank',
-  'The Rajasthan State Co-operative Bank',
-  'The Shamrao Vithal Co-operative Bank',
-  'The Tamil Nadu State Apex Co-operative Bank',
-  'The Varachha Co-operative Bank',
-  'UCO Bank',
-  'Ujjivan Small Finance Bank',
-  'Union Bank of India',
-  'Utkarsh Small Finance Bank',
-  'YES Bank',
-];
