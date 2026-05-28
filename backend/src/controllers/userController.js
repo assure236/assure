@@ -338,7 +338,7 @@ exports.verifyBankAccount = async (req, res, next) => {
     const accountNumber = String(req.body.account_number || req.body.bank_account_number || '').trim();
     const ifsc = String(req.body.ifsc || req.body.bank_ifsc_code || '').trim().toUpperCase();
 
-    if (!/^\d{6,20}$/.test(accountNumber)) {
+    if (!/^\d{9,20}$/.test(accountNumber)) {
       return res.status(400).json({ success: false, message: 'Invalid bank account number format.' });
     }
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
