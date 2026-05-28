@@ -2,6 +2,8 @@ const { User, ChitGroup, ChitMember, Payment, Auction } = require('../models');
 const AgentRequest = require('../models/AgentRequest');
 const bcrypt = require('bcrypt');
 const axios = require('axios');
+const fs = require('fs');
+const crypto = require('crypto');
 const { uploadToGridFS } = require('../utils/gridfs');
 const { audit, getIp } = require('../utils/audit');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
@@ -398,6 +400,8 @@ exports.verifyBankAccount = async (req, res, next) => {
     const payoutAuthFallbackBase = isProd
       ? 'https://payout-api.cashfree.com'
       : 'https://payout-gamma.cashfree.com';
+    const signaturePublicKeyInline = String(process.env.CASHFREE_VRS_PUBLIC_KEY || '').trim();
+    const signaturePublicKeyPath = String(process.env.CASHFREE_VRS_PUBLIC_KEY_PATH || '').trim();
 
     const optionalIdentity = {
       ...(holderName ? { name: holderName } : {}),
@@ -464,6 +468,58 @@ exports.verifyBankAccount = async (req, res, next) => {
       );
     };
 
+    const toErrorDetails = (body, statusCode, endpoint) => {
+      const root = body && typeof body === 'object' ? body : {};
+      const code = String(root.code || root.error_code || '').trim().toLowerCase();
+      const message = toErrorMessage(root, statusCode);
+      return {
+        statusCode,
+        code,
+        message: String(message || '').trim(),
+        endpoint: endpoint || null,
+      };
+    };
+
+    const readSignaturePublicKey = () => {
+      if (signaturePublicKeyInline) {
+        return signaturePublicKeyInline;
+      }
+
+      if (!signaturePublicKeyPath) {
+        return null;
+      }
+
+      try {
+        return fs.readFileSync(signaturePublicKeyPath, 'utf8');
+      } catch (err) {
+        return null;
+      }
+    };
+
+    const buildCfSignature = () => {
+      const publicKey = readSignaturePublicKey();
+      if (!publicKey) {
+        return null;
+      }
+
+      try {
+        const unixNow = Math.floor(Date.now() / 1000);
+        const payload = `${clientId}.${unixNow}`;
+        const encrypted = crypto.publicEncrypt(
+          {
+            key: publicKey,
+            padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+            oaepHash: 'sha1',
+          },
+          Buffer.from(payload, 'utf8')
+        );
+
+        return encrypted.toString('base64');
+      } catch (err) {
+        return null;
+      }
+    };
+
     const toSuccessResponse = (parsed, provider) => res.json({
       success: true,
       data: {
@@ -478,6 +534,14 @@ exports.verifyBankAccount = async (req, res, next) => {
     });
 
     let lastErrorMessage = null;
+    const providerErrors = [];
+
+    const captureProviderError = (errorDetails) => {
+      if (errorDetails && (errorDetails.code || errorDetails.message)) {
+        providerErrors.push(errorDetails);
+        lastErrorMessage = errorDetails.message;
+      }
+    };
 
     const directEndpoints = unique([
       process.env.BANK_ACCOUNT_VERIFICATION_URL,
@@ -502,9 +566,14 @@ exports.verifyBankAccount = async (req, res, next) => {
     for (const endpoint of directEndpoints) {
       for (const payload of payloadVariants) {
         for (const headers of directHeaderVariants) {
+          const signature = buildCfSignature();
+          const requestHeaders = signature
+            ? { ...headers, 'x-cf-signature': signature }
+            : headers;
+
           try {
             const response = await axios.post(endpoint, payload, {
-              headers,
+              headers: requestHeaders,
               timeout: 12000,
               validateStatus: () => true,
             });
@@ -522,9 +591,14 @@ exports.verifyBankAccount = async (req, res, next) => {
               }
             }
 
-            lastErrorMessage = toErrorMessage(body, response.status);
+            captureProviderError(toErrorDetails(body, response.status, endpoint));
           } catch (err) {
-            lastErrorMessage = err.message || 'Bank account verification failed.';
+            captureProviderError({
+              statusCode: null,
+              code: '',
+              message: err.message || 'Bank account verification failed.',
+              endpoint,
+            });
           }
         }
       }
@@ -562,9 +636,14 @@ exports.verifyBankAccount = async (req, res, next) => {
           break;
         }
 
-        lastErrorMessage = toErrorMessage(authBody, authResponse.status);
+        captureProviderError(toErrorDetails(authBody, authResponse.status, authEndpoint));
       } catch (err) {
-        lastErrorMessage = err.message || 'Unable to authorize payout verification.';
+        captureProviderError({
+          statusCode: null,
+          code: '',
+          message: err.message || 'Unable to authorize payout verification.',
+          endpoint: authEndpoint,
+        });
       }
     }
 
@@ -600,9 +679,14 @@ exports.verifyBankAccount = async (req, res, next) => {
               }
             }
 
-            lastErrorMessage = toErrorMessage(body, response.status);
+            captureProviderError(toErrorDetails(body, response.status, endpoint));
           } catch (err) {
-            lastErrorMessage = err.message || 'Bank account verification failed.';
+            captureProviderError({
+              statusCode: null,
+              code: '',
+              message: err.message || 'Bank account verification failed.',
+              endpoint,
+            });
           }
         }
       }
@@ -610,6 +694,36 @@ exports.verifyBankAccount = async (req, res, next) => {
 
     const rawError = String(lastErrorMessage || '').trim();
     const normalizedError = rawError.toLowerCase();
+    const hasProviderError = (matcher) =>
+      providerErrors.some((entry) => matcher(entry, `${entry.code} ${entry.message}`.toLowerCase()));
+
+    const isServiceNotEnabled = hasProviderError((entry, combined) =>
+      combined.includes('service not enabled') ||
+      (entry.code === 'invalid_request' && combined.includes('enabled'))
+    );
+
+    const isIpNotWhitelisted = hasProviderError((_, combined) =>
+      combined.includes('ip_validation_failed') || combined.includes('ip not whitelisted')
+    );
+
+    const isSignatureMissing = hasProviderError((_, combined) =>
+      combined.includes('x-cf-signature missing')
+    );
+
+    const isCredentialInvalid = hasProviderError((_, combined) =>
+      combined.includes('x-client-secret_value_invalid') ||
+      combined.includes('invalid clientid and clientsecret combination')
+    );
+
+    const isProviderRateLimited = hasProviderError((_, combined) =>
+      combined.includes('too_many_requests_per_operation') ||
+      combined.includes('too_many_requests_per_ip')
+    );
+
+    const isInsufficientBalance = hasProviderError((_, combined) =>
+      combined.includes('insufficient_balance')
+    );
+
     const isProviderInfraIssue =
       normalizedError.includes('token is not valid') ||
       normalizedError.includes('something went wrong') ||
@@ -617,6 +731,48 @@ exports.verifyBankAccount = async (req, res, next) => {
       normalizedError.includes('api_error') ||
       normalizedError.includes('endpoint or method is not valid') ||
       normalizedError.includes('route not found');
+
+    if (isProviderRateLimited) {
+      return res.status(429).json({
+        success: false,
+        message: 'Bank verification is temporarily rate-limited by provider. Please try again shortly.',
+      });
+    }
+
+    if (isServiceNotEnabled) {
+      return res.status(503).json({
+        success: false,
+        message: 'Bank verification is not enabled on the configured Cashfree account. Please contact Cashfree support to enable Secure ID BAV v2 for production.',
+      });
+    }
+
+    if (isIpNotWhitelisted) {
+      return res.status(503).json({
+        success: false,
+        message: 'Cashfree rejected this request due to IP whitelist settings. Please whitelist this server IP in Secure ID 2FA settings.',
+      });
+    }
+
+    if (isSignatureMissing) {
+      return res.status(503).json({
+        success: false,
+        message: 'Cashfree Secure ID requires x-cf-signature in Public Key mode. Configure CASHFREE_VRS_PUBLIC_KEY or switch 2FA method to IP Whitelist.',
+      });
+    }
+
+    if (isCredentialInvalid) {
+      return res.status(503).json({
+        success: false,
+        message: 'Cashfree verification credentials are invalid for this environment. Please check VRS client ID and client secret.',
+      });
+    }
+
+    if (isInsufficientBalance) {
+      return res.status(503).json({
+        success: false,
+        message: 'Cashfree verification balance is insufficient. Please recharge Secure ID wallet and try again.',
+      });
+    }
 
     const publicErrorMessage = isProviderInfraIssue
       ? 'Live bank verification service is temporarily unavailable. Please try again later.'
