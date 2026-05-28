@@ -53,9 +53,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _verifiedGender;
   int _ifscLookupRequestId = 0;
   int _accountLookupRequestId = 0;
+  Timer? _accountLookupDebounce;
   String _lastVerifiedAccountKey = '';
   String _lastRequestedAccountKey = '';
   String _lastRequestedIfsc = '';
+
+  bool get _isIfscResolved =>
+      (_ifscBankName?.trim().isNotEmpty == true) ||
+      (_ifscBranch?.trim().isNotEmpty == true);
+
+  void _resetAccountLookupState({bool resetKeys = true}) {
+    _isAccountLookupLoading = false;
+    _accountHolderName = null;
+    _accountLookupError = null;
+    _accountLookupInfo = null;
+    if (resetKeys) {
+      _lastRequestedAccountKey = '';
+      _lastVerifiedAccountKey = '';
+    }
+  }
+
+  void _scheduleAccountVerification() {
+    _accountLookupDebounce?.cancel();
+    _accountLookupDebounce = Timer(const Duration(milliseconds: 350), () {
+      if (!mounted) return;
+      _verifyBankAccountHolder();
+    });
+  }
 
   String? _normalizeGender(String? raw) {
     final value = (raw ?? '').trim().toLowerCase();
@@ -247,6 +271,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscBankName = null;
           _ifscBranch = null;
           _ifscLookupError = null;
+          _resetAccountLookupState();
           _isIfscLoading = false;
         });
       }
@@ -260,6 +285,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _bankNameCtrl.clear();
           _ifscBankName = null;
           _ifscBranch = null;
+          _resetAccountLookupState();
           _ifscLookupError = 'Invalid IFSC format';
           _isIfscLoading = false;
         });
@@ -276,6 +302,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     if (mounted) {
       setState(() {
         _isIfscLoading = true;
+        _resetAccountLookupState();
         _ifscLookupError = null;
       });
     }
@@ -295,6 +322,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscLookupError = null;
           _bankNameCtrl.text = bank;
         });
+        _scheduleAccountVerification();
       } else {
         final fallback = await _lookupIfscFromPublicApi(ifsc);
         if (!mounted || requestId != _ifscLookupRequestId) return;
@@ -307,12 +335,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _ifscLookupError = null;
             _bankNameCtrl.text = fallback['bank']!;
           });
+          _scheduleAccountVerification();
         } else {
           setState(() {
             _lastRequestedIfsc = '';
             _bankNameCtrl.clear();
             _ifscBankName = null;
             _ifscBranch = null;
+            _resetAccountLookupState();
             _ifscLookupError =
                 (response['message'] ?? 'Unable to validate IFSC').toString();
           });
@@ -330,12 +360,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscLookupError = null;
           _bankNameCtrl.text = fallback['bank']!;
         });
+        _scheduleAccountVerification();
       } else {
         setState(() {
           _lastRequestedIfsc = '';
           _bankNameCtrl.clear();
           _ifscBankName = null;
           _ifscBranch = null;
+          _resetAccountLookupState();
           _ifscLookupError = 'Unable to validate IFSC right now';
         });
       }
@@ -415,15 +447,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
-    final ifscValidated = (_ifscBankName?.trim().isNotEmpty == true) ||
-        (_ifscBranch?.trim().isNotEmpty == true);
+    final ifscValidated = _isIfscResolved;
     if (!ifscValidated) {
       if (mounted) {
         setState(() {
-          _isAccountLookupLoading = false;
-          _accountHolderName = null;
-          _accountLookupError = null;
-          _accountLookupInfo = null;
+          _resetAccountLookupState();
         });
       }
       return;
@@ -651,6 +679,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   void dispose() {
+    _accountLookupDebounce?.cancel();
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _panCtrl.dispose();
@@ -1224,104 +1253,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         border: Border.all(color: Colors.blue.withAlpha(45)),
                       ),
                       child: Text(
-                        _ifscBankName != null || _ifscBranch != null
+                        _isIfscResolved
                             ? 'Bank: ${_ifscBankName ?? '-'}\nBranch: ${_ifscBranch ?? '-'}'
                             : 'Bank name and branch are fetched automatically from IFSC code.',
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
                   ),
-                  _FormField(
-                    controller: _bankAccCtrl,
-                    label: 'Account Number',
-                    icon: Icons.numbers_outlined,
-                    keyboardType: TextInputType.number,
-                    enabled: !isProfileLocked,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(20),
-                    ],
-                    onChanged: (_) {
-                      setState(() {
-                        _accountHolderName = null;
-                        _accountLookupError = null;
-                        _accountLookupInfo = null;
-                        _lastRequestedAccountKey = '';
-                        _lastVerifiedAccountKey = '';
-                      });
-                      _verifyBankAccountHolder();
-                    },
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty)
-                        return 'Account Number is required';
-                      if (!RegExp(r'^\d{9,20}$').hasMatch(v.trim())) {
-                        return 'Enter a valid account number';
-                      }
-                      return null;
-                    },
-                  ),
-                  if (_accountLookupInfo != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                      child: Text(
-                        _accountLookupInfo!,
-                        style: const TextStyle(
-                            color: Colors.black54, fontSize: 11),
-                      ),
-                    ),
-                  if (_isAccountLookupLoading)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          SizedBox(width: 8),
-                          Text('Verifying account holder...'),
-                        ],
-                      ),
-                    )
-                  else if (_accountHolderName != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withAlpha(14),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.green.withAlpha(45)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Verified account holder',
-                              style: TextStyle(
-                                  fontSize: 11, color: Colors.black54),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _accountHolderName!,
-                              style: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w700),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else if (_accountLookupError != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                      child: Text(
-                        _accountLookupError!,
-                        style: const TextStyle(color: Colors.red, fontSize: 11),
-                      ),
-                    ),
-                  const Divider(height: 1),
                   _FormField(
                     controller: _bankIfscCtrl,
                     label: 'IFSC Code',
@@ -1364,7 +1302,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ],
                       ),
                     )
-                  else if (_ifscBankName != null || _ifscBranch != null)
+                  else if (_isIfscResolved)
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: Container(
@@ -1396,6 +1334,102 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       child: Text(_ifscLookupError!,
                           style:
                               const TextStyle(color: Colors.red, fontSize: 11)),
+                    ),
+                  const Divider(height: 1),
+                  if (_isIfscResolved) ...[
+                    _FormField(
+                      controller: _bankAccCtrl,
+                      label: 'Account Number',
+                      icon: Icons.numbers_outlined,
+                      keyboardType: TextInputType.number,
+                      enabled: !isProfileLocked,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(20),
+                      ],
+                      onChanged: (_) {
+                        setState(() => _resetAccountLookupState());
+                        _scheduleAccountVerification();
+                      },
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty)
+                          return 'Account Number is required';
+                        if (!RegExp(r'^\d{9,20}$').hasMatch(v.trim())) {
+                          return 'Enter a valid account number';
+                        }
+                        return null;
+                      },
+                    ),
+                    if (_accountLookupInfo != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: Text(
+                          _accountLookupInfo!,
+                          style: const TextStyle(
+                              color: Colors.black54, fontSize: 11),
+                        ),
+                      ),
+                    if (_isAccountLookupLoading)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 8),
+                            Text('Verifying account holder...'),
+                          ],
+                        ),
+                      )
+                    else if (_accountHolderName != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withAlpha(14),
+                            borderRadius: BorderRadius.circular(10),
+                            border:
+                                Border.all(color: Colors.green.withAlpha(45)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Verified account holder',
+                                style: TextStyle(
+                                    fontSize: 11, color: Colors.black54),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                _accountHolderName!,
+                                style: const TextStyle(
+                                    fontSize: 12, fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    else if (_accountLookupError != null)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: Text(
+                          _accountLookupError!,
+                          style:
+                              const TextStyle(color: Colors.red, fontSize: 11),
+                        ),
+                      ),
+                  ] else
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(16, 10, 16, 12),
+                      child: Text(
+                        'Enter a valid IFSC first to unlock account verification.',
+                        style: TextStyle(color: Colors.black54, fontSize: 11),
+                      ),
                     ),
                 ]),
                 const SizedBox(height: 16),
