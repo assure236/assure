@@ -6,6 +6,24 @@ const { uploadToGridFS } = require('../utils/gridfs');
 const { audit, getIp } = require('../utils/audit');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
+const bankVerifyAttempts = new Map();
+const BANK_VERIFY_WINDOW_MS = 10 * 60 * 1000;
+const BANK_VERIFY_MAX_ATTEMPTS = 8;
+
+const isBankVerifyRateLimited = (userId) => {
+  const key = String(userId || 'anonymous');
+  const now = Date.now();
+  const cutoff = now - BANK_VERIFY_WINDOW_MS;
+  const attempts = (bankVerifyAttempts.get(key) || []).filter((t) => t > cutoff);
+  if (attempts.length >= BANK_VERIFY_MAX_ATTEMPTS) {
+    bankVerifyAttempts.set(key, attempts);
+    return true;
+  }
+  attempts.push(now);
+  bankVerifyAttempts.set(key, attempts);
+  return false;
+};
+
 exports.getProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id || req.user.id).select('-password_hash');
@@ -337,12 +355,20 @@ exports.verifyBankAccount = async (req, res, next) => {
   try {
     const accountNumber = String(req.body.account_number || req.body.bank_account_number || '').trim();
     const ifsc = String(req.body.ifsc || req.body.bank_ifsc_code || '').trim().toUpperCase();
+    const requesterId = req.user && (req.user._id || req.user.id);
 
     if (!/^\d{9,20}$/.test(accountNumber)) {
       return res.status(400).json({ success: false, message: 'Invalid bank account number format.' });
     }
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) {
       return res.status(400).json({ success: false, message: 'Invalid IFSC format.' });
+    }
+
+    if (isBankVerifyRateLimited(requesterId)) {
+      return res.status(429).json({
+        success: false,
+        message: 'Too many verification attempts. Please wait a few minutes and try again.',
+      });
     }
 
     const clientId = process.env.CASHFREE_APP_ID || '';
@@ -358,27 +384,139 @@ exports.verifyBankAccount = async (req, res, next) => {
       });
     }
 
-    const baseUrl = process.env.CASHFREE_ENV === 'PROD'
+    const isProd = process.env.CASHFREE_ENV === 'PROD';
+    const baseUrl = isProd
       ? 'https://api.cashfree.com'
       : 'https://sandbox.cashfree.com';
+    const payoutAuthFallbackBase = isProd
+      ? 'https://payout-api.cashfree.com'
+      : 'https://payout-gamma.cashfree.com';
 
-    const endpoints = [
-      process.env.BANK_ACCOUNT_VERIFICATION_URL || `${baseUrl}/verification/bank-account`,
-      `${baseUrl}/verification/bank-account/sync`,
+    const payloadVariants = [
+      { bank_account: accountNumber, ifsc },
+      { bank_account_number: accountNumber, ifsc },
+      { account_number: accountNumber, ifsc },
     ];
 
-    const payload = {
-      bank_account: accountNumber,
-      ifsc,
+    const unique = (items) => [...new Set(items.filter(Boolean))];
+
+    const parseVerificationData = (body, statusCode) => {
+      const root = body && typeof body === 'object' ? body : {};
+      const data = root.data && typeof root.data === 'object'
+        ? root.data
+        : root.result && typeof root.result === 'object'
+          ? root.result
+          : root;
+
+      const ifscDetails = data.ifsc_details && typeof data.ifsc_details === 'object'
+        ? data.ifsc_details
+        : {};
+
+      const accountHolderName =
+        (data.account_holder_name || data.name_at_bank || data.account_name || data.beneficiary_name || data.registered_name || data.name || '').toString().trim() ||
+        null;
+
+      const bankName =
+        (data.bank_name || data.bank || data.bankName || ifscDetails.bank_name || '').toString().trim() ||
+        null;
+
+      const branch =
+        (data.branch || data.branch_name || data.branchName || ifscDetails.branch || '').toString().trim() ||
+        null;
+
+      const accountStatus = (data.account_status || data.status || root.status || '').toString().trim().toUpperCase();
+      const verified =
+        data.verified === true ||
+        data.valid === true ||
+        accountStatus === 'VALID' ||
+        accountStatus === 'VERIFIED' ||
+        accountStatus === 'SUCCESS' ||
+        (!!accountHolderName && statusCode >= 200 && statusCode < 300);
+
+      return {
+        verified,
+        accountHolderName,
+        bankName,
+        branch,
+      };
     };
+
+    const toErrorMessage = (body, statusCode) => {
+      const root = body && typeof body === 'object' ? body : {};
+      return (
+        root.message ||
+        root.error ||
+        root.type ||
+        `Bank account verification failed (status ${statusCode}).`
+      );
+    };
+
+    const toSuccessResponse = (parsed, provider) => res.json({
+      success: true,
+      data: {
+        verified: parsed.verified,
+        account_holder_name: parsed.accountHolderName,
+        bank_name: parsed.bankName,
+        branch: parsed.branch,
+        ifsc,
+        account_number_masked: `XXXXXX${accountNumber.slice(-4)}`,
+        provider,
+      },
+    });
 
     let lastErrorMessage = null;
 
-    for (const endpoint of endpoints) {
+    const directEndpoints = unique([
+      process.env.BANK_ACCOUNT_VERIFICATION_URL,
+      `${baseUrl}/verification/bank-account`,
+      `${baseUrl}/verification/bank-account/sync`,
+    ]);
+
+    for (const endpoint of directEndpoints) {
+      for (const payload of payloadVariants) {
+        try {
+          const response = await axios.post(endpoint, payload, {
+            headers: {
+              'x-api-version': process.env.CASHFREE_API_VERSION || '2023-08-01',
+              'x-client-id': clientId,
+              'x-client-secret': clientSecret,
+              'Content-Type': 'application/json',
+            },
+            timeout: 12000,
+            validateStatus: () => true,
+          });
+
+          const body = response.data && typeof response.data === 'object'
+            ? response.data
+            : {};
+
+          if (response.status >= 200 && response.status < 300) {
+            const parsed = parseVerificationData(body, response.status);
+            const hasData = !!(parsed.accountHolderName || parsed.bankName || parsed.branch);
+
+            if (parsed.verified || hasData) {
+              return toSuccessResponse(parsed, 'cashfree');
+            }
+          }
+
+          lastErrorMessage = toErrorMessage(body, response.status);
+        } catch (err) {
+          lastErrorMessage = err.message || 'Bank account verification failed.';
+        }
+      }
+    }
+
+    const payoutAuthEndpoints = unique([
+      process.env.CASHFREE_PAYOUT_AUTH_URL,
+      `${baseUrl}/payout/v1/authorize`,
+      `${payoutAuthFallbackBase}/payout/v1/authorize`,
+    ]);
+
+    let payoutToken = null;
+    for (const authEndpoint of payoutAuthEndpoints) {
       try {
-        const response = await axios.post(endpoint, payload, {
+        const authResponse = await axios.post(authEndpoint, {}, {
           headers: {
-            'x-api-version': process.env.CASHFREE_API_VERSION || '2023-08-01',
             'x-client-id': clientId,
             'x-client-secret': clientSecret,
             'Content-Type': 'application/json',
@@ -387,72 +525,73 @@ exports.verifyBankAccount = async (req, res, next) => {
           validateStatus: () => true,
         });
 
-        const body = response.data && typeof response.data === 'object'
-          ? response.data
+        const authBody = authResponse.data && typeof authResponse.data === 'object'
+          ? authResponse.data
           : {};
 
-        if (response.status >= 200 && response.status < 300) {
-          const data = body.data && typeof body.data === 'object'
-            ? body.data
-            : body.result && typeof body.result === 'object'
-              ? body.result
-              : body;
+        payoutToken =
+          (authBody.data && authBody.data.token) ||
+          authBody.token ||
+          null;
 
-          const ifscDetails = data.ifsc_details && typeof data.ifsc_details === 'object'
-            ? data.ifsc_details
-            : {};
-
-          const accountHolderName =
-            (data.account_holder_name || data.name_at_bank || data.account_name || data.beneficiary_name || data.registered_name || data.name || '').toString().trim() ||
-            null;
-
-          const bankName =
-            (data.bank_name || data.bank || data.bankName || ifscDetails.bank_name || '').toString().trim() ||
-            null;
-
-          const branch =
-            (data.branch || data.branch_name || data.branchName || ifscDetails.branch || '').toString().trim() ||
-            null;
-
-          const accountStatus = (data.account_status || data.status || '').toString().trim().toUpperCase();
-          const verified =
-            data.verified === true ||
-            data.valid === true ||
-            accountStatus === 'VALID' ||
-            accountStatus === 'VERIFIED' ||
-            (!!accountHolderName && response.status < 300);
-
-          return res.json({
-            success: true,
-            data: {
-              verified,
-              account_holder_name: accountHolderName,
-              bank_name: bankName,
-              branch,
-              ifsc,
-              account_number_masked: `XXXXXX${accountNumber.slice(-4)}`,
-              provider: 'cashfree',
-            },
-          });
+        if (payoutToken) {
+          break;
         }
 
-        lastErrorMessage =
-          body.message ||
-          body.error ||
-          `Bank account verification failed (status ${response.status}).`;
+        lastErrorMessage = toErrorMessage(authBody, authResponse.status);
       } catch (err) {
-        lastErrorMessage = err.message || 'Bank account verification failed.';
+        lastErrorMessage = err.message || 'Unable to authorize payout verification.';
+      }
+    }
+
+    if (payoutToken) {
+      const payoutVerificationEndpoints = unique([
+        process.env.BANK_ACCOUNT_VERIFICATION_PAYOUT_URL,
+        `${baseUrl}/payout/verification/bank-account`,
+        `${baseUrl}/payout/verification/bank-account/sync`,
+      ]);
+
+      for (const endpoint of payoutVerificationEndpoints) {
+        for (const payload of payloadVariants) {
+          try {
+            const response = await axios.post(endpoint, payload, {
+              headers: {
+                Authorization: `Bearer ${payoutToken}`,
+                'Content-Type': 'application/json',
+              },
+              timeout: 12000,
+              validateStatus: () => true,
+            });
+
+            const body = response.data && typeof response.data === 'object'
+              ? response.data
+              : {};
+
+            if (response.status >= 200 && response.status < 300) {
+              const parsed = parseVerificationData(body, response.status);
+              const hasData = !!(parsed.accountHolderName || parsed.bankName || parsed.branch);
+
+              if (parsed.verified || hasData) {
+                return toSuccessResponse(parsed, 'cashfree_payout');
+              }
+            }
+
+            lastErrorMessage = toErrorMessage(body, response.status);
+          } catch (err) {
+            lastErrorMessage = err.message || 'Bank account verification failed.';
+          }
+        }
       }
     }
 
     return res.status(502).json({
       success: false,
-      message: lastErrorMessage || 'Unable to verify bank account right now. Please try again.',
+      message: lastErrorMessage || 'Live bank verification service is temporarily unavailable. Please try again later.',
     });
   } catch (err) {
     return res.status(503).json({
       success: false,
-      message: 'Unable to verify bank account right now. Please try again.',
+      message: 'Live bank verification service is temporarily unavailable. Please try again later.',
     });
   }
 };
