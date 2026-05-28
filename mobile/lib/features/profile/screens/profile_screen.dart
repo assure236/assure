@@ -43,28 +43,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const SizedBox(height: 16),
-                        // Generic icon only. Personal profile details are hidden on More page.
-                        const CircleAvatar(
-                          radius: 44,
-                          backgroundColor: Colors.white24,
-                          child: Icon(
-                            Icons.menu_rounded,
-                            color: Colors.white,
-                            size: 36,
+                        // Keep profile avatar in header only; body remains field-free.
+                        GestureDetector(
+                          onTap: () => context.push('/edit-profile'),
+                          child: Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              (user?.profileImageUrl != null &&
+                                      user!.profileImageUrl!.isNotEmpty)
+                                  ? CircleAvatar(
+                                      radius: 44,
+                                      backgroundColor: Colors.white24,
+                                      backgroundImage:
+                                          NetworkImage(user.profileImageUrl!),
+                                    )
+                                  : CircleAvatar(
+                                      radius: 44,
+                                      backgroundColor: Colors.white24,
+                                      child: Text(
+                                        user != null && user.fullName.isNotEmpty
+                                            ? user.fullName[0].toUpperCase()
+                                            : '?',
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 36,
+                                            fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: const BoxDecoration(
+                                    color: AppTheme.secondaryColor,
+                                    shape: BoxShape.circle),
+                                child: const Icon(Icons.edit,
+                                    size: 14, color: Colors.white),
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 10),
-                        const Text(
-                          'More',
+                        Text(
+                          user?.fullName ?? 'Member',
                           style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 18),
                         ),
-                        const Text(
-                          'Quick Actions & Settings',
-                          style: TextStyle(color: Colors.white60, fontSize: 12),
-                        ),
+                        if (user?.memberId != null)
+                          Text(
+                            'ID: ${user!.memberId}',
+                            style: const TextStyle(
+                                color: Colors.white60, fontSize: 12),
+                          )
+                        else
+                          const Text(
+                            'Quick Actions & Settings',
+                            style:
+                                TextStyle(color: Colors.white60, fontSize: 12),
+                          ),
                       ],
                     ),
                   ),
@@ -82,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _MenuItem(
                         icon: Icons.shield_outlined,
                         label: 'KYC & Documents',
-                        subtitle: _kycLabel(user?.kycStatus),
+                        subtitle: 'Verify identity and manage documents',
                         onTap: () => context.push('/kyc'),
                       ),
                       _MenuItem(
@@ -106,9 +142,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _MenuItem(
                         icon: Icons.card_giftcard,
                         label: 'Refer & Earn',
-                        subtitle: user?.referralCode != null
-                            ? 'Code: ${user!.referralCode}'
-                            : 'Earn rewards',
+                        subtitle: 'Invite and earn rewards',
                         onTap: () => context.push('/referrals'),
                       ),
                       _MenuItem(
@@ -377,20 +411,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (context.mounted) context.go('/welcome');
   }
 
-  String _kycLabel(String? status) {
-    switch (status) {
-      case 'verified':
-        return 'Verified';
-      case 'pending':
-        return 'Under Review';
-      case 'rejected':
-        return 'Rejected';
-      case 'not_verified':
-        return 'Not Verified';
-      default:
-        return 'Not Verified';
-    }
-  }
 }
 
 class _SectionCard extends StatelessWidget {

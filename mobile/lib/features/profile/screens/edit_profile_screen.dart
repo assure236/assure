@@ -45,6 +45,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String? _verifiedDobIso;
   String? _verifiedGender;
 
+  String? _normalizeGender(String? raw) {
+    final value = (raw ?? '').trim().toLowerCase();
+    if (value.isEmpty) return null;
+    if (value == 'm' || value == 'male') return 'male';
+    if (value == 'f' || value == 'female') return 'female';
+    if (value == 'o' || value == 'other') return 'other';
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -56,7 +65,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _cityCtrl = TextEditingController(text: user?.city ?? '');
     _stateCtrl = TextEditingController(text: user?.state ?? '');
     _pincodeCtrl = TextEditingController(text: user?.pincode ?? '');
-    _dobCtrl = TextEditingController(text: user?.dateOfBirth ?? '');
+    _dobCtrl =
+        TextEditingController(text: _normalizeDate(user?.dateOfBirth) ?? '');
     _nomineeNameCtrl = TextEditingController(text: user?.nomineeName ?? '');
     _nomineeRelCtrl =
         TextEditingController(text: user?.nomineeRelationship ?? '');
@@ -69,9 +79,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _currentStateCtrl = TextEditingController(text: user?.currentState ?? '');
     _currentPincodeCtrl =
         TextEditingController(text: user?.currentPincode ?? '');
-    _selectedGender = user?.gender;
+    _selectedGender = _normalizeGender(user?.gender);
     _verifiedDobIso = _normalizeDate(user?.dateOfBirth);
-    _verifiedGender = user?.gender?.toLowerCase();
+    _verifiedGender = _normalizeGender(user?.gender);
     _selectedBankName = user?.bankName?.trim().isNotEmpty == true
         ? user!.bankName!.trim()
         : null;
@@ -143,12 +153,144 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   Future<void> _fetchKycStatus() async {
     try {
+      final auth = context.read<AuthProvider>();
       final res = await ApiService.get('/kyc/status');
       if (res['success'] == true && mounted) {
-        setState(() => _digilockerConnected =
-            res['data']?['digilocker_connected'] == true);
+        final connected = res['data']?['digilocker_connected'] == true;
+
+        String? verifiedDob = _verifiedDobIso;
+        String? verifiedGender = _verifiedGender;
+        String? verifiedPan;
+        if (connected) {
+          await auth.refreshProfile();
+          final refreshedUser = auth.user;
+          verifiedDob = _normalizeDate(refreshedUser?.dateOfBirth);
+          verifiedGender = _normalizeGender(refreshedUser?.gender);
+          verifiedPan = (refreshedUser?.panNumber ?? '').trim().toUpperCase();
+        }
+
+        if (!mounted) return;
+        setState(() {
+          _digilockerConnected = connected;
+          _verifiedDobIso = verifiedDob;
+          _verifiedGender = verifiedGender;
+          if (verifiedDob != null) {
+            _dobCtrl.text = verifiedDob;
+          }
+          if (verifiedGender != null) {
+            _selectedGender = verifiedGender;
+          }
+          if (verifiedPan != null && verifiedPan.isNotEmpty) {
+            _panCtrl.text = verifiedPan;
+          }
+        });
       }
     } catch (_) {}
+  }
+
+  Future<void> _pickBankName(List<String> banks) async {
+    if (banks.isEmpty) return;
+    var query = '';
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final filtered = banks
+                .where(
+                    (bank) => bank.toLowerCase().contains(query.toLowerCase()))
+                .toList();
+            return SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(ctx).size.height * 0.62,
+                child: Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade400,
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Select Bank',
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: TextField(
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Search bank name',
+                          prefixIcon: const Icon(Icons.search),
+                          isDense: true,
+                          filled: true,
+                          fillColor: Colors.grey.shade100,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setModalState(() {
+                            query = value.trim();
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(child: Text('No banks found'))
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+                              itemBuilder: (_, index) {
+                                final bank = filtered[index];
+                                return ListTile(
+                                  dense: true,
+                                  title: Text(
+                                    bank,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(fontSize: 13),
+                                  ),
+                                  onTap: () => Navigator.of(ctx).pop(bank),
+                                );
+                              },
+                              separatorBuilder: (_, __) =>
+                                  const Divider(height: 1),
+                              itemCount: filtered.length,
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted || selected == null) return;
+    setState(() {
+      _selectedBankName = selected;
+      _bankNameCtrl.text = selected;
+    });
   }
 
   Future<void> _pickDateOfBirth() async {
@@ -393,6 +535,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final profileStatus = (user?.profileEditStatus ?? 'none').toString();
     final isProfileLocked =
         profileStatus == 'pending' || profileStatus == 'approved';
+    final isDobLocked = isProfileLocked ||
+        (_digilockerConnected && (_verifiedDobIso?.trim().isNotEmpty ?? false));
+    final isGenderLocked = isProfileLocked ||
+        (_digilockerConnected && (_verifiedGender?.trim().isNotEmpty ?? false));
     final rejectionFields = (user?.profileEditRejectionFields ??
                 user?.raw?['profile_edit_rejection_fields'] as List?)
             ?.map((e) => e.toString())
@@ -682,10 +828,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     hint: 'DD/MM/YYYY',
                     keyboardType: TextInputType.datetime,
                     readOnly: true,
-                    enabled: !isProfileLocked && !_digilockerConnected,
-                    onTap: (isProfileLocked || _digilockerConnected)
-                        ? null
-                        : _pickDateOfBirth,
+                    enabled: !isDobLocked,
+                    onTap: isDobLocked ? null : _pickDateOfBirth,
                     validator: (v) => _requiredValidator(v, 'Date of Birth'),
                   ),
                   const Divider(height: 1),
@@ -705,7 +849,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             value: 'female', child: Text('Female')),
                         DropdownMenuItem(value: 'other', child: Text('Other')),
                       ],
-                      onChanged: (isProfileLocked || _digilockerConnected)
+                      onChanged: isGenderLocked
                           ? null
                           : (value) => setState(() => _selectedGender = value),
                       validator: (v) {
@@ -716,7 +860,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       },
                     ),
                   ),
-                  if (_digilockerConnected)
+                  if (_digilockerConnected && (isDobLocked || isGenderLocked))
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       child: Text(
@@ -928,29 +1072,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _buildFormCard([
                   Padding(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedBankName,
-                      isExpanded: true,
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: TextFormField(
+                      controller: _bankNameCtrl,
+                      readOnly: true,
+                      enabled: !isProfileLocked,
+                      onTap: isProfileLocked
+                          ? null
+                          : () => _pickBankName(sortedBanks),
                       decoration: const InputDecoration(
                         labelText: 'Bank Name',
                         prefixIcon:
                             Icon(Icons.account_balance_outlined, size: 20),
+                        suffixIcon: Icon(Icons.search, size: 20),
                         border: InputBorder.none,
                       ),
-                      items: sortedBanks
-                          .map((bank) => DropdownMenuItem<String>(
-                                value: bank,
-                                child:
-                                    Text(bank, overflow: TextOverflow.ellipsis),
-                              ))
-                          .toList(),
-                      onChanged: isProfileLocked
-                          ? null
-                          : (value) {
-                              setState(() => _selectedBankName = value);
-                              _bankNameCtrl.text = value ?? '';
-                            },
                       validator: (v) => _requiredValidator(v, 'Bank Name'),
                     ),
                   ),
@@ -965,6 +1101,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       FilteringTextInputFormatter.digitsOnly,
                       LengthLimitingTextInputFormatter(18),
                     ],
+                    onChanged: (_) {
+                      setState(() {});
+                    },
                     validator: (v) {
                       if (v == null || v.trim().isEmpty)
                         return 'Account Number is required';
@@ -974,6 +1113,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       return null;
                     },
                   ),
+                  if (_bankAccCtrl.text.trim().length >= 9)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withAlpha(14),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.blue.withAlpha(45)),
+                        ),
+                        child: Text(
+                          'Account holder: ${_nameCtrl.text.trim().isEmpty ? 'Member' : _nameCtrl.text.trim()}',
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
                   const Divider(height: 1),
                   _FormField(
                     controller: _bankIfscCtrl,
