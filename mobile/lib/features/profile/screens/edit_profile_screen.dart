@@ -248,12 +248,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscBranch = null;
           _ifscLookupError = null;
           _isIfscLoading = false;
-          if (RegExp(r'^\d{9,20}$').hasMatch(_bankAccCtrl.text.trim())) {
-            _accountLookupInfo =
-                'Enter complete IFSC to fetch account holder name.';
-          } else {
-            _accountLookupInfo = null;
-          }
         });
       }
       return;
@@ -268,12 +262,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscBranch = null;
           _ifscLookupError = 'Invalid IFSC format';
           _isIfscLoading = false;
-          if (RegExp(r'^\d{9,20}$').hasMatch(_bankAccCtrl.text.trim())) {
-            _accountLookupInfo =
-                'Enter valid IFSC to fetch account holder name.';
-          } else {
-            _accountLookupInfo = null;
-          }
         });
       }
       return;
@@ -306,9 +294,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscBranch = branch.isNotEmpty ? branch : null;
           _ifscLookupError = null;
           _bankNameCtrl.text = bank;
-          _accountLookupInfo = null;
         });
-        _verifyBankAccountHolder();
       } else {
         final fallback = await _lookupIfscFromPublicApi(ifsc);
         if (!mounted || requestId != _ifscLookupRequestId) return;
@@ -320,9 +306,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 fallback['branch']!.isNotEmpty ? fallback['branch'] : null;
             _ifscLookupError = null;
             _bankNameCtrl.text = fallback['bank']!;
-            _accountLookupInfo = null;
           });
-          _verifyBankAccountHolder();
         } else {
           setState(() {
             _lastRequestedIfsc = '';
@@ -331,10 +315,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             _ifscBranch = null;
             _ifscLookupError =
                 (response['message'] ?? 'Unable to validate IFSC').toString();
-            if (RegExp(r'^\d{9,20}$').hasMatch(_bankAccCtrl.text.trim())) {
-              _accountLookupInfo =
-                  'Validate IFSC first to fetch account holder name.';
-            }
           });
         }
       }
@@ -349,9 +329,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               fallback['branch']!.isNotEmpty ? fallback['branch'] : null;
           _ifscLookupError = null;
           _bankNameCtrl.text = fallback['bank']!;
-          _accountLookupInfo = null;
         });
-        _verifyBankAccountHolder();
       } else {
         setState(() {
           _lastRequestedIfsc = '';
@@ -359,10 +337,6 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _ifscBankName = null;
           _ifscBranch = null;
           _ifscLookupError = 'Unable to validate IFSC right now';
-          if (RegExp(r'^\d{9,20}$').hasMatch(_bankAccCtrl.text.trim())) {
-            _accountLookupInfo =
-                'IFSC check failed. Please verify IFSC and try again.';
-          }
         });
       }
     } finally {
@@ -423,7 +397,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _isAccountLookupLoading = false;
           _accountHolderName = null;
           _accountLookupError = null;
-          _accountLookupInfo = 'Enter valid IFSC to fetch account holder name.';
+          _accountLookupInfo = null;
           _lastVerifiedAccountKey = '';
         });
       }
@@ -435,7 +409,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         setState(() {
           _isAccountLookupLoading = false;
           _accountLookupError = null;
-          _accountLookupInfo = 'Checking IFSC, please wait...';
+          _accountLookupInfo = null;
         });
       }
       return;
@@ -449,8 +423,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _isAccountLookupLoading = false;
           _accountHolderName = null;
           _accountLookupError = null;
-          _accountLookupInfo =
-              'Validate IFSC first to fetch account holder name.';
+          _accountLookupInfo = null;
         });
       }
       return;
@@ -493,10 +466,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
         setState(() {
           _accountHolderName = holder.isNotEmpty ? holder : null;
-          _accountLookupError = holder.isNotEmpty
-              ? null
-              : (response['message'] ?? 'Account could not be verified.')
-                  .toString();
+          _accountLookupError = null;
           _accountLookupInfo = holder.isNotEmpty
               ? null
               : 'Account holder not found for entered details.';
@@ -519,16 +489,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         final backendMessage = (response['message'] ??
                 'Unable to verify account holder right now.')
             .toString();
-        final isTransientFailure =
-            backendMessage.toLowerCase().contains('unable to verify') ||
-                backendMessage.toLowerCase().contains('failed') ||
-                backendMessage.toLowerCase().contains('right now');
         setState(() {
           _accountHolderName = null;
-          _accountLookupError = isTransientFailure
-              ? 'Verification service is temporarily busy. Please try again in a minute.'
-              : backendMessage;
-          _accountLookupInfo = null;
+          _accountLookupError = null;
+          _accountLookupInfo = backendMessage;
           _lastRequestedAccountKey = '';
           _lastVerifiedAccountKey = '';
         });
@@ -537,9 +501,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (!mounted || requestId != _accountLookupRequestId) return;
       setState(() {
         _accountHolderName = null;
-        _accountLookupError =
-            'Verification service is temporarily busy. Please try again in a minute.';
-        _accountLookupInfo = null;
+        _accountLookupError = null;
+        _accountLookupInfo = 'Could not verify account details right now.';
         _lastRequestedAccountKey = '';
         _lastVerifiedAccountKey = '';
       });
@@ -1352,7 +1315,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     textCapitalization: TextCapitalization.characters,
                     hint: 'SBIN0001234',
                     enabled: !isProfileLocked,
-                    onChanged: isProfileLocked ? null : _lookupIfsc,
+                    onChanged: isProfileLocked
+                        ? null
+                        : (value) {
+                            _lookupIfsc(value);
+                          },
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
                       LengthLimitingTextInputFormatter(11),
