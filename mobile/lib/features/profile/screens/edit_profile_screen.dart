@@ -489,10 +489,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         final backendMessage = (response['message'] ??
                 'Unable to verify account holder right now.')
             .toString();
+        final normalized = backendMessage.toLowerCase();
+        final userFriendly = normalized.contains('something went wrong') ||
+                normalized.contains('try after some time') ||
+                normalized.contains('unable to verify') ||
+                normalized.contains('failed') ||
+                normalized.contains('right now')
+            ? 'Could not verify this account right now. Please check number/IFSC and try again.'
+            : backendMessage;
         setState(() {
           _accountHolderName = null;
           _accountLookupError = null;
-          _accountLookupInfo = backendMessage;
+          _accountLookupInfo = userFriendly;
           _lastRequestedAccountKey = '';
           _lastVerifiedAccountKey = '';
         });
@@ -1234,7 +1242,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       LengthLimitingTextInputFormatter(20),
                     ],
                     onChanged: (_) {
-                      setState(() {});
+                      setState(() {
+                        _accountHolderName = null;
+                        _accountLookupError = null;
+                        _accountLookupInfo = null;
+                        _lastRequestedAccountKey = '';
+                        _lastVerifiedAccountKey = '';
+                      });
                       _verifyBankAccountHolder();
                     },
                     validator: (v) {
