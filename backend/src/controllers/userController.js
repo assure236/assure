@@ -375,18 +375,48 @@ exports.verifyBankAccount = async (req, res, next) => {
       });
     }
 
-    const clientId =
-      process.env.BANK_ACCOUNT_VERIFICATION_CLIENT_ID ||
-      process.env.CASHFREE_VRS_CLIENT_ID ||
-      process.env.CASHFREE_APP_ID || '';
-    const clientSecret =
-      process.env.BANK_ACCOUNT_VERIFICATION_CLIENT_SECRET ||
-      process.env.CASHFREE_VRS_CLIENT_SECRET ||
-      process.env.BANK_ACCOUNT_VERIFICATION_API_KEY ||
-      process.env.PAN_VERIFICATION_API_KEY ||
-      process.env.CASHFREE_SECRET_KEY || '';
+    const credentialPairsRaw = [
+      {
+        source: 'bank_verification',
+        id: process.env.BANK_ACCOUNT_VERIFICATION_CLIENT_ID || '',
+        secret: process.env.BANK_ACCOUNT_VERIFICATION_CLIENT_SECRET || '',
+      },
+      {
+        source: 'cashfree_vrs',
+        id: process.env.CASHFREE_VRS_CLIENT_ID || '',
+        secret: process.env.CASHFREE_VRS_CLIENT_SECRET || '',
+      },
+      {
+        source: 'cashfree_payment',
+        id: process.env.CASHFREE_APP_ID || '',
+        secret: process.env.CASHFREE_SECRET_KEY || '',
+      },
+      {
+        source: 'cashfree_payment_alt',
+        id: process.env.CASHFREE_APP_ID || '',
+        secret: process.env.BANK_ACCOUNT_VERIFICATION_API_KEY || process.env.PAN_VERIFICATION_API_KEY || '',
+      },
+    ];
 
-    if (!clientId || !clientSecret) {
+    const credentialPairs = [];
+    const credentialSeen = new Set();
+    for (const pair of credentialPairsRaw) {
+      const id = String(pair.id || '').trim();
+      const secret = String(pair.secret || '').trim();
+      if (!id || !secret) {
+        continue;
+      }
+
+      const dedupeKey = `${id}::${secret}`;
+      if (credentialSeen.has(dedupeKey)) {
+        continue;
+      }
+
+      credentialSeen.add(dedupeKey);
+      credentialPairs.push({ source: pair.source, id, secret });
+    }
+
+    if (!credentialPairs.length) {
       return res.status(503).json({
         success: false,
         message: 'Bank account verification is not configured right now.',
@@ -496,7 +526,7 @@ exports.verifyBankAccount = async (req, res, next) => {
       }
     };
 
-    const buildCfSignature = () => {
+    const buildCfSignature = (activeClientId) => {
       const publicKey = readSignaturePublicKey();
       if (!publicKey) {
         return null;
@@ -504,7 +534,7 @@ exports.verifyBankAccount = async (req, res, next) => {
 
       try {
         const unixNow = Math.floor(Date.now() / 1000);
-        const payload = `${clientId}.${unixNow}`;
+        const payload = `${activeClientId}.${unixNow}`;
         const encrypted = crypto.publicEncrypt(
           {
             key: publicKey,
@@ -543,150 +573,155 @@ exports.verifyBankAccount = async (req, res, next) => {
       }
     };
 
-    const directEndpoints = unique([
-      process.env.BANK_ACCOUNT_VERIFICATION_URL,
-      `${baseUrl}/verification/bank-account/sync`,
-      `${baseUrl}/verification/bank-account`,
-    ]);
+    for (const credentials of credentialPairs) {
+      const activeClientId = credentials.id;
+      const activeClientSecret = credentials.secret;
 
-    const directHeaderVariants = [
-      {
-        'x-client-id': clientId,
-        'x-client-secret': clientSecret,
-        'Content-Type': 'application/json',
-      },
-      {
-        'x-api-version': process.env.CASHFREE_API_VERSION || '2023-08-01',
-        'x-client-id': clientId,
-        'x-client-secret': clientSecret,
-        'Content-Type': 'application/json',
-      },
-    ];
+      const directEndpoints = unique([
+        process.env.BANK_ACCOUNT_VERIFICATION_URL,
+        `${baseUrl}/verification/bank-account/sync`,
+        `${baseUrl}/verification/bank-account`,
+      ]);
 
-    for (const endpoint of directEndpoints) {
-      for (const payload of payloadVariants) {
-        for (const headers of directHeaderVariants) {
-          const signature = buildCfSignature();
-          const requestHeaders = signature
-            ? { ...headers, 'x-cf-signature': signature }
-            : headers;
+      const directHeaderVariants = [
+        {
+          'x-client-id': activeClientId,
+          'x-client-secret': activeClientSecret,
+          'Content-Type': 'application/json',
+        },
+        {
+          'x-api-version': process.env.CASHFREE_API_VERSION || '2023-08-01',
+          'x-client-id': activeClientId,
+          'x-client-secret': activeClientSecret,
+          'Content-Type': 'application/json',
+        },
+      ];
 
-          try {
-            const response = await axios.post(endpoint, payload, {
-              headers: requestHeaders,
-              timeout: 12000,
-              validateStatus: () => true,
-            });
+      for (const endpoint of directEndpoints) {
+        for (const payload of payloadVariants) {
+          for (const headers of directHeaderVariants) {
+            const signature = buildCfSignature(activeClientId);
+            const requestHeaders = signature
+              ? { ...headers, 'x-cf-signature': signature }
+              : headers;
 
-            const body = response.data && typeof response.data === 'object'
-              ? response.data
-              : {};
+            try {
+              const response = await axios.post(endpoint, payload, {
+                headers: requestHeaders,
+                timeout: 12000,
+                validateStatus: () => true,
+              });
 
-            if (response.status >= 200 && response.status < 300) {
-              const parsed = parseVerificationData(body, response.status);
-              const hasData = !!(parsed.accountHolderName || parsed.bankName || parsed.branch);
+              const body = response.data && typeof response.data === 'object'
+                ? response.data
+                : {};
 
-              if (parsed.verified || hasData) {
-                return toSuccessResponse(parsed, 'cashfree');
+              if (response.status >= 200 && response.status < 300) {
+                const parsed = parseVerificationData(body, response.status);
+                const hasData = !!(parsed.accountHolderName || parsed.bankName || parsed.branch);
+
+                if (parsed.verified || hasData) {
+                  return toSuccessResponse(parsed, 'cashfree');
+                }
               }
-            }
 
-            captureProviderError(toErrorDetails(body, response.status, endpoint));
-          } catch (err) {
-            captureProviderError({
-              statusCode: null,
-              code: '',
-              message: err.message || 'Bank account verification failed.',
-              endpoint,
-            });
+              captureProviderError(toErrorDetails(body, response.status, `${credentials.source}:${endpoint}`));
+            } catch (err) {
+              captureProviderError({
+                statusCode: null,
+                code: '',
+                message: err.message || 'Bank account verification failed.',
+                endpoint: `${credentials.source}:${endpoint}`,
+              });
+            }
           }
         }
       }
-    }
 
-    const payoutAuthEndpoints = unique([
-      process.env.CASHFREE_PAYOUT_AUTH_URL,
-      `${baseUrl}/payout/v1/authorize`,
-      `${payoutAuthFallbackBase}/payout/v1/authorize`,
-    ]);
-
-    let payoutToken = null;
-    for (const authEndpoint of payoutAuthEndpoints) {
-      try {
-        const authResponse = await axios.post(authEndpoint, {}, {
-          headers: {
-            'x-client-id': clientId,
-            'x-client-secret': clientSecret,
-            'Content-Type': 'application/json',
-          },
-          timeout: 12000,
-          validateStatus: () => true,
-        });
-
-        const authBody = authResponse.data && typeof authResponse.data === 'object'
-          ? authResponse.data
-          : {};
-
-        payoutToken =
-          (authBody.data && authBody.data.token) ||
-          authBody.token ||
-          null;
-
-        if (payoutToken) {
-          break;
-        }
-
-        captureProviderError(toErrorDetails(authBody, authResponse.status, authEndpoint));
-      } catch (err) {
-        captureProviderError({
-          statusCode: null,
-          code: '',
-          message: err.message || 'Unable to authorize payout verification.',
-          endpoint: authEndpoint,
-        });
-      }
-    }
-
-    if (payoutToken) {
-      const payoutVerificationEndpoints = unique([
-        process.env.BANK_ACCOUNT_VERIFICATION_PAYOUT_URL,
-        `${baseUrl}/payout/verification/bank-account`,
-        `${baseUrl}/payout/verification/bank-account/sync`,
+      const payoutAuthEndpoints = unique([
+        process.env.CASHFREE_PAYOUT_AUTH_URL,
+        `${baseUrl}/payout/v1/authorize`,
+        `${payoutAuthFallbackBase}/payout/v1/authorize`,
       ]);
 
-      for (const endpoint of payoutVerificationEndpoints) {
-        for (const payload of payloadVariants) {
-          try {
-            const response = await axios.post(endpoint, payload, {
-              headers: {
-                Authorization: `Bearer ${payoutToken}`,
-                'Content-Type': 'application/json',
-              },
-              timeout: 12000,
-              validateStatus: () => true,
-            });
+      let payoutToken = null;
+      for (const authEndpoint of payoutAuthEndpoints) {
+        try {
+          const authResponse = await axios.post(authEndpoint, {}, {
+            headers: {
+              'x-client-id': activeClientId,
+              'x-client-secret': activeClientSecret,
+              'Content-Type': 'application/json',
+            },
+            timeout: 12000,
+            validateStatus: () => true,
+          });
 
-            const body = response.data && typeof response.data === 'object'
-              ? response.data
-              : {};
+          const authBody = authResponse.data && typeof authResponse.data === 'object'
+            ? authResponse.data
+            : {};
 
-            if (response.status >= 200 && response.status < 300) {
-              const parsed = parseVerificationData(body, response.status);
-              const hasData = !!(parsed.accountHolderName || parsed.bankName || parsed.branch);
+          payoutToken =
+            (authBody.data && authBody.data.token) ||
+            authBody.token ||
+            null;
 
-              if (parsed.verified || hasData) {
-                return toSuccessResponse(parsed, 'cashfree_payout');
+          if (payoutToken) {
+            break;
+          }
+
+          captureProviderError(toErrorDetails(authBody, authResponse.status, `${credentials.source}:${authEndpoint}`));
+        } catch (err) {
+          captureProviderError({
+            statusCode: null,
+            code: '',
+            message: err.message || 'Unable to authorize payout verification.',
+            endpoint: `${credentials.source}:${authEndpoint}`,
+          });
+        }
+      }
+
+      if (payoutToken) {
+        const payoutVerificationEndpoints = unique([
+          process.env.BANK_ACCOUNT_VERIFICATION_PAYOUT_URL,
+          `${baseUrl}/payout/verification/bank-account`,
+          `${baseUrl}/payout/verification/bank-account/sync`,
+        ]);
+
+        for (const endpoint of payoutVerificationEndpoints) {
+          for (const payload of payloadVariants) {
+            try {
+              const response = await axios.post(endpoint, payload, {
+                headers: {
+                  Authorization: `Bearer ${payoutToken}`,
+                  'Content-Type': 'application/json',
+                },
+                timeout: 12000,
+                validateStatus: () => true,
+              });
+
+              const body = response.data && typeof response.data === 'object'
+                ? response.data
+                : {};
+
+              if (response.status >= 200 && response.status < 300) {
+                const parsed = parseVerificationData(body, response.status);
+                const hasData = !!(parsed.accountHolderName || parsed.bankName || parsed.branch);
+
+                if (parsed.verified || hasData) {
+                  return toSuccessResponse(parsed, 'cashfree_payout');
+                }
               }
-            }
 
-            captureProviderError(toErrorDetails(body, response.status, endpoint));
-          } catch (err) {
-            captureProviderError({
-              statusCode: null,
-              code: '',
-              message: err.message || 'Bank account verification failed.',
-              endpoint,
-            });
+              captureProviderError(toErrorDetails(body, response.status, `${credentials.source}:${endpoint}`));
+            } catch (err) {
+              captureProviderError({
+                statusCode: null,
+                code: '',
+                message: err.message || 'Bank account verification failed.',
+                endpoint: `${credentials.source}:${endpoint}`,
+              });
+            }
           }
         }
       }
