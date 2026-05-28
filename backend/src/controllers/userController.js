@@ -355,6 +355,8 @@ exports.verifyBankAccount = async (req, res, next) => {
   try {
     const accountNumber = String(req.body.account_number || req.body.bank_account_number || '').trim();
     const ifsc = String(req.body.ifsc || req.body.bank_ifsc_code || '').trim().toUpperCase();
+    const holderName = String(req.body.name || req.body.account_holder_name || '').trim();
+    const holderPhone = String(req.body.phone || '').trim();
     const requesterId = req.user && (req.user._id || req.user.id);
 
     if (!/^\d{9,20}$/.test(accountNumber)) {
@@ -371,8 +373,13 @@ exports.verifyBankAccount = async (req, res, next) => {
       });
     }
 
-    const clientId = process.env.CASHFREE_APP_ID || '';
+    const clientId =
+      process.env.BANK_ACCOUNT_VERIFICATION_CLIENT_ID ||
+      process.env.CASHFREE_VRS_CLIENT_ID ||
+      process.env.CASHFREE_APP_ID || '';
     const clientSecret =
+      process.env.BANK_ACCOUNT_VERIFICATION_CLIENT_SECRET ||
+      process.env.CASHFREE_VRS_CLIENT_SECRET ||
       process.env.BANK_ACCOUNT_VERIFICATION_API_KEY ||
       process.env.PAN_VERIFICATION_API_KEY ||
       process.env.CASHFREE_SECRET_KEY || '';
@@ -392,10 +399,16 @@ exports.verifyBankAccount = async (req, res, next) => {
       ? 'https://payout-api.cashfree.com'
       : 'https://payout-gamma.cashfree.com';
 
+    const optionalIdentity = {
+      ...(holderName ? { name: holderName } : {}),
+      ...(holderPhone ? { phone: holderPhone } : {}),
+    };
+
+    // VRS v2 sync expects bank_account + ifsc. Keep compatibility fallbacks as secondary.
     const payloadVariants = [
-      { bank_account: accountNumber, ifsc },
-      { bank_account_number: accountNumber, ifsc },
-      { account_number: accountNumber, ifsc },
+      { bank_account: accountNumber, ifsc, ...optionalIdentity },
+      { bank_account_number: accountNumber, ifsc, ...optionalIdentity },
+      { account_number: accountNumber, ifsc, ...optionalIdentity },
     ];
 
     const unique = (items) => [...new Set(items.filter(Boolean))];
@@ -468,40 +481,51 @@ exports.verifyBankAccount = async (req, res, next) => {
 
     const directEndpoints = unique([
       process.env.BANK_ACCOUNT_VERIFICATION_URL,
-      `${baseUrl}/verification/bank-account`,
       `${baseUrl}/verification/bank-account/sync`,
+      `${baseUrl}/verification/bank-account`,
     ]);
+
+    const directHeaderVariants = [
+      {
+        'x-client-id': clientId,
+        'x-client-secret': clientSecret,
+        'Content-Type': 'application/json',
+      },
+      {
+        'x-api-version': process.env.CASHFREE_API_VERSION || '2023-08-01',
+        'x-client-id': clientId,
+        'x-client-secret': clientSecret,
+        'Content-Type': 'application/json',
+      },
+    ];
 
     for (const endpoint of directEndpoints) {
       for (const payload of payloadVariants) {
-        try {
-          const response = await axios.post(endpoint, payload, {
-            headers: {
-              'x-api-version': process.env.CASHFREE_API_VERSION || '2023-08-01',
-              'x-client-id': clientId,
-              'x-client-secret': clientSecret,
-              'Content-Type': 'application/json',
-            },
-            timeout: 12000,
-            validateStatus: () => true,
-          });
+        for (const headers of directHeaderVariants) {
+          try {
+            const response = await axios.post(endpoint, payload, {
+              headers,
+              timeout: 12000,
+              validateStatus: () => true,
+            });
 
-          const body = response.data && typeof response.data === 'object'
-            ? response.data
-            : {};
+            const body = response.data && typeof response.data === 'object'
+              ? response.data
+              : {};
 
-          if (response.status >= 200 && response.status < 300) {
-            const parsed = parseVerificationData(body, response.status);
-            const hasData = !!(parsed.accountHolderName || parsed.bankName || parsed.branch);
+            if (response.status >= 200 && response.status < 300) {
+              const parsed = parseVerificationData(body, response.status);
+              const hasData = !!(parsed.accountHolderName || parsed.bankName || parsed.branch);
 
-            if (parsed.verified || hasData) {
-              return toSuccessResponse(parsed, 'cashfree');
+              if (parsed.verified || hasData) {
+                return toSuccessResponse(parsed, 'cashfree');
+              }
             }
-          }
 
-          lastErrorMessage = toErrorMessage(body, response.status);
-        } catch (err) {
-          lastErrorMessage = err.message || 'Bank account verification failed.';
+            lastErrorMessage = toErrorMessage(body, response.status);
+          } catch (err) {
+            lastErrorMessage = err.message || 'Bank account verification failed.';
+          }
         }
       }
     }
