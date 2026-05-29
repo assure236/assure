@@ -28,6 +28,32 @@ function generateCodeChallenge(verifier) {
   return crypto.createHash('sha256').update(verifier).digest('base64url');
 }
 
+function extractAadhaarNumberFromXml(xmlText) {
+  if (!xmlText || typeof xmlText !== 'string') return null;
+  // Avoid masked values; only accept full 12-digit Aadhaar numbers.
+  const m = xmlText.match(/\b\d{12}\b/);
+  return m ? m[0] : null;
+}
+
+function resolveDigilockerDocType(doc = {}) {
+  const doctype = String(doc.doctype || doc.type || '').toUpperCase();
+  const uri = String(doc.uri || '').toLowerCase();
+
+  if (doctype === 'PANCR' || uri.includes('in.gov.pan')) return 'pan_card';
+  if (
+    doctype === 'ADHAR' ||
+    doctype === 'AADHAAR' ||
+    doctype === 'AADHAR' ||
+    doctype === 'ADHRC' ||
+    uri.includes('uidai') ||
+    uri.includes('aadhaar') ||
+    uri.includes('adhar')
+  ) {
+    return 'aadhaar_card';
+  }
+  return null;
+}
+
 /**
  * Step 1: Get DigiLocker authorization URL
  */
@@ -171,6 +197,7 @@ exports.handleCallback = async (req, res, next) => {
 
     // Fetch Aadhaar eKYC data (may return 403 if not in scope)
     let ekyc = null;
+    let aadhaarFromEkyc = null;
     if (dlEaadhaar) {
       try {
         const ekycRes = await fetch(`${DL_BASE}/public/oauth2/1/xml/eaadhaar`, {
@@ -179,6 +206,10 @@ exports.handleCallback = async (req, res, next) => {
         logger.info(`DigiLocker eKYC fetch status: ${ekycRes.status}`);
         if (ekycRes.ok) {
           ekyc = await ekycRes.text();
+          aadhaarFromEkyc = extractAadhaarNumberFromXml(ekyc);
+          if (aadhaarFromEkyc) {
+            userUpdate.aadhaar_number = aadhaarFromEkyc;
+          }
           logger.info('DigiLocker eKYC data fetched successfully');
         } else {
           await ekycRes.text();
@@ -208,15 +239,13 @@ exports.handleCallback = async (req, res, next) => {
     }
 
     // Auto-create document records for Aadhaar/PAN
-    const docTypes = {
-      ADHAR: 'aadhaar_card',
-      PANCR: 'pan_card',
-    };
+    let hasAadhaarEvidence = !!aadhaarFromEkyc;
 
     // From issued docs API response
     for (const doc of issuedDocs) {
-      const docType = docTypes[doc.doctype] || docTypes[doc.type];
+      const docType = resolveDigilockerDocType(doc);
       if (!docType) continue;
+      if (docType === 'aadhaar_card') hasAadhaarEvidence = true;
 
       const exists = await Document.findOne({ user_id: userId, document_type: docType, uploaded_from: 'digilocker' });
       if (!exists) {
@@ -252,22 +281,28 @@ exports.handleCallback = async (req, res, next) => {
       }
     }
 
-    // If eAadhaar was available (even if XML fetch failed due to scope), mark it
-    if (dlEaadhaar) {
+    // Create Aadhaar doc only when actual Aadhaar evidence exists (issued doc or parsable eKYC data)
+    if (hasAadhaarEvidence) {
       const aadhaarExists = await Document.findOne({ user_id: userId, document_type: 'aadhaar_card', uploaded_from: 'digilocker' });
       if (!aadhaarExists) {
         await Document.create({
           user_id: userId,
           document_type: 'aadhaar_card',
-          document_name: `Aadhaar Card - ${dlName || 'DigiLocker Verified'}`,
-          file_url: `digilocker://eaadhaar/${digilockerId || ''}`,
+          document_name: `Aadhaar Card - ${dlName || 'DigiLocker'}`,
+          file_url: aadhaarFromEkyc
+            ? `digilocker://eaadhaar/${aadhaarFromEkyc}`
+            : `digilocker://issued/aadhaar/${digilockerId || ''}`,
           uploaded_from: 'digilocker',
           verification_status: 'verified',
           verified_at: new Date(),
-          notes: 'Aadhaar verified via DigiLocker eKYC',
+          notes: aadhaarFromEkyc
+            ? 'Aadhaar verified via DigiLocker eKYC'
+            : 'Aadhaar verified via DigiLocker issued document',
         });
         logger.info('Created DigiLocker Aadhaar document record');
       }
+    } else if (dlEaadhaar) {
+      logger.warn('DigiLocker indicates eAadhaar availability but Aadhaar evidence was not retrievable; skipping Aadhaar auto-verification.');
     }
 
     // Check if all KYC docs are present → auto-verify KYC
