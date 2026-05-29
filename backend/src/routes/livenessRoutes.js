@@ -50,6 +50,23 @@ function mapLivenessError(err) {
   return 'Liveness verification failed. Please try again.';
 }
 
+function isTransientLivenessError(err) {
+  const msg = (err && err.message ? err.message : '').toLowerCase();
+  const code = (err && err.code ? String(err.code) : '').toUpperCase();
+  return (
+    code === 'ECONNABORTED' ||
+    code === 'ETIMEDOUT' ||
+    code === 'ESOCKETTIMEDOUT' ||
+    code === 'ECONNRESET' ||
+    code === 'EPIPE' ||
+    code === 'EAI_AGAIN' ||
+    msg.includes('terminated') ||
+    msg.includes('timeout') ||
+    msg.includes('stream has been aborted') ||
+    msg.includes('fetch failed')
+  );
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -142,15 +159,25 @@ router.post('/verify-and-save', authMiddleware, upload.single('photo'), async (r
     if (!LUXAND_TOKEN) return res.status(500).json({ success: false, message: 'Liveness service not configured' });
 
     // 1. Luxand liveness check
-    const data = await callLuxandLiveness(req.file.buffer, req.file.mimetype, req.file.originalname);
-    if (data.status === 'failure') {
-      return res.json({ success: false, live: false, message: data.message || 'No face detected' });
-    }
-    if (data.result !== 'real') {
-      return res.json({
-        success: false, live: false, liveness: data.result, score: data.score,
-        message: 'Spoof detected — please use a real face',
-      });
+    let data = null;
+    let livenessDeferred = false;
+    try {
+      data = await callLuxandLiveness(req.file.buffer, req.file.mimetype, req.file.originalname);
+      if (data.status === 'failure') {
+        return res.json({ success: false, live: false, message: data.message || 'No face detected' });
+      }
+      if (data.result !== 'real') {
+        return res.json({
+          success: false, live: false, liveness: data.result, score: data.score,
+          message: 'Spoof detected — please use a real face',
+        });
+      }
+    } catch (err) {
+      if (!isTransientLivenessError(err)) {
+        throw err;
+      }
+      livenessDeferred = true;
+      console.warn('Liveness provider unavailable, saving selfie with deferred verification:', err.code || 'NO_CODE', err.message);
     }
 
     // 2. Compress + upload to GridFS
@@ -185,6 +212,8 @@ router.post('/verify-and-save', authMiddleware, upload.single('photo'), async (r
       gridfs_id: fileId,
       file_size: buf.length,
       mime_type: mime,
+      verification_status: livenessDeferred ? 'pending' : 'approved',
+      notes: livenessDeferred ? 'Liveness verification deferred due to provider unavailability' : undefined,
     });
 
     // 5. Also set as profile photo so user doesn't need to upload separately
@@ -192,12 +221,15 @@ router.post('/verify-and-save', authMiddleware, upload.single('photo'), async (r
 
     return res.json({
       success: true,
-      live: true,
-      liveness: data.result,
-      score: data.score,
-      message: 'Verified — selfie saved as profile photo',
+      live: livenessDeferred ? null : true,
+      liveness: livenessDeferred ? 'deferred' : data.result,
+      score: livenessDeferred ? null : data.score,
+      message: livenessDeferred
+        ? 'Selfie saved successfully. Liveness verification is temporarily deferred and will be reviewed.'
+        : 'Verified — selfie saved as profile photo',
       data: doc,
       file_url: fileUrl,
+      verification_deferred: livenessDeferred,
     });
   } catch (err) {
     console.error('Liveness verify-and-save error:', err.code || 'NO_CODE', err.message);
