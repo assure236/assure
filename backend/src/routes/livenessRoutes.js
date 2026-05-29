@@ -11,6 +11,8 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 const LUXAND_API = 'https://api.luxand.cloud';
 const LUXAND_TOKEN = process.env.LUXAND_API_TOKEN;
 const SELFIE_TARGET = 300 * 1024; // 300 KB
+const LIVENESS_TIMEOUT_MS = 25000;
+const LIVENESS_MAX_RETRIES = 2;
 
 async function compressImage(buffer, targetSize) {
   let quality = 85;
@@ -25,16 +27,63 @@ async function compressImage(buffer, targetSize) {
   return result;
 }
 
+function mapLivenessError(err) {
+  const msg = (err && err.message ? err.message : '').toLowerCase();
+  if (err?.name === 'AbortError' || msg.includes('abort') || msg.includes('timed out') || msg.includes('timeout')) {
+    return 'Liveness service timeout. Please retry in a few seconds.';
+  }
+  if (msg.includes('terminated') || msg.includes('fetch failed') || msg.includes('network')) {
+    return 'Liveness service is temporarily unreachable. Please try again.';
+  }
+  return 'Liveness verification failed. Please try again.';
+}
+
 async function callLuxandLiveness(buffer, mimetype, originalname) {
-  const form = new FormData();
-  const blob = new Blob([buffer], { type: mimetype || 'image/jpeg' });
-  form.append('photo', blob, originalname || 'photo.jpg');
-  const response = await fetch(`${LUXAND_API}/photo/liveness`, {
-    method: 'POST',
-    headers: { token: LUXAND_TOKEN },
-    body: form,
-  });
-  return response.json();
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= LIVENESS_MAX_RETRIES; attempt += 1) {
+    const form = new FormData();
+    const blob = new Blob([buffer], { type: mimetype || 'image/jpeg' });
+    form.append('photo', blob, originalname || 'photo.jpg');
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), LIVENESS_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`${LUXAND_API}/photo/liveness`, {
+        method: 'POST',
+        headers: { token: LUXAND_TOKEN },
+        body: form,
+        signal: controller.signal,
+      });
+
+      const text = await response.text();
+      let data;
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch (_) {
+        data = { status: 'failure', message: 'Invalid response from liveness provider' };
+      }
+
+      if (!response.ok) {
+        return {
+          status: 'failure',
+          message: data.message || `Liveness provider error (${response.status})`,
+        };
+      }
+
+      return data;
+    } catch (err) {
+      lastError = err;
+      if (attempt < LIVENESS_MAX_RETRIES) {
+        console.warn(`Luxand liveness attempt ${attempt} failed: ${err.message}`);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  throw lastError || new Error('Liveness request failed');
 }
 
 // POST /liveness/check — verify only (no save). Kept for backwards-compat.
@@ -54,7 +103,7 @@ router.post('/check', authMiddleware, upload.single('photo'), async (req, res) =
     });
   } catch (err) {
     console.error('Liveness check error:', err.message);
-    return res.status(500).json({ success: false, message: 'Liveness check failed' });
+    return res.status(500).json({ success: false, message: mapLivenessError(err) });
   }
 });
 
@@ -125,7 +174,7 @@ router.post('/verify-and-save', authMiddleware, upload.single('photo'), async (r
     });
   } catch (err) {
     console.error('Liveness verify-and-save error:', err.message);
-    return res.status(500).json({ success: false, message: 'Failed to save selfie' });
+    return res.status(500).json({ success: false, message: mapLivenessError(err) });
   }
 });
 
