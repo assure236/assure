@@ -10,6 +10,7 @@ const DL_BASE = process.env.DIGILOCKER_BASE_URL || 'https://api.digitallocker.go
 const DL_CLIENT_ID = process.env.DIGILOCKER_CLIENT_ID || '';
 const DL_CLIENT_SECRET = process.env.DIGILOCKER_CLIENT_SECRET || '';
 const DL_REDIRECT_URI = process.env.DIGILOCKER_REDIRECT_URI || '';
+const DL_SCOPE = process.env.DIGILOCKER_SCOPE || '';
 
 // Persistent store for PKCE verifiers (survives server restart)
 const dlSessionSchema = new mongoose.Schema({
@@ -82,6 +83,9 @@ exports.getAuthUrl = async (req, res, next) => {
       code_challenge: codeChallenge,
       code_challenge_method: 'S256',
     });
+    if (DL_SCOPE && DL_SCOPE.trim()) {
+      params.set('scope', DL_SCOPE.trim());
+    }
 
     const authUrl = `${DL_BASE}/public/oauth2/1/authorize?${params.toString()}`;
     logger.info('DigiLocker authorization URL generated successfully');
