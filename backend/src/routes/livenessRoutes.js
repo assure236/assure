@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const sharp = require('sharp');
+const axios = require('axios');
+const FormData = require('form-data');
 const { authMiddleware } = require('../middleware/auth');
 const { Document, User } = require('../models');
 const { uploadToGridFS, deleteFromGridFS } = require('../utils/gridfs');
@@ -11,6 +13,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 const LUXAND_API = 'https://api.luxand.cloud';
 const LUXAND_TOKEN = process.env.LUXAND_API_TOKEN;
 const SELFIE_TARGET = 300 * 1024; // 300 KB
+const LIVENESS_UPLOAD_TARGET = 700 * 1024; // Keep provider upload lean for better stability
 const LIVENESS_TIMEOUT_MS = 25000;
 const LIVENESS_MAX_RETRIES = 2;
 
@@ -29,6 +32,15 @@ async function compressImage(buffer, targetSize) {
 
 function mapLivenessError(err) {
   const msg = (err && err.message ? err.message : '').toLowerCase();
+  const code = (err && err.code ? String(err.code) : '').toUpperCase();
+
+  if (code === 'ECONNABORTED' || code === 'ETIMEDOUT' || code === 'ESOCKETTIMEDOUT') {
+    return 'Liveness service timeout. Please retry in a few seconds.';
+  }
+  if (code === 'ECONNRESET' || code === 'EPIPE' || code === 'EAI_AGAIN') {
+    return 'Liveness service is temporarily unreachable. Please try again.';
+  }
+
   if (err?.name === 'AbortError' || msg.includes('abort') || msg.includes('timed out') || msg.includes('timeout')) {
     return 'Liveness service timeout. Please retry in a few seconds.';
   }
@@ -38,34 +50,49 @@ function mapLivenessError(err) {
   return 'Liveness verification failed. Please try again.';
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function callLuxandLiveness(buffer, mimetype, originalname) {
+  let uploadBuffer = buffer;
+  let uploadMime = mimetype || 'image/jpeg';
+
+  if (uploadBuffer.length > LIVENESS_UPLOAD_TARGET) {
+    uploadBuffer = await compressImage(uploadBuffer, LIVENESS_UPLOAD_TARGET);
+    uploadMime = 'image/jpeg';
+  }
+
   let lastError = null;
 
   for (let attempt = 1; attempt <= LIVENESS_MAX_RETRIES; attempt += 1) {
     const form = new FormData();
-    const blob = new Blob([buffer], { type: mimetype || 'image/jpeg' });
-    form.append('photo', blob, originalname || 'photo.jpg');
-
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), LIVENESS_TIMEOUT_MS);
+    form.append('photo', uploadBuffer, {
+      filename: originalname || 'photo.jpg',
+      contentType: uploadMime,
+    });
 
     try {
-      const response = await fetch(`${LUXAND_API}/photo/liveness`, {
-        method: 'POST',
-        headers: { token: LUXAND_TOKEN },
-        body: form,
-        signal: controller.signal,
+      const response = await axios.post(`${LUXAND_API}/photo/liveness`, form, {
+        headers: {
+          ...form.getHeaders(),
+          token: LUXAND_TOKEN,
+        },
+        timeout: LIVENESS_TIMEOUT_MS,
+        maxBodyLength: 10 * 1024 * 1024,
+        maxContentLength: 10 * 1024 * 1024,
+        validateStatus: () => true,
       });
 
-      const text = await response.text();
-      let data;
-      try {
-        data = text ? JSON.parse(text) : {};
-      } catch (_) {
-        data = { status: 'failure', message: 'Invalid response from liveness provider' };
-      }
+      const data = typeof response.data === 'object'
+        ? response.data
+        : { status: 'failure', message: 'Invalid response from liveness provider' };
 
-      if (!response.ok) {
+      if (response.status < 200 || response.status >= 300) {
+        if (response.status >= 500 && attempt < LIVENESS_MAX_RETRIES) {
+          await sleep(500 * attempt);
+          continue;
+        }
         return {
           status: 'failure',
           message: data.message || `Liveness provider error (${response.status})`,
@@ -76,10 +103,10 @@ async function callLuxandLiveness(buffer, mimetype, originalname) {
     } catch (err) {
       lastError = err;
       if (attempt < LIVENESS_MAX_RETRIES) {
-        console.warn(`Luxand liveness attempt ${attempt} failed: ${err.message}`);
+        const code = err && err.code ? err.code : 'UNKNOWN';
+        console.warn(`Luxand liveness attempt ${attempt} failed (${code}): ${err.message}`);
+        await sleep(500 * attempt);
       }
-    } finally {
-      clearTimeout(timer);
     }
   }
 
@@ -102,7 +129,7 @@ router.post('/check', authMiddleware, upload.single('photo'), async (req, res) =
       message: isLive ? 'Real face detected' : 'Spoof detected — use a real face',
     });
   } catch (err) {
-    console.error('Liveness check error:', err.message);
+    console.error('Liveness check error:', err.code || 'NO_CODE', err.message);
     return res.status(500).json({ success: false, message: mapLivenessError(err) });
   }
 });
@@ -173,7 +200,7 @@ router.post('/verify-and-save', authMiddleware, upload.single('photo'), async (r
       file_url: fileUrl,
     });
   } catch (err) {
-    console.error('Liveness verify-and-save error:', err.message);
+    console.error('Liveness verify-and-save error:', err.code || 'NO_CODE', err.message);
     return res.status(500).json({ success: false, message: mapLivenessError(err) });
   }
 });
