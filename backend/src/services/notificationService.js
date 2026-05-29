@@ -3,7 +3,9 @@
 const { Resend } = require('resend');
 const logger = require('../utils/logger');
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
 
 // ─── Fast2SMS OTP (DLT Route) ────────────────────────────────────────────────
 
@@ -93,7 +95,7 @@ exports.sendSMS = async (mobile, message) => {
  * Send email via Resend
  */
 exports.sendEmail = async (to, subject, body) => {
-  if (!process.env.RESEND_API_KEY) {
+  if (!resend) {
     logger.warn('RESEND_API_KEY not set — skipping email');
     return;
   }
