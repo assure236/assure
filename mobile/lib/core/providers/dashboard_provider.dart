@@ -54,11 +54,25 @@ class DashboardProvider with ChangeNotifier {
   // Profile completion
   Map<String, dynamic>? _profileCompletion;
   Map<String, dynamic>? get profileCompletion => _profileCompletion;
-  int get profilePercentage => (_profileCompletion?['percentage'] ?? 0) as int;
-  bool get isProfileComplete => _profileCompletion?['isComplete'] == true;
-  List get missingFields => ((_profileCompletion?['fields'] as List?) ?? [])
-      .where((f) => f['filled'] != true)
-      .toList();
+  int get profilePercentage {
+    final approved = profileApprovalStatus.toLowerCase() == 'approved';
+    if (approved) return 100;
+    return (_profileCompletion?['percentage'] ?? 0) as int;
+  }
+
+  bool get isProfileComplete {
+    final approved = profileApprovalStatus.toLowerCase() == 'approved';
+    if (approved) return true;
+    return _profileCompletion?['isComplete'] == true;
+  }
+
+  List get missingFields {
+    final approved = profileApprovalStatus.toLowerCase() == 'approved';
+    if (approved) return const [];
+    return ((_profileCompletion?['fields'] as List?) ?? [])
+        .where((f) => f['filled'] != true)
+        .toList();
+  }
 
   Future<void> fetchDashboard() async {
     final prefs = await SharedPreferences.getInstance();

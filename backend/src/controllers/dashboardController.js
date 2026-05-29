@@ -197,7 +197,7 @@ exports.getDividendAnalytics = async (req, res, next) => {
 exports.getProfileCompletion = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const user = await User.findById(userId).select('full_name email mobile pan_number aadhaar_number date_of_birth address city state pincode profile_image_url bank_account_number bank_ifsc_code kyc_status');
+    const user = await User.findById(userId).select('full_name email mobile pan_number aadhaar_number date_of_birth address city state pincode profile_image_url bank_account_number bank_ifsc_code kyc_status profile_edit_status');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
     const fields = [
@@ -218,16 +218,18 @@ exports.getProfileCompletion = async (req, res, next) => {
 
     const filled = fields.filter(f => f.filled).length;
     const total = fields.length;
-    const percentage = Math.round((filled / total) * 100);
+    const rawPercentage = Math.round((filled / total) * 100);
+    const isApproved = (user.profile_edit_status || '').toString().toLowerCase() === 'approved';
+    const percentage = isApproved ? 100 : rawPercentage;
 
     res.json({
       success: true,
       data: {
         percentage,
-        filled,
+        filled: isApproved ? total : filled,
         total,
         fields,
-        isComplete: percentage === 100,
+        isComplete: isApproved || percentage === 100,
       }
     });
   } catch (err) { next(err); }
