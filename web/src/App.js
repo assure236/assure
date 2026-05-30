@@ -21,8 +21,10 @@ import Layout from './components/Layout/Layout';
 const Register = lazy(() => import('./pages/Auth/Register'));
 const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
+const TotalInvestment = lazy(() => import('./pages/Dashboard/TotalInvestment'));
 const ChitGroups = lazy(() => import('./pages/ChitGroups/ChitGroups'));
 const ChitGroupDetails = lazy(() => import('./pages/ChitGroups/ChitGroupDetails'));
+const ChitHistory = lazy(() => import('./pages/ChitGroups/ChitHistory'));
 const Auctions = lazy(() => import('./pages/Auctions/Auctions'));
 const AuctionRoom = lazy(() => import('./pages/Auctions/AuctionRoom'));
 const Payments = lazy(() => import('./pages/Payments/Payments'));
@@ -119,8 +121,10 @@ function App() {
             {/* Protected Routes */}
             <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
               <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/dashboard/total-investment" element={<TotalInvestment />} />
               <Route path="/chit-groups" element={<ChitGroups />} />
               <Route path="/chit-groups/:id" element={<ChitGroupDetails />} />
+              <Route path="/chit-groups/history/:status" element={<ChitHistory />} />
               <Route path="/auctions" element={<Auctions />} />
               <Route path="/auctions/:id" element={<AuctionRoom />} />
               <Route path="/payments" element={<Payments />} />

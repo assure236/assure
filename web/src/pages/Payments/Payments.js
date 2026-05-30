@@ -28,7 +28,7 @@ const statusConfig = {
 };
 
 const formatCurrency = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
-const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'â€”';
+const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
 const Payments = () => {
   const [tab, setTab] = useState(0);
@@ -198,11 +198,11 @@ const Payments = () => {
   const handleDownloadStatement = async () => {
     setDownloadingStatement(true);
     try {
-      const res = await axios.get('/payments/statement?format=csv', { responseType: 'blob' });
-      const url = URL.createObjectURL(new Blob([res.data], { type: 'text/csv' }));
+      const res = await axios.get('/payments/statement?format=pdf', { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'account_statement.csv';
+      a.download = 'account_statement.pdf';
       a.click();
       URL.revokeObjectURL(url);
       toast.success('Statement downloaded!');
@@ -231,8 +231,8 @@ const Payments = () => {
   });
 
   const tabList = [
-    { label: `History (${historyPayments.length})`, data: historyPayments },
     { label: `Upcoming (${sortedDuePayments.length})`, data: sortedDuePayments },
+    { label: `History (${historyPayments.length})`, data: historyPayments },
   ];
 
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
@@ -249,7 +249,7 @@ const Payments = () => {
             variant="outlined" startIcon={downloadingStatement ? <CircularProgress size={16} /> : <StatementIcon />}
             onClick={handleDownloadStatement} disabled={downloadingStatement}
           >
-            CSV
+            PDF
           </Button>
           <Button
             variant="contained" startIcon={<StatementIcon />}
@@ -307,7 +307,7 @@ const Payments = () => {
         <Box textAlign="center" py={8}>
           <BankIcon sx={{ fontSize: 64, color: 'grey.300' }} />
           <Typography color="text.secondary" mt={1}>
-            {tab === 0 ? 'No payment history yet.' : 'No upcoming payments.'}
+            {tab === 0 ? 'No upcoming payments.' : 'No payment history yet.'}
           </Typography>
         </Box>
       ) : (

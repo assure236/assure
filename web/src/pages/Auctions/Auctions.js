@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Container, Grid, Card, CardContent, Typography, Box, Chip,
-  CircularProgress, Button, Tabs, Tab, Avatar, LinearProgress, Alert
+  CircularProgress, Button, Tabs, Tab, Avatar, Alert
 } from '@mui/material';
 import { Gavel as GavelIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
@@ -9,12 +9,22 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { getSocketUrl } from '../../config/env';
 
+const formatRemaining = (seconds) => {
+  const safe = Math.max(0, Number(seconds) || 0);
+  const hrs = Math.floor(safe / 3600);
+  const mins = Math.floor((safe % 3600) / 60);
+  const secs = safe % 60;
+  if (hrs > 0) return `${hrs}h ${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+  return `${mins.toString().padStart(2, '0')}m ${secs.toString().padStart(2, '0')}s`;
+};
+
 const Auctions = () => {
   const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => { fetchAuctions(); }, []);
 
@@ -28,6 +38,11 @@ const Auctions = () => {
     socket.on('auction_started', () => fetchAuctions());
     socket.on('auction_ended', () => fetchAuctions());
     return () => { socket.disconnect(); };
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchAuctions = async () => {
@@ -84,6 +99,9 @@ const Auctions = () => {
             const totalMembers = Number(chitGroup?.total_members || 1);
             const highestBid = Number(auction.current_highest_bid || auction.winning_bid_amount || auction.highest_bid || 0);
             const dividend = highestBid > 0 ? Math.round(highestBid / totalMembers) : 0;
+            const fromServer = Number(auction.server_time_remaining || 0);
+            const fromEndTime = auction.end_time ? Math.floor((new Date(auction.end_time).getTime() - Date.now()) / 1000) : 0;
+            const remainingSeconds = Math.max(0, fromServer > 0 ? fromServer - tick : fromEndTime);
 
             return (
               <Grid item xs={12} md={6} key={i}>
@@ -120,6 +138,19 @@ const Auctions = () => {
                     <Typography variant="caption" sx={{ opacity: 0.7 }}>
                       {chitGroup?.group_number}
                     </Typography>
+                    {(isLive || isPaused) && (
+                      <Box mt={1}>
+                        <Chip
+                          size="small"
+                          label={isPaused ? 'Auction Paused' : `Ends in ${formatRemaining(remainingSeconds)}`}
+                          sx={{
+                            bgcolor: 'rgba(255,255,255,0.16)',
+                            color: '#fff',
+                            fontWeight: 700,
+                          }}
+                        />
+                      </Box>
+                    )}
                   </Box>
 
                   <CardContent>

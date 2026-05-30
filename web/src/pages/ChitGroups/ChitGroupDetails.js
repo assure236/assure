@@ -3,14 +3,26 @@ import {
   Container, Grid, Card, CardContent, Typography, Box, Chip,
   CircularProgress, Button, Tabs, Tab, LinearProgress, Alert,
   Avatar, List, ListItem, ListItemAvatar, ListItemText, Divider,
-  Paper, Snackbar, Dialog, DialogTitle, DialogContent, DialogActions,
+  Paper, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Checkbox, FormControlLabel,
   IconButton,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, CheckCircle as CheckIcon, Error as OverdueIcon, Schedule as PendingIcon, PersonAdd as JoinIcon, CreditCard as PayIcon, Close as CloseIcon, Payment as PaymentIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, CheckCircle as CheckIcon, Error as OverdueIcon, Schedule as PendingIcon, PersonAdd as JoinIcon, CreditCard as PayIcon, Close as CloseIcon, Payment as PaymentIcon, OpenInNew as OpenInNewIcon } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+
+const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
+
+const formatMonthYear = (value) => {
+  if (!value) return '—';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+};
+
+const getUserId = (user) => String(user?.id || user?._id || '');
 
 const ChitGroupDetails = () => {
   const { id } = useParams();
@@ -18,39 +30,52 @@ const ChitGroupDetails = () => {
   const { user } = useAuth();
   const [tab, setTab] = useState(0);
   const [group, setGroup] = useState(null);
-  const [members, setMembers] = useState([]);
-  const [schedule, setSchedule] = useState([]);
+  const [auctions, setAuctions] = useState([]);
+  const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [enrolled, setEnrolled] = useState(false);
   const [enrolling, setEnrolling] = useState(false);
-  const [snack, setSnack] = useState('');
+  const [banner, setBanner] = useState(null);
+  const [confirmEnrollOpen, setConfirmEnrollOpen] = useState(false);
+  const [gateDialog, setGateDialog] = useState(null);
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [transferRecipientId, setTransferRecipientId] = useState('');
+  const [transferReason, setTransferReason] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelConfirmed, setCancelConfirmed] = useState(false);
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [paying, setPaying] = useState(false);
 
-  useEffect(() => { fetchAll(); }, [id]);
+  useEffect(() => { fetchAll(); }, [id, user]);
 
   const fetchAll = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [gRes, mRes, sRes] = await Promise.all([
+      const [gRes, aRes, pRes] = await Promise.all([
         axios.get(`/chit-groups/${id}`),
-        axios.get(`/chit-groups/${id}/members`).catch(() => ({ data: { data: [] } })),
-        axios.get(`/chit-groups/${id}/payment-schedule`).catch(() => ({ data: { data: [] } })),
+        axios.get(`/chit-groups/${id}/auctions`).catch(() => ({ data: { success: false, data: [] } })),
+        axios.get(`/chit-groups/${id}/payment-schedule`).catch(() => ({ data: { success: false, data: [] } })),
       ]);
-      if (gRes.data.success) setGroup(gRes.data.data);
-      const memberList = mRes.data.success ? (mRes.data.data || []) : [];
-      setMembers(memberList);
-      if (sRes.data.success) setSchedule(sRes.data.data || []);
-      // check if current user is already enrolled
-      if (user?.id || user?._id) {
-        const userId = String(user.id || user._id);
-        const isEnrolled = memberList.some(m => {
-          const mid = String(m.user_id?._id || m.user_id || m.user?._id || '');
-          return mid === userId;
+
+      const groupData = gRes?.data?.success ? (gRes.data.data || null) : null;
+      setGroup(groupData);
+      setAuctions(aRes?.data?.success ? (aRes.data.data || []) : (groupData?.auctions || []));
+      setPayments(pRes?.data?.success ? (pRes.data.data || []) : []);
+
+      const members = Array.isArray(groupData?.members) ? groupData.members : [];
+      const userId = getUserId(user);
+      if (userId) {
+        const isEnrolled = members.some((member) => {
+          const memberUserId = String(member?.user_id?._id || member?.user_id || member?.user?._id || '');
+          return memberUserId === userId;
         });
         setEnrolled(isEnrolled);
+      } else {
+        setEnrolled(false);
       }
     } catch (err) {
       setError('Could not load group details.');
@@ -104,20 +129,136 @@ const ChitGroupDetails = () => {
     }
   };
 
+  const ensureEnrollmentAllowed = async () => {
+    try {
+      const profileRes = await axios.get('/users/profile');
+      if (profileRes?.data?.success !== true) return false;
+
+      const profile = profileRes.data.data || {};
+      const kycStatus = String(profile.kyc_status || '').toLowerCase();
+      const profileStatus = String(profile.profile_edit_status || 'none').toLowerCase();
+
+      if (kycStatus !== 'verified') {
+        setGateDialog({
+          title: 'KYC Required',
+          message: 'Please complete KYC verification first. Group joining is enabled only after KYC is verified.',
+          actionLabel: 'Go to KYC',
+          actionPath: '/documents',
+        });
+        return false;
+      }
+
+      if (profileStatus === 'pending') {
+        setGateDialog({
+          title: 'Profile Under Review',
+          message: 'Your profile is under admin review. You can join chit groups after final approval.',
+          actionLabel: '',
+          actionPath: '',
+        });
+        return false;
+      }
+
+      if (profileStatus !== 'approved') {
+        setGateDialog({
+          title: 'Profile Approval Required',
+          message: 'Submit your profile details first. Group joining is available after admin final approval.',
+          actionLabel: 'Complete Profile',
+          actionPath: '/profile',
+        });
+        return false;
+      }
+
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
   const handleEnroll = async () => {
     setEnrolling(true);
     try {
       const res = await axios.post(`/chit-groups/${id}/enroll`);
       if (res.data.success) {
         setEnrolled(true);
-        setSnack('Successfully joined the chit group!');
+        setBanner({ type: 'success', message: res.data.message || 'Successfully joined the chit group!' });
         fetchAll();
       }
     } catch (err) {
-      setSnack(err.response?.data?.message || 'Failed to join group.');
+      setBanner({ type: 'error', message: err.response?.data?.message || 'Failed to join group.' });
     } finally {
       setEnrolling(false);
     }
+  };
+
+  const submitTransferRequest = async () => {
+    if (!transferRecipientId.trim() || !transferReason.trim()) {
+      setBanner({ type: 'error', message: 'Recipient user ID and reason are required for transfer request.' });
+      return;
+    }
+
+    setRequestSubmitting(true);
+    try {
+      const res = await axios.post('/chit-groups/transfer-request', {
+        chit_group_id: id,
+        recipient_member_id: transferRecipientId.trim(),
+        reason: transferReason.trim(),
+      });
+      setBanner({
+        type: res?.data?.success ? 'success' : 'error',
+        message: res?.data?.message || (res?.data?.success ? 'Transfer request submitted.' : 'Transfer request failed.'),
+      });
+      if (res?.data?.success) {
+        setTransferOpen(false);
+        setTransferRecipientId('');
+        setTransferReason('');
+      }
+    } catch (err) {
+      setBanner({ type: 'error', message: err?.response?.data?.message || 'Failed to submit transfer request.' });
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
+
+  const submitCancelRequest = async () => {
+    if (!cancelReason.trim()) {
+      setBanner({ type: 'error', message: 'Please provide cancellation reason.' });
+      return;
+    }
+    if (!cancelConfirmed) {
+      setBanner({ type: 'error', message: 'Please confirm cancellation terms before submitting.' });
+      return;
+    }
+
+    setRequestSubmitting(true);
+    try {
+      const res = await axios.post('/chit-groups/cancel-request', {
+        chit_group_id: id,
+        reason: cancelReason.trim(),
+      });
+      setBanner({
+        type: res?.data?.success ? 'success' : 'error',
+        message: res?.data?.message || (res?.data?.success ? 'Cancellation request submitted.' : 'Cancellation request failed.'),
+      });
+      if (res?.data?.success) {
+        setCancelOpen(false);
+        setCancelReason('');
+        setCancelConfirmed(false);
+      }
+    } catch (err) {
+      setBanner({ type: 'error', message: err?.response?.data?.message || 'Failed to submit cancellation request.' });
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
+
+  const openPsoLink = () => {
+    const psoNo = group?.pso_number || group?.group_number || '';
+    if (!psoNo) return;
+    window.open(
+      `https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=${encodeURIComponent(psoNo)}`,
+      '_blank',
+      'noopener,noreferrer'
+    );
   };
 
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
@@ -133,6 +274,12 @@ const ChitGroupDetails = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
+      {banner ? (
+        <Alert severity={banner.type} sx={{ mb: 2 }} onClose={() => setBanner(null)}>
+          {banner.message}
+        </Alert>
+      ) : null}
+
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/chit-groups')} sx={{ mb: 2 }}>
         Back to Chit Groups
       </Button>
@@ -148,12 +295,15 @@ const ChitGroupDetails = () => {
             <Box display="flex" flexDirection="column" alignItems="flex-end" gap={1}>
               <Chip label={group.status?.replace('_', ' ')}
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 600, textTransform: 'capitalize' }} />
-              {!enrolled && group.status === 'active' && (
+              {!enrolled && ['active', 'vacant'].includes(String(group.status || '').toLowerCase()) && (
                 <Button
                   variant="contained"
                   size="small"
                   startIcon={<JoinIcon />}
-                  onClick={handleEnroll}
+                  onClick={async () => {
+                    const allowed = await ensureEnrollmentAllowed();
+                    if (allowed) setConfirmEnrollOpen(true);
+                  }}
                   disabled={enrolling}
                   sx={{ bgcolor: 'white', color: 'primary.main', '&:hover': { bgcolor: 'grey.100' }, fontWeight: 700 }}
                 >
@@ -165,6 +315,19 @@ const ChitGroupDetails = () => {
               )}
             </Box>
           </Box>
+
+          <Box mt={1} mb={2}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={openPsoLink}
+              endIcon={<OpenInNewIcon fontSize="small" />}
+              sx={{ borderColor: 'rgba(255,255,255,0.6)', color: '#fff' }}
+            >
+              PSO: {group.pso_number || group.group_number || 'N/A'}
+            </Button>
+          </Box>
+
           <Box mt={2}>
             <Box display="flex" justifyContent="space-between" mb={0.5}>
               <Typography variant="caption" sx={{ opacity: 0.8 }}>Progress</Typography>
@@ -196,8 +359,8 @@ const ChitGroupDetails = () => {
       {/* Tabs */}
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label="Overview" />
-        <Tab label={`Members (${members.length})`} />
-        <Tab label="Payment Schedule" />
+        <Tab label="Prized Tickets" />
+        <Tab label="Payments" />
       </Tabs>
 
       {/* Overview Tab */}
@@ -210,9 +373,11 @@ const ChitGroupDetails = () => {
                 <Divider sx={{ mb: 2 }} />
                 {[
                   { label: 'Duration', value: `${group.duration_months} months` },
-                  { label: 'Auction Day', value: group.auction_day || '—' },
+                  { label: 'Auction', value: 'Monthly' },
+                  { label: 'PSO No.', value: group.pso_number || group.group_number || '—' },
                   { label: 'Current Month', value: group.current_month || 0 },
                   { label: 'Remaining Months', value: (group.duration_months || 0) - (group.current_month || 0) },
+                  { label: 'Commenced in', value: formatMonthYear(group.commencement_date) },
                 ].map(({ label, value }) => (
                   <Box key={label} display="flex" justifyContent="space-between" py={0.8}
                     sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -230,8 +395,8 @@ const ChitGroupDetails = () => {
                 <Divider sx={{ mb: 2 }} />
                 {[
                   { label: 'Status', value: group.member_status?.replace('_', ' ') || 'Active' },
-                  { label: 'Total Paid', value: `₹${Number(group.total_paid || 0).toLocaleString('en-IN')}` },
-                  { label: 'Outstanding', value: `₹${Number(group.outstanding || 0).toLocaleString('en-IN')}` },
+                  { label: 'Total Paid', value: formatCurrency(group.total_paid || 0) },
+                  { label: 'Outstanding', value: formatCurrency(group.outstanding || 0) },
                   { label: 'Chit Received', value: group.chit_received ? 'Yes ✅' : 'No' },
                 ].map(({ label, value }) => (
                   <Box key={label} display="flex" justifyContent="space-between" py={0.8}
@@ -243,41 +408,70 @@ const ChitGroupDetails = () => {
               </CardContent>
             </Card>
           </Grid>
+          {enrolled ? (
+            <Grid item xs={12}>
+              <Card sx={{ borderRadius: 3 }}>
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>Membership Actions</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                    Submit transfer or cancellation requests for admin approval, similar to mobile flow.
+                  </Typography>
+                  <Box display="flex" gap={1.5} flexWrap="wrap">
+                    <Button variant="outlined" onClick={() => setTransferOpen(true)}>
+                      Transfer Chit
+                    </Button>
+                    <Button variant="outlined" color="error" onClick={() => setCancelOpen(true)}>
+                      Cancel Chit
+                    </Button>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          ) : null}
         </Grid>
       )}
 
-      {/* Members Tab */}
+      {/* Prized Tickets Tab */}
       {tab === 1 && (
-        members.length === 0
-          ? <Alert severity="info">No member data available.</Alert>
+        auctions.length === 0
+          ? <Alert severity="info">No prized tickets yet. Winners will appear here after auctions.</Alert>
           : <Card sx={{ borderRadius: 3 }}>
             <List>
-              {members.map((m, i) => (
-                <React.Fragment key={m._id || i}>
+              {auctions.map((auction, i) => {
+                const month = auction.month_number || i + 1;
+                const winner = auction.winner_id?.full_name || 'Winner';
+                const ticket = auction.winner_ticket_number || '-';
+                const amount = formatCurrency(auction.winning_bid_amount || 0);
+                return (
+                <React.Fragment key={auction._id || `${month}-${ticket}-${i}`}>
                   <ListItem>
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'primary.main' }}>T</Avatar>
+                      <Avatar sx={{ bgcolor: 'warning.main' }}>{ticket}</Avatar>
                     </ListItemAvatar>
                     <ListItemText
-                      primary={`Ticket #${m.ticket_number || i + 1}`}
-                      secondary={m.has_won_auction || m.chit_received ? 'Prized Member' : 'Active Member'}
+                      primary={`Month ${month} — ${winner}`}
+                      secondary={`Ticket #${ticket}`}
                     />
-                    {(m.has_won_auction || m.chit_received) && <Chip label="Prized" size="small" color="success" />}
+                    <Box textAlign="right">
+                      <Typography variant="body2" fontWeight={700} color="success.main">{amount}</Typography>
+                      <Chip label="Winner" size="small" color="warning" />
+                    </Box>
                   </ListItem>
-                  {i < members.length - 1 && <Divider inset="72px" />}
+                  {i < auctions.length - 1 && <Divider inset="72px" />}
                 </React.Fragment>
-              ))}
+                );
+              })}
             </List>
           </Card>
       )}
 
       {/* Schedule Tab */}
       {tab === 2 && (
-        schedule.length === 0
+        payments.length === 0
           ? <Alert severity="info">Payment schedule not available yet.</Alert>
           : <Card sx={{ borderRadius: 3 }}>
             <List>
-              {schedule.map((s, i) => {
+              {payments.map((s, i) => {
                 const isPaid = s.status === 'paid';
                 const isOverdue = s.status === 'overdue';
                 return (
@@ -323,7 +517,7 @@ const ChitGroupDetails = () => {
                         )}
                       </Box>
                     </ListItem>
-                    {i < schedule.length - 1 && <Divider inset="72px" />}
+                    {i < payments.length - 1 && <Divider inset="72px" />}
                   </React.Fragment>
                 );
               })}
@@ -377,12 +571,119 @@ const ChitGroupDetails = () => {
         </DialogActions>
       </Dialog>
 
-      <Snackbar
-        open={!!snack}
-        autoHideDuration={4000}
-        onClose={() => setSnack('')}
-        message={snack}
-      />
+      <Dialog open={confirmEnrollOpen} onClose={() => setConfirmEnrollOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirm Enrollment</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Do you want to enroll in {group.group_name || 'this chit group'}?
+            <br />
+            <br />
+            Monthly installment: {formatCurrency(group.monthly_installment || 0)}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmEnrollOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={enrolling}
+            onClick={async () => {
+              setConfirmEnrollOpen(false);
+              await handleEnroll();
+            }}
+          >
+            Enroll
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(gateDialog)} onClose={() => setGateDialog(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>{gateDialog?.title || 'Action Required'}</DialogTitle>
+        <DialogContent>
+          <Typography>{gateDialog?.message || 'Unable to proceed.'}</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGateDialog(null)}>Close</Button>
+          {gateDialog?.actionLabel ? (
+            <Button
+              variant="contained"
+              onClick={() => {
+                const route = gateDialog.actionPath;
+                setGateDialog(null);
+                if (route) navigate(route);
+              }}
+            >
+              {gateDialog.actionLabel}
+            </Button>
+          ) : null}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={transferOpen} onClose={() => !requestSubmitting && setTransferOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Transfer Chit</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Submit a request to transfer this chit to another member.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Recipient User ID"
+            placeholder="Enter recipient user ID"
+            value={transferRecipientId}
+            onChange={(event) => setTransferRecipientId(event.target.value)}
+            sx={{ mb: 2, mt: 1 }}
+          />
+          <TextField
+            fullWidth
+            label="Reason for Transfer"
+            placeholder="Explain why you want to transfer"
+            value={transferReason}
+            onChange={(event) => setTransferReason(event.target.value)}
+            multiline
+            minRows={3}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTransferOpen(false)} disabled={requestSubmitting}>Cancel</Button>
+          <Button variant="contained" onClick={submitTransferRequest} disabled={requestSubmitting}>
+            {requestSubmitting ? 'Submitting...' : 'Submit Request'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={cancelOpen} onClose={() => !requestSubmitting && setCancelOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Cancel Chit</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Request cancellation of your chit membership. Admin approval is required.
+          </Typography>
+          <TextField
+            fullWidth
+            label="Reason for Cancellation"
+            placeholder="Explain why you want to cancel"
+            value={cancelReason}
+            onChange={(event) => setCancelReason(event.target.value)}
+            multiline
+            minRows={4}
+            sx={{ mt: 1 }}
+          />
+          <FormControlLabel
+            sx={{ mt: 1 }}
+            control={
+              <Checkbox
+                checked={cancelConfirmed}
+                onChange={(event) => setCancelConfirmed(event.target.checked)}
+              />
+            }
+            label="I understand cancellation terms and agree to proceed."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelOpen(false)} disabled={requestSubmitting}>Close</Button>
+          <Button variant="contained" color="error" onClick={submitCancelRequest} disabled={requestSubmitting}>
+            {requestSubmitting ? 'Submitting...' : 'Submit Cancellation'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 };

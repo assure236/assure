@@ -2,19 +2,30 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Container, Grid, Card, CardContent, Typography, Box, Chip,
   Button, TextField, CircularProgress, Alert, Paper, Avatar,
-  List, ListItem, ListItemAvatar, ListItemText, Divider, LinearProgress,
+  List, ListItem, ListItemAvatar, ListItemText, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab
 } from '@mui/material';
 import {
   Gavel as GavelIcon, ArrowBack as BackIcon, Timer as TimerIcon,
   Wifi as LiveIcon, People as PeopleIcon, AccountBalanceWallet as WalletIcon,
-  Shield as ShieldIcon
+  Shield as ShieldIcon, AutoAwesome as AiIcon,
+  ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon,
+  TrendingUp as TrendIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
 import { getSocketUrl } from '../../config/env';
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as ChartTooltip,
+} from 'recharts';
 
 const AuctionRoom = () => {
   const { id } = useParams();
@@ -39,6 +50,9 @@ const AuctionRoom = () => {
   const [antiSnipeAlert, setAntiSnipeAlert] = useState(null);
   const [timeWarning, setTimeWarning] = useState(null);
   const [rightTab, setRightTab] = useState(0);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsExpanded, setAnalyticsExpanded] = useState(false);
+  const [bidAnalytics, setBidAnalytics] = useState(null);
 
   // Current user ID for chat-style bid display
   const currentUserId = (() => {
@@ -67,6 +81,8 @@ const AuctionRoom = () => {
     if (n < 10000000) return numberToWords(Math.floor(n / 100000)) + ' Lakh' + (n % 100000 ? ' ' + numberToWords(n % 100000) : '');
     return numberToWords(Math.floor(n / 10000000)) + ' Crore' + (n % 10000000 ? ' ' + numberToWords(n % 10000000) : '');
   };
+
+  const formatCompactCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
   const openBidConfirm = () => {
     const amount = Number(bidAmount);
@@ -135,8 +151,25 @@ const AuctionRoom = () => {
     }
   }, [id]);
 
+  const fetchBidAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await axios.get(`/auctions/${id}/bid-analytics`);
+      if (res.data?.success) {
+        setBidAnalytics(res.data.data || null);
+      } else {
+        setBidAnalytics(null);
+      }
+    } catch {
+      setBidAnalytics(null);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, [id]);
+
   useEffect(() => {
     fetchAuction();
+    fetchBidAnalytics();
 
     // Socket.io real-time connection
     const token = localStorage.getItem('token') || axios.defaults.headers.common['Authorization']?.replace('Bearer ', '');
@@ -211,6 +244,7 @@ const AuctionRoom = () => {
           return newBids;
         });
         setAuction(prev => prev ? { ...prev, current_highest_bid: data.bid_amount, total_bid_count: data.total_bids } : prev);
+        fetchBidAnalytics();
         toast.info(`New bid: ₹${Number(data.bid_amount).toLocaleString('en-IN')} by Ticket #${data.ticket_number || '?'}`, { autoClose: 3000 });
         if (data.anti_snipe_extended) {
           setAntiSnipeAlert(`⏰ Anti-snipe activated! Timer extended by ${data.extension_seconds || 30}s`);
@@ -257,7 +291,7 @@ const AuctionRoom = () => {
       socket.disconnect();
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [id, fetchAuction]);
+  }, [id, fetchAuction, fetchBidAnalytics]);
 
   const handleBid = async () => {
     cancelBidConfirm();
@@ -308,6 +342,14 @@ const AuctionRoom = () => {
   const dividend = currentHighest > 0 ? Math.round(currentHighest / (chitGroup?.total_members || 1)) : 0;
   const bidFee = auction.bid_fee || 0;
   const minIncrement = auction.min_bid_increment || 100;
+  const aiSuggestion = bidAnalytics?.ai_suggestion || {};
+  const bidHistory = bidAnalytics?.history || {};
+  const trendRows = Array.isArray(bidHistory?.trend)
+    ? bidHistory.trend.map((row) => ({
+      month: `M${row.month}`,
+      winningBid: Number(row.winning_bid || 0),
+    }))
+    : [];
 
   // Timer urgency (last 60 seconds = red pulsing)
   const isUrgent = serverTimeRemaining > 0 && serverTimeRemaining <= 60;
@@ -407,6 +449,77 @@ const AuctionRoom = () => {
           )}
         </CardContent>
       </Card>
+
+      {analyticsLoading ? (
+        <Card sx={{ mb: 3, borderRadius: 3 }}>
+          <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={22} />
+          </CardContent>
+        </Card>
+      ) : bidAnalytics ? (
+        <Card sx={{ mb: 3, borderRadius: 3, border: '1px solid #C7D2FE', bgcolor: '#EEF2FF' }}>
+          <CardContent>
+            <Box
+              display="flex"
+              alignItems="center"
+              justifyContent="space-between"
+              sx={{ cursor: 'pointer' }}
+              onClick={() => setAnalyticsExpanded((prev) => !prev)}
+            >
+              <Box display="flex" alignItems="center" gap={1.5}>
+                <Avatar sx={{ bgcolor: '#C7D2FE', color: '#3730A3' }}>
+                  <AiIcon fontSize="small" />
+                </Avatar>
+                <Box>
+                  <Typography fontWeight={700}>AI Bid Suggestion</Typography>
+                  {(Number(aiSuggestion?.suggested_min || 0) > 0 && Number(aiSuggestion?.suggested_max || 0) > 0) ? (
+                    <Typography variant="body2" color="primary.main" fontWeight={600}>
+                      {formatCompactCurrency(aiSuggestion.suggested_min)} - {formatCompactCurrency(aiSuggestion.suggested_max)}
+                    </Typography>
+                  ) : null}
+                </Box>
+              </Box>
+              {analyticsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+            </Box>
+
+            {analyticsExpanded ? (
+              <Box mt={2}>
+                {aiSuggestion?.message ? (
+                  <Alert severity="info" icon={<AiIcon fontSize="small" />} sx={{ mb: 2 }}>
+                    {aiSuggestion.message}
+                  </Alert>
+                ) : null}
+
+                {Number(bidHistory?.total_completed || 0) > 0 ? (
+                  <Box display="flex" gap={1} flexWrap="wrap" mb={2}>
+                    <Chip label={`Avg ${formatCompactCurrency(bidHistory.avg_winning_bid)}`} color="primary" variant="outlined" />
+                    <Chip label={`Min ${formatCompactCurrency(bidHistory.min_winning_bid)}`} color="success" variant="outlined" />
+                    <Chip label={`Max ${formatCompactCurrency(bidHistory.max_winning_bid)}`} color="error" variant="outlined" />
+                  </Box>
+                ) : null}
+
+                {trendRows.length >= 2 ? (
+                  <Box>
+                    <Box display="flex" alignItems="center" gap={1} mb={1}>
+                      <TrendIcon fontSize="small" color="action" />
+                      <Typography variant="body2" color="text.secondary">Bid Trend (by month)</Typography>
+                    </Box>
+                    <ResponsiveContainer width="100%" height={180}>
+                      <LineChart data={trendRows} margin={{ top: 8, right: 12, left: 0, bottom: 4 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#CBD5E1" />
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${Math.round(Number(v || 0) / 1000)}k`} />
+                        <ChartTooltip formatter={(value) => [formatCompactCurrency(value), 'Winning Bid']} />
+                        <Line type="monotone" dataKey="winningBid" stroke="#4F46E5" strokeWidth={2.5} dot={{ r: 3 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </Box>
+                ) : null}
+              </Box>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Grid container spacing={3}>
         {/* Bid Panel */}

@@ -1,6 +1,33 @@
 const { User, Document } = require('../models');
 const { uploadToGridFS } = require('../utils/gridfs');
 
+function isTruthy(value) {
+  return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
+}
+
+function getAadhaarProviderAvailability() {
+  const digilockerConfigured = Boolean(
+    process.env.DIGILOCKER_CLIENT_ID &&
+    process.env.DIGILOCKER_CLIENT_SECRET &&
+    process.env.DIGILOCKER_REDIRECT_URI
+  );
+
+  const cashfreeVrsConfigured = Boolean(
+    process.env.CASHFREE_VRS_CLIENT_ID &&
+    process.env.CASHFREE_VRS_CLIENT_SECRET
+  );
+
+  const cashfreeAadhaarEnabled = isTruthy(process.env.CASHFREE_AADHAAR_VERIFICATION_ENABLED);
+
+  return {
+    preferred_provider: 'digilocker',
+    digilocker_available: digilockerConfigured,
+    cashfree_available: cashfreeVrsConfigured && cashfreeAadhaarEnabled,
+    cashfree_vrs_configured: cashfreeVrsConfigured,
+    cashfree_toggle_enabled: cashfreeAadhaarEnabled,
+  };
+}
+
 async function uploadFile(file, userId) {
   const { fileId, fileUrl } = await uploadToGridFS(file.buffer, file.originalname, file.mimetype, {
     userId: userId.toString(), category: 'kyc',
@@ -27,8 +54,21 @@ exports.getKycStatus = async (req, res, next) => {
       }
     }
 
-    res.json({ success: true, data: { kyc_status: kycStatus, rejection_reason: user.kyc_rejection_reason, pan_verified: panVerified, aadhaar_verified: aadhaarVerified, cheque_verified: chequeVerified, selfie_verified: selfieVerified, digilocker_connected: !!user.digilocker_id, documents, user: { full_name: user.full_name, email: user.email, mobile: user.mobile } } });
+    res.json({ success: true, data: { kyc_status: kycStatus, rejection_reason: user.kyc_rejection_reason, pan_verified: panVerified, aadhaar_verified: aadhaarVerified, cheque_verified: chequeVerified, selfie_verified: selfieVerified, digilocker_connected: !!user.digilocker_id, aadhaar_provider: getAadhaarProviderAvailability(), documents, user: { full_name: user.full_name, email: user.email, mobile: user.mobile } } });
   } catch (err) { next(err); }
+};
+
+exports.getAadhaarVerificationAvailability = async (req, res, next) => {
+  try {
+    res.json({
+      success: true,
+      data: {
+        aadhaar_verification: getAadhaarProviderAvailability(),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 exports.submitPan = async (req, res, next) => {

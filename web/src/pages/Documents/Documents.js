@@ -8,7 +8,7 @@ import {
   CloudUpload as UploadIcon, Visibility as ViewIcon,
   CheckCircle as ApprovedIcon, Schedule as PendingIcon,
   Error as RejectedIcon, Description as DocIcon,
-  InsertDriveFile as FileIcon, CameraAlt as CameraIcon,
+  CameraAlt as CameraIcon,
   VerifiedUser as DigiLockerIcon
 } from '@mui/icons-material';
 import axios from 'axios';
@@ -56,20 +56,24 @@ const Documents = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   useEffect(() => {
     const dlResult = searchParams.get('digilocker');
+    if (!dlResult) return;
+
+    const nextParams = new URLSearchParams(searchParams);
     if (dlResult === 'success') {
       toast.success('DigiLocker connected successfully! Documents imported.');
       fetchDlStatus();
       fetchDocuments();
-      searchParams.delete('digilocker');
-      setSearchParams(searchParams, { replace: true });
+      nextParams.delete('digilocker');
+      nextParams.delete('message');
+      setSearchParams(nextParams, { replace: true });
     } else if (dlResult === 'error') {
       const msg = searchParams.get('message') || 'DigiLocker verification failed';
       toast.error(msg);
-      searchParams.delete('digilocker');
-      searchParams.delete('message');
-      setSearchParams(searchParams, { replace: true });
+      nextParams.delete('digilocker');
+      nextParams.delete('message');
+      setSearchParams(nextParams, { replace: true });
     }
-  }, []);
+  }, [searchParams, setSearchParams]);
 
   const fetchDlStatus = async () => {
     try {
@@ -121,6 +125,17 @@ const Documents = () => {
     cameraInputRef.current.click();
   };
 
+  const closeWebcam = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setWebcamOpen(false);
+    setWebcamDocType(null);
+    setWebcamStatus('ready');
+    setWebcamMsg('');
+  }, []);
+
   const openWebcam = useCallback(async (docType) => {
     setWebcamDocType(docType);
     setWebcamOpen(true);
@@ -137,23 +152,13 @@ const Documents = () => {
       toast.error('Could not access camera. Please allow camera permission.');
       closeWebcam();
     }
-  }, []);
-
-  const closeWebcam = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    setWebcamOpen(false);
-    setWebcamDocType(null);
-    setWebcamStatus('ready');
-    setWebcamMsg('');
-  }, []);
+  }, [closeWebcam]);
 
   const capturePhoto = useCallback(async () => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || !webcamDocType) return;
+    const docType = webcamDocType;
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -167,43 +172,42 @@ const Documents = () => {
       setWebcamMsg('Checking liveness...');
 
       try {
-        // Step 1: Liveness check
-        const livenessForm = new FormData();
-        livenessForm.append('photo', blob, 'selfie.jpg');
-        const livenessRes = await axios.post('/liveness/check', livenessForm, {
+        // Same flow as mobile: single call verifies liveness and saves selfie.
+        const form = new FormData();
+        form.append('photo', blob, 'selfie.jpg');
+        const res = await axios.post('/liveness/verify-and-save', form, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        if (!livenessRes.data.live) {
+        if (!res.data?.success) {
           setWebcamStatus('error');
-          setWebcamMsg(livenessRes.data.message || 'Not a real face detected. Please try again.');
+          setWebcamMsg(res.data?.message || 'Liveness verification failed. Please try again.');
           return;
         }
 
-        // Step 2: Liveness passed - upload document
-        setWebcamMsg('Verified! Uploading...');
+        const liveOk = res.data.live === true || res.data.verification_deferred === true;
+        if (!liveOk) {
+          setWebcamStatus('error');
+          setWebcamMsg(res.data?.message || 'Not a real face detected. Please try again.');
+          return;
+        }
+
+        setWebcamMsg(res.data?.message || 'Verified! Selfie saved.');
         setWebcamStatus('done');
 
-        const localUrl = URL.createObjectURL(blob);
-        setLocalPreviews(prev => ({ ...prev, [webcamDocType]: localUrl }));
+        const previewUrl = res.data?.file_url || URL.createObjectURL(blob);
+        setLocalPreviews(prev => ({ ...prev, [docType]: previewUrl }));
+        setUploading(docType);
+        await fetchDocuments();
+        toast.success(res.data?.verification_deferred
+          ? 'Selfie saved. Liveness verification deferred for review.'
+          : 'Selfie verified and saved!');
         closeWebcam();
-
-        setUploading(webcamDocType);
-        const form = new FormData();
-        form.append('document', blob, 'selfie.jpg');
-        form.append('document_type', webcamDocType);
-        const res = await axios.post('/documents/upload', form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        if (res.data.success) {
-          toast.success('Selfie verified & uploaded!');
-          fetchDocuments();
-        }
       } catch (err) {
         const msg = err.response?.data?.message || 'Liveness check failed. Try again.';
         setWebcamStatus('error');
         setWebcamMsg(msg);
-        setLocalPreviews(prev => { const n = { ...prev }; delete n[webcamDocType]; return n; });
+        setLocalPreviews(prev => { const n = { ...prev }; delete n[docType]; return n; });
       } finally {
         setUploading(null);
       }

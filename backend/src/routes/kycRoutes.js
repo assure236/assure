@@ -17,6 +17,9 @@ const upload = multer({
 // @route   GET /api/v1/kyc/status
 router.get('/status', authMiddleware, kycController.getKycStatus);
 
+// @route   GET /api/v1/kyc/aadhaar-availability
+router.get('/aadhaar-availability', authMiddleware, kycController.getAadhaarVerificationAvailability);
+
 // @route   POST /api/v1/kyc/submit-pan
 router.post('/submit-pan', authMiddleware, kycController.submitPan);
 

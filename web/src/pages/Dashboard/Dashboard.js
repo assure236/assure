@@ -7,13 +7,14 @@ import {
 import {
   AccountBalance as AccountBalanceIcon,
   Group as GroupIcon,
-  Payment as PaymentIcon,
   TrendingUp as TrendingUpIcon,
   Gavel as GavelIcon,
   ArrowForward as ArrowForwardIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  AccountBalanceWallet as WalletIcon
+  AccountBalanceWallet as WalletIcon,
+  History as HistoryIcon,
+  Savings as SavingsIcon,
 } from '@mui/icons-material';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -23,8 +24,16 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 
-const StatCard = ({ title, value, icon, color, subtitle }) => (
-  <Card sx={{ height: '100%' }}>
+const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
+  <Card
+    onClick={onClick}
+    sx={{
+      height: '100%',
+      cursor: onClick ? 'pointer' : 'default',
+      transition: onClick ? 'transform 0.15s ease, box-shadow 0.15s ease' : 'none',
+      '&:hover': onClick ? { transform: 'translateY(-2px)', boxShadow: 5 } : undefined,
+    }}
+  >
     <CardContent>
       <Box display="flex" alignItems="flex-start" justifyContent="space-between">
         <Box>
@@ -59,18 +68,20 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [profileCompletion, setProfileCompletion] = useState(null);
   const [loanData, setLoanData] = useState([]);
+  const [duePayments, setDuePayments] = useState([]);
 
   useEffect(() => { fetchDashboardData(); }, []);
 
   const fetchDashboardData = async () => {
     try {
       setError(null);
-      const [dashRes, analyticsRes, profileRes, dividendRes, loanRes] = await Promise.allSettled([
+      const [dashRes, analyticsRes, profileRes, dividendRes, loanRes, dueRes] = await Promise.allSettled([
         axios.get('/dashboard/member'),
         axios.get('/dashboard/analytics'),
         axios.get('/dashboard/profile-completion'),
         axios.get('/dashboard/dividend-analytics'),
         axios.get('/loans/my-loans'),
+        axios.get('/payments/due-payments'),
       ]);
       if (dashRes.status === 'fulfilled' && dashRes.value.data.success) {
         setDashboardData(dashRes.value.data.data);
@@ -86,6 +97,9 @@ const Dashboard = () => {
       }
       if (loanRes.status === 'fulfilled' && loanRes.value.data.success) {
         setLoanData(loanRes.value.data.data || []);
+      }
+      if (dueRes && dueRes.status === 'fulfilled' && dueRes.value.data.success) {
+        setDuePayments(dueRes.value.data.data || []);
       }
     } catch (err) {
       setError('Could not load dashboard data. Please refresh.');
@@ -113,6 +127,7 @@ const Dashboard = () => {
       title: 'Total Invested', color: '#2e7d32',
       value: `₹${(dashboardData?.totalInvested || 0).toLocaleString('en-IN')}`,
       icon: <AccountBalanceIcon />, subtitle: 'lifetime contribution'
+      , onClick: () => navigate('/dashboard/total-investment')
     },
     {
       title: 'Dividend Earned', color: '#ed6c02',
@@ -133,6 +148,10 @@ const Dashboard = () => {
   const memberships = dashboardData?.memberships || [];
   const recentPayments = dashboardData?.recentPayments || [];
   const upcomingAuctions = dashboardData?.upcomingAuctions || [];
+  const dueNowPayments = duePayments.filter((p) => p.payment_status === 'pending' || p.payment_status === 'overdue');
+  const dueNowAmount = dueNowPayments.reduce((sum, p) => sum + Number(p.total_amount || p.amount || 0), 0);
+  const completedCount = memberships.filter((m) => String((m.chit_group_id || m)?.status || '').toLowerCase() === 'completed').length;
+  const cancelledCount = memberships.filter((m) => String((m.chit_group_id || m)?.status || '').toLowerCase() === 'cancelled').length;
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
@@ -185,6 +204,20 @@ const Dashboard = () => {
         </Alert>
       )}
 
+      {dueNowPayments.length > 0 && (
+        <Alert
+          severity={dueNowPayments.some((p) => p.payment_status === 'overdue') ? 'warning' : 'info'}
+          sx={{ mb: 3 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => navigate('/payments')}>
+              Pay Now
+            </Button>
+          }
+        >
+          You have {dueNowPayments.length} due payment{dueNowPayments.length > 1 ? 's' : ''} totaling ₹{dueNowAmount.toLocaleString('en-IN')}.
+        </Alert>
+      )}
+
       {/* Stats */}
       <Grid container spacing={3} mb={4}>
         {stats.map((stat, i) => (
@@ -193,6 +226,34 @@ const Dashboard = () => {
           </Grid>
         ))}
       </Grid>
+
+      <Paper sx={{ p: 2, borderRadius: 3, mb: 4, border: '1px solid #E2E8F0' }}>
+        <Typography variant="h6" sx={{ mb: 1.5 }}>Quick Access</Typography>
+        <Box display="flex" gap={1.5} flexWrap="wrap">
+          <Button
+            variant="outlined"
+            startIcon={<SavingsIcon />}
+            onClick={() => navigate('/dashboard/total-investment')}
+          >
+            Total Investment
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<HistoryIcon />}
+            onClick={() => navigate('/chit-groups/history/completed')}
+          >
+            Completed Chits ({completedCount})
+          </Button>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<HistoryIcon />}
+            onClick={() => navigate('/chit-groups/history/cancelled')}
+          >
+            Cancelled Chits ({cancelledCount})
+          </Button>
+        </Box>
+      </Paper>
 
       {/* Consolidated Financial Summary */}
       {(memberships.length > 0 || loanData.length > 0) && (
