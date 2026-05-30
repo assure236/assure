@@ -33,6 +33,47 @@ import '../../features/legal/screens/terms_screen.dart';
 import '../../features/legal/screens/privacy_policy_screen.dart';
 import '../../features/loans/screens/apply_loan_screen.dart';
 import '../../features/goals/screens/goal_setting_screen.dart';
+import '../../features/onboarding/screens/digilocker_step_screen.dart';
+import '../../features/onboarding/screens/face_step_screen.dart';
+import '../../features/onboarding/screens/bank_step_screen.dart';
+import '../../features/onboarding/screens/cheque_step_screen.dart';
+import '../../features/onboarding/screens/address_step_screen.dart';
+import '../../features/onboarding/screens/done_step_screen.dart';
+import '../../features/onboarding/services/onboarding_api.dart';
+
+/// Cached so the redirect callback (which must be synchronous) can check
+/// without re-firing the network call on every navigation tick.
+class OnboardingCache {
+  static String? nextStep;
+  static bool? completed;
+  static DateTime? fetchedAt;
+  static bool fetching = false;
+
+  static bool get isFresh =>
+      fetchedAt != null && DateTime.now().difference(fetchedAt!) < const Duration(seconds: 30);
+
+  static Future<void> refresh() async {
+    if (fetching) return;
+    fetching = true;
+    try {
+      final res = await OnboardingApi.getStatus();
+      final data = res['data'] as Map<String, dynamic>?;
+      if (data != null) {
+        completed = data['completed'] == true;
+        nextStep = data['next_step']?.toString();
+        fetchedAt = DateTime.now();
+      }
+    } catch (_) {
+      // Network fail: leave cache; allow the user to proceed.
+    } finally {
+      fetching = false;
+    }
+  }
+
+  static void clear() {
+    nextStep = null; completed = null; fetchedAt = null;
+  }
+}
 
 class AppRouter {
   static GoRouter router(AuthProvider authProvider) {
@@ -67,6 +108,24 @@ class AppRouter {
         // Guard private routes — redirect unauthenticated users
         if (!isAuthenticated) {
           return hasLocalAccount ? '/lock' : '/welcome';
+        }
+
+        // Onboarding gate
+        const onboardingPrefix = '/onboarding';
+        final isOnboarding = loc.startsWith(onboardingPrefix);
+        // Allow the dashboard "just completed" celebration through without re-check
+        final isPostOnboardingDashboard = loc == '/dashboard' &&
+            state.uri.queryParameters['onboarding'] == 'just_completed';
+
+        if (!OnboardingCache.isFresh && !OnboardingCache.fetching) {
+          OnboardingCache.refresh(); // fire-and-forget; next nav will use it
+        }
+
+        if (OnboardingCache.completed == false && !isOnboarding && !isPostOnboardingDashboard) {
+          return onboardingNextRoute(OnboardingCache.nextStep);
+        }
+        if (OnboardingCache.completed == true && isOnboarding && loc != '/onboarding/done') {
+          return '/dashboard';
         }
         return null;
       },
@@ -216,6 +275,36 @@ class AppRouter {
         GoRoute(
           path: '/total-investment',
           builder: (context, state) => const TotalInvestmentScreen(),
+        ),
+        GoRoute(
+          path: '/onboarding',
+          redirect: (context, state) => '/onboarding/digilocker',
+        ),
+        GoRoute(
+          path: '/onboarding/digilocker',
+          builder: (context, state) => DigilockerStepScreen(
+            digilockerStatus: state.uri.queryParameters['digilocker'],
+          ),
+        ),
+        GoRoute(
+          path: '/onboarding/face',
+          builder: (context, state) => const FaceStepScreen(),
+        ),
+        GoRoute(
+          path: '/onboarding/bank',
+          builder: (context, state) => const BankStepScreen(),
+        ),
+        GoRoute(
+          path: '/onboarding/cheque',
+          builder: (context, state) => const ChequeStepScreen(),
+        ),
+        GoRoute(
+          path: '/onboarding/address',
+          builder: (context, state) => const AddressStepScreen(),
+        ),
+        GoRoute(
+          path: '/onboarding/done',
+          builder: (context, state) => const DoneStepScreen(),
         ),
       ],
     );

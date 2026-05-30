@@ -2488,4 +2488,10 @@ const userController = require('../controllers/userController');
 router.get('/agent-requests', adminOnly, userController.getAgentRequests);
 router.put('/agent-requests/:id', adminOnly, userController.reviewAgentRequest);
 
+// ─── Onboarding Approvals ─────────────────────────────────────────────────────
+const onboardingController = require('../controllers/onboardingController');
+router.get('/onboarding/pending', adminOnly, onboardingController.adminListPending);
+router.post('/onboarding/:user_id/:step/approve', adminOnly, onboardingController.adminApproveStep);
+router.post('/onboarding/:user_id/:step/reject', adminOnly, onboardingController.adminRejectStep);
+
 module.exports = router;

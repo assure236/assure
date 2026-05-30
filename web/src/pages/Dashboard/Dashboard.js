@@ -23,6 +23,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import SimpleTour from '../../components/Onboarding/SimpleTour';
+import ReferralShareModal from '../../components/Onboarding/ReferralShareModal';
 
 const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
   <Card
@@ -69,8 +71,26 @@ const Dashboard = () => {
   const [profileCompletion, setProfileCompletion] = useState(null);
   const [loanData, setLoanData] = useState([]);
   const [duePayments, setDuePayments] = useState([]);
+  const [showTour, setShowTour] = useState(false);
+  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => { fetchDashboardData(); }, []);
+
+  // Post-onboarding: take a tour + share popup
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('onboarding') === 'just_completed') {
+      // Clean URL but keep on dashboard
+      window.history.replaceState({}, '', '/dashboard');
+      setTimeout(() => setShowTour(true), 500);
+    }
+  }, []);
+
+  const handleTourDone = () => {
+    setShowTour(false);
+    axios.post('/onboarding/tour-complete').catch(() => {});
+    setTimeout(() => setShowShare(true), 300);
+  };
 
   const fetchDashboardData = async () => {
     try {
@@ -227,10 +247,11 @@ const Dashboard = () => {
         ))}
       </Grid>
 
-      <Paper sx={{ p: 2, borderRadius: 3, mb: 4, border: '1px solid #E2E8F0' }}>
+      <Paper sx={{ p: 2, borderRadius: 3, mb: 4, border: '1px solid #E2E8F0' }} id="tour-quick-access">
         <Typography variant="h6" sx={{ mb: 1.5 }}>Quick Access</Typography>
         <Box display="flex" gap={1.5} flexWrap="wrap">
           <Button
+            id="tour-auctions"
             variant="outlined"
             startIcon={<GavelIcon />}
             onClick={() => navigate('/auctions')}
@@ -238,6 +259,7 @@ const Dashboard = () => {
             Auctions ({upcomingAuctionCount})
           </Button>
           <Button
+            id="tour-payments"
             variant="outlined"
             startIcon={<PaymentIcon />}
             onClick={() => navigate('/payments')}
@@ -245,6 +267,7 @@ const Dashboard = () => {
             Payments ({pendingPaymentCount})
           </Button>
           <Button
+            id="tour-documents"
             variant="outlined"
             color="inherit"
             startIcon={<DescriptionIcon />}
@@ -531,6 +554,24 @@ const Dashboard = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      {showTour && (
+        <SimpleTour
+          onDone={handleTourDone}
+          steps={[
+            { selector: '#tour-quick-access', title: 'Quick Access', body: 'Jump straight to auctions, payments, and your documents from here.', placement: 'bottom' },
+            { selector: '#tour-auctions', title: 'Live Auctions', body: 'Bid in upcoming auctions for your chit groups every month.', placement: 'bottom' },
+            { selector: '#tour-payments', title: 'Payments', body: 'Pay your monthly installments and view receipts.', placement: 'bottom' },
+            { selector: '#tour-documents', title: 'Documents', body: 'View and manage your KYC, cheque, and other documents anytime.', placement: 'bottom' },
+          ]}
+        />
+      )}
+
+      <ReferralShareModal
+        open={showShare}
+        onClose={() => setShowShare(false)}
+        referralCode={user?.referral_code}
+      />
     </Container>
   );
 };

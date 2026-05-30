@@ -106,7 +106,7 @@ exports.handleCallback = async (req, res, next) => {
     if (platform === 'mobile') {
       return `assurechitfunds://dashboard?${params}`;
     }
-    return `${webAppUrl}/documents?${params}`;
+    return `${webAppUrl}/onboarding/face?${params}`;
   };
   let sessionPlatform = 'web';
 
@@ -314,7 +314,12 @@ exports.handleCallback = async (req, res, next) => {
     const panDoc = await Document.findOne({ user_id: userId, document_type: 'pan_card', verification_status: { $in: ['verified', 'approved'] } });
 
     if (aadhaarDoc && panDoc) {
-      await User.findByIdAndUpdate(userId, { kyc_status: 'verified', kyc_verified_at: new Date() });
+      await User.findByIdAndUpdate(userId, {
+        kyc_status: 'verified',
+        kyc_verified_at: new Date(),
+        'onboarding.digilocker.status': 'completed',
+        'onboarding.digilocker.completed_at': new Date(),
+      });
 
       // Send KYC verification notifications (fire-and-forget)
       try {
@@ -369,6 +374,14 @@ exports.handleCallback = async (req, res, next) => {
     }
 
     // Redirect back to app with success
+    try {
+      await User.updateOne({ _id: userId }, {
+        $set: {
+          'onboarding.digilocker.status': 'completed',
+          'onboarding.digilocker.completed_at': new Date(),
+        },
+      });
+    } catch (_) {}
     return res.redirect(buildRedirect(sessionPlatform, 'success'));
   } catch (err) {
     logger.error(`DigiLocker callback error: ${err.message || String(err)}`);

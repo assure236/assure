@@ -5,7 +5,7 @@ const documentSchema = new mongoose.Schema({
   chit_group_id: { type: mongoose.Schema.Types.ObjectId, ref: 'ChitGroup' },
   document_type: {
     type: String,
-    enum: ['aadhaar_card', 'pan_card', 'cancelled_cheque', 'selfie_photo'],
+    enum: ['aadhaar_card', 'aadhaar_card_back', 'pan_card', 'cancelled_cheque', 'selfie_photo'],
     required: true
   },
   document_name: { type: String, required: true },

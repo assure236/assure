@@ -16,6 +16,7 @@ import { AuthProvider } from './context/AuthContext';
 import Login from './pages/Auth/Login';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout/Layout';
+import OnboardingGuard from './components/OnboardingGuard';
 
 // Lazy-loaded pages (code-split for smaller initial bundle)
 const Register = lazy(() => import('./pages/Auth/Register'));
@@ -36,6 +37,14 @@ const Notifications = lazy(() => import('./pages/Notifications/Notifications'));
 const Analytics = lazy(() => import('./pages/Analytics/Analytics'));
 const FamilyMembers = lazy(() => import('./pages/FamilyMembers/FamilyMembers'));
 const Loans = lazy(() => import('./pages/Loans/Loans'));
+
+// Onboarding wizard (full-screen, one container per step)
+const DigiLockerStep = lazy(() => import('./pages/Onboarding/DigiLockerStep'));
+const FaceStep = lazy(() => import('./pages/Onboarding/FaceStep'));
+const BankStep = lazy(() => import('./pages/Onboarding/BankStep'));
+const ChequeStep = lazy(() => import('./pages/Onboarding/ChequeStep'));
+const AddressStep = lazy(() => import('./pages/Onboarding/AddressStep'));
+const DoneStep = lazy(() => import('./pages/Onboarding/DoneStep'));
 
 // Public pages
 const About = lazy(() => import('./pages/About/About'));
@@ -107,6 +116,7 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <OnboardingGuard>
           <Suspense fallback={<PageLoader />}>
           <Routes>
             {/* Public Routes */}
@@ -117,6 +127,15 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+
+            {/* Onboarding wizard — full-screen, no app shell */}
+            <Route path="/onboarding" element={<PrivateRoute><Navigate to="/onboarding/digilocker" replace /></PrivateRoute>} />
+            <Route path="/onboarding/digilocker" element={<PrivateRoute><DigiLockerStep /></PrivateRoute>} />
+            <Route path="/onboarding/face" element={<PrivateRoute><FaceStep /></PrivateRoute>} />
+            <Route path="/onboarding/bank" element={<PrivateRoute><BankStep /></PrivateRoute>} />
+            <Route path="/onboarding/cheque" element={<PrivateRoute><ChequeStep /></PrivateRoute>} />
+            <Route path="/onboarding/address" element={<PrivateRoute><AddressStep /></PrivateRoute>} />
+            <Route path="/onboarding/done" element={<PrivateRoute><DoneStep /></PrivateRoute>} />
 
             {/* Protected Routes */}
             <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
@@ -142,6 +161,7 @@ function App() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>
+          </OnboardingGuard>
         </Router>
         <ToastContainer
           position="top-right"

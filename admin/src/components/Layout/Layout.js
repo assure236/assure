@@ -56,6 +56,7 @@ const navGroups = [
     label: 'Compliance',
     items: [
       { text: 'Documents / KYC', icon: <DocumentIcon />, path: '/documents' },
+      { text: 'Onboarding Approvals', icon: <DocumentIcon />, path: '/onboarding-approvals' },
       { text: 'Communications', icon: <CommunicationsIcon />, path: '/communications' },
       { text: 'Push Notifications', icon: <PushNotificationIcon />, path: '/push-notifications' },
     ]

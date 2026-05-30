@@ -19,6 +19,7 @@ const digilockerRoutes = require('./digilockerRoutes');
 const loanRoutes = require('./loanRoutes');
 const livenessRoutes = require('./livenessRoutes');
 const fileRoutes = require('./fileRoutes');
+const onboardingRoutes = require('./onboardingRoutes');
 
 // Public routes
 router.use('/auth', authRoutes);
@@ -42,6 +43,7 @@ router.use('/chatbot', chatbotRoutes);
 router.use('/digilocker', digilockerRoutes);
 router.use('/loans', loanRoutes);
 router.use('/liveness', livenessRoutes);
+router.use('/onboarding', onboardingRoutes);
 
 // API info endpoint
 router.get('/', (req, res) => {

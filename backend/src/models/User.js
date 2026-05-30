@@ -46,6 +46,45 @@ const userSchema = new mongoose.Schema({
   profile_edit_reviewed_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   profile_edit_rejection_reason: String,
   profile_edit_rejection_fields: [{ type: String }],
+  // Step-by-step onboarding wizard progress (web + mobile)
+  onboarding: {
+    digilocker: {
+      status: { type: String, enum: ['pending', 'completed', 'skipped', 'manual'], default: 'pending' },
+      completed_at: Date,
+    },
+    manual_kyc: {
+      status: { type: String, enum: ['not_required', 'pending_review', 'approved', 'rejected'], default: 'not_required' },
+      submitted_at: Date,
+      reviewed_at: Date,
+      rejection_reason: String,
+    },
+    face_match: {
+      status: { type: String, enum: ['pending', 'verified', 'failed', 'deferred'], default: 'pending' },
+      score: Number,
+      completed_at: Date,
+      attempts: { type: Number, default: 0 },
+    },
+    bank: {
+      status: { type: String, enum: ['pending', 'verified', 'rejected', 'pending_review'], default: 'pending' },
+      name_match_score: Number,
+      account_holder_name: String,
+      completed_at: Date,
+      reviewed_at: Date,
+      rejection_reason: String,
+    },
+    cheque: {
+      status: { type: String, enum: ['pending', 'uploaded', 'skipped', 'approved', 'rejected'], default: 'pending' },
+      completed_at: Date,
+      reviewed_at: Date,
+      rejection_reason: String,
+    },
+    address: {
+      status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
+      completed_at: Date,
+    },
+    tour_completed: { type: Boolean, default: false },
+    completed_at: Date,
+  },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 userSchema.pre('save', async function () {
