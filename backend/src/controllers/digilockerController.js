@@ -104,7 +104,9 @@ exports.handleCallback = async (req, res, next) => {
   const buildRedirect = (platform, status, msg) => {
     const params = msg ? `digilocker=${status}&message=${encodeURIComponent(msg)}` : `digilocker=${status}`;
     if (platform === 'mobile') {
-      return `assurechitfunds://dashboard?${params}`;
+      // Send mobile users back to onboarding route so the app can continue
+      // directly to the next onboarding step after DigiLocker completion.
+      return `assurechitfunds://onboarding/digilocker?${params}`;
     }
     return `${webAppUrl}/onboarding/face?${params}`;
   };

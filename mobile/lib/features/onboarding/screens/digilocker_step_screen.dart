@@ -15,7 +15,7 @@ class DigilockerStepScreen extends StatefulWidget {
   State<DigilockerStepScreen> createState() => _DigilockerStepScreenState();
 }
 
-class _DigilockerStepScreenState extends State<DigilockerStepScreen> {
+class _DigilockerStepScreenState extends State<DigilockerStepScreen> with WidgetsBindingObserver {
   bool _showManual = false;
   bool _busy = false;
   final _pan = TextEditingController();
@@ -25,6 +25,7 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     if (widget.digilockerStatus == 'success') {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -34,6 +35,43 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen> {
     } else if (widget.digilockerStatus == 'error') {
       _showManual = true;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncStepFromBackend());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncStepFromBackend();
+    }
+  }
+
+  Future<void> _syncStepFromBackend() async {
+    try {
+      final res = await OnboardingApi.getStatus();
+      if (!mounted) return;
+      final data = res['data'] as Map<String, dynamic>?;
+      if (data == null) return;
+
+      if (data['completed'] == true) {
+        context.go('/onboarding/done');
+        return;
+      }
+
+      final nextStep = data['next_step']?.toString();
+      if (nextStep != null && nextStep != 'digilocker') {
+        context.go(onboardingNextRoute(nextStep));
+      }
+    } catch (_) {
+      // Ignore temporary failures; user can continue manually.
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pan.dispose();
+    _aadhaar.dispose();
+    super.dispose();
   }
 
   Future<void> _connect() async {

@@ -81,12 +81,13 @@ class AppRouter {
       initialLocation: '/splash',
       refreshListenable: authProvider, // Listen to auth changes without recreating router
       redirect: (context, state) {
-        // Handle custom scheme deep links (e.g., assurechitfunds://kyc?digilocker=success)
+        // Handle custom scheme deep links (e.g., assurechitfunds://onboarding/digilocker?digilocker=success)
         final uri = state.uri;
         if (uri.scheme == 'assurechitfunds') {
           final host = uri.host;
-          final query = uri.query;
-          return query.isNotEmpty ? '/$host?$query' : '/$host';
+          if (host.isEmpty) return null;
+          final fullPath = '/$host${uri.path}';
+          return uri.query.isNotEmpty ? '$fullPath?${uri.query}' : fullPath;
         }
 
         final isAuthenticated = authProvider.isAuthenticated;
@@ -129,7 +130,7 @@ class AppRouter {
           OnboardingCache.refresh(); // fire-and-forget; next nav will use it
         }
 
-        if (OnboardingCache.completed == false && !isOnboarding && !isPostOnboardingDashboard) {
+        if (OnboardingCache.completed != true && !isOnboarding && !isPostOnboardingDashboard) {
           return onboardingNextRoute(OnboardingCache.nextStep);
         }
         if (OnboardingCache.completed == true && isOnboarding && loc != '/onboarding/done') {
