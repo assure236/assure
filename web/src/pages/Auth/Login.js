@@ -157,7 +157,16 @@ export default function Login() {
     <Box sx={{ minHeight: '100vh', bgcolor: '#F8F9FB', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
       <Paper elevation={6} sx={{ width: '100%', maxWidth: 900, borderRadius: 3, overflow: 'hidden' }}>
         <Box sx={{ bgcolor: 'primary.main', color: 'white', py: 2.5, px: 3, textAlign: 'center' }}>
-          <Box component="img" src="/logo.png" alt="Assure ChitFunds" sx={{ width: 56, height: 56, mb: 1 }} />
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="Assure ChitFunds"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = '/build/logo.png';
+            }}
+            sx={{ width: 56, height: 56, mb: 1, objectFit: 'contain' }}
+          />
           <Typography variant="h4" fontWeight={800}>Assure Chit Funds</Typography>
           <Typography variant="body2" sx={{ opacity: 0.85, mt: 0.5 }}>Member Portal — Login</Typography>
         </Box>
