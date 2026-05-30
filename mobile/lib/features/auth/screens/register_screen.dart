@@ -5,7 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../onboarding/services/onboarding_api.dart';
 import '../widgets/otp_input_row.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -150,7 +152,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = false);
 
     if (res['success'] == true) {
-      context.go('/dashboard');
+      // New users must complete the onboarding wizard before the dashboard.
+      OnboardingCache.clear();
+      await OnboardingCache.refresh();
+      if (!mounted) return;
+      context.go(onboardingNextRoute(OnboardingCache.nextStep));
     } else {
       _showError(res['message'] ?? 'Registration failed');
     }

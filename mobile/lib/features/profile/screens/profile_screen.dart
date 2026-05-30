@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_prefs.dart';
-import '../../../core/widgets/onboarding_tour.dart';
 
 class ProfileScreen extends StatefulWidget {
   final void Function(int)? switchTab;
@@ -217,17 +216,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         label: 'Goal Setting',
                         subtitle: 'Set investment targets & goals',
                         onTap: () => context.push('/goals'),
-                      ),
-                      _MenuItem(
-                        icon: Icons.tour_outlined,
-                        label: 'Take a Tour',
-                        subtitle: 'Replay the app walkthrough',
-                        onTap: () async {
-                          await OnboardingTour.reset();
-                          if (context.mounted) {
-                            widget.switchTab?.call(0);
-                          }
-                        },
                       ),
                     ],
                   ),

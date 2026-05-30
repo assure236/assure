@@ -103,7 +103,24 @@ export default function Register() {
       mpin: autoPin,
       referral_code: form.referral_code.trim() || undefined,
     });
-    if (result?.success) navigate('/dashboard');
+    if (result?.success) {
+      // New users must complete the onboarding wizard before the dashboard.
+      try {
+        const s = await axios.get('/onboarding/status');
+        const next = s.data?.data?.next_step;
+        const path = ({
+          digilocker: '/onboarding/digilocker',
+          face_match: '/onboarding/face',
+          bank: '/onboarding/bank',
+          cheque: '/onboarding/cheque',
+          address: '/onboarding/address',
+          complete: '/onboarding/done',
+        })[next] || '/onboarding/digilocker';
+        navigate(path, { replace: true });
+      } catch {
+        navigate('/onboarding/digilocker', { replace: true });
+      }
+    }
   };
 
   // Stepper display: steps 0,1 = "Mobile Verification", 2,3 = "Email Verification"

@@ -14,7 +14,6 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_prefs.dart';
-import '../../../core/widgets/onboarding_tour.dart';
 import '../../chit_groups/screens/chit_groups_screen.dart';
 import '../../auctions/screens/auctions_screen.dart';
 import '../../payments/screens/payments_screen.dart';
@@ -36,13 +35,11 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
-  bool _showTour = false;
   final _paymentsKey = GlobalKey<PaymentsScreenState>();
 
   @override
   void initState() {
     super.initState();
-    _checkTour();
     // Set context for SocketService multi-device alerts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SocketService.instance.setContext(context);
@@ -70,11 +67,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
-  Future<void> _checkTour() async {
-    final show = await OnboardingTour.shouldShow();
-    if (show && mounted) setState(() => _showTour = true);
-  }
-
   void _switchTab(int index) {
     setState(() => _currentIndex = index);
     // If switching to Payments tab and a specific sub-tab was requested
@@ -84,10 +76,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _paymentsKey.currentState?.switchToTab(tabIdx);
       });
-    }
-    // Reload tour when switching back to home
-    if (index == 0) {
-      _checkTour();
     }
   }
 
@@ -159,9 +147,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 return _DraggableFab(onTap: () => context.push('/chatbot'));
               },
             ),
-            if (_showTour)
-              OnboardingTour(
-                  onComplete: () => setState(() => _showTour = false)),
           ],
         ),
       ),
