@@ -101,7 +101,16 @@ const Layout = () => {
   const drawer = (
     <div>
       <Toolbar sx={{ bgcolor: '#0B1F3B', borderBottom: '1px solid rgba(212,175,55,0.15)' }}>
-        <Box component="img" src="/logo.png" alt="Assure" sx={{ width: 32, height: 32, mr: 1.5 }} />
+        <Box
+          component="img"
+          src="/logo.png"
+          alt="Assure"
+          onError={(event) => {
+            event.currentTarget.onerror = null;
+            event.currentTarget.src = '/build/logo.png';
+          }}
+          sx={{ width: 32, height: 32, mr: 1.5, objectFit: 'contain' }}
+        />
         <Box>
           <Typography variant="h6" noWrap fontWeight={700} sx={{ color: 'white', fontSize: 15 }}>
             Assure Chits

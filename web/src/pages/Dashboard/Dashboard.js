@@ -9,12 +9,12 @@ import {
   Group as GroupIcon,
   TrendingUp as TrendingUpIcon,
   Gavel as GavelIcon,
+  Payment as PaymentIcon,
+  Description as DescriptionIcon,
   ArrowForward as ArrowForwardIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   AccountBalanceWallet as WalletIcon,
-  History as HistoryIcon,
-  Savings as SavingsIcon,
 } from '@mui/icons-material';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -150,8 +150,8 @@ const Dashboard = () => {
   const upcomingAuctions = dashboardData?.upcomingAuctions || [];
   const dueNowPayments = duePayments.filter((p) => p.payment_status === 'pending' || p.payment_status === 'overdue');
   const dueNowAmount = dueNowPayments.reduce((sum, p) => sum + Number(p.total_amount || p.amount || 0), 0);
-  const completedCount = memberships.filter((m) => String((m.chit_group_id || m)?.status || '').toLowerCase() === 'completed').length;
-  const cancelledCount = memberships.filter((m) => String((m.chit_group_id || m)?.status || '').toLowerCase() === 'cancelled').length;
+  const upcomingAuctionCount = upcomingAuctions.length;
+  const pendingPaymentCount = analytics?.payment_status?.pending || 0;
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
@@ -232,25 +232,25 @@ const Dashboard = () => {
         <Box display="flex" gap={1.5} flexWrap="wrap">
           <Button
             variant="outlined"
-            startIcon={<SavingsIcon />}
-            onClick={() => navigate('/dashboard/total-investment')}
+            startIcon={<GavelIcon />}
+            onClick={() => navigate('/auctions')}
           >
-            Total Investment
+            Auctions ({upcomingAuctionCount})
           </Button>
           <Button
             variant="outlined"
-            startIcon={<HistoryIcon />}
-            onClick={() => navigate('/chit-groups/history/completed')}
+            startIcon={<PaymentIcon />}
+            onClick={() => navigate('/payments')}
           >
-            Completed Chits ({completedCount})
+            Payments ({pendingPaymentCount})
           </Button>
           <Button
             variant="outlined"
             color="inherit"
-            startIcon={<HistoryIcon />}
-            onClick={() => navigate('/chit-groups/history/cancelled')}
+            startIcon={<DescriptionIcon />}
+            onClick={() => navigate('/documents')}
           >
-            Cancelled Chits ({cancelledCount})
+            Documents
           </Button>
         </Box>
       </Paper>
