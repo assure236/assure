@@ -98,8 +98,16 @@ class AppRouter {
 
         // Don't redirect while on auth screens — let user complete their flow
         if (isPublic) {
-          // Only redirect authenticated users away from auth screens to dashboard
+          // Authenticated users on auth screens should leave them — but if
+          // onboarding is incomplete (or status unknown), route to the wizard
+          // instead of briefly flashing the dashboard.
           if (isAuthenticated && loc != '/splash') {
+            if (!OnboardingCache.isFresh && !OnboardingCache.fetching) {
+              OnboardingCache.refresh();
+            }
+            if (OnboardingCache.completed != true) {
+              return onboardingNextRoute(OnboardingCache.nextStep);
+            }
             return '/dashboard';
           }
           return null;
