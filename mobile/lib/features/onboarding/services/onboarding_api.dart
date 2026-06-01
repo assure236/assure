@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -53,9 +54,27 @@ class OnboardingApi {
     final req = http.MultipartRequest('POST', Uri.parse('$_base/onboarding/face-verify'));
     req.headers.addAll(await _headers(json: false));
     req.files.add(await http.MultipartFile.fromPath('photo', selfiePath, contentType: _mime(selfiePath)));
-    final s = await req.send();
-    final r = await http.Response.fromStream(s);
-    return jsonDecode(r.body) as Map<String, dynamic>;
+    try {
+      final s = await req.send().timeout(const Duration(seconds: 35));
+      final r = await http.Response.fromStream(s).timeout(const Duration(seconds: 35));
+      if (r.body.isEmpty) {
+        return {
+          'success': false,
+          'message': 'Face verification returned an empty response. Please retry.',
+        };
+      }
+      return jsonDecode(r.body) as Map<String, dynamic>;
+    } on TimeoutException {
+      return {
+        'success': false,
+        'message': 'Face verification timed out. Please retry in good network.',
+      };
+    } catch (_) {
+      return {
+        'success': false,
+        'message': 'Face verification failed. Please try again.',
+      };
+    }
   }
 
   static Future<Map<String, dynamic>> saveBank({required String accountNumber, required String ifsc}) async {

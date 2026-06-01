@@ -8,6 +8,8 @@ const logger = require('../utils/logger');
 
 const LUXAND_API = 'https://api.luxand.cloud';
 const LUXAND_TOKEN = process.env.LUXAND_API_TOKEN;
+const LUXAND_TIMEOUT_MS = 15000;
+const LUXAND_MAX_RETRIES = 2;
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -184,14 +186,26 @@ exports.submitManualKyc = async (req, res, next) => {
 // the DigiLocker / KYC photo (Aadhaar photo) stored as a Document.
 
 async function callLuxandLiveness(buffer, mimetype, originalname) {
-  const form = new FormData();
-  form.append('photo', buffer, { filename: originalname || 'selfie.jpg', contentType: mimetype || 'image/jpeg' });
-  const r = await axios.post(`${LUXAND_API}/photo/liveness`, form, {
-    headers: { ...form.getHeaders(), token: LUXAND_TOKEN },
-    timeout: 25000,
-    validateStatus: () => true,
-  });
-  return r.data && typeof r.data === 'object' ? r.data : { status: 'failure' };
+  let lastErr = null;
+  for (let attempt = 1; attempt <= LUXAND_MAX_RETRIES; attempt += 1) {
+    try {
+      const form = new FormData();
+      form.append('photo', buffer, { filename: originalname || 'selfie.jpg', contentType: mimetype || 'image/jpeg' });
+      const r = await axios.post(`${LUXAND_API}/photo/liveness`, form, {
+        headers: { ...form.getHeaders(), token: LUXAND_TOKEN },
+        timeout: LUXAND_TIMEOUT_MS,
+        validateStatus: () => true,
+      });
+      return r.data && typeof r.data === 'object' ? r.data : { status: 'failure' };
+    } catch (err) {
+      lastErr = err;
+      const transient = ['ECONNABORTED', 'ERR_BAD_RESPONSE', 'ETIMEDOUT', 'ECONNRESET'].includes(err.code)
+        || /timeout|stream has been aborted|socket hang up|terminated/i.test(err.message || '');
+      if (!transient || attempt === LUXAND_MAX_RETRIES) break;
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+  }
+  throw lastErr || new Error('Liveness provider unreachable');
 }
 
 // Luxand /photo/verify expects two photos and returns a similarity probability.
@@ -204,7 +218,7 @@ async function callLuxandFaceVerify(selfieBuf, selfieName, referenceUrl) {
   form.append('photo2', referenceUrl);
   const r = await axios.post(`${LUXAND_API}/photo/verify`, form, {
     headers: { ...form.getHeaders(), token: LUXAND_TOKEN },
-    timeout: 25000,
+    timeout: LUXAND_TIMEOUT_MS,
     validateStatus: () => true,
   });
   return r.data && typeof r.data === 'object' ? r.data : { status: 'failure' };
@@ -214,20 +228,40 @@ exports.verifyFaceMatch = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
     if (!req.file) return res.status(400).json({ success: false, message: 'Selfie photo is required.' });
-    if (!LUXAND_TOKEN) return res.status(500).json({ success: false, message: 'Face match service not configured.' });
 
     const user = await User.findById(userId).select('profile_image_url digilocker_id onboarding');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // 1. Liveness check first (anti-spoof)
-    const liveness = await callLuxandLiveness(req.file.buffer, req.file.mimetype, req.file.originalname);
-    if (liveness.status === 'failure' || liveness.result !== 'real') {
-      await User.updateOne({ _id: userId }, { $inc: { 'onboarding.face_match.attempts': 1 } });
-      return res.json({
-        success: false,
-        live: false,
-        message: liveness.message || 'Spoof detected. Please use a real, live face.',
-      });
+    // Always store latest selfie for admin review/reference.
+    await uploadDocument({
+      userId,
+      file: req.file,
+      documentType: 'selfie_photo',
+      verificationStatus: 'pending',
+      notes: 'Onboarding face capture',
+    }).catch(() => {});
+
+    // 1. Liveness check first (anti-spoof).
+    // If provider is unavailable/slow, continue with deferred verification.
+    let livenessUnavailable = false;
+    if (LUXAND_TOKEN) {
+      try {
+        const liveness = await callLuxandLiveness(req.file.buffer, req.file.mimetype, req.file.originalname);
+        if (liveness.status === 'failure' || liveness.result !== 'real') {
+          await User.updateOne({ _id: userId }, { $inc: { 'onboarding.face_match.attempts': 1 } });
+          return res.json({
+            success: false,
+            live: false,
+            message: liveness.message || 'Spoof detected. Please use a real, live face.',
+          });
+        }
+      } catch (e) {
+        livenessUnavailable = true;
+        logger.warn(`Luxand liveness unavailable, falling back to deferred verification: ${e.code || ''} ${e.message || e}`);
+      }
+    } else {
+      livenessUnavailable = true;
+      logger.warn('Luxand token missing: falling back to deferred face verification.');
     }
 
     // 2. Find reference image. Priority:
@@ -246,7 +280,7 @@ exports.verifyFaceMatch = async (req, res, next) => {
     let matched = false;
     let deferred = false;
 
-    if (referenceUrl) {
+    if (!livenessUnavailable && referenceUrl) {
       try {
         const verify = await callLuxandFaceVerify(req.file.buffer, req.file.originalname, referenceUrl);
         // Luxand returns { status:'success', same:true/false, score:0..1 }
@@ -257,7 +291,7 @@ exports.verifyFaceMatch = async (req, res, next) => {
         deferred = true;
       }
     } else {
-      // Cold start — no reference yet. Accept this selfie as canonical reference; mark deferred.
+      // Provider unavailable or cold start — accept capture and continue.
       deferred = true;
     }
 
