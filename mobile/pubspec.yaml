@@ -67,7 +67,9 @@ dependencies:
 
   # On-device face detection (local liveness checks)
   google_mlkit_face_detection: ^0.13.0
-  image: ^4.2.0
+
+  # Live camera preview for face liveness capture
+  camera: ^0.10.5+5
   
   # Payments
   flutter_cashfree_pg_sdk: ^2.3.2+49

@@ -205,6 +205,29 @@ exports.verifyFaceMatch = async (req, res, next) => {
       ? Math.max(0, Math.min(100, Math.round(spoofRiskRaw)))
       : null;
 
+    // Live-camera liveness signals sent by anti_spoof_version=live-camera-v1
+    const blinkCount = Number.isFinite(Number(req.body?.blink_count))
+      ? Math.max(0, Math.round(Number(req.body.blink_count)))
+      : null;
+    const yawVarianceRaw = Number(req.body?.yaw_variance);
+    const yawVariance = Number.isFinite(yawVarianceRaw)
+      ? Math.max(0, yawVarianceRaw)
+      : null;
+
+    // Reject if blink_count==0 AND yaw_variance is extremely low (static screen/photo)
+    const isLiveCamera = req.body?.anti_spoof_version === 'live-camera-v1';
+    if (isLiveCamera && blinkCount === 0 && yawVariance !== null && yawVariance < 0.5) {
+      await User.updateOne(
+        { _id: userId },
+        { $inc: { 'onboarding.face_match.attempts': 1 }, $set: { 'onboarding.face_match.status': 'failed' } }
+      );
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        message: 'No natural movement detected. Please use a live face — not a screen or photo.',
+      });
+    }
+
     if (SELFIE_REQUIRE_CHALLENGE && !challengePassed) {
       await User.updateOne(
         { _id: userId },

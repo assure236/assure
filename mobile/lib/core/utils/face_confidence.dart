@@ -1,9 +1,6 @@
 import 'dart:math' as math;
-import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
-import 'package:image/image.dart' as img;
 
 class FaceConfidenceResult {
   final bool passed;
@@ -25,67 +22,16 @@ class FaceConfidenceResult {
   });
 }
 
-class _ImageMetrics {
-  final double laplacianVariance;
-  final double overExposureRatio;
-
-  const _ImageMetrics({
-    required this.laplacianVariance,
-    required this.overExposureRatio,
-  });
-}
-
-_ImageMetrics _computeImageMetrics(Uint8List bytes) {
-  final decoded = img.decodeImage(bytes);
-  if (decoded == null) {
-    return const _ImageMetrics(laplacianVariance: 0, overExposureRatio: 0);
-  }
-
-  final resized = decoded.width > 320 ? img.copyResize(decoded, width: 320) : decoded;
-  final gray = img.grayscale(resized);
-
-  double sum = 0;
-  double sumSq = 0;
-  int count = 0;
-  int brightPixels = 0;
-
-  for (int y = 1; y < gray.height - 1; y++) {
-    for (int x = 1; x < gray.width - 1; x++) {
-      final c = gray.getPixel(x, y).r;
-      final l = gray.getPixel(x - 1, y).r;
-      final r = gray.getPixel(x + 1, y).r;
-      final t = gray.getPixel(x, y - 1).r;
-      final b = gray.getPixel(x, y + 1).r;
-
-      final lap = (4 * c - l - r - t - b).toDouble();
-      sum += lap;
-      sumSq += lap * lap;
-      count++;
-
-      if (c >= 245) {
-        brightPixels++;
-      }
-    }
-  }
-
-  if (count == 0) {
-    return const _ImageMetrics(laplacianVariance: 0, overExposureRatio: 0);
-  }
-
-  final mean = sum / count;
-  final variance = (sumSq / count) - (mean * mean);
-  final overExposureRatio = brightPixels / count;
-
-  return _ImageMetrics(
-    laplacianVariance: variance.isFinite ? variance : 0,
-    overExposureRatio: overExposureRatio.isFinite ? overExposureRatio : 0,
-  );
-}
-
+/// Evaluates face quality and spoof risk from a captured image file.
+///
+/// [blinkCount] and [yawVariance] are optional liveness signals collected
+/// from the live camera stream before capture. Pass 0 if unknown (single-shot).
 Future<FaceConfidenceResult> evaluateFaceConfidence(
   String imagePath, {
   int minPassPercent = 60,
   int maxSpoofRiskPercent = 45,
+  int blinkCount = 0,
+  double yawVariance = 0.0,
 }) async {
   final detector = FaceDetector(
     options: FaceDetectorOptions(
@@ -97,9 +43,6 @@ Future<FaceConfidenceResult> evaluateFaceConfidence(
   );
 
   try {
-    final fileBytes = await File(imagePath).readAsBytes();
-    final imageMetrics = _computeImageMetrics(fileBytes);
-
     final input = InputImage.fromFilePath(imagePath);
     final faces = await detector.processImage(input);
 
@@ -135,55 +78,61 @@ Future<FaceConfidenceResult> evaluateFaceConfidence(
     final leftEye = face.leftEyeOpenProbability;
     final rightEye = face.rightEyeOpenProbability;
 
-    final frameArea = (face.boundingBox.width * face.boundingBox.height).toDouble();
-    final decoded = img.decodeImage(Uint8List.fromList(fileBytes));
-    final imageArea = decoded == null
-      ? 1.0
-      : math.max(1.0, (decoded.width * decoded.height).toDouble());
-    final faceAreaRatio = frameArea / imageArea;
-
-    var score = 30.0; // Single-face base score
-
-    final yawScore = math.max(0, 25 - (absYaw * 0.7));
-    final pitchScore = math.max(0, 20 - (absPitch * 0.6));
-    score += yawScore + pitchScore;
-
+    // ── Confidence score ─────────────────────────────────────────────────────
+    var score = 30.0;
+    score += math.max(0, 24 - absYaw * 0.65);
+    score += math.max(0, 16 - absPitch * 0.55);
     if (leftEye != null && rightEye != null) {
-      final eyeAvg = ((leftEye + rightEye) / 2).clamp(0, 1);
-      score += 15 * eyeAvg;
+      score += 20 * ((leftEye + rightEye) / 2).clamp(0.0, 1.0);
     } else {
-      // Some devices may not provide eye probabilities reliably.
-      score += 9;
+      score += 10;
     }
-
     final confidence = score.clamp(0, 100).round();
 
-    double spoofRisk = 18;
-    if (imageMetrics.laplacianVariance < 85) spoofRisk += 26;
-    if (imageMetrics.overExposureRatio > 0.16) spoofRisk += 22;
-    if (absYaw < 2.0 && absPitch < 2.0) spoofRisk += 8;
-    if (faceAreaRatio < 0.1 || faceAreaRatio > 0.72) spoofRisk += 12;
-    if (leftEye != null && rightEye != null && leftEye < 0.1 && rightEye < 0.1) spoofRisk += 10;
+    // ── Spoof risk from static-image + liveness signals ───────────────────────
+    // Signals that indicate a printed / screen photo:
+    double spoofRisk = 10;
+
+    // 1. Perfect neutral angle — real selfies have slight natural tilt
+    if (absYaw < 1.5 && absPitch < 1.5) spoofRisk += 12;
+
+    // 2. Suspiciously identical eye openness — photos often have both eyes
+    //    at exactly the same probability (MLKit interpolates from a flat texture)
+    if (leftEye != null && rightEye != null) {
+      if (leftEye < 0.08 && rightEye < 0.08) spoofRisk += 18; // eyes closed in photo
+      if (leftEye > 0.90 &&
+          rightEye > 0.90 &&
+          (leftEye - rightEye).abs() < 0.015) {
+        spoofRisk += 16; // unnaturally identical — studio photo
+      }
+    }
+
+    // 3. Liveness signals from live camera stream (passed by caller)
+    //    Zero blinks + zero head movement = definite static image
+    if (blinkCount == 0 && yawVariance < 1.0) spoofRisk += 22;
+    if (yawVariance < 0.4) spoofRisk += 10;
+
     final spoofRiskPercent = spoofRisk.clamp(0, 100).round();
 
+    // ── Hard-reject checks ───────────────────────────────────────────────────
     if (absYaw > 40 || absPitch > 40) {
       return FaceConfidenceResult(
         passed: false,
         confidencePercent: confidence,
         spoofRiskPercent: spoofRiskPercent,
-        message: 'Face angle is too high. Keep your face straight and centered.',
+        message: 'Face angle too steep. Look directly at the camera.',
         faceCount: 1,
         yaw: yaw,
         pitch: pitch,
       );
     }
 
-    if (leftEye != null && rightEye != null && leftEye < 0.08 && rightEye < 0.08) {
+    if (leftEye != null && rightEye != null && leftEye < 0.07 && rightEye < 0.07) {
       return FaceConfidenceResult(
         passed: false,
         confidencePercent: confidence,
         spoofRiskPercent: spoofRiskPercent,
-        message: 'Eyes are not clearly visible. Open your eyes and retake.',
+        message: 'Eyes not visible. Open your eyes and look at the camera.',
         faceCount: 1,
         yaw: yaw,
         pitch: pitch,
@@ -195,7 +144,7 @@ Future<FaceConfidenceResult> evaluateFaceConfidence(
         passed: false,
         confidencePercent: confidence,
         spoofRiskPercent: spoofRiskPercent,
-        message: 'Possible screen/photo detected. Use a real live face capture in good light.',
+        message: 'Screen or photo detected. Please use a live face only.',
         faceCount: 1,
         yaw: yaw,
         pitch: pitch,
@@ -207,7 +156,7 @@ Future<FaceConfidenceResult> evaluateFaceConfidence(
         passed: false,
         confidencePercent: confidence,
         spoofRiskPercent: spoofRiskPercent,
-        message: 'Face quality is low. Improve lighting and keep the phone steady.',
+        message: 'Face quality low. Improve lighting and look at the camera.',
         faceCount: 1,
         yaw: yaw,
         pitch: pitch,
@@ -218,7 +167,7 @@ Future<FaceConfidenceResult> evaluateFaceConfidence(
       passed: true,
       confidencePercent: confidence,
       spoofRiskPercent: spoofRiskPercent,
-      message: 'Face quality looks good.',
+      message: 'Face verified.',
       faceCount: 1,
       yaw: yaw,
       pitch: pitch,
@@ -228,7 +177,7 @@ Future<FaceConfidenceResult> evaluateFaceConfidence(
       passed: false,
       confidencePercent: 0,
       spoofRiskPercent: 100,
-      message: 'Could not analyze face. Please retake your selfie.',
+      message: 'Could not analyse face. Please retake.',
       faceCount: 0,
       yaw: 0,
       pitch: 0,
