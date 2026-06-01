@@ -11,6 +11,19 @@ const LUXAND_TOKEN = process.env.LUXAND_API_TOKEN;
 const LUXAND_TIMEOUT_MS = 15000;
 const LUXAND_MAX_RETRIES = 2;
 
+function isLuxandUnavailableResponse(payload) {
+  const msg = `${payload?.message || ''} ${payload?.error || ''}`.toLowerCase();
+  return (
+    msg.includes('trial is ended') ||
+    msg.includes('upgrade your plan') ||
+    msg.includes('quota') ||
+    msg.includes('rate limit') ||
+    msg.includes('insufficient') ||
+    msg.includes('api key') ||
+    msg.includes('unauthorized')
+  );
+}
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const STEPS = ['digilocker', 'face_match', 'bank', 'cheque', 'address'];
@@ -247,7 +260,10 @@ exports.verifyFaceMatch = async (req, res, next) => {
     if (LUXAND_TOKEN) {
       try {
         const liveness = await callLuxandLiveness(req.file.buffer, req.file.mimetype, req.file.originalname);
-        if (liveness.status === 'failure' || liveness.result !== 'real') {
+        if (isLuxandUnavailableResponse(liveness)) {
+          livenessUnavailable = true;
+          logger.warn(`Luxand liveness unavailable response, falling back to deferred verification: ${liveness.message || liveness.error || 'unknown'}`);
+        } else if (liveness.status === 'failure' || liveness.result !== 'real') {
           await User.updateOne({ _id: userId }, { $inc: { 'onboarding.face_match.attempts': 1 } });
           return res.json({
             success: false,
