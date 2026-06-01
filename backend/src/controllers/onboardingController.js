@@ -8,8 +8,9 @@ const { notifyUser } = require('../utils/notifyUser');
 
 const STEPS = ['digilocker', 'face_match', 'bank', 'cheque', 'address'];
 const SELFIE_MIN_CONFIDENCE_PERCENT = Number(process.env.SELFIE_MIN_CONFIDENCE_PERCENT || 55);
-const SELFIE_REQUIRE_CHALLENGE = process.env.SELFIE_REQUIRE_CHALLENGE !== 'false';
+const SELFIE_REQUIRE_CHALLENGE = process.env.SELFIE_REQUIRE_CHALLENGE === 'true';
 const SELFIE_CHALLENGE_MIN_YAW_DELTA = Number(process.env.SELFIE_CHALLENGE_MIN_YAW_DELTA || 14);
+const SELFIE_MAX_SPOOF_RISK_PERCENT = Number(process.env.SELFIE_MAX_SPOOF_RISK_PERCENT || 45);
 
 function buildStatusPayload(user) {
   const o = user.onboarding || {};
@@ -199,6 +200,10 @@ exports.verifyFaceMatch = async (req, res, next) => {
     const challengeYawDelta = Number.isFinite(challengeYawDeltaRaw)
       ? Math.max(0, Math.min(90, challengeYawDeltaRaw))
       : null;
+    const spoofRiskRaw = Number(req.body?.spoof_risk_percent);
+    const spoofRiskPercent = Number.isFinite(spoofRiskRaw)
+      ? Math.max(0, Math.min(100, Math.round(spoofRiskRaw)))
+      : null;
 
     if (SELFIE_REQUIRE_CHALLENGE && !challengePassed) {
       await User.updateOne(
@@ -260,6 +265,26 @@ exports.verifyFaceMatch = async (req, res, next) => {
       });
     }
 
+    if (spoofRiskPercent !== null && spoofRiskPercent > SELFIE_MAX_SPOOF_RISK_PERCENT) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': effectiveConfidencePercent !== null ? effectiveConfidencePercent / 100 : null,
+          },
+        }
+      );
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        spoof_risk_percent: spoofRiskPercent,
+        max_allowed_spoof_risk_percent: SELFIE_MAX_SPOOF_RISK_PERCENT,
+        message: 'Possible screen/photo spoof detected. Please capture a live selfie.',
+      });
+    }
+
     const user = await User.findById(userId).select('_id');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
@@ -298,6 +323,7 @@ exports.verifyFaceMatch = async (req, res, next) => {
       success: true,
       matched: true,
       confidence_percent: effectiveConfidencePercent,
+      spoof_risk_percent: spoofRiskPercent,
       challenge_passed: challengePassed,
       challenge_yaw_delta: challengeYawDelta,
       message: 'Selfie saved successfully. Proceed to bank details.',
