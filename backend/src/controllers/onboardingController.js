@@ -1,5 +1,6 @@
 const axios = require('axios');
 const FormData = require('form-data');
+const sharp = require('sharp');
 const { User, Document, Notification } = require('../models');
 const { uploadToGridFS, deleteFromGridFS, downloadFromGridFS } = require('../utils/gridfs');
 const { compareNames } = require('../utils/nameMatch');
@@ -13,6 +14,8 @@ const LUXAND_MAX_RETRIES = 2;
 const FACE_MATCH_MIN_SCORE = 0.9;
 const LIVENESS_MIN_SCORE = Number(process.env.ONBOARDING_LIVENESS_MIN_SCORE || 0.85);
 const REQUIRE_FACE_REFERENCE = process.env.ONBOARDING_REQUIRE_FACE_REFERENCE === 'true';
+const LIVENESS_UPLOAD_TARGET = 700 * 1024;
+const LIVENESS_MAX_DIMENSION = 1280;
 
 function isLuxandUnavailableResponse(payload) {
   const msg = `${payload?.message || ''} ${payload?.error || ''}`.toLowerCase();
@@ -46,6 +49,9 @@ function toFaceErrorMessage(message) {
   if (msg.includes('no face') || msg.includes('face not found') || msg.includes('cannot detect face')) {
     return 'Face not detected. Keep only your face in frame and retry.';
   }
+  if (msg.includes('dark') || msg.includes('low light') || msg.includes('too bright') || msg.includes('blurry') || msg.includes('quality')) {
+    return 'Face is not clear enough. Use moderate lighting, keep camera steady, and retake.';
+  }
   if (msg.includes('multiple face') || msg.includes('more than one face')) {
     return 'Multiple faces detected. Keep only your face in frame and retry.';
   }
@@ -62,6 +68,47 @@ function toFaceErrorMessage(message) {
     return 'Live face check failed. Remove photos/screens and capture your real face only.';
   }
   return 'Face verification failed. Keep only your face in frame with good lighting and retry.';
+}
+
+function isQualityRelatedFailure(payload) {
+  const msg = `${payload?.message || ''} ${payload?.error || ''}`.toLowerCase();
+  return (
+    msg.includes('no face') ||
+    msg.includes('face not found') ||
+    msg.includes('cannot detect face') ||
+    msg.includes('low light') ||
+    msg.includes('dark') ||
+    msg.includes('bright') ||
+    msg.includes('blurry') ||
+    msg.includes('quality')
+  );
+}
+
+async function compressToTarget(buffer, targetBytes) {
+  let quality = 88;
+  let output = buffer;
+
+  while (output.length > targetBytes && quality > 30) {
+    output = await sharp(output)
+      .rotate()
+      .resize(LIVENESS_MAX_DIMENSION, LIVENESS_MAX_DIMENSION, { fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality, mozjpeg: true })
+      .toBuffer();
+    quality -= 8;
+  }
+
+  return output;
+}
+
+async function buildEnhancedLivenessImage(buffer) {
+  return sharp(buffer)
+    .rotate()
+    .resize(LIVENESS_MAX_DIMENSION, LIVENESS_MAX_DIMENSION, { fit: 'inside', withoutEnlargement: true })
+    .normalize()
+    .modulate({ brightness: 1.08, saturation: 1.02 })
+    .sharpen({ sigma: 0.8 })
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toBuffer();
 }
 
 async function readDocumentImage(doc) {
@@ -271,25 +318,84 @@ exports.submitManualKyc = async (req, res, next) => {
 // the DigiLocker / KYC photo (Aadhaar photo) stored as a Document.
 
 async function callLuxandLiveness(buffer, mimetype, originalname) {
-  let lastErr = null;
-  for (let attempt = 1; attempt <= LUXAND_MAX_RETRIES; attempt += 1) {
+  const safeMime = mimetype || 'image/jpeg';
+  const candidates = [];
+
+  // Candidate 1: original image (compressed when too large)
+  if (buffer.length > LIVENESS_UPLOAD_TARGET) {
+    const compressed = await compressToTarget(buffer, LIVENESS_UPLOAD_TARGET);
+    candidates.push({
+      buffer: compressed,
+      mimetype: 'image/jpeg',
+      name: originalname || 'selfie.jpg',
+      enhanced: false,
+    });
+  } else {
+    candidates.push({
+      buffer,
+      mimetype: safeMime,
+      name: originalname || 'selfie.jpg',
+      enhanced: false,
+    });
+  }
+
+  // Candidate 2: enhanced image (better success in low light / blur conditions)
+  if ((safeMime || '').startsWith('image/')) {
     try {
-      const form = new FormData();
-      form.append('photo', buffer, { filename: originalname || 'selfie.jpg', contentType: mimetype || 'image/jpeg' });
-      const r = await axios.post(`${LUXAND_API}/photo/liveness`, form, {
-        headers: { ...form.getHeaders(), token: LUXAND_TOKEN },
-        timeout: LUXAND_TIMEOUT_MS,
-        validateStatus: () => true,
+      let enhanced = await buildEnhancedLivenessImage(buffer);
+      if (enhanced.length > LIVENESS_UPLOAD_TARGET) {
+        enhanced = await compressToTarget(enhanced, LIVENESS_UPLOAD_TARGET);
+      }
+      candidates.push({
+        buffer: enhanced,
+        mimetype: 'image/jpeg',
+        name: originalname || 'selfie_enhanced.jpg',
+        enhanced: true,
       });
-      return r.data && typeof r.data === 'object' ? r.data : { status: 'failure' };
-    } catch (err) {
-      lastErr = err;
-      const transient = ['ECONNABORTED', 'ERR_BAD_RESPONSE', 'ETIMEDOUT', 'ECONNRESET'].includes(err.code)
-        || /timeout|stream has been aborted|socket hang up|terminated/i.test(err.message || '');
-      if (!transient || attempt === LUXAND_MAX_RETRIES) break;
-      await new Promise((resolve) => setTimeout(resolve, 400));
+    } catch (_) {
+      // If enhancement fails, continue with original candidate only.
     }
   }
+
+  let lastErr = null;
+  for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex += 1) {
+    const candidate = candidates[candidateIndex];
+    for (let attempt = 1; attempt <= LUXAND_MAX_RETRIES; attempt += 1) {
+      try {
+        const form = new FormData();
+        form.append('photo', candidate.buffer, {
+          filename: candidate.name,
+          contentType: candidate.mimetype,
+        });
+        const r = await axios.post(`${LUXAND_API}/photo/liveness`, form, {
+          headers: { ...form.getHeaders(), token: LUXAND_TOKEN },
+          timeout: LUXAND_TIMEOUT_MS,
+          validateStatus: () => true,
+          maxBodyLength: 10 * 1024 * 1024,
+          maxContentLength: 10 * 1024 * 1024,
+        });
+
+        const payload = r.data && typeof r.data === 'object' ? r.data : { status: 'failure' };
+
+        if (candidate.enhanced) {
+          logger.info('Luxand liveness used enhanced image variant');
+        }
+
+        if (payload.status !== 'failure' || !isQualityRelatedFailure(payload) || candidateIndex === candidates.length - 1) {
+          return payload;
+        }
+
+        break;
+      } catch (err) {
+        lastErr = err;
+        const transient = ['ECONNABORTED', 'ERR_BAD_RESPONSE', 'ETIMEDOUT', 'ECONNRESET'].includes(err.code)
+          || /timeout|stream has been aborted|socket hang up|terminated/i.test(err.message || '');
+        if (!transient || attempt === LUXAND_MAX_RETRIES) break;
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+    }
+  }
+
   throw lastErr || new Error('Liveness provider unreachable');
 }
 

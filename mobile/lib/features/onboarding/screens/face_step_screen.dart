@@ -36,11 +36,10 @@ class _FaceStepScreenState extends State<FaceStepScreen> {
       final face = faces.first;
       final yaw = (face.headEulerAngleY ?? 0).abs();
       final pitch = (face.headEulerAngleX ?? 0).abs();
-      final leftOpen = face.leftEyeOpenProbability ?? 0;
-      final rightOpen = face.rightEyeOpenProbability ?? 0;
 
-      if (yaw > 22 || pitch > 22) return 'Keep your face straight and centered.';
-      if (leftOpen < 0.2 && rightOpen < 0.2) return 'Please keep your eyes open and retake.';
+      // Keep client checks light to avoid false rejects in low light.
+      // Strict liveness/spoof verification is enforced on the backend.
+      if (yaw > 35 || pitch > 35) return 'Keep your face mostly straight and centered.';
       return null;
     } catch (_) {
       return 'Could not scan face on device. Please retake your selfie.';
