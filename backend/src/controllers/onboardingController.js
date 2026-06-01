@@ -246,14 +246,29 @@ exports.verifyFaceMatch = async (req, res, next) => {
     const user = await User.findById(userId).select('profile_image_url digilocker_id onboarding');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Always store latest selfie for admin review/reference.
-    await uploadDocument({
+    // Pick reference from existing verified KYC/photo docs BEFORE saving current selfie,
+    // so we never compare an image with itself.
+    const referenceDocs = await Document.find({
+      user_id: userId,
+      document_type: { $in: ['aadhaar_card', 'pan_card', 'selfie_photo'] },
+    }).sort({ created_at: -1 }).select('file_url document_type');
+
+    let referenceUrl = null;
+    const firstHttpRef = referenceDocs.find((d) => d.file_url && /^https?:\/\//.test(d.file_url));
+    if (firstHttpRef) {
+      referenceUrl = firstHttpRef.file_url;
+    } else if (user.profile_image_url && /^https?:\/\//.test(user.profile_image_url)) {
+      referenceUrl = user.profile_image_url;
+    }
+
+    // Save latest selfie and use it as profile photo once face step succeeds.
+    const selfieDoc = await uploadDocument({
       userId,
       file: req.file,
       documentType: 'selfie_photo',
-      verificationStatus: 'pending',
+      verificationStatus: localLiveness ? 'approved' : 'pending',
       notes: 'Onboarding face capture',
-    }).catch(() => {});
+    });
 
     // Mobile on-device liveness mode: skip paid provider calls and continue.
     if (localLiveness) {
@@ -262,18 +277,19 @@ exports.verifyFaceMatch = async (req, res, next) => {
         {
           $inc: { 'onboarding.face_match.attempts': 1 },
           $set: {
-            'onboarding.face_match.status': 'deferred',
+            'onboarding.face_match.status': 'verified',
             'onboarding.face_match.completed_at': new Date(),
-            'onboarding.face_match.score': null,
+            'onboarding.face_match.score': 1,
+            profile_image_url: selfieDoc.file_url,
           },
         }
       );
       return res.json({
         success: true,
         matched: true,
-        deferred: true,
+        deferred: false,
         local: true,
-        message: 'Selfie verified on device. Continuing onboarding.',
+        message: 'Selfie verified on device and profile photo updated.',
       });
     }
 
@@ -303,18 +319,6 @@ exports.verifyFaceMatch = async (req, res, next) => {
       logger.warn('Luxand token missing: falling back to deferred face verification.');
     }
 
-    // 2. Find reference image. Priority:
-    //    a) Existing selfie document (already verified at registration / KYC)
-    //    b) profile_image_url (set during previous liveness)
-    //    c) If neither, accept this selfie as the reference (cold start), mark deferred.
-    const reference = await Document.findOne({ user_id: userId, document_type: 'selfie_photo' }).sort({ created_at: -1 });
-    let referenceUrl = null;
-    if (reference && reference.file_url && /^https?:\/\//.test(reference.file_url)) {
-      referenceUrl = reference.file_url;
-    } else if (user.profile_image_url && /^https?:\/\//.test(user.profile_image_url)) {
-      referenceUrl = user.profile_image_url;
-    }
-
     let score = null;
     let matched = false;
     let deferred = false;
@@ -340,16 +344,25 @@ exports.verifyFaceMatch = async (req, res, next) => {
       set['onboarding.face_match.status'] = 'deferred';
       set['onboarding.face_match.completed_at'] = new Date();
       set['onboarding.face_match.score'] = score;
+      set.profile_image_url = selfieDoc.file_url;
     } else if (matched) {
       set['onboarding.face_match.status'] = 'verified';
       set['onboarding.face_match.completed_at'] = new Date();
       set['onboarding.face_match.score'] = score;
+      set.profile_image_url = selfieDoc.file_url;
     } else {
       set['onboarding.face_match.status'] = 'failed';
       set['onboarding.face_match.score'] = score;
     }
     update.$set = set;
     await User.updateOne({ _id: userId }, update);
+
+    if (matched || deferred) {
+      await Document.updateOne(
+        { _id: selfieDoc._id },
+        { verification_status: 'approved', verified_at: new Date(), notes: deferred ? 'Auto-approved (provider unavailable fallback)' : 'Auto-approved after face verification' }
+      ).catch(() => {});
+    }
 
     if (matched || deferred) {
       return res.json({
