@@ -1,7 +1,7 @@
 const axios = require('axios');
 const FormData = require('form-data');
 const { User, Document, Notification } = require('../models');
-const { uploadToGridFS, deleteFromGridFS } = require('../utils/gridfs');
+const { uploadToGridFS, deleteFromGridFS, downloadFromGridFS } = require('../utils/gridfs');
 const { compareNames } = require('../utils/nameMatch');
 const { notifyUser } = require('../utils/notifyUser');
 const logger = require('../utils/logger');
@@ -10,6 +10,7 @@ const LUXAND_API = 'https://api.luxand.cloud';
 const LUXAND_TOKEN = process.env.LUXAND_API_TOKEN;
 const LUXAND_TIMEOUT_MS = 15000;
 const LUXAND_MAX_RETRIES = 2;
+const FACE_MATCH_MIN_SCORE = 0.9;
 
 function isLuxandUnavailableResponse(payload) {
   const msg = `${payload?.message || ''} ${payload?.error || ''}`.toLowerCase();
@@ -22,6 +23,66 @@ function isLuxandUnavailableResponse(payload) {
     msg.includes('api key') ||
     msg.includes('unauthorized')
   );
+}
+
+function streamToBuffer(stream) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    stream.on('data', (c) => chunks.push(c));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+}
+
+function normalizeFaceScore(rawScore) {
+  if (typeof rawScore !== 'number' || Number.isNaN(rawScore)) return null;
+  return rawScore > 1 ? rawScore / 100 : rawScore;
+}
+
+function toFaceErrorMessage(message) {
+  const msg = String(message || '').toLowerCase();
+  if (msg.includes('no face') || msg.includes('face not found') || msg.includes('cannot detect face')) {
+    return 'Face not detected. Keep only your face in frame and retry.';
+  }
+  if (msg.includes('multiple face') || msg.includes('more than one face')) {
+    return 'Multiple faces detected. Keep only your face in frame and retry.';
+  }
+  if (msg.includes('spoof') || msg.includes('fake') || msg.includes('not real') || msg.includes('liveness')) {
+    return 'Live face check failed. Remove photos/screens and capture your real face only.';
+  }
+  return 'Face verification failed. Keep only your face in frame with good lighting and retry.';
+}
+
+async function readDocumentImage(doc) {
+  if (!doc) return null;
+
+  if (doc.gridfs_id) {
+    const result = await downloadFromGridFS(doc.gridfs_id).catch(() => null);
+    if (!result) return null;
+    const buffer = await streamToBuffer(result.stream);
+    return {
+      buffer,
+      mime: doc.mime_type || result.file?.contentType || result.file?.metadata?.mimetype || 'image/jpeg',
+      filename: doc.file_name || doc.document_name || 'reference.jpg',
+    };
+  }
+
+  if (doc.file_url && /^https?:\/\//.test(doc.file_url)) {
+    const response = await axios.get(doc.file_url, {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+      validateStatus: () => true,
+    });
+    if (response.status >= 200 && response.status < 300 && response.data) {
+      return {
+        buffer: Buffer.from(response.data),
+        mime: response.headers['content-type'] || doc.mime_type || 'image/jpeg',
+        filename: doc.file_name || doc.document_name || 'reference.jpg',
+      };
+    }
+  }
+
+  return null;
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -64,7 +125,7 @@ function buildStatusPayload(user) {
   // Determine next step. Order matters.
   let nextStep = null;
   if (digilocker.status === 'pending') nextStep = 'digilocker';
-  else if (face_match.status === 'pending' || face_match.status === 'failed') nextStep = 'face_match';
+  else if (face_match.status === 'pending' || face_match.status === 'failed' || face_match.status === 'deferred') nextStep = 'face_match';
   else if (bank.status === 'pending' || bank.status === 'rejected') nextStep = 'bank';
   else if (cheque.status === 'pending') nextStep = 'cheque';
   else if (address.status === 'pending') nextStep = 'address';
@@ -222,13 +283,13 @@ async function callLuxandLiveness(buffer, mimetype, originalname) {
 }
 
 // Luxand /photo/verify expects two photos and returns a similarity probability.
-async function callLuxandFaceVerify(selfieBuf, selfieName, referenceUrl) {
-  // Reference can be a public URL we host (we'll pass via "photo2" file) or remote URL.
-  // For DigiLocker photos we don't have a raw image (URI is digilocker://...),
-  // so we use the stored selfie or profile image as fallback reference. Caller decides.
+async function callLuxandFaceVerify(selfieBuf, selfieName, referenceBuf, referenceName, referenceMime) {
   const form = new FormData();
   form.append('photo1', selfieBuf, { filename: selfieName || 'photo1.jpg', contentType: 'image/jpeg' });
-  form.append('photo2', referenceUrl);
+  form.append('photo2', referenceBuf, {
+    filename: referenceName || 'photo2.jpg',
+    contentType: referenceMime || 'image/jpeg',
+  });
   const r = await axios.post(`${LUXAND_API}/photo/verify`, form, {
     headers: { ...form.getHeaders(), token: LUXAND_TOKEN },
     timeout: LUXAND_TIMEOUT_MS,
@@ -240,146 +301,199 @@ async function callLuxandFaceVerify(selfieBuf, selfieName, referenceUrl) {
 exports.verifyFaceMatch = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const localLiveness = req.body?.local_liveness === 'true';
     if (!req.file) return res.status(400).json({ success: false, message: 'Selfie photo is required.' });
 
-    const user = await User.findById(userId).select('profile_image_url digilocker_id onboarding');
+    const user = await User.findById(userId).select('digilocker_id onboarding');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
 
-    // Pick reference from existing verified KYC/photo docs BEFORE saving current selfie,
-    // so we never compare an image with itself.
+    // PAN is the primary reference for strict step-2 face verification.
+    // Aadhaar is only used when PAN image is unavailable.
     const referenceDocs = await Document.find({
       user_id: userId,
-      document_type: { $in: ['aadhaar_card', 'pan_card', 'selfie_photo'] },
-    }).sort({ created_at: -1 }).select('file_url document_type');
+      document_type: { $in: ['pan_card', 'aadhaar_card'] },
+    }).sort({ created_at: -1 }).select('document_type file_url gridfs_id mime_type file_name document_name');
 
-    let referenceUrl = null;
-    const firstHttpRef = referenceDocs.find((d) => d.file_url && /^https?:\/\//.test(d.file_url));
-    if (firstHttpRef) {
-      referenceUrl = firstHttpRef.file_url;
-    } else if (user.profile_image_url && /^https?:\/\//.test(user.profile_image_url)) {
-      referenceUrl = user.profile_image_url;
+    const panDoc = referenceDocs.find((d) => d.document_type === 'pan_card') || null;
+    const aadhaarDoc = referenceDocs.find((d) => d.document_type === 'aadhaar_card') || null;
+
+    let referenceDoc = panDoc;
+    let referenceImage = await readDocumentImage(referenceDoc);
+    if (!referenceImage && aadhaarDoc) {
+      referenceDoc = aadhaarDoc;
+      referenceImage = await readDocumentImage(referenceDoc);
     }
 
-    // Save latest selfie and use it as profile photo once face step succeeds.
-    const selfieDoc = await uploadDocument({
-      userId,
-      file: req.file,
-      documentType: 'selfie_photo',
-      verificationStatus: localLiveness ? 'approved' : 'pending',
-      notes: 'Onboarding face capture',
-    });
-
-    // Mobile on-device liveness mode: skip paid provider calls and continue.
-    if (localLiveness) {
+    if (!referenceImage) {
       await User.updateOne(
         { _id: userId },
         {
           $inc: { 'onboarding.face_match.attempts': 1 },
           $set: {
-            'onboarding.face_match.status': 'verified',
-            'onboarding.face_match.completed_at': new Date(),
-            'onboarding.face_match.score': 1,
-            profile_image_url: selfieDoc.file_url,
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': null,
           },
         }
       );
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        message: 'PAN card face photo is required before face verification. Upload PAN and retry.',
+      });
+    }
+
+    // Save latest selfie for audit trail. It becomes profile photo only on successful verification.
+    const selfieDoc = await uploadDocument({
+      userId,
+      file: req.file,
+      documentType: 'selfie_photo',
+      verificationStatus: 'pending',
+      notes: 'Onboarding face capture',
+    });
+
+    if (!LUXAND_TOKEN) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': null,
+          },
+        }
+      );
+      return res.status(503).json({
+        success: false,
+        matched: false,
+        message: 'Face verification is temporarily unavailable. Please retry in a few minutes.',
+      });
+    }
+
+    let liveness;
+    try {
+      liveness = await callLuxandLiveness(req.file.buffer, req.file.mimetype, req.file.originalname);
+    } catch (e) {
+      logger.warn(`Luxand liveness call failed: ${e.code || ''} ${e.message || e}`);
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': null,
+          },
+        }
+      );
+      return res.status(503).json({
+        success: false,
+        matched: false,
+        message: 'Live face check failed due to network issue. Please retry.',
+      });
+    }
+
+    if (isLuxandUnavailableResponse(liveness)) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': null,
+          },
+        }
+      );
+      return res.status(503).json({
+        success: false,
+        matched: false,
+        message: 'Face verification service is unavailable. Please retry shortly.',
+      });
+    }
+
+    if (liveness.status === 'failure' || liveness.result !== 'real') {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': null,
+          },
+        }
+      );
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        message: toFaceErrorMessage(liveness.message || liveness.error),
+      });
+    }
+
+    let verify;
+    try {
+      verify = await callLuxandFaceVerify(
+        req.file.buffer,
+        req.file.originalname,
+        referenceImage.buffer,
+        referenceImage.filename,
+        referenceImage.mime
+      );
+    } catch (e) {
+      logger.warn(`Luxand face verify call failed: ${e.message}`);
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': null,
+          },
+        }
+      );
+      return res.status(503).json({
+        success: false,
+        matched: false,
+        message: 'Face comparison failed. Please retry with a clear selfie.',
+      });
+    }
+
+    const score = normalizeFaceScore(verify.score);
+    const matched = verify.status === 'success' && score !== null && score >= FACE_MATCH_MIN_SCORE;
+
+    await User.updateOne(
+      { _id: userId },
+      {
+        $inc: { 'onboarding.face_match.attempts': 1 },
+        $set: {
+          'onboarding.face_match.status': matched ? 'verified' : 'failed',
+          'onboarding.face_match.completed_at': matched ? new Date() : null,
+          'onboarding.face_match.score': score,
+          ...(matched ? { profile_image_url: selfieDoc.file_url } : {}),
+        },
+      }
+    );
+
+    if (matched) {
+      await Document.updateOne(
+        { _id: selfieDoc._id },
+        {
+          verification_status: 'approved',
+          verified_at: new Date(),
+          notes: `Auto-approved after strict face verification against ${referenceDoc.document_type}`,
+        }
+      ).catch(() => {});
       return res.json({
         success: true,
         matched: true,
-        deferred: false,
-        local: true,
-        message: 'Selfie verified on device and profile photo updated.',
-      });
-    }
-
-    // 1. Liveness check first (anti-spoof).
-    // If provider is unavailable/slow, continue with deferred verification.
-    let livenessUnavailable = false;
-    if (LUXAND_TOKEN) {
-      try {
-        const liveness = await callLuxandLiveness(req.file.buffer, req.file.mimetype, req.file.originalname);
-        if (isLuxandUnavailableResponse(liveness)) {
-          livenessUnavailable = true;
-          logger.warn(`Luxand liveness unavailable response, falling back to deferred verification: ${liveness.message || liveness.error || 'unknown'}`);
-        } else if (liveness.status === 'failure' || liveness.result !== 'real') {
-          await User.updateOne({ _id: userId }, { $inc: { 'onboarding.face_match.attempts': 1 } });
-          return res.json({
-            success: false,
-            live: false,
-            message: liveness.message || 'Spoof detected. Please use a real, live face.',
-          });
-        }
-      } catch (e) {
-        livenessUnavailable = true;
-        logger.warn(`Luxand liveness unavailable, falling back to deferred verification: ${e.code || ''} ${e.message || e}`);
-      }
-    } else {
-      livenessUnavailable = true;
-      logger.warn('Luxand token missing: falling back to deferred face verification.');
-    }
-
-    let score = null;
-    let matched = false;
-    let deferred = false;
-
-    if (!livenessUnavailable && referenceUrl) {
-      try {
-        const verify = await callLuxandFaceVerify(req.file.buffer, req.file.originalname, referenceUrl);
-        // Luxand returns { status:'success', same:true/false, score:0..1 }
-        score = typeof verify.score === 'number' ? verify.score : null;
-        matched = verify.status === 'success' && (verify.same === true || (score !== null && score >= 0.7));
-      } catch (e) {
-        logger.warn(`Luxand face verify failed: ${e.message}`);
-        deferred = true;
-      }
-    } else {
-      // Provider unavailable or cold start — accept capture and continue.
-      deferred = true;
-    }
-
-    const update = { $inc: { 'onboarding.face_match.attempts': 1 } };
-    const set = {};
-    if (deferred) {
-      set['onboarding.face_match.status'] = 'deferred';
-      set['onboarding.face_match.completed_at'] = new Date();
-      set['onboarding.face_match.score'] = score;
-      set.profile_image_url = selfieDoc.file_url;
-    } else if (matched) {
-      set['onboarding.face_match.status'] = 'verified';
-      set['onboarding.face_match.completed_at'] = new Date();
-      set['onboarding.face_match.score'] = score;
-      set.profile_image_url = selfieDoc.file_url;
-    } else {
-      set['onboarding.face_match.status'] = 'failed';
-      set['onboarding.face_match.score'] = score;
-    }
-    update.$set = set;
-    await User.updateOne({ _id: userId }, update);
-
-    if (matched || deferred) {
-      await Document.updateOne(
-        { _id: selfieDoc._id },
-        { verification_status: 'approved', verified_at: new Date(), notes: deferred ? 'Auto-approved (provider unavailable fallback)' : 'Auto-approved after face verification' }
-      ).catch(() => {});
-    }
-
-    if (matched || deferred) {
-      return res.json({
-        success: true,
-        matched: !!matched,
-        deferred,
         score,
-        message: deferred
-          ? 'Face captured. Verification will be confirmed shortly.'
-          : 'Face matched successfully.',
+        threshold: FACE_MATCH_MIN_SCORE,
+        message: 'Face matched successfully. Proceed to bank details.',
       });
     }
-    return res.json({
+
+    return res.status(400).json({
       success: false,
       matched: false,
       score,
-      message: 'Face did not match your KYC photo. Please retry in good lighting.',
+      threshold: FACE_MATCH_MIN_SCORE,
+      message: 'Face does not match your PAN/Aadhaar photo (minimum 90% required).',
     });
   } catch (err) { next(err); }
 };
@@ -592,7 +706,7 @@ exports.complete = async (req, res, next) => {
     // Validate required steps are done (cheque & manual-kyc-approval are not blockers)
     const o = user.onboarding || {};
     const digilockerDone = (o.digilocker?.status === 'completed') || (o.digilocker?.status === 'manual');
-    const faceDone = ['verified', 'deferred'].includes(o.face_match?.status);
+    const faceDone = o.face_match?.status === 'verified';
     const bankDone = ['verified', 'pending_review'].includes(o.bank?.status);
     const chequeDone = ['uploaded', 'skipped', 'approved'].includes(o.cheque?.status);
     const addressDone = o.address?.status === 'completed';

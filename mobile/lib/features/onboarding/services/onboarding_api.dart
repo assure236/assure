@@ -53,7 +53,6 @@ class OnboardingApi {
   static Future<Map<String, dynamic>> verifyFace(String selfiePath) async {
     final req = http.MultipartRequest('POST', Uri.parse('$_base/onboarding/face-verify'));
     req.headers.addAll(await _headers(json: false));
-    req.fields['local_liveness'] = 'true';
     req.files.add(await http.MultipartFile.fromPath('photo', selfiePath, contentType: _mime(selfiePath)));
     try {
       final s = await req.send().timeout(const Duration(seconds: 35));
