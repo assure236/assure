@@ -50,11 +50,18 @@ class OnboardingApi {
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
-  static Future<Map<String, dynamic>> verifyFace(String selfiePath, {int? confidencePercent}) async {
+  static Future<Map<String, dynamic>> verifyFace(
+    String selfiePath, {
+    int? confidencePercent,
+    Map<String, String>? extraFields,
+  }) async {
     final req = http.MultipartRequest('POST', Uri.parse('$_base/onboarding/face-verify'));
     req.headers.addAll(await _headers(json: false));
     if (confidencePercent != null) {
       req.fields['confidence_percent'] = confidencePercent.toString();
+    }
+    if (extraFields != null && extraFields.isNotEmpty) {
+      req.fields.addAll(extraFields);
     }
     req.files.add(await http.MultipartFile.fromPath('photo', selfiePath, contentType: _mime(selfiePath)));
     try {

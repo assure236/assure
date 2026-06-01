@@ -8,6 +8,8 @@ const { notifyUser } = require('../utils/notifyUser');
 
 const STEPS = ['digilocker', 'face_match', 'bank', 'cheque', 'address'];
 const SELFIE_MIN_CONFIDENCE_PERCENT = Number(process.env.SELFIE_MIN_CONFIDENCE_PERCENT || 55);
+const SELFIE_REQUIRE_CHALLENGE = process.env.SELFIE_REQUIRE_CHALLENGE !== 'false';
+const SELFIE_CHALLENGE_MIN_YAW_DELTA = Number(process.env.SELFIE_CHALLENGE_MIN_YAW_DELTA || 14);
 
 function buildStatusPayload(user) {
   const o = user.onboarding || {};
@@ -188,21 +190,71 @@ exports.verifyFaceMatch = async (req, res, next) => {
       ? Math.max(0, Math.min(100, Math.round(confidenceRaw)))
       : null;
 
-    if (confidencePercent !== null && confidencePercent < SELFIE_MIN_CONFIDENCE_PERCENT) {
+    const challengePassed = String(req.body?.challenge_passed || '').toLowerCase() === 'true';
+    const challengeConfidenceRaw = Number(req.body?.challenge_confidence_percent);
+    const challengeConfidencePercent = Number.isFinite(challengeConfidenceRaw)
+      ? Math.max(0, Math.min(100, Math.round(challengeConfidenceRaw)))
+      : null;
+    const challengeYawDeltaRaw = Number(req.body?.challenge_yaw_delta);
+    const challengeYawDelta = Number.isFinite(challengeYawDeltaRaw)
+      ? Math.max(0, Math.min(90, challengeYawDeltaRaw))
+      : null;
+
+    if (SELFIE_REQUIRE_CHALLENGE && !challengePassed) {
       await User.updateOne(
         { _id: userId },
         {
           $inc: { 'onboarding.face_match.attempts': 1 },
           $set: {
             'onboarding.face_match.status': 'failed',
-            'onboarding.face_match.score': confidencePercent / 100,
+            'onboarding.face_match.score': confidencePercent !== null ? confidencePercent / 100 : null,
           },
         }
       );
       return res.status(400).json({
         success: false,
         matched: false,
-        confidence_percent: confidencePercent,
+        message: 'Live challenge not completed. Capture straight face then turned face.',
+      });
+    }
+
+    if (SELFIE_REQUIRE_CHALLENGE && challengeYawDelta !== null && challengeYawDelta < SELFIE_CHALLENGE_MIN_YAW_DELTA) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': challengeConfidencePercent !== null ? challengeConfidencePercent / 100 : null,
+          },
+        }
+      );
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        challenge_yaw_delta: challengeYawDelta,
+        min_required_yaw_delta: SELFIE_CHALLENGE_MIN_YAW_DELTA,
+        message: 'Head movement too small for live challenge. Turn your head more clearly.',
+      });
+    }
+
+    const effectiveConfidencePercent = challengeConfidencePercent ?? confidencePercent;
+
+    if (effectiveConfidencePercent !== null && effectiveConfidencePercent < SELFIE_MIN_CONFIDENCE_PERCENT) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': effectiveConfidencePercent / 100,
+          },
+        }
+      );
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        confidence_percent: effectiveConfidencePercent,
         min_required_percent: SELFIE_MIN_CONFIDENCE_PERCENT,
         message: 'Live selfie confidence is too low. Keep face centered and remove screens/photos.',
       });
@@ -227,7 +279,7 @@ exports.verifyFaceMatch = async (req, res, next) => {
         $set: {
           'onboarding.face_match.status': 'verified',
           'onboarding.face_match.completed_at': new Date(),
-          'onboarding.face_match.score': confidencePercent !== null ? confidencePercent / 100 : null,
+          'onboarding.face_match.score': effectiveConfidencePercent !== null ? effectiveConfidencePercent / 100 : null,
           profile_image_url: selfieDoc.file_url,
         },
       }
@@ -245,7 +297,9 @@ exports.verifyFaceMatch = async (req, res, next) => {
     return res.json({
       success: true,
       matched: true,
-      confidence_percent: confidencePercent,
+      confidence_percent: effectiveConfidencePercent,
+      challenge_passed: challengePassed,
+      challenge_yaw_delta: challengeYawDelta,
       message: 'Selfie saved successfully. Proceed to bank details.',
     });
   } catch (err) { next(err); }

@@ -60,15 +60,17 @@ Future<FaceConfidenceResult> evaluateFaceConfidence(
     }
 
     final face = faces.first;
-    final yaw = (face.headEulerAngleY ?? 0).abs();
-    final pitch = (face.headEulerAngleX ?? 0).abs();
+    final yaw = face.headEulerAngleY ?? 0;
+    final pitch = face.headEulerAngleX ?? 0;
+    final absYaw = yaw.abs();
+    final absPitch = pitch.abs();
     final leftEye = face.leftEyeOpenProbability;
     final rightEye = face.rightEyeOpenProbability;
 
     var score = 30.0; // Single-face base score
 
-    final yawScore = math.max(0, 25 - (yaw * 0.7));
-    final pitchScore = math.max(0, 20 - (pitch * 0.6));
+    final yawScore = math.max(0, 25 - (absYaw * 0.7));
+    final pitchScore = math.max(0, 20 - (absPitch * 0.6));
     score += yawScore + pitchScore;
 
     if (leftEye != null && rightEye != null) {
@@ -81,7 +83,7 @@ Future<FaceConfidenceResult> evaluateFaceConfidence(
 
     final confidence = score.clamp(0, 100).round();
 
-    if (yaw > 40 || pitch > 40) {
+    if (absYaw > 40 || absPitch > 40) {
       return FaceConfidenceResult(
         passed: false,
         confidencePercent: confidence,
