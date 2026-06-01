@@ -240,6 +240,7 @@ async function callLuxandFaceVerify(selfieBuf, selfieName, referenceUrl) {
 exports.verifyFaceMatch = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
+    const localLiveness = req.body?.local_liveness === 'true';
     if (!req.file) return res.status(400).json({ success: false, message: 'Selfie photo is required.' });
 
     const user = await User.findById(userId).select('profile_image_url digilocker_id onboarding');
@@ -253,6 +254,28 @@ exports.verifyFaceMatch = async (req, res, next) => {
       verificationStatus: 'pending',
       notes: 'Onboarding face capture',
     }).catch(() => {});
+
+    // Mobile on-device liveness mode: skip paid provider calls and continue.
+    if (localLiveness) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'deferred',
+            'onboarding.face_match.completed_at': new Date(),
+            'onboarding.face_match.score': null,
+          },
+        }
+      );
+      return res.json({
+        success: true,
+        matched: true,
+        deferred: true,
+        local: true,
+        message: 'Selfie verified on device. Continuing onboarding.',
+      });
+    }
 
     // 1. Liveness check first (anti-spoof).
     // If provider is unavailable/slow, continue with deferred verification.

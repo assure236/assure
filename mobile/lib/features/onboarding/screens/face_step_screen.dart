@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/onboarding_api.dart';
@@ -17,6 +18,37 @@ class _FaceStepScreenState extends State<FaceStepScreen> {
   bool _busy = false;
   String? _error;
 
+  Future<String?> _runLocalLivenessChecks(File image) async {
+    final detector = FaceDetector(
+      options: FaceDetectorOptions(
+        performanceMode: FaceDetectorMode.accurate,
+        enableClassification: true,
+        enableContours: false,
+        enableLandmarks: false,
+      ),
+    );
+    try {
+      final input = InputImage.fromFilePath(image.path);
+      final faces = await detector.processImage(input);
+      if (faces.isEmpty) return 'No face detected. Please retake in good lighting.';
+      if (faces.length > 1) return 'Multiple faces detected. Keep only your face in frame.';
+
+      final face = faces.first;
+      final yaw = (face.headEulerAngleY ?? 0).abs();
+      final pitch = (face.headEulerAngleX ?? 0).abs();
+      final leftOpen = face.leftEyeOpenProbability ?? 0;
+      final rightOpen = face.rightEyeOpenProbability ?? 0;
+
+      if (yaw > 22 || pitch > 22) return 'Keep your face straight and centered.';
+      if (leftOpen < 0.2 && rightOpen < 0.2) return 'Please keep your eyes open and retake.';
+      return null;
+    } catch (_) {
+      return 'Could not scan face on device. Please retake your selfie.';
+    } finally {
+      detector.close();
+    }
+  }
+
   Future<void> _capture() async {
     final picker = ImagePicker();
     final f = await picker.pickImage(source: ImageSource.camera, preferredCameraDevice: CameraDevice.front, imageQuality: 80);
@@ -27,6 +59,12 @@ class _FaceStepScreenState extends State<FaceStepScreen> {
     if (_selfie == null) return;
     setState(() { _busy = true; _error = null; });
     try {
+      final localError = await _runLocalLivenessChecks(_selfie!);
+      if (localError != null) {
+        setState(() => _error = localError);
+        return;
+      }
+
       final res = await OnboardingApi.verifyFace(_selfie!.path);
       if (res['success'] == true) {
         if (mounted) context.go('/onboarding/bank');
