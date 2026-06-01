@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/utils/face_confidence.dart';
 import '../services/onboarding_api.dart';
 import 'onboarding_layout.dart';
 
@@ -17,54 +17,48 @@ class _FaceStepScreenState extends State<FaceStepScreen> {
   File? _selfie;
   bool _busy = false;
   String? _error;
+  int? _confidencePercent;
+  String? _confidenceMessage;
 
-  Future<String?> _runLocalLivenessChecks(File image) async {
-    final detector = FaceDetector(
-      options: FaceDetectorOptions(
-        performanceMode: FaceDetectorMode.accurate,
-        enableClassification: true,
-        enableContours: false,
-        enableLandmarks: false,
-      ),
-    );
-    try {
-      final input = InputImage.fromFilePath(image.path);
-      final faces = await detector.processImage(input);
-      if (faces.isEmpty) return 'No face detected. Please retake in good lighting.';
-      if (faces.length > 1) return 'Multiple faces detected. Keep only your face in frame.';
-
-      final face = faces.first;
-      final yaw = (face.headEulerAngleY ?? 0).abs();
-      final pitch = (face.headEulerAngleX ?? 0).abs();
-
-      // Keep client checks light to avoid false rejects in low light.
-      // Strict liveness/spoof verification is enforced on the backend.
-      if (yaw > 35 || pitch > 35) return 'Keep your face mostly straight and centered.';
-      return null;
-    } catch (_) {
-      return 'Could not scan face on device. Please retake your selfie.';
-    } finally {
-      detector.close();
-    }
+  Future<void> _evaluateCapturedSelfie(File image) async {
+    final analysis = await evaluateFaceConfidence(image.path);
+    if (!mounted) return;
+    setState(() {
+      _confidencePercent = analysis.confidencePercent;
+      _confidenceMessage = analysis.message;
+    });
   }
 
   Future<void> _capture() async {
     final picker = ImagePicker();
     final f = await picker.pickImage(source: ImageSource.camera, preferredCameraDevice: CameraDevice.front, imageQuality: 80);
-    if (f != null) setState(() { _selfie = File(f.path); _error = null; });
+    if (f != null) {
+      final file = File(f.path);
+      setState(() {
+        _selfie = file;
+        _error = null;
+        _confidencePercent = null;
+        _confidenceMessage = null;
+      });
+      await _evaluateCapturedSelfie(file);
+    }
   }
 
   Future<void> _submit() async {
     if (_selfie == null) return;
     setState(() { _busy = true; _error = null; });
     try {
-      final localError = await _runLocalLivenessChecks(_selfie!);
-      if (localError != null) {
-        setState(() => _error = localError);
+      final analysis = await evaluateFaceConfidence(_selfie!.path);
+      setState(() {
+        _confidencePercent = analysis.confidencePercent;
+        _confidenceMessage = analysis.message;
+      });
+      if (!analysis.passed) {
+        setState(() => _error = analysis.message);
         return;
       }
 
-      final res = await OnboardingApi.verifyFace(_selfie!.path);
+      final res = await OnboardingApi.verifyFace(_selfie!.path, confidencePercent: analysis.confidencePercent);
       if (res['success'] == true) {
         if (mounted) context.go('/onboarding/bank');
       } else {
@@ -94,6 +88,39 @@ class _FaceStepScreenState extends State<FaceStepScreen> {
           ),
         ),
         const SizedBox(height: 16),
+        if (_confidencePercent != null) ...[
+          Container(
+            width: 240,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.blueGrey.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Column(
+              children: [
+                Text(
+                  'Local live confidence: $_confidencePercent%',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: (_confidencePercent! / 100).clamp(0, 1),
+                  minHeight: 7,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                if (_confidenceMessage != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _confidenceMessage!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 10), child: Text(_error!, style: const TextStyle(color: Colors.red))),
         if (_selfie == null)
           ElevatedButton.icon(

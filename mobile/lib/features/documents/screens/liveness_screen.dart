@@ -4,9 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/services/api_service.dart';
+import '../../../core/utils/face_confidence.dart';
 
-/// Liveness verification using Luxand Cloud API.
-/// Flow: Capture selfie via image_picker → Luxand liveness check → returns photo path.
+/// Liveness flow.
+/// Flow: Capture selfie via image_picker → backend verification/save → returns photo path.
 class LivenessScreen extends StatefulWidget {
   const LivenessScreen({super.key});
 
@@ -21,6 +22,8 @@ class _LivenessScreenState extends State<LivenessScreen> {
   String _instruction = 'Take a clear selfie for\nliveness verification';
   String? _errorMsg;
   String? _capturedPath;
+  int? _confidencePercent;
+  String? _confidenceMessage;
 
   Future<void> _onCapture() async {
     if (_currentStep != _Step.ready) return;
@@ -43,12 +46,36 @@ class _LivenessScreenState extends State<LivenessScreen> {
     });
 
     try {
+      final analysis = await evaluateFaceConfidence(photo.path);
+      if (!analysis.passed) {
+        if (!mounted) return;
+        setState(() {
+          _currentStep = _Step.ready;
+          _confidencePercent = analysis.confidencePercent;
+          _confidenceMessage = analysis.message;
+          _errorMsg = analysis.message;
+          _instruction = 'Take a clear selfie for\nliveness verification';
+        });
+        return;
+      }
+
+      setState(() {
+        _confidencePercent = analysis.confidencePercent;
+        _confidenceMessage = analysis.message;
+      });
+
       // Single backend call: liveness check + save selfie doc + set profile photo
       final result = await ApiService.uploadFile(
-        '/liveness/verify-and-save', photo.path, fieldName: 'photo');
+        '/liveness/verify-and-save',
+        photo.path,
+        fieldName: 'photo',
+        extraFields: {
+          'confidence_percent': analysis.confidencePercent.toString(),
+        },
+      );
       if (!mounted) return;
 
-      debugPrint('Luxand result: $result');
+      debugPrint('Liveness result: $result');
       final isLive = result['live'] == true && result['success'] == true;
 
       if (!isLive) {
@@ -64,7 +91,7 @@ class _LivenessScreenState extends State<LivenessScreen> {
 
       setState(() {
         _currentStep = _Step.done;
-        _instruction = 'Verified! ✅';
+        _instruction = 'Verified! ✅ (${_confidencePercent ?? 0}%)';
         _errorMsg = null;
       });
       await Future.delayed(const Duration(milliseconds: 800));
@@ -101,6 +128,35 @@ class _LivenessScreenState extends State<LivenessScreen> {
               style: const TextStyle(
                   color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
               textAlign: TextAlign.center),
+          if (_confidencePercent != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Local confidence: $_confidencePercent%',
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 6),
+            SizedBox(
+              width: 240,
+              child: LinearProgressIndicator(
+                value: (_confidencePercent! / 100).clamp(0, 1),
+                minHeight: 7,
+                borderRadius: BorderRadius.circular(5),
+                color: Colors.lightGreenAccent,
+                backgroundColor: Colors.white24,
+              ),
+            ),
+            if (_confidenceMessage != null) ...[
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Text(
+                  _confidenceMessage!,
+                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ],
           if (_errorMsg != null) ...[
             const SizedBox(height: 12),
             Padding(

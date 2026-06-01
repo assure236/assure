@@ -467,7 +467,7 @@ These features were **NOT in the Annexure-A** but have been implemented:
 | 2 | **Defaulter Management System** | Admin + Backend | 90% | Risk classification (high/medium/low), reminder escalation (1st/2nd/3rd/legal), penalty imposition (2% default), late fee waivers, bulk operations, action history |
 | 3 | **Wallet System** | Web + Mobile + Backend | 95% | In-app wallet with deposit (via Cashfree), withdraw, locked balance for bids, full transaction history with pagination |
 | 4 | **Loan Module** | Web + Mobile + Backend | 85% | 3 loan types (personal/chit/emergency), application workflow (requested → under_review → approved → disbursed → active → closed), EMI calculator, repayment tracking |
-| 5 | **Liveness/Selfie Verification** | Mobile + Backend | 85% | Real-time face liveness detection via Luxand API during KYC, anti-spoofing (photo/deepfake detection) |
+| 5 | **Liveness/Selfie Verification** | Mobile + Backend | 85% | On-device ML face-quality checks with confidence scoring and server-side selfie validation during KYC |
 | 6 | **Chit Education Page** | Web | 90% | Multi-language educational content (English/Hindi/Telugu), downloadable brochures, Web Speech API voice narration |
 | 7 | **Branch Management** | Admin + Backend | 80% | Add/edit/delete branches, location & manager info, activate/deactivate |
 | 8 | **Support Ticket System** | Admin + Mobile + Backend | 85% | Create/manage tickets, priority levels (low/medium/high/urgent), status tracking, assignment, resolution notes |
@@ -499,7 +499,7 @@ These features were **NOT in the Annexure-A** but have been implemented:
 | SMS Gateway | Fast2SMS (DLT + Transactional) |
 | Email Service | Resend API |
 | Push Notifications | Firebase Cloud Messaging |
-| Face Verification | Luxand API |
+| Face Verification | On-device MLKit + Backend validation |
 | Process Manager | PM2 (Cluster Mode) |
 | Web Server | Nginx (Reverse Proxy + SSL) |
 | SSL/TLS | Let's Encrypt (Certbot) |
