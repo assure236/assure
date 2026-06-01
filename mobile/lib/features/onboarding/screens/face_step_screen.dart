@@ -83,7 +83,7 @@ class _FaceStepScreenState extends State<FaceStepScreen> {
     return OnboardingLayout(
       stepIndex: 1,
       title: 'Take a live selfie',
-      subtitle: 'Only your real face is allowed. We match it with your PAN/Aadhaar photo (90% minimum).',
+      subtitle: 'Only your real face is allowed. We run live detection first, then PAN/Aadhaar match when available.',
       loading: _busy,
       child: Column(children: [
         ClipOval(
@@ -113,7 +113,7 @@ class _FaceStepScreenState extends State<FaceStepScreen> {
           ),
         ]),
         const SizedBox(height: 12),
-        Text('No screens, printed photos, flash glare, or other objects. Keep only your face centered.', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        Text('No screens, printed photos, or photo frames. Keep only your face centered in good light.', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ]),
     );
   }

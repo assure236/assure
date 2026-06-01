@@ -11,6 +11,8 @@ const LUXAND_TOKEN = process.env.LUXAND_API_TOKEN;
 const LUXAND_TIMEOUT_MS = 15000;
 const LUXAND_MAX_RETRIES = 2;
 const FACE_MATCH_MIN_SCORE = 0.9;
+const LIVENESS_MIN_SCORE = Number(process.env.ONBOARDING_LIVENESS_MIN_SCORE || 0.85);
+const REQUIRE_FACE_REFERENCE = process.env.ONBOARDING_REQUIRE_FACE_REFERENCE === 'true';
 
 function isLuxandUnavailableResponse(payload) {
   const msg = `${payload?.message || ''} ${payload?.error || ''}`.toLowerCase();
@@ -47,7 +49,16 @@ function toFaceErrorMessage(message) {
   if (msg.includes('multiple face') || msg.includes('more than one face')) {
     return 'Multiple faces detected. Keep only your face in frame and retry.';
   }
-  if (msg.includes('spoof') || msg.includes('fake') || msg.includes('not real') || msg.includes('liveness')) {
+  if (
+    msg.includes('spoof') ||
+    msg.includes('fake') ||
+    msg.includes('not real') ||
+    msg.includes('liveness') ||
+    msg.includes('screen') ||
+    msg.includes('display') ||
+    msg.includes('photo') ||
+    msg.includes('print')
+  ) {
     return 'Live face check failed. Remove photos/screens and capture your real face only.';
   }
   return 'Face verification failed. Keep only your face in frame with good lighting and retry.';
@@ -323,7 +334,7 @@ exports.verifyFaceMatch = async (req, res, next) => {
       referenceImage = await readDocumentImage(referenceDoc);
     }
 
-    if (!referenceImage) {
+    if (!referenceImage && REQUIRE_FACE_REFERENCE) {
       await User.updateOne(
         { _id: userId },
         {
@@ -337,7 +348,7 @@ exports.verifyFaceMatch = async (req, res, next) => {
       return res.status(400).json({
         success: false,
         matched: false,
-        message: 'PAN card face photo is required before face verification. Upload PAN and retry.',
+        message: 'PAN/Aadhaar face photo is required before face verification. Upload KYC photo and retry.',
       });
     }
 
@@ -426,6 +437,60 @@ exports.verifyFaceMatch = async (req, res, next) => {
       });
     }
 
+    const livenessScore = normalizeFaceScore(liveness.score);
+    if (livenessScore !== null && livenessScore < LIVENESS_MIN_SCORE) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'failed',
+            'onboarding.face_match.score': livenessScore,
+          },
+        }
+      );
+      return res.status(400).json({
+        success: false,
+        matched: false,
+        liveness_score: livenessScore,
+        message: 'Live selfie confidence is low. Remove screens/photos and retake with your real face.',
+      });
+    }
+
+    // Independent face-step mode: allow strict liveness-only success when KYC face photo
+    // is not available yet. If KYC photo exists, we still run 90% face matching.
+    if (!referenceImage) {
+      await User.updateOne(
+        { _id: userId },
+        {
+          $inc: { 'onboarding.face_match.attempts': 1 },
+          $set: {
+            'onboarding.face_match.status': 'verified',
+            'onboarding.face_match.completed_at': new Date(),
+            'onboarding.face_match.score': livenessScore,
+            profile_image_url: selfieDoc.file_url,
+          },
+        }
+      );
+
+      await Document.updateOne(
+        { _id: selfieDoc._id },
+        {
+          verification_status: 'approved',
+          verified_at: new Date(),
+          notes: 'Auto-approved after strict liveness verification (reference photo not available)',
+        }
+      ).catch(() => {});
+
+      return res.json({
+        success: true,
+        matched: true,
+        compare_performed: false,
+        liveness_score: livenessScore,
+        message: 'Live selfie verified successfully. You can continue onboarding.',
+      });
+    }
+
     let verify;
     try {
       verify = await callLuxandFaceVerify(
@@ -482,6 +547,8 @@ exports.verifyFaceMatch = async (req, res, next) => {
       return res.json({
         success: true,
         matched: true,
+        compare_performed: true,
+        liveness_score: livenessScore,
         score,
         threshold: FACE_MATCH_MIN_SCORE,
         message: 'Face matched successfully. Proceed to bank details.',
@@ -491,6 +558,8 @@ exports.verifyFaceMatch = async (req, res, next) => {
     return res.status(400).json({
       success: false,
       matched: false,
+      compare_performed: true,
+      liveness_score: livenessScore,
       score,
       threshold: FACE_MATCH_MIN_SCORE,
       message: 'Face does not match your PAN/Aadhaar photo (minimum 90% required).',
