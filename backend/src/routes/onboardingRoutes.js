@@ -15,6 +15,8 @@ router.use(authMiddleware);
 router.get('/status', onboardingController.getStatus);
 
 // Step 1: KYC via Cashfree VRS — PAN + Aadhaar OTP verification
+router.post('/digilocker/create-url', onboardingController.createCashfreeDigilockerUrl);
+router.post('/digilocker/sync', onboardingController.syncCashfreeDigilocker);
 router.post('/verify-pan', onboardingController.verifyPanKyc);
 router.post('/aadhaar/send-otp', onboardingController.sendAadhaarOtp);
 router.post('/aadhaar/verify-otp', onboardingController.verifyAadhaarOtp);

@@ -1,4 +1,6 @@
 const axios = require('axios');
+const crypto = require('crypto');
+const FormData = require('form-data');
 const { User, Document, Notification } = require('../models');
 const { uploadToGridFS, deleteFromGridFS } = require('../utils/gridfs');
 const { compareNames } = require('../utils/nameMatch');
@@ -186,125 +188,64 @@ exports.verifyFaceMatch = async (req, res, next) => {
     const userId = req.user._id || req.user.id;
     if (!req.file) return res.status(400).json({ success: false, message: 'Selfie photo is required.' });
 
-    const confidenceRaw = Number(req.body?.confidence_percent);
-    const confidencePercent = Number.isFinite(confidenceRaw)
-      ? Math.max(0, Math.min(100, Math.round(confidenceRaw)))
-      : null;
+    const cfVerificationId = `face_${String(userId)}_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+    const form = new FormData();
+    form.append('verification_id', cfVerificationId);
+    form.append('image', req.file.buffer, {
+      filename: req.file.originalname || 'selfie.jpg',
+      contentType: req.file.mimetype || 'image/jpeg',
+    });
 
-    const challengePassed = String(req.body?.challenge_passed || '').toLowerCase() === 'true';
-    const challengeConfidenceRaw = Number(req.body?.challenge_confidence_percent);
-    const challengeConfidencePercent = Number.isFinite(challengeConfidenceRaw)
-      ? Math.max(0, Math.min(100, Math.round(challengeConfidenceRaw)))
-      : null;
-    const challengeYawDeltaRaw = Number(req.body?.challenge_yaw_delta);
-    const challengeYawDelta = Number.isFinite(challengeYawDeltaRaw)
-      ? Math.max(0, Math.min(90, challengeYawDeltaRaw))
-      : null;
-    const spoofRiskRaw = Number(req.body?.spoof_risk_percent);
-    const spoofRiskPercent = Number.isFinite(spoofRiskRaw)
-      ? Math.max(0, Math.min(100, Math.round(spoofRiskRaw)))
-      : null;
-
-    // Live-camera liveness signals sent by anti_spoof_version=live-camera-v1
-    const blinkCount = Number.isFinite(Number(req.body?.blink_count))
-      ? Math.max(0, Math.round(Number(req.body.blink_count)))
-      : null;
-    const yawVarianceRaw = Number(req.body?.yaw_variance);
-    const yawVariance = Number.isFinite(yawVarianceRaw)
-      ? Math.max(0, yawVarianceRaw)
-      : null;
-
-    // Reject if blink_count==0 AND yaw_variance is extremely low (static screen/photo)
-    const isLiveCamera = req.body?.anti_spoof_version === 'live-camera-v1';
-    if (isLiveCamera && blinkCount === 0 && yawVariance !== null && yawVariance < 0.5) {
-      await User.updateOne(
-        { _id: userId },
-        { $inc: { 'onboarding.face_match.attempts': 1 }, $set: { 'onboarding.face_match.status': 'failed' } }
+    let cfData;
+    try {
+      const cfResp = await axios.post(
+        `${cashfreeVrsBaseUrl()}/face-liveness`,
+        form,
+        {
+          headers: {
+            ...cashfreeVrsHeaders(),
+            ...form.getHeaders(),
+            'x-api-version': process.env.CASHFREE_VRS_API_VERSION || '2024-12-01',
+          },
+          timeout: 20000,
+          maxBodyLength: Infinity,
+          validateStatus: () => true,
+        }
       );
-      return res.status(400).json({
+      if (!(cfResp.status >= 200 && cfResp.status < 300)) {
+        const msg = cfResp.data?.message || 'Cashfree face liveness verification failed.';
+        return res.status(cfResp.status || 400).json({ success: false, matched: false, message: msg });
+      }
+      cfData = cfResp.data || {};
+    } catch (cfErr) {
+      return res.status(502).json({
         success: false,
         matched: false,
-        message: 'No natural movement detected. Please use a live face — not a screen or photo.',
+        message: cfErr.response?.data?.message || 'Cashfree face liveness service unavailable.',
       });
     }
 
-    if (SELFIE_REQUIRE_CHALLENGE && !challengePassed) {
+    const livenessOk = cfData.status === 'SUCCESS' && cfData.liveness === true;
+    const livenessScore = Number.isFinite(Number(cfData.liveness_score)) ? Number(cfData.liveness_score) : 0;
+
+    if (!livenessOk) {
       await User.updateOne(
         { _id: userId },
         {
           $inc: { 'onboarding.face_match.attempts': 1 },
           $set: {
             'onboarding.face_match.status': 'failed',
-            'onboarding.face_match.score': confidencePercent !== null ? confidencePercent / 100 : null,
+            'onboarding.face_match.score': livenessScore,
           },
         }
       );
       return res.status(400).json({
         success: false,
         matched: false,
-        message: 'Live challenge not completed. Capture straight face then turned face.',
-      });
-    }
-
-    if (SELFIE_REQUIRE_CHALLENGE && challengeYawDelta !== null && challengeYawDelta < SELFIE_CHALLENGE_MIN_YAW_DELTA) {
-      await User.updateOne(
-        { _id: userId },
-        {
-          $inc: { 'onboarding.face_match.attempts': 1 },
-          $set: {
-            'onboarding.face_match.status': 'failed',
-            'onboarding.face_match.score': challengeConfidencePercent !== null ? challengeConfidencePercent / 100 : null,
-          },
-        }
-      );
-      return res.status(400).json({
-        success: false,
-        matched: false,
-        challenge_yaw_delta: challengeYawDelta,
-        min_required_yaw_delta: SELFIE_CHALLENGE_MIN_YAW_DELTA,
-        message: 'Head movement too small for live challenge. Turn your head more clearly.',
-      });
-    }
-
-    const effectiveConfidencePercent = challengeConfidencePercent ?? confidencePercent;
-
-    if (effectiveConfidencePercent !== null && effectiveConfidencePercent < SELFIE_MIN_CONFIDENCE_PERCENT) {
-      await User.updateOne(
-        { _id: userId },
-        {
-          $inc: { 'onboarding.face_match.attempts': 1 },
-          $set: {
-            'onboarding.face_match.status': 'failed',
-            'onboarding.face_match.score': effectiveConfidencePercent / 100,
-          },
-        }
-      );
-      return res.status(400).json({
-        success: false,
-        matched: false,
-        confidence_percent: effectiveConfidencePercent,
-        min_required_percent: SELFIE_MIN_CONFIDENCE_PERCENT,
-        message: 'Live selfie confidence is too low. Keep face centered and remove screens/photos.',
-      });
-    }
-
-    if (spoofRiskPercent !== null && spoofRiskPercent > SELFIE_MAX_SPOOF_RISK_PERCENT) {
-      await User.updateOne(
-        { _id: userId },
-        {
-          $inc: { 'onboarding.face_match.attempts': 1 },
-          $set: {
-            'onboarding.face_match.status': 'failed',
-            'onboarding.face_match.score': effectiveConfidencePercent !== null ? effectiveConfidencePercent / 100 : null,
-          },
-        }
-      );
-      return res.status(400).json({
-        success: false,
-        matched: false,
-        spoof_risk_percent: spoofRiskPercent,
-        max_allowed_spoof_risk_percent: SELFIE_MAX_SPOOF_RISK_PERCENT,
-        message: 'Possible screen/photo spoof detected. Please capture a live selfie.',
+        status: cfData.status || 'REAL_FACE_NOT_DETECTED',
+        liveness: cfData.liveness,
+        liveness_score: livenessScore,
+        message: 'Cashfree liveness check failed. Please capture a clear live face.',
       });
     }
 
@@ -327,7 +268,7 @@ exports.verifyFaceMatch = async (req, res, next) => {
         $set: {
           'onboarding.face_match.status': 'verified',
           'onboarding.face_match.completed_at': new Date(),
-          'onboarding.face_match.score': effectiveConfidencePercent !== null ? effectiveConfidencePercent / 100 : null,
+          'onboarding.face_match.score': livenessScore,
           profile_image_url: selfieDoc.file_url,
         },
       }
@@ -345,10 +286,8 @@ exports.verifyFaceMatch = async (req, res, next) => {
     return res.json({
       success: true,
       matched: true,
-      confidence_percent: effectiveConfidencePercent,
-      spoof_risk_percent: spoofRiskPercent,
-      challenge_passed: challengePassed,
-      challenge_yaw_delta: challengeYawDelta,
+      liveness_score: livenessScore,
+      provider_status: cfData.status || 'SUCCESS',
       message: 'Selfie saved successfully. Proceed to bank details.',
     });
   } catch (err) { next(err); }
@@ -689,8 +628,13 @@ function cashfreeVrsHeaders() {
   return {
     'x-client-id': process.env.CASHFREE_VRS_CLIENT_ID || process.env.CASHFREE_APP_ID,
     'x-client-secret': process.env.CASHFREE_VRS_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY,
-    'Content-Type': 'application/json',
   };
+}
+
+function cashfreeVrsBaseUrl() {
+  return process.env.CASHFREE_ENV === 'PROD'
+    ? 'https://api.cashfree.com/verification'
+    : 'https://sandbox.cashfree.com/verification';
 }
 
 async function _checkAndCompleteDigilockerStep(userId) {
@@ -840,6 +784,150 @@ exports.verifyAadhaarOtp = async (req, res, next) => {
       return res.status(err.response.status || 502).json({
         success: false,
         message: err.response.data?.message || 'OTP verification failed.',
+      });
+    }
+    next(err);
+  }
+};
+
+// ─── Cashfree DigiLocker flow (Create URL -> Status -> Fetch docs) ─────────
+
+exports.createCashfreeDigilockerUrl = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const verificationId = `dl_${String(userId)}_${Date.now()}_${crypto.randomBytes(2).toString('hex')}`;
+    const redirectUrl = process.env.CASHFREE_DIGILOCKER_REDIRECT_URL || 'https://assure.fund/onboarding/digilocker';
+    const userFlow = ['signin', 'signup'].includes(String(req.body?.user_flow || '').toLowerCase())
+      ? String(req.body.user_flow).toLowerCase()
+      : 'signup';
+
+    const resp = await axios.post(
+      `${cashfreeVrsBaseUrl()}/digilocker`,
+      {
+        verification_id: verificationId,
+        document_requested: ['AADHAAR', 'PAN'],
+        redirect_url: redirectUrl,
+        user_flow: userFlow,
+      },
+      {
+        headers: { ...cashfreeVrsHeaders(), 'Content-Type': 'application/json' },
+        timeout: 15000,
+      }
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        verification_id: resp.data?.verification_id || verificationId,
+        reference_id: resp.data?.reference_id || null,
+        url: resp.data?.url,
+        status: resp.data?.status || 'PENDING',
+      },
+      message: 'DigiLocker URL generated.',
+    });
+  } catch (err) {
+    if (err.response) {
+      return res.status(err.response.status || 400).json({
+        success: false,
+        message: err.response.data?.message || 'Unable to create DigiLocker URL.',
+      });
+    }
+    next(err);
+  }
+};
+
+exports.syncCashfreeDigilocker = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const verificationId = String(req.body?.verification_id || '').trim();
+    const referenceId = req.body?.reference_id;
+    if (!verificationId && !referenceId) {
+      return res.status(400).json({ success: false, message: 'verification_id or reference_id is required.' });
+    }
+
+    const statusResp = await axios.get(
+      `${cashfreeVrsBaseUrl()}/digilocker`,
+      {
+        headers: { ...cashfreeVrsHeaders(), 'Content-Type': 'application/json' },
+        params: {
+          ...(verificationId ? { verification_id: verificationId } : {}),
+          ...(referenceId ? { reference_id: referenceId } : {}),
+        },
+        timeout: 15000,
+      }
+    );
+
+    const status = statusResp.data?.status;
+    if (status !== 'AUTHENTICATED') {
+      return res.json({
+        success: true,
+        completed: false,
+        data: {
+          status,
+          verification_id: statusResp.data?.verification_id,
+          reference_id: statusResp.data?.reference_id,
+        },
+        message: `DigiLocker status is ${status || 'PENDING'}.`,
+      });
+    }
+
+    const ids = {
+      verification_id: statusResp.data?.verification_id || verificationId,
+      reference_id: statusResp.data?.reference_id || referenceId,
+    };
+
+    const [aadhaarDocResp, panDocResp] = await Promise.all([
+      axios.get(`${cashfreeVrsBaseUrl()}/digilocker/document/AADHAAR`, {
+        headers: { ...cashfreeVrsHeaders(), 'Content-Type': 'application/json' },
+        params: ids,
+        timeout: 15000,
+        validateStatus: () => true,
+      }),
+      axios.get(`${cashfreeVrsBaseUrl()}/digilocker/document/PAN`, {
+        headers: { ...cashfreeVrsHeaders(), 'Content-Type': 'application/json' },
+        params: ids,
+        timeout: 15000,
+        validateStatus: () => true,
+      }),
+    ]);
+
+    const aadhaarDoc = aadhaarDocResp.status >= 200 && aadhaarDocResp.status < 300 ? (aadhaarDocResp.data || {}) : {};
+    const panDoc = panDocResp.status >= 200 && panDocResp.status < 300 ? (panDocResp.data || {}) : {};
+
+    const normalizedPan = String(panDoc.pan || '').toUpperCase().trim();
+    const uidRaw = String(aadhaarDoc.uid || '').replace(/\D/g, '');
+    const normalizedAadhaar = uidRaw.length === 12 ? uidRaw : null;
+
+    const update = {
+      digilocker_id: statusResp.data?.user_details?.digilocker_id || statusResp.data?.digilocker_id || `cf-dl-${String(ids.reference_id || ids.verification_id)}`,
+      'onboarding.digilocker.status': 'completed',
+      'onboarding.digilocker.completed_at': new Date(),
+    };
+
+    const fullName = (panDoc.name_pan_card || aadhaarDoc.name || '').trim();
+    if (fullName) update.full_name = fullName;
+    if (/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(normalizedPan)) update.pan_number = normalizedPan;
+    if (normalizedAadhaar) update.aadhaar_number = normalizedAadhaar;
+
+    await User.findByIdAndUpdate(userId, update);
+
+    return res.json({
+      success: true,
+      completed: true,
+      data: {
+        status,
+        verification_id: ids.verification_id,
+        reference_id: ids.reference_id,
+        pan: normalizedPan || null,
+        aadhaar_last4: normalizedAadhaar ? normalizedAadhaar.slice(-4) : null,
+      },
+      message: 'Cashfree DigiLocker verification completed.',
+    });
+  } catch (err) {
+    if (err.response) {
+      return res.status(err.response.status || 400).json({
+        success: false,
+        message: err.response.data?.message || 'Unable to sync DigiLocker status.',
       });
     }
     next(err);

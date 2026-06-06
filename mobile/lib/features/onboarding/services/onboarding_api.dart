@@ -61,6 +61,31 @@ class OnboardingApi {
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
+  static Future<Map<String, dynamic>> createCashfreeDigilockerUrl({String userFlow = 'signup'}) async {
+    final r = await http.post(
+      Uri.parse('$_base/onboarding/digilocker/create-url'),
+      headers: await _headers(),
+      body: jsonEncode({'user_flow': userFlow}),
+    );
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> syncCashfreeDigilocker({
+    String? verificationId,
+    int? referenceId,
+  }) async {
+    final body = <String, dynamic>{
+      if (verificationId != null && verificationId.trim().isNotEmpty) 'verification_id': verificationId.trim(),
+      if (referenceId != null) 'reference_id': referenceId,
+    };
+    final r = await http.post(
+      Uri.parse('$_base/onboarding/digilocker/sync'),
+      headers: await _headers(),
+      body: jsonEncode(body),
+    );
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
   static Future<Map<String, dynamic>> getDigilockerAuthUrl() async {
     final r = await http.get(Uri.parse('$_base/digilocker/auth-url?platform=mobile'), headers: await _headers());
     return jsonDecode(r.body) as Map<String, dynamic>;
