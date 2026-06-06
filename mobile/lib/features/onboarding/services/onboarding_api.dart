@@ -24,6 +24,43 @@ class OnboardingApi {
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
+  // ── Cashfree VRS KYC ──────────────────────────────────────────────────────
+
+  static Future<Map<String, dynamic>> verifyPanKyc(String panNumber) async {
+    final r = await http.post(
+      Uri.parse('$_base/onboarding/verify-pan'),
+      headers: await _headers(),
+      body: jsonEncode({'pan_number': panNumber.toUpperCase().trim()}),
+    );
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> sendAadhaarOtp(String aadhaarNumber) async {
+    final r = await http.post(
+      Uri.parse('$_base/onboarding/aadhaar/send-otp'),
+      headers: await _headers(),
+      body: jsonEncode({'aadhaar_number': aadhaarNumber.replaceAll(RegExp(r'\D'), '')}),
+    );
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
+  static Future<Map<String, dynamic>> verifyAadhaarOtp({
+    required String aadhaarNumber,
+    required String refId,
+    required String otp,
+  }) async {
+    final r = await http.post(
+      Uri.parse('$_base/onboarding/aadhaar/verify-otp'),
+      headers: await _headers(),
+      body: jsonEncode({
+        'aadhaar_number': aadhaarNumber.replaceAll(RegExp(r'\D'), ''),
+        'ref_id': refId,
+        'otp': otp.trim(),
+      }),
+    );
+    return jsonDecode(r.body) as Map<String, dynamic>;
+  }
+
   static Future<Map<String, dynamic>> getDigilockerAuthUrl() async {
     final r = await http.get(Uri.parse('$_base/digilocker/auth-url?platform=mobile'), headers: await _headers());
     return jsonDecode(r.body) as Map<String, dynamic>;

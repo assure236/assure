@@ -682,3 +682,166 @@ exports.adminRejectStep = async (req, res, next) => {
     res.json({ success: true });
   } catch (err) { next(err); }
 };
+
+// ─── Cashfree VRS helpers ───────────────────────────────────────────────────
+
+function cashfreeVrsHeaders() {
+  return {
+    'x-client-id': process.env.CASHFREE_VRS_CLIENT_ID || process.env.CASHFREE_APP_ID,
+    'x-client-secret': process.env.CASHFREE_VRS_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY,
+    'Content-Type': 'application/json',
+  };
+}
+
+async function _checkAndCompleteDigilockerStep(userId) {
+  const u = await User.findById(userId).select('pan_number aadhaar_number onboarding');
+  if (u && u.pan_number && u.aadhaar_number) {
+    if (u.onboarding?.digilocker?.status !== 'completed') {
+      await User.findByIdAndUpdate(userId, {
+        'onboarding.digilocker.status': 'completed',
+        'onboarding.digilocker.completed_at': new Date(),
+      });
+      return true;
+    }
+  }
+  return false;
+}
+
+// ─── POST /onboarding/verify-pan ────────────────────────────────────────────
+exports.verifyPanKyc = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const pan = (req.body.pan_number || '').toUpperCase().trim();
+
+    if (!pan) return res.status(400).json({ success: false, message: 'PAN number is required' });
+    if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan)) {
+      return res.status(400).json({ success: false, message: 'Invalid PAN format. Expected: ABCDE1234F' });
+    }
+
+    const duplicate = await User.findOne({ pan_number: pan, _id: { $ne: userId } });
+    if (duplicate) {
+      return res.status(400).json({ success: false, message: 'This PAN is already registered with another account.' });
+    }
+
+    let verifiedName = null;
+    let apiVerified = false;
+    try {
+      const resp = await axios.post(
+        'https://api.cashfree.com/verification/pan',
+        { pan },
+        { headers: cashfreeVrsHeaders(), timeout: 15000 }
+      );
+      if (resp.data && resp.data.valid) {
+        apiVerified = true;
+        verifiedName = resp.data.registered_name || resp.data.name_on_card || null;
+      }
+    } catch (apiErr) {
+      console.log('[KYC] PAN Cashfree API error:', apiErr.message);
+      // Save anyway; admin will review
+    }
+
+    await User.findByIdAndUpdate(userId, { pan_number: pan, pan_verified: apiVerified });
+    await _checkAndCompleteDigilockerStep(userId);
+
+    return res.json({
+      success: true,
+      message: apiVerified ? `PAN verified. Name: ${verifiedName}` : 'PAN saved. Pending admin review.',
+      data: { pan_number: pan, verified: apiVerified, name: verifiedName },
+    });
+  } catch (err) { next(err); }
+};
+
+// ─── POST /onboarding/aadhaar/send-otp ─────────────────────────────────────
+exports.sendAadhaarOtp = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const cleaned = (req.body.aadhaar_number || '').replace(/\D/g, '');
+    if (!/^\d{12}$/.test(cleaned)) {
+      return res.status(400).json({ success: false, message: 'Invalid Aadhaar. Must be 12 digits.' });
+    }
+
+    const duplicate = await User.findOne({ aadhaar_number: cleaned, _id: { $ne: userId } });
+    if (duplicate) {
+      return res.status(400).json({ success: false, message: 'This Aadhaar is already registered with another account.' });
+    }
+
+    const resp = await axios.post(
+      'https://api.cashfree.com/verification/aadhaar/otp',
+      { aadhaar_number: cleaned },
+      { headers: cashfreeVrsHeaders(), timeout: 15000 }
+    );
+
+    const refId = resp.data?.ref_id || resp.data?.reference_id || null;
+    if (!refId) {
+      console.log('[KYC] Aadhaar OTP response:', JSON.stringify(resp.data));
+      return res.status(502).json({ success: false, message: 'OTP service unavailable. Try again.' });
+    }
+
+    // Store ref_id temporarily on user for server-side validation
+    await User.findByIdAndUpdate(userId, { aadhaar_otp_ref_id: refId, aadhaar_otp_sent_at: new Date() });
+
+    return res.json({
+      success: true,
+      message: 'OTP sent to your Aadhaar-linked mobile number.',
+      data: { ref_id: refId },
+    });
+  } catch (err) {
+    if (err.response) {
+      console.log('[KYC] Aadhaar OTP error:', JSON.stringify(err.response.data));
+      return res.status(err.response.status || 502).json({
+        success: false,
+        message: err.response.data?.message || 'OTP request failed. Check Aadhaar number.',
+      });
+    }
+    next(err);
+  }
+};
+
+// ─── POST /onboarding/aadhaar/verify-otp ────────────────────────────────────
+exports.verifyAadhaarOtp = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const otp = (req.body.otp || '').trim();
+    const refId = (req.body.ref_id || '').trim();
+    const cleaned = (req.body.aadhaar_number || '').replace(/\D/g, '');
+
+    if (!otp || !refId || !cleaned) {
+      return res.status(400).json({ success: false, message: 'OTP, ref_id and aadhaar_number are required.' });
+    }
+
+    const resp = await axios.post(
+      'https://api.cashfree.com/verification/aadhaar/otp/verify',
+      { otp, ref_id: refId, aadhaar_number: cleaned },
+      { headers: cashfreeVrsHeaders(), timeout: 15000 }
+    );
+
+    const isValid = resp.data?.is_valid ?? resp.data?.valid ?? false;
+    if (!isValid) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP. Please try again.' });
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      aadhaar_number: cleaned,
+      $unset: { aadhaar_otp_ref_id: 1, aadhaar_otp_sent_at: 1 },
+    });
+    const stepped = await _checkAndCompleteDigilockerStep(userId);
+
+    return res.json({
+      success: true,
+      message: 'Aadhaar verified successfully.',
+      data: {
+        aadhaar_last4: cleaned.slice(-4),
+        kyc_step_completed: stepped,
+      },
+    });
+  } catch (err) {
+    if (err.response) {
+      console.log('[KYC] Aadhaar OTP verify error:', JSON.stringify(err.response.data));
+      return res.status(err.response.status || 502).json({
+        success: false,
+        message: err.response.data?.message || 'OTP verification failed.',
+      });
+    }
+    next(err);
+  }
+};

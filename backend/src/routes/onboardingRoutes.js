@@ -14,7 +14,12 @@ router.use(authMiddleware);
 // Status
 router.get('/status', onboardingController.getStatus);
 
-// Step 1: DigiLocker (link to existing init via /digilocker/auth-url)
+// Step 1: KYC via Cashfree VRS — PAN + Aadhaar OTP verification
+router.post('/verify-pan', onboardingController.verifyPanKyc);
+router.post('/aadhaar/send-otp', onboardingController.sendAadhaarOtp);
+router.post('/aadhaar/verify-otp', onboardingController.verifyAadhaarOtp);
+
+// Step 1 (legacy): DigiLocker (link to existing init via /digilocker/auth-url)
 //         If user has no DigiLocker, submit manual PAN+Aadhaar files.
 router.post(
   '/manual-kyc',
