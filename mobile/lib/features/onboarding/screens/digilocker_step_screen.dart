@@ -1,231 +1,209 @@
-﻿import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/onboarding_api.dart';
 import 'onboarding_layout.dart';
 
+// ─── HOW THIS WORKS ─────────────────────────────────────────────────────────
+// 1. User taps "Verify with Cashfree DigiLocker"
+// 2. We call POST /onboarding/digilocker/create-url → get {url, verification_id}
+// 3. We open that URL in external browser via url_launcher
+// 4. User logs into DigiLocker on Cashfree's page, gives consent
+// 5. Cashfree redirects to https://assure.fund/onboarding/digilocker?verification_id=xxx
+// 6. When user returns to our app (AppLifecycleState.resumed), we auto-poll
+//    POST /onboarding/digilocker/sync with the verification_id
+// 7. If completed → navigate to /onboarding/face
+// ────────────────────────────────────────────────────────────────────────────
+
 class DigilockerStepScreen extends StatefulWidget {
-  final String? digilockerStatus;
-  const DigilockerStepScreen({super.key, this.digilockerStatus});
+  const DigilockerStepScreen({super.key});
 
   @override
   State<DigilockerStepScreen> createState() => _DigilockerStepScreenState();
 }
 
-enum _KycSubStep { chooser, pan, aadhaar, otpEntry }
-
-class _DigilockerStepScreenState extends State<DigilockerStepScreen> {
-  _KycSubStep _subStep = _KycSubStep.chooser;
-  bool _busy = false;
-
-  final _panCtrl = TextEditingController();
-  bool _panVerified = false;
-  String? _panName;
-
-  final _aadhaarCtrl = TextEditingController();
-  final _otpCtrl = TextEditingController();
-  bool _otpSent = false;
-  String? _refId;
-
-  String? _digilockerVerificationId;
-  int? _digilockerReferenceId;
+class _DigilockerStepScreenState extends State<DigilockerStepScreen>
+    with WidgetsBindingObserver {
+  // Phase: idle | creating | waiting | syncing | done | error
+  String _phase = 'idle';
+  String? _verificationId;
+  String? _error;
+  bool _alreadyDone = false;
+  int _pollCount = 0;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncStep());
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAlreadyDone());
   }
 
   @override
   void dispose() {
-    _panCtrl.dispose();
-    _aadhaarCtrl.dispose();
-    _otpCtrl.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
-  Future<void> _syncStep() async {
+  // ── Auto-poll when user returns from browser ──────────────────────────────
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _phase == 'waiting') {
+      _syncStatus();
+    }
+  }
+
+  // ── Check if step already complete ───────────────────────────────────────
+  Future<void> _checkAlreadyDone() async {
     try {
       final res = await OnboardingApi.getStatus();
       if (!mounted) return;
       final data = res['data'] as Map<String, dynamic>?;
       if (data == null) return;
+
+      // Already finished onboarding entirely
       if (data['completed'] == true) {
         context.go('/onboarding/done');
         return;
       }
+
+      // Skip forward if not on digilocker step
       final next = data['next_step']?.toString();
       if (next != null && next != 'digilocker') {
         context.go(onboardingNextRoute(next));
+        return;
+      }
+
+      // Digilocker already verified
+      final dlStatus = data['steps']?['digilocker']?['status']?.toString();
+      if (dlStatus == 'completed' || dlStatus == 'manual') {
+        setState(() => _alreadyDone = true);
       }
     } catch (_) {}
   }
 
-  void _showError(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red.shade700),
-    );
-  }
+  // ── Step 1: Get Cashfree DigiLocker URL and open in browser ──────────────
+  Future<void> _startDigilocker() async {
+    setState(() {
+      _phase = 'creating';
+      _error = null;
+    });
 
-  void _showSuccess(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.green.shade700),
-    );
-  }
-
-  Future<void> _startCashfreeDigilocker() async {
-    setState(() => _busy = true);
     try {
       final res = await OnboardingApi.createCashfreeDigilockerUrl(userFlow: 'signup');
+
       if (res['success'] != true) {
-        _showError(res['message']?.toString() ?? 'Unable to start DigiLocker flow.');
+        setState(() {
+          _error = res['message']?.toString() ?? 'Unable to start DigiLocker verification.';
+          _phase = 'error';
+        });
         return;
       }
 
-      final data = (res['data'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+      final data = (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
       final url = data['url']?.toString();
-      _digilockerVerificationId = data['verification_id']?.toString();
-      _digilockerReferenceId = data['reference_id'] is int
-          ? data['reference_id'] as int
-          : int.tryParse('${data['reference_id'] ?? ''}');
+      _verificationId = data['verification_id']?.toString();
 
       if (url == null || url.isEmpty) {
-        _showError('DigiLocker URL missing from server response.');
+        setState(() {
+          _error = 'DigiLocker URL not received from server. Please try again.';
+          _phase = 'error';
+        });
         return;
       }
 
+      // Open in external browser
       final uri = Uri.parse(url);
       final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
       if (!opened) {
-        _showError('Could not open DigiLocker URL.');
+        setState(() {
+          _error = 'Could not open browser. Please check your device settings.';
+          _phase = 'error';
+        });
         return;
       }
-      _showSuccess('Complete DigiLocker consent, then return and tap Check Status.');
+
+      // Now waiting — auto-polls when user returns (didChangeAppLifecycleState)
+      setState(() => _phase = 'waiting');
     } catch (e) {
-      _showError('Error: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      setState(() {
+        _error = 'Error: ${e.toString()}';
+        _phase = 'error';
+      });
     }
   }
 
-  Future<void> _checkCashfreeDigilockerStatus() async {
-    if ((_digilockerVerificationId ?? '').isEmpty && _digilockerReferenceId == null) {
-      _showError('Start DigiLocker flow first.');
+  // ── Step 2: Sync result from Cashfree ────────────────────────────────────
+  Future<void> _syncStatus() async {
+    if ((_verificationId ?? '').isEmpty) {
+      setState(() {
+        _error = 'Please start DigiLocker first.';
+        _phase = 'error';
+      });
       return;
     }
 
-    setState(() => _busy = true);
+    setState(() {
+      _phase = 'syncing';
+      _pollCount++;
+    });
+
     try {
       final res = await OnboardingApi.syncCashfreeDigilocker(
-        verificationId: _digilockerVerificationId,
-        referenceId: _digilockerReferenceId,
+        verificationId: _verificationId,
       );
-      if (res['success'] != true) {
-        _showError(res['message']?.toString() ?? 'Failed to check DigiLocker status.');
+
+      if (!mounted) return;
+
+      if (res['success'] == true && res['completed'] == true) {
+        setState(() => _phase = 'done');
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (mounted) context.go('/onboarding/face');
         return;
       }
-      if (res['completed'] == true) {
-        _showSuccess('DigiLocker verified successfully. Proceeding to face step.');
-        if (mounted) context.go('/onboarding/face');
-      } else {
-        final status = res['data']?['status']?.toString() ?? 'PENDING';
-        _showError('DigiLocker status: $status. Please complete consent and retry.');
-      }
-    } catch (e) {
-      _showError('Error: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
 
-  Future<void> _verifyPan() async {
-    final pan = _panCtrl.text.toUpperCase().trim();
-    if (pan.length != 10 || !RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(pan)) {
-      _showError('Enter a valid PAN (example: ABCDE1234F)');
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      final res = await OnboardingApi.verifyPanKyc(pan);
-      if (!mounted) return;
-      if (res['success'] == true) {
-        final name = res['data']?['name']?.toString();
+      // Not yet completed — go back to waiting
+      final status = res['data']?['status']?.toString() ?? 'PENDING';
+      if (status == 'CONSENT_DENIED') {
         setState(() {
-          _panVerified = true;
-          _panName = name;
+          _error = 'DigiLocker consent was denied. Please try again and approve all requested permissions.';
+          _phase = 'error';
         });
-        _showSuccess(res['message']?.toString() ?? 'PAN verified.');
-      } else {
-        _showError(res['message']?.toString() ?? 'PAN verification failed.');
-      }
-    } catch (e) {
-      _showError('Error: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<void> _sendOtp() async {
-    final aadhaar = _aadhaarCtrl.text.replaceAll(RegExp(r'\D'), '');
-    if (aadhaar.length != 12) {
-      _showError('Enter a valid 12-digit Aadhaar number.');
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      final res = await OnboardingApi.sendAadhaarOtp(aadhaar);
-      if (!mounted) return;
-      if (res['success'] == true) {
-        _refId = res['data']?['ref_id']?.toString();
+      } else if (status == 'EXPIRED') {
         setState(() {
-          _otpSent = true;
-          _subStep = _KycSubStep.otpEntry;
+          _error = 'The DigiLocker session expired. Please start again.';
+          _phase = 'error';
         });
-        _showSuccess('OTP sent to Aadhaar-linked mobile number.');
       } else {
-        _showError(res['message']?.toString() ?? 'Failed to send OTP.');
+        // Still pending — let user check manually or wait
+        setState(() => _phase = 'waiting');
+        _showSnack('Status: $status — Please complete DigiLocker in the browser and return here.', isError: false);
       }
     } catch (e) {
-      _showError('Error: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
+      if (!mounted) return;
+      setState(() {
+        _error = 'Sync failed: ${e.toString()}';
+        _phase = 'error';
+      });
     }
   }
 
-  Future<void> _verifyOtp() async {
-    final otp = _otpCtrl.text.trim();
-    final aadhaar = _aadhaarCtrl.text.replaceAll(RegExp(r'\D'), '');
-    if (otp.length != 6) {
-      _showError('Enter the 6-digit OTP.');
-      return;
-    }
-    if (_refId == null) {
-      _showError('Session expired. Resend OTP.');
-      return;
-    }
-    setState(() => _busy = true);
-    try {
-      final res = await OnboardingApi.verifyAadhaarOtp(
-        aadhaarNumber: aadhaar,
-        refId: _refId!,
-        otp: otp,
-      );
-      if (!mounted) return;
-      if (res['success'] == true) {
-        _showSuccess('Aadhaar verified. Proceeding to face step.');
-        context.go('/onboarding/face');
-      } else {
-        _showError(res['message']?.toString() ?? 'OTP verification failed.');
-      }
-    } catch (e) {
-      _showError('Error: $e');
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+  void _retry() {
+    setState(() {
+      _phase = 'idle';
+      _error = null;
+      _verificationId = null;
+      _pollCount = 0;
+    });
+  }
+
+  void _showSnack(String msg, {bool isError = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? Colors.red.shade700 : Colors.blueGrey.shade700,
+    ));
   }
 
   @override
@@ -233,230 +211,198 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen> {
     return OnboardingLayout(
       stepIndex: 0,
       title: 'Verify your identity',
-      subtitle: 'Use Cashfree DigiLocker or Cashfree PAN plus Aadhaar OTP.',
-      loading: _busy,
+      subtitle: 'We use Cashfree DigiLocker to instantly verify your Aadhaar & PAN — no uploads needed.',
+      loading: _phase == 'creating' || _phase == 'syncing',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_subStep == _KycSubStep.chooser) _buildChooser(),
-          if (_subStep == _KycSubStep.pan) ...[
-            _StepIndicator(current: 0),
+          // ── Already done banner ──────────────────────────────────────────
+          if (_alreadyDone)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.green.shade300),
+              ),
+              child: Row(children: [
+                const Icon(Icons.verified, color: Colors.green, size: 22),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    const Text('Identity already verified!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    const SizedBox(height: 4),
+                    TextButton(
+                      onPressed: () => context.go('/onboarding/face'),
+                      style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+                      child: const Text('Continue to Face Verification →'),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+
+          // ── How it works ─────────────────────────────────────────────────
+          if (_phase == 'idle' || _phase == 'creating') ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0F4FF),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('How it works', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0B1F3B))),
+                const SizedBox(height: 10),
+                ...[
+                  '1. Tap "Verify with Cashfree DigiLocker" below',
+                  '2. A secure Cashfree page opens in your browser',
+                  '3. Log in to DigiLocker & approve sharing Aadhaar + PAN',
+                  '4. Return to this app — verification completes automatically',
+                ].map((s) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  child: Text(s, style: const TextStyle(fontSize: 13, color: Colors.black87)),
+                )),
+              ]),
+            ),
             const SizedBox(height: 20),
-            _buildPanStep(),
+            ElevatedButton.icon(
+              onPressed: _phase == 'creating' ? null : _startDigilocker,
+              icon: _phase == 'creating'
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.verified_user),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Text(
+                  _phase == 'creating' ? 'Opening Cashfree DigiLocker...' : 'Verify with Cashfree DigiLocker',
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0B1F3B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
           ],
-          if (_subStep == _KycSubStep.aadhaar || _subStep == _KycSubStep.otpEntry) ...[
-            _StepIndicator(current: 1),
+
+          // ── Waiting state (user is in browser) ───────────────────────────
+          if (_phase == 'waiting') ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(children: [
+                const Icon(Icons.hourglass_empty, color: Colors.blue, size: 36),
+                const SizedBox(height: 10),
+                const Text(
+                  'Waiting for DigiLocker...',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Complete the verification in the browser, then come back to this app.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.blue.shade700),
+                ),
+                const SizedBox(height: 14),
+                const LinearProgressIndicator(),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            // Manual check button (if auto-resume doesn't fire)
+            OutlinedButton.icon(
+              onPressed: _syncStatus,
+              icon: const Icon(Icons.refresh),
+              label: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text("I'm done — Check Status"),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF0B1F3B)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: _startDigilocker,
+              child: const Text('Reopen DigiLocker'),
+            ),
+            TextButton(
+              onPressed: _retry,
+              child: Text('Start Over', style: TextStyle(color: Colors.red.shade600)),
+            ),
+          ],
+
+          // ── Syncing ──────────────────────────────────────────────────────
+          if (_phase == 'syncing') ...[
             const SizedBox(height: 20),
-            _buildAadhaarStep(),
+            const Center(child: CircularProgressIndicator()),
+            const SizedBox(height: 12),
+            const Center(
+              child: Text('Fetching your verified documents...', style: TextStyle(color: Colors.grey)),
+            ),
+          ],
+
+          // ── Done ─────────────────────────────────────────────────────────
+          if (_phase == 'done') ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.green.shade300),
+              ),
+              child: const Row(children: [
+                Icon(Icons.check_circle, color: Colors.green, size: 28),
+                SizedBox(width: 10),
+                Expanded(child: Text(
+                  'Aadhaar & PAN verified successfully!',
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                )),
+              ]),
+            ),
+          ],
+
+          // ── Error ─────────────────────────────────────────────────────────
+          if (_phase == 'error') ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.red.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.red.shade200),
+              ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  const Text('Verification failed', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                ]),
+                const SizedBox(height: 6),
+                Text(_error ?? 'Unknown error. Please try again.', style: const TextStyle(fontSize: 13)),
+              ]),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: _retry,
+              icon: const Icon(Icons.refresh),
+              label: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text('Try Again', style: TextStyle(fontWeight: FontWeight.bold)),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0B1F3B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
           ],
         ],
       ),
     );
-  }
-
-  Widget _buildChooser() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const Text(
-          'Step 1: Cashfree DigiLocker',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Recommended: verify Aadhaar and PAN using Cashfree DigiLocker consent flow.',
-          style: TextStyle(fontSize: 13, color: Colors.grey),
-        ),
-        const SizedBox(height: 16),
-        ElevatedButton.icon(
-          onPressed: _busy ? null : _startCashfreeDigilocker,
-          icon: const Icon(Icons.verified_user),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B1F3B), foregroundColor: Colors.white),
-          label: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('Start Cashfree DigiLocker Verification'),
-          ),
-        ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _checkCashfreeDigilockerStatus,
-          icon: const Icon(Icons.refresh),
-          label: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('Check DigiLocker Status'),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const Row(
-          children: [
-            Expanded(child: Divider()),
-            Padding(padding: EdgeInsets.symmetric(horizontal: 8), child: Text('or')),
-            Expanded(child: Divider()),
-          ],
-        ),
-        const SizedBox(height: 16),
-        OutlinedButton(
-          onPressed: _busy ? null : () => setState(() => _subStep = _KycSubStep.pan),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('Use Cashfree PAN + Aadhaar OTP'),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPanStep() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(
-        children: [
-          IconButton(
-            onPressed: _busy ? null : () => setState(() => _subStep = _KycSubStep.chooser),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          const Text('PAN Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        ],
-      ),
-      const SizedBox(height: 6),
-      const Text('Enter your PAN card number for verification.', style: TextStyle(fontSize: 13, color: Colors.grey)),
-      const SizedBox(height: 16),
-      TextField(
-        controller: _panCtrl,
-        enabled: !_panVerified,
-        textCapitalization: TextCapitalization.characters,
-        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')), LengthLimitingTextInputFormatter(10)],
-        decoration: InputDecoration(
-          labelText: 'PAN Number',
-          hintText: 'ABCDE1234F',
-          suffixIcon: _panVerified ? const Icon(Icons.verified, color: Colors.green) : null,
-          border: const OutlineInputBorder(),
-        ),
-        onChanged: (v) {
-          final up = v.toUpperCase();
-          if (up != v) {
-            _panCtrl.value = _panCtrl.value.copyWith(
-              text: up,
-              selection: TextSelection.collapsed(offset: up.length),
-            );
-          }
-        },
-      ),
-      if (_panName != null) ...[
-        const SizedBox(height: 8),
-        Text('Verified Name: $_panName', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
-      ],
-      const SizedBox(height: 16),
-      if (!_panVerified)
-        ElevatedButton(
-          onPressed: _busy ? null : _verifyPan,
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B1F3B), foregroundColor: Colors.white),
-          child: const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Verify PAN')),
-        )
-      else
-        ElevatedButton.icon(
-          onPressed: _busy ? null : () => setState(() => _subStep = _KycSubStep.aadhaar),
-          icon: const Icon(Icons.arrow_forward),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B1F3B), foregroundColor: Colors.white),
-          label: const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Next: Aadhaar OTP')),
-        ),
-    ]);
-  }
-
-  Widget _buildAadhaarStep() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(
-        children: [
-          IconButton(
-            onPressed: _busy
-                ? null
-                : () => setState(() {
-                      _subStep = _KycSubStep.pan;
-                      _otpSent = false;
-                      _refId = null;
-                      _otpCtrl.clear();
-                    }),
-            icon: const Icon(Icons.arrow_back),
-          ),
-          const Text('Aadhaar Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        ],
-      ),
-      const SizedBox(height: 6),
-      const Text('We will send OTP to your Aadhaar-linked mobile.', style: TextStyle(fontSize: 13, color: Colors.grey)),
-      const SizedBox(height: 16),
-      TextField(
-        controller: _aadhaarCtrl,
-        enabled: !_otpSent,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(12)],
-        decoration: const InputDecoration(
-          labelText: 'Aadhaar Number (12 digits)',
-          hintText: '123456789012',
-          border: OutlineInputBorder(),
-        ),
-      ),
-      const SizedBox(height: 12),
-      if (_otpSent) ...[
-        TextField(
-          controller: _otpCtrl,
-          keyboardType: TextInputType.number,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
-          decoration: const InputDecoration(labelText: 'Enter OTP', hintText: '6-digit OTP', border: OutlineInputBorder()),
-        ),
-        Align(
-          alignment: Alignment.centerRight,
-          child: TextButton(
-            onPressed: _busy
-                ? null
-                : () => setState(() {
-                      _otpSent = false;
-                      _refId = null;
-                      _otpCtrl.clear();
-                      _subStep = _KycSubStep.aadhaar;
-                    }),
-            child: const Text('Resend OTP'),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: _busy ? null : _verifyOtp,
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B1F3B), foregroundColor: Colors.white),
-          child: const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Verify OTP and Continue')),
-        ),
-      ] else
-        ElevatedButton(
-          onPressed: _busy ? null : _sendOtp,
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0B1F3B), foregroundColor: Colors.white),
-          child: const Padding(padding: EdgeInsets.symmetric(vertical: 14), child: Text('Send OTP')),
-        ),
-    ]);
-  }
-}
-
-class _StepIndicator extends StatelessWidget {
-  final int current;
-  const _StepIndicator({required this.current});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(children: [
-      _chip(0, 'PAN'),
-      Expanded(child: Divider(color: current >= 1 ? const Color(0xFF0B1F3B) : Colors.grey.shade300, thickness: 2)),
-      _chip(1, 'Aadhaar'),
-    ]);
-  }
-
-  Widget _chip(int idx, String label) {
-    final done = current > idx;
-    final active = current == idx;
-    return Column(children: [
-      CircleAvatar(
-        radius: 14,
-        backgroundColor: done ? Colors.green : (active ? const Color(0xFF0B1F3B) : Colors.grey.shade300),
-        child: done
-            ? const Icon(Icons.check, color: Colors.white, size: 14)
-            : Text('${idx + 1}', style: TextStyle(color: active ? Colors.white : Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.bold)),
-      ),
-      const SizedBox(height: 4),
-      Text(label, style: TextStyle(fontSize: 11, color: active ? const Color(0xFF0B1F3B) : Colors.grey, fontWeight: active ? FontWeight.bold : FontWeight.normal)),
-    ]);
   }
 }

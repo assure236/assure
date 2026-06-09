@@ -15,7 +15,7 @@ const kycRoutes = require('./kycRoutes');
 const adminRoutes = require('./adminRoutes');
 const walletRoutes = require('./walletRoutes');
 const chatbotRoutes = require('./chatbotRoutes');
-const digilockerRoutes = require('./digilockerRoutes');
+// Old DigiLocker OAuth removed — using Cashfree DigiLocker via /onboarding routes
 const loanRoutes = require('./loanRoutes');
 const livenessRoutes = require('./livenessRoutes');
 const fileRoutes = require('./fileRoutes');
@@ -40,7 +40,7 @@ router.use('/dashboard', dashboardRoutes);
 router.use('/kyc', kycRoutes);
 router.use('/wallet', walletRoutes);
 router.use('/chatbot', chatbotRoutes);
-router.use('/digilocker', digilockerRoutes);
+// /digilocker route removed — using Cashfree via /onboarding/digilocker/*
 router.use('/loans', loanRoutes);
 router.use('/liveness', livenessRoutes);
 router.use('/onboarding', onboardingRoutes);

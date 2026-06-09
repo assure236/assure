@@ -86,32 +86,6 @@ class OnboardingApi {
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
-  static Future<Map<String, dynamic>> getDigilockerAuthUrl() async {
-    final r = await http.get(Uri.parse('$_base/digilocker/auth-url?platform=mobile'), headers: await _headers());
-    return jsonDecode(r.body) as Map<String, dynamic>;
-  }
-
-  static Future<Map<String, dynamic>> submitManualKyc({
-    required String panNumber,
-    required String aadhaarNumber,
-    required String panFilePath,
-    required String aadhaarFrontPath,
-    String? aadhaarBackPath,
-  }) async {
-    final req = http.MultipartRequest('POST', Uri.parse('$_base/onboarding/manual-kyc'));
-    req.headers.addAll(await _headers(json: false));
-    req.fields['pan_number'] = panNumber;
-    req.fields['aadhaar_number'] = aadhaarNumber;
-    req.files.add(await http.MultipartFile.fromPath('pan', panFilePath, contentType: _mime(panFilePath)));
-    req.files.add(await http.MultipartFile.fromPath('aadhaar_front', aadhaarFrontPath, contentType: _mime(aadhaarFrontPath)));
-    if (aadhaarBackPath != null) {
-      req.files.add(await http.MultipartFile.fromPath('aadhaar_back', aadhaarBackPath, contentType: _mime(aadhaarBackPath)));
-    }
-    final s = await req.send();
-    final r = await http.Response.fromStream(s);
-    return jsonDecode(r.body) as Map<String, dynamic>;
-  }
-
   static Future<Map<String, dynamic>> verifyFace(
     String selfiePath, {
     int? confidencePercent,
