@@ -291,9 +291,7 @@ class AppRouter {
         ),
         GoRoute(
           path: '/onboarding/digilocker',
-          builder: (context, state) => DigilockerStepScreen(
-            digilockerStatus: state.uri.queryParameters['digilocker'],
-          ),
+          builder: (context, state) => const DigilockerStepScreen(),
         ),
         GoRoute(
           path: '/onboarding/face',
