@@ -56,13 +56,18 @@ function buildStatusPayload(user) {
   else if (address.status === 'pending') nextStep = 'address';
   else if (!o.completed_at) nextStep = 'complete';
 
-  const completed = !!o.completed_at;
+  // If admin has marked KYC as verified/approved, treat onboarding as fully completed
+  const kycAdminVerified = ['verified', 'approved'].includes(user.kyc_status);
+  const completed = !!o.completed_at || kycAdminVerified;
+
+  // If admin-verified but onboarding steps look incomplete, clear next_step so no redirect
+  if (kycAdminVerified) nextStep = null;
 
   return {
     completed,
     next_step: nextStep,
     tour_completed: !!o.tour_completed,
-    completed_at: o.completed_at || null,
+    completed_at: o.completed_at || user.kyc_status_updated_at || null,
     steps: { digilocker, manual_kyc, face_match, bank, cheque, address },
   };
 }

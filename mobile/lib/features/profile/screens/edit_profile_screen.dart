@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/api_service.dart';
@@ -57,6 +58,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   String _lastVerifiedAccountKey = '';
   String _lastRequestedAccountKey = '';
   String _lastRequestedIfsc = '';
+  
+  // Tracking changes for required proofs
+  String _originalAddressKey = '';
+  String _originalBankKey = '';
+  String? _addressProofPath;
+  String? _bankProofPath;
 
   bool get _isIfscResolved =>
       (_ifscBankName?.trim().isNotEmpty == true) ||
@@ -115,6 +122,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _currentStateCtrl = TextEditingController(text: user?.currentState ?? '');
     _currentPincodeCtrl =
         TextEditingController(text: user?.currentPincode ?? '');
+    
+    _originalAddressKey = '${user?.address}_${user?.city}_${user?.state}_${user?.pincode}_${user?.currentAddress}_${user?.currentCity}_${user?.currentState}_${user?.currentPincode}';
+    _originalBankKey = '${user?.bankAccountNumber}_${user?.bankIfscCode}';
+
     _selectedGender = _normalizeGender(user?.gender);
     _verifiedDobIso = _normalizeDate(user?.dateOfBirth);
     _verifiedGender = _normalizeGender(user?.gender);
@@ -243,19 +254,106 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _pickDateOfBirth() async {
     final now = DateTime.now();
     final initialIso = _normalizeDate(_dobCtrl.text);
-    final initial =
-        (initialIso != null ? DateTime.tryParse(initialIso) : null) ??
-            DateTime(now.year - 25, 1, 1);
-    final picked = await showDatePicker(
+    final initial = (initialIso != null ? DateTime.tryParse(initialIso) : null) ??
+        DateTime(now.year - 25, 1, 1);
+
+    int selDay = initial.day;
+    int selMonth = initial.month;
+    int selYear = initial.year;
+
+    final days = List.generate(31, (i) => i + 1);
+    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final years = List.generate(now.year - 1940 - 17, (i) => 1940 + i);
+
+    final picked = await showModalBottomSheet<DateTime>(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(1940, 1, 1),
-      lastDate: now,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) {
+          return SizedBox(
+            height: 300,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+                      const Text('Date of Birth', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      TextButton(
+                        onPressed: () {
+                          final maxDays = DateTime(selYear, selMonth + 1, 0).day;
+                          final day = selDay > maxDays ? maxDays : selDay;
+                          Navigator.pop(ctx, DateTime(selYear, selMonth, day));
+                        },
+                        child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ListWheelScrollView.useDelegate(
+                          itemExtent: 40,
+                          physics: const FixedExtentScrollPhysics(),
+                          controller: FixedExtentScrollController(initialItem: selDay - 1),
+                          onSelectedItemChanged: (i) => setS(() => selDay = days[i]),
+                          childDelegate: ListWheelChildBuilderDelegate(
+                            childCount: days.length,
+                            builder: (_, i) => Center(
+                              child: Text('${days[i]}', style: TextStyle(fontSize: 18, color: selDay == days[i] ? AppTheme.primaryColor : Colors.black87)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: ListWheelScrollView.useDelegate(
+                          itemExtent: 40,
+                          physics: const FixedExtentScrollPhysics(),
+                          controller: FixedExtentScrollController(initialItem: selMonth - 1),
+                          onSelectedItemChanged: (i) => setS(() => selMonth = i + 1),
+                          childDelegate: ListWheelChildBuilderDelegate(
+                            childCount: months.length,
+                            builder: (_, i) => Center(
+                              child: Text(months[i], style: TextStyle(fontSize: 18, color: selMonth == i + 1 ? AppTheme.primaryColor : Colors.black87)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: ListWheelScrollView.useDelegate(
+                          itemExtent: 40,
+                          physics: const FixedExtentScrollPhysics(),
+                          controller: FixedExtentScrollController(initialItem: years.indexOf(selYear).clamp(0, years.length - 1)),
+                          onSelectedItemChanged: (i) => setS(() => selYear = years[i]),
+                          childDelegate: ListWheelChildBuilderDelegate(
+                            childCount: years.length,
+                            builder: (_, i) => Center(
+                              child: Text('${years[i]}', style: TextStyle(fontSize: 18, color: selYear == years[i] ? AppTheme.primaryColor : Colors.black87)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
-    if (picked != null) {
+
+    if (picked != null && mounted) {
       setState(() {
-        _dobCtrl.text =
-            _formatDobForDisplay(picked.toIso8601String().split('T').first);
+        _dobCtrl.text = _formatDobForDisplay(picked.toIso8601String().split('T').first);
       });
     }
   }
@@ -554,6 +652,143 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  Future<void> _showUpdateWithOtpSheet({
+    required String title,
+    required String fieldKey,
+    required String currentValue,
+    required String hint,
+    required Function(String) onSuccess,
+  }) async {
+    final ctrl = TextEditingController(text: currentValue);
+    final otpCtrl = TextEditingController();
+    bool otpSent = false;
+    bool loading = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        return StatefulBuilder(builder: (ctx, setModalState) {
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(ctx).viewInsets.bottom,
+              left: 24, right: 24, top: 24,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: ctrl,
+                  decoration: InputDecoration(
+                    labelText: 'New Value',
+                    hintText: hint,
+                    border: const OutlineInputBorder(),
+                  ),
+                  enabled: !otpSent,
+                ),
+                if (otpSent) ...[
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: otpCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Enter OTP sent to your Mobile',
+                      border: OutlineInputBorder(),
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ],
+                const SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: loading ? null : () async {
+                      if (ctrl.text.trim().isEmpty) return;
+                      setModalState(() => loading = true);
+
+                      try {
+                        if (!otpSent) {
+                          // Send OTP
+                          final res = await ApiService.post('/auth/send-otp', {'mobile': context.read<AuthProvider>().user?.mobile});
+                          if (res['success'] == true) {
+                            setModalState(() => otpSent = true);
+                          } else {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Failed to send OTP')));
+                          }
+                        } else {
+                          // Verify OTP & Update
+                          final res = await ApiService.post('/profile/update-secure', {
+                            'field': fieldKey,
+                            'value': ctrl.text.trim(),
+                            'otp': otpCtrl.text.trim(),
+                          });
+                          if (res['success'] == true) {
+                            onSuccess(ctrl.text.trim());
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated successfully'), backgroundColor: AppTheme.successColor));
+                              Navigator.pop(ctx);
+                            }
+                          } else {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Invalid OTP')));
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error connecting to server')));
+                      } finally {
+                        setModalState(() => loading = false);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
+                    child: loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(otpSent ? 'Verify & Update' : 'Send OTP'),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _showEmailOtpSheet() {
+    _showUpdateWithOtpSheet(
+      title: 'Update Email Address',
+      fieldKey: 'email',
+      currentValue: _emailCtrl.text,
+      hint: 'new.email@example.com',
+      onSuccess: (val) => setState(() => _emailCtrl.text = val),
+    );
+  }
+
+  void _showNomineeOtpSheet() {
+    _showUpdateWithOtpSheet(
+      title: 'Update Nominee Name',
+      fieldKey: 'nominee_name',
+      currentValue: _nomineeNameCtrl.text,
+      hint: 'Full Name',
+      onSuccess: (val) => setState(() => _nomineeNameCtrl.text = val),
+    );
+  }
+
+  Future<void> _pickAddressProof() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf']);
+    if (result != null && result.files.single.path != null) {
+      setState(() => _addressProofPath = result.files.single.path);
+    }
+  }
+
+  Future<void> _pickBankProof() async {
+    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf']);
+    if (result != null && result.files.single.path != null) {
+      setState(() => _bankProofPath = result.files.single.path);
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate() || _isSaving) return;
 
@@ -588,6 +823,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         );
         return;
       }
+    }
+
+    final currentAddressKey = '${_addressCtrl.text.trim()}_${_cityCtrl.text.trim()}_${_stateCtrl.text.trim()}_${_pincodeCtrl.text.trim()}_${_currentAddressCtrl.text.trim()}_${_currentCityCtrl.text.trim()}_${_currentStateCtrl.text.trim()}_${_currentPincodeCtrl.text.trim()}';
+    final currentBankKey = '${_bankAccCtrl.text.trim()}_${_bankIfscCtrl.text.trim().toUpperCase()}';
+
+    final addressChanged = currentAddressKey != _originalAddressKey;
+    final bankChanged = currentBankKey != _originalBankKey;
+
+    if (addressChanged && _addressProofPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Address details modified. Please attach an Address Proof document.'), behavior: SnackBarBehavior.floating)
+      );
+      return;
+    }
+    if (bankChanged && _bankProofPath == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bank details modified. Please attach a Bank Proof document.'), behavior: SnackBarBehavior.floating)
+      );
+      return;
     }
 
     final confirmed = await showDialog<bool>(
@@ -645,6 +899,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       final ok = response['success'] == true;
       if (ok) {
+        try {
+          if (addressChanged && _addressProofPath != null) {
+             await ApiService.uploadFile('/profile/address-proof', _addressProofPath!);
+          }
+          if (bankChanged && _bankProofPath != null) {
+             await ApiService.uploadFile('/profile/bank-proof', _bankProofPath!);
+          }
+        } catch (_) {}
+
         await context.read<AuthProvider>().refreshProfile();
         if (!mounted) return;
 
@@ -721,6 +984,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             .where((e) => e.trim().isNotEmpty)
             .toList() ??
         const [];
+        
+    final currentAddressKey = '${_addressCtrl.text.trim()}_${_cityCtrl.text.trim()}_${_stateCtrl.text.trim()}_${_pincodeCtrl.text.trim()}_${_currentAddressCtrl.text.trim()}_${_currentCityCtrl.text.trim()}_${_currentStateCtrl.text.trim()}_${_currentPincodeCtrl.text.trim()}';
+    final currentBankKey = '${_bankAccCtrl.text.trim()}_${_bankIfscCtrl.text.trim().toUpperCase()}';
+
+    final addressChanged = _originalAddressKey.isNotEmpty && currentAddressKey != _originalAddressKey;
+    final bankChanged = _originalBankKey.isNotEmpty && currentBankKey != _originalBankKey;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -945,7 +1215,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     label: 'Email Address',
                     value: _emailCtrl.text.isNotEmpty ? _emailCtrl.text : '—',
                     icon: Icons.email_outlined,
-                    note: 'Cannot be changed',
+                    note: 'Requires OTP to change',
+                    onEdit: isProfileLocked ? null : _showEmailOtpSheet,
                   ),
                 ]),
                 const SizedBox(height: 16),
@@ -959,31 +1230,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     note: 'Cannot be changed',
                   ),
                   const Divider(height: 1),
-                  if (_digilockerConnected)
-                    _ReadOnlyField(
-                      label: 'PAN Number',
-                      value: _panCtrl.text.isNotEmpty ? _panCtrl.text : '—',
-                      icon: Icons.credit_card,
-                      note: 'DigiLocker Verified — cannot be edited',
-                    )
-                  else
-                    _FormField(
-                      controller: _panCtrl,
-                      label: 'PAN Number',
-                      icon: Icons.credit_card,
-                      textCapitalization: TextCapitalization.characters,
-                      hint: 'ABCDE1234F',
-                      enabled: !isProfileLocked,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty)
-                          return 'PAN Number is required';
-                        if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$')
-                            .hasMatch(v.trim().toUpperCase())) {
-                          return 'Invalid PAN format';
-                        }
-                        return null;
-                      },
-                    ),
+                  _ReadOnlyField(
+                    label: 'PAN Number',
+                    value: _panCtrl.text.isNotEmpty ? _panCtrl.text : '—',
+                    icon: Icons.credit_card,
+                    note: 'Read-only',
+                  ),
                 ]),
                 const SizedBox(height: 16),
 
@@ -1010,41 +1262,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     },
                   ),
                   const Divider(height: 1),
-                  Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedGender,
-                      decoration: const InputDecoration(
-                        labelText: 'Gender',
-                        prefixIcon: Icon(Icons.wc, size: 20),
-                        border: InputBorder.none,
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'male', child: Text('Male')),
-                        DropdownMenuItem(
-                            value: 'female', child: Text('Female')),
-                        DropdownMenuItem(value: 'other', child: Text('Other')),
-                      ],
-                      onChanged: isGenderLocked
-                          ? null
-                          : (value) => setState(() => _selectedGender = value),
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Gender is required';
-                        }
-                        return null;
-                      },
-                    ),
+                  _ReadOnlyField(
+                    label: 'Gender',
+                    value: _selectedGender != null ? '${_selectedGender![0].toUpperCase()}${_selectedGender!.substring(1)}' : '—',
+                    icon: Icons.wc,
+                    note: 'Read-only',
                   ),
-                  if (_digilockerConnected && (isDobLocked || isGenderLocked))
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Text(
-                        'Date of birth and gender are locked to DigiLocker/PAN verified data.',
-                        style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                      ),
-                    ),
                 ]),
                 const SizedBox(height: 16),
 
@@ -1082,19 +1305,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     validator: (v) => _requiredValidator(v, 'City'),
                   ),
                   const Divider(height: 1),
-                  _FormField(
-                    controller: _stateCtrl,
-                    label: 'State',
-                    icon: Icons.map_outlined,
-                    enabled: !isProfileLocked,
-                    onChanged: isProfileLocked
-                        ? null
-                        : (_) {
-                            if (_sameAsPermanent) {
-                              setState(_copyPermanentToCurrent);
-                            }
-                          },
-                    validator: (v) => _requiredValidator(v, 'State'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: DropdownButtonFormField<String>(
+                      value: _stateCtrl.text.isNotEmpty ? _stateCtrl.text : null,
+                      decoration: const InputDecoration(
+                        labelText: 'State',
+                        prefixIcon: Icon(Icons.map_outlined, size: 20),
+                        border: InputBorder.none,
+                      ),
+                      items: [
+                        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+                        'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+                        'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+                        'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+                        'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+                        'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
+                        'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+                      ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      onChanged: isProfileLocked
+                          ? null
+                          : (v) {
+                              if (v != null) {
+                                setState(() => _stateCtrl.text = v);
+                                if (_sameAsPermanent) setState(_copyPermanentToCurrent);
+                              }
+                            },
+                      validator: (v) => _requiredValidator(v, 'State'),
+                    ),
                   ),
                   const Divider(height: 1),
                   _FormField(
@@ -1191,12 +1429,33 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     validator: (v) => _requiredValidator(v, 'Current City'),
                   ),
                   const Divider(height: 1),
-                  _FormField(
-                    controller: _currentStateCtrl,
-                    label: 'State',
-                    icon: Icons.map_outlined,
-                    enabled: !isProfileLocked && !_sameAsPermanent,
-                    validator: (v) => _requiredValidator(v, 'Current State'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: DropdownButtonFormField<String>(
+                      value: _currentStateCtrl.text.isNotEmpty ? _currentStateCtrl.text : null,
+                      decoration: const InputDecoration(
+                        labelText: 'State',
+                        prefixIcon: Icon(Icons.map_outlined, size: 20),
+                        border: InputBorder.none,
+                      ),
+                      items: [
+                        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+                        'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+                        'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+                        'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+                        'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
+                        'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
+                        'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
+                      ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      onChanged: (isProfileLocked || _sameAsPermanent)
+                          ? null
+                          : (v) {
+                              if (v != null) {
+                                setState(() => _currentStateCtrl.text = v);
+                              }
+                            },
+                      validator: (v) => _requiredValidator(v, 'Current State'),
+                    ),
                   ),
                   const Divider(height: 1),
                   _FormField(
@@ -1219,27 +1478,58 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     },
                   ),
                 ]),
+                if (addressChanged)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: OutlinedButton.icon(
+                      onPressed: _pickAddressProof,
+                      icon: const Icon(Icons.upload_file),
+                      label: Text(_addressProofPath != null ? 'Address Proof Selected' : 'Attach Address Proof (Required)'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _addressProofPath != null ? Colors.green : Colors.red,
+                        side: BorderSide(color: _addressProofPath != null ? Colors.green : Colors.red),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
 
                 // Nominee Details
                 _buildSectionLabel('Nominee Details'),
                 _buildFormCard([
-                  _FormField(
-                    controller: _nomineeNameCtrl,
+                  _ReadOnlyField(
                     label: 'Nominee Name',
+                    value: _nomineeNameCtrl.text.isNotEmpty ? _nomineeNameCtrl.text : '—',
                     icon: Icons.person_add_outlined,
-                    enabled: !isProfileLocked,
-                    validator: (v) => _requiredValidator(v, 'Nominee Name'),
+                    note: 'Requires OTP to change',
+                    onEdit: isProfileLocked ? null : _showNomineeOtpSheet,
                   ),
                   const Divider(height: 1),
-                  _FormField(
-                    controller: _nomineeRelCtrl,
-                    label: 'Relationship',
-                    icon: Icons.people_outline,
-                    hint: 'e.g. Spouse, Parent, Sibling',
-                    enabled: !isProfileLocked,
-                    validator: (v) =>
-                        _requiredValidator(v, 'Nominee Relationship'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: DropdownButtonFormField<String>(
+                      value: _nomineeRelCtrl.text.isNotEmpty ? _nomineeRelCtrl.text : null,
+                      decoration: const InputDecoration(
+                        labelText: 'Relationship',
+                        prefixIcon: Icon(Icons.people_outline, size: 20),
+                        border: InputBorder.none,
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'Spouse', child: Text('Spouse')),
+                        DropdownMenuItem(value: 'Parent', child: Text('Parent')),
+                        DropdownMenuItem(value: 'Sibling', child: Text('Sibling')),
+                        DropdownMenuItem(value: 'Child', child: Text('Child')),
+                        DropdownMenuItem(value: 'Other', child: Text('Other')),
+                      ],
+                      onChanged: isProfileLocked
+                          ? null
+                          : (v) {
+                              if (v != null) {
+                                setState(() => _nomineeRelCtrl.text = v);
+                              }
+                            },
+                      validator: (v) => _requiredValidator(v, 'Nominee Relationship'),
+                    ),
                   ),
                 ]),
                 const SizedBox(height: 16),
@@ -1437,6 +1727,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       ),
                     ),
                 ]),
+                if (bankChanged)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: OutlinedButton.icon(
+                      onPressed: _pickBankProof,
+                      icon: const Icon(Icons.upload_file),
+                      label: Text(_bankProofPath != null ? 'Bank Proof Selected' : 'Attach Cancelled Cheque / Passbook (Required)'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: _bankProofPath != null ? Colors.green : Colors.red,
+                        side: BorderSide(color: _bankProofPath != null ? Colors.green : Colors.red),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 16),
 
                 // Info note
@@ -1503,6 +1807,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           fontWeight: FontWeight.w600),
                     ),
                   ),
+                const SizedBox(height: 24),
+                // Issue in Profile button
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/support'),
+                    icon: const Icon(Icons.help_outline),
+                    label: const Text('Issue in Profile? Raise a ticket'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryColor,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 32),
               ]),
             ),
@@ -1599,12 +1918,14 @@ class _ReadOnlyField extends StatelessWidget {
   final String value;
   final IconData icon;
   final String? note;
+  final VoidCallback? onEdit;
 
   const _ReadOnlyField({
     required this.label,
     required this.value,
     required this.icon,
     this.note,
+    this.onEdit,
   });
 
   @override
@@ -1614,15 +1935,24 @@ class _ReadOnlyField extends StatelessWidget {
       child: Row(children: [
         Icon(icon, size: 20, color: Colors.grey),
         const SizedBox(width: 12),
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-          Text(value,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-          if (note != null)
-            Text(note!,
-                style: const TextStyle(color: Colors.grey, fontSize: 11)),
-        ]),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(value,
+                style:
+                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+            if (note != null)
+              Text(note!,
+                  style: const TextStyle(color: Colors.grey, fontSize: 11)),
+          ]),
+        ),
+        if (onEdit != null)
+          IconButton(
+            icon: const Icon(Icons.edit, size: 18, color: AppTheme.primaryColor),
+            onPressed: onEdit,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
       ]),
     );
   }
