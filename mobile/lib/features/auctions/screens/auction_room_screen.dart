@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -670,7 +670,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
-      backgroundColor: isWarning ? Colors.orange : (isError ? AppTheme.errorColor : AppTheme.successColor),
+      backgroundColor: isWarning ? AppTheme.warningColor : (isError ? AppTheme.errorColor : AppTheme.successColor),
       duration: const Duration(seconds: 3),
     ));
   }
@@ -729,7 +729,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
                                 Icon(Icons.pause_circle, color: Colors.orange.shade700, size: 20),
                                 const SizedBox(width: 8),
                                 Text('Auction is PAUSED',
-                                    style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 14)),
+                                    style: TextStyle(color: AppTheme.warningColor, fontWeight: FontWeight.bold, fontSize: 14)),
                               ],
                             ),
                           ),
@@ -757,12 +757,12 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
       color: Colors.orange.shade100,
       child: Row(
         children: [
-          const Icon(Icons.timer, color: Colors.orange, size: 18),
+          const Icon(Icons.timer, color: AppTheme.warningColor, size: 18),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               _antiSnipeAlert!,
-              style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.w600, fontSize: 13),
+              style: TextStyle(color: AppTheme.warningColor, fontWeight: FontWeight.w600, fontSize: 13),
             ),
           ),
         ],
@@ -774,7 +774,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
     final isCritical = _serverTimeRemaining <= 30;
     final bgColor = isCritical ? Colors.red.shade100 : Colors.amber.shade100;
     final fgColor = isCritical ? Colors.red.shade900 : Colors.amber.shade900;
-    final iconColor = isCritical ? Colors.red : Colors.amber.shade700;
+    final iconColor = isCritical ? AppTheme.errorColor : AppTheme.warningColor;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
       color: bgColor,
@@ -987,7 +987,7 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
           _settleRow('Winning Bid (sacrifice)', winningBid, isNegative: true),
           const Divider(height: 16),
           _settleRow('Winner Receives', disbursement, isBold: true, color: AppTheme.successColor),
-          _settleRow('Dividend/Member', dividendPerMember, color: Colors.blue),
+          _settleRow('Dividend/Member', dividendPerMember, color: AppTheme.accentBlue),
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.all(10),
@@ -1464,9 +1464,9 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isHighest) ...[
-                    Icon(Icons.emoji_events, size: 12, color: Colors.green.shade600),
+                    Icon(Icons.emoji_events, size: 12, color: AppTheme.successColor),
                     const SizedBox(width: 3),
-                    Text('HIGHEST', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.green.shade600)),
+                    Text('HIGHEST', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.successColor)),
                     const SizedBox(width: 6),
                   ],
                   Text(

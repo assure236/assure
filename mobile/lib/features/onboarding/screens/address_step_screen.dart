@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../services/onboarding_api.dart';
 import 'onboarding_layout.dart';
 
@@ -92,7 +93,7 @@ class _AddressStepScreenState extends State<AddressStepScreen> {
           ]),
           TextField(controller: _pin2, decoration: const InputDecoration(labelText: 'Pincode'), keyboardType: TextInputType.number, maxLength: 6),
         ],
-        if (_error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: const TextStyle(color: Colors.red))),
+        if (_error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: const TextStyle(color: AppTheme.errorColor))),
         const SizedBox(height: 14),
         ElevatedButton(
           onPressed: _busy ? null : _submit,

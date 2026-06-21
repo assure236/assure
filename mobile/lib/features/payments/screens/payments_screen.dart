@@ -1,4 +1,4 @@
-import 'dart:convert';
+﻿import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -38,70 +38,7 @@ class PaymentsScreenState extends State<PaymentsScreen>
     return token;
   }
 
-  Future<void> _downloadStatementPdf() async {
-    final token = await _readAuthToken();
-    if (token == null || token.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Session expired. Please login again.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
 
-    try {
-      final response = await http.get(
-        Uri.parse('${ApiService.baseUrl}/payments/statement?format=pdf'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'Accept': 'application/pdf',
-        },
-      );
-
-      if (response.statusCode == 200) {
-        final now = DateTime.now();
-        final fileName =
-            'account_statement_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}.pdf';
-        final file = File('${Directory.systemTemp.path}/$fileName');
-        await file.writeAsBytes(response.bodyBytes);
-
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(file.path, mimeType: 'application/pdf')],
-            subject: 'Account Statement - Assure Chit Funds',
-          ),
-        );
-        return;
-      }
-
-      String message = 'Unable to download statement right now.';
-      try {
-        final decoded = jsonDecode(response.body);
-        final apiMessage = decoded is Map ? decoded['message']?.toString() : null;
-        if (apiMessage != null && apiMessage.isNotEmpty) {
-          message = apiMessage;
-        }
-      } catch (_) {}
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to download statement right now.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
 
   /// Switch to a specific tab programmatically
   void switchToTab(int index) {
@@ -135,13 +72,7 @@ class PaymentsScreenState extends State<PaymentsScreen>
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.receipt_long_rounded),
-            tooltip: 'Account Statement',
-            onPressed: _downloadStatementPdf,
-          ),
-        ],
+
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.secondaryColor,
@@ -266,12 +197,12 @@ class PaymentsScreenState extends State<PaymentsScreen>
               decoration: BoxDecoration(
                   color: Colors.blue.withAlpha(13), borderRadius: BorderRadius.circular(10)),
               child: const Row(children: [
-                Icon(Icons.lock_outlined, color: Colors.blue, size: 14),
+                Icon(Icons.lock_outlined, color: AppTheme.accentBlue, size: 14),
                 SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     'Secure payment via Cashfree · UPI · Cards · Net Banking',
-                    style: TextStyle(color: Colors.blue, fontSize: 11),
+                    style: TextStyle(color: AppTheme.accentBlue, fontSize: 11),
                   ),
                 ),
               ]),
@@ -331,7 +262,7 @@ class PaymentsScreenState extends State<PaymentsScreen>
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     const SnackBar(
                                       content: Text('Payment successful! ✓'),
-                                      backgroundColor: Colors.green,
+                                      backgroundColor: AppTheme.successColor,
                                       behavior: SnackBarBehavior.floating,
                                     ),
                                   );
@@ -349,7 +280,7 @@ class PaymentsScreenState extends State<PaymentsScreen>
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(res['message'] ?? 'Could not create payment order'),
-                                  backgroundColor: Colors.red,
+                                  backgroundColor: AppTheme.errorColor,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
@@ -503,7 +434,7 @@ class _PaymentTile extends StatelessWidget {
         statusIcon = Icons.check_circle;
         break;
       case 'refunded':
-        statusColor = Colors.blue;
+        statusColor = AppTheme.accentBlue;
         statusIcon = Icons.replay;
         break;
       case 'failed':
@@ -511,7 +442,7 @@ class _PaymentTile extends StatelessWidget {
         statusIcon = Icons.cancel;
         break;
       default:
-        statusColor = Colors.orange;
+        statusColor = AppTheme.warningColor;
         statusIcon = Icons.schedule;
     }
 
@@ -791,7 +722,7 @@ class _UpcomingPaymentsTab extends StatelessWidget {
             if (dividend > 0)
               Text(
                 'Dividend: -₹${NumberFormat('#,##,###').format(dividend)}',
-                style: const TextStyle(color: Colors.green, fontSize: 11),
+                style: const TextStyle(color: AppTheme.successColor, fontSize: 11),
               ),
           ],
         ),
@@ -867,10 +798,10 @@ class _UpcomingPaymentsTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                      color: Colors.green.withAlpha(20), borderRadius: BorderRadius.circular(8)),
+                      color: AppTheme.successColor.withAlpha(20), borderRadius: BorderRadius.circular(8)),
                   child: Text(
                     'Dividend reduction: ₹${NumberFormat('#,##,###').format(dividend)}',
-                    style: const TextStyle(color: Colors.green, fontSize: 11)),
+                    style: const TextStyle(color: AppTheme.successColor, fontSize: 11)),
                 ),
               ],
               if (isOverdue) ...[

@@ -13,10 +13,15 @@ if (-not (Test-Path $adb)) {
   throw "adb not found at $adb"
 }
 
-$apk = Join-Path $projectRoot "build\app\outputs\flutter-apk\app-arm64-v8a-release.apk"
+$apk = Get-ChildItem -Path (Join-Path $projectRoot "build\app\outputs\flutter-apk\app-*-release.apk") -ErrorAction SilentlyContinue |
+         Where-Object { $_.Name -like "*-arm64-v8a-release.apk" } |
+         Select-Object -First 1 -ExpandProperty FullName
 
 if ($Build -or -not (Test-Path $apk)) {
-  flutter build apk --release --target-platform android-arm64 --split-per-abi
+  flutter build apk --release --split-per-abi
+  $apk = Get-ChildItem -Path (Join-Path $projectRoot "build\app\outputs\flutter-apk\app-*-release.apk") -ErrorAction SilentlyContinue |
+           Where-Object { $_.Name -like "*-arm64-v8a-release.apk" } |
+           Select-Object -First 1 -ExpandProperty FullName
 }
 
 if (-not (Test-Path $apk)) {

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -51,7 +51,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('DigiLocker connected! KYC verified.'),
-              backgroundColor: Colors.green,
+              backgroundColor: AppTheme.successColor,
             ),
           );
         } else {
@@ -59,7 +59,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SnackBar(
               content:
                   Text('DigiLocker verification failed. Please try again.'),
-              backgroundColor: Colors.red,
+              backgroundColor: AppTheme.errorColor,
             ),
           );
         }
@@ -1327,7 +1327,7 @@ class _UpcomingAuctions extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.gavel_rounded,
-                        color: isLive ? Colors.red : Colors.purple, size: 20),
+                        color: isLive ? AppTheme.errorColor : AppTheme.purpleAccent, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1353,7 +1353,7 @@ class _UpcomingAuctions extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isLive ? Colors.red : Colors.purple,
+                          color: isLive ? AppTheme.errorColor : AppTheme.purpleAccent,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -1645,7 +1645,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                       SnackBar(
                           content: Text(
                               res['message'] ?? 'Agent request submitted!'),
-                          backgroundColor: Colors.green),
+                          backgroundColor: AppTheme.successColor),
                     );
                   } catch (e) {
                     if (!context.mounted) return;
@@ -1653,7 +1653,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                       SnackBar(
                           content:
                               Text(e.toString().replaceAll('Exception: ', '')),
-                          backgroundColor: Colors.red),
+                          backgroundColor: AppTheme.errorColor),
                     );
                   }
                 },

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -211,11 +211,11 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 children: [
                   const Row(children: [
                     Icon(Icons.tips_and_updates,
-                        color: Colors.orange, size: 16),
+                        color: AppTheme.warningColor, size: 16),
                     SizedBox(width: 6),
                     Text('Password Tips',
                         style: TextStyle(
-                            color: Colors.orange,
+                            color: AppTheme.warningColor,
                             fontWeight: FontWeight.bold,
                             fontSize: 13)),
                   ]),
@@ -229,7 +229,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         padding: const EdgeInsets.only(top: 4),
                         child: Row(children: [
                           const Icon(Icons.circle,
-                              size: 5, color: Colors.orange),
+                              size: 5, color: AppTheme.warningColor),
                           const SizedBox(width: 8),
                           Text(tip,
                               style: const TextStyle(

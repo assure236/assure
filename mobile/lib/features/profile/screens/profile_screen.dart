@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -126,12 +126,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: 'View uploaded documents',
                         onTap: () => context.push('/documents'),
                       ),
-                      _MenuItem(
-                        icon: Icons.notifications_outlined,
-                        label: 'Notifications',
-                        subtitle: 'Alerts & updates',
-                        onTap: () => context.push('/notifications'),
-                      ),
+                      // Item 32: Notifications removed from More (it's in header)
                       _MenuItem(
                         icon: Icons.bar_chart_rounded,
                         label: 'Analytics',
@@ -150,12 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: 'Manage family accounts',
                         onTap: () => context.push('/family-members'),
                       ),
-                      _MenuItem(
-                        icon: Icons.account_balance_wallet,
-                        label: 'Apply for Loan',
-                        subtitle: 'Loan against chit holdings',
-                        onTap: () => context.push('/apply-loan'),
-                      ),
+                      // Item 28: Apply for Loan removed from More
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -200,7 +190,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Preferences
+                  // Item 37: Goal Setting removed from Preferences
                   _SectionCard(
                     title: 'Preferences',
                     children: [
@@ -210,12 +200,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: 'Display chatbot assistant on home',
                         prefKey: 'chatbot_visible',
                         defaultValue: true,
-                      ),
-                      _MenuItem(
-                        icon: Icons.flag_outlined,
-                        label: 'Goal Setting',
-                        subtitle: 'Set investment targets & goals',
-                        onTap: () => context.push('/goals'),
                       ),
                     ],
                   ),
@@ -255,7 +239,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   _buildCurrentSessionCard(auth),
                   const SizedBox(height: 16),
 
-                  // Account Actions
                   _SectionCard(
                     title: 'Account Actions',
                     children: [
@@ -263,7 +246,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.logout,
                         label: 'Logout',
                         isDestructive: true,
-                        onTap: () => _confirmLogout(context, auth),
+                        onTap: () => _showLogoutSheet(context, auth),
                       ),
                     ],
                   ),
@@ -281,8 +264,77 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _confirmLogout(BuildContext context, AuthProvider auth) {
-    _doLogout(context, auth);
+
+  void _showLogoutSheet(BuildContext context, AuthProvider auth) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2)),
+            ),
+            const SizedBox(height: 20),
+            const Icon(Icons.logout, color: AppTheme.errorColor, size: 36),
+            const SizedBox(height: 12),
+            const Text('Logout',
+                style:
+                    TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            const Text('Choose how you want to logout',
+                style: TextStyle(color: Colors.black54, fontSize: 13)),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await auth.logout();
+                  if (context.mounted) context.go('/welcome');
+                },
+                icon: const Icon(Icons.phone_android),
+                label: const Text('Logout of this Device'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppTheme.errorColor,
+                  side: BorderSide(color: AppTheme.errorColor),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await auth.logoutAllDevices();
+                  if (context.mounted) context.go('/welcome');
+                },
+                icon: const Icon(Icons.devices),
+                label: const Text('Logout of All Devices'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.errorColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildCurrentSessionCard(AuthProvider auth) {
@@ -354,14 +406,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.green.shade50,
+                    color: AppTheme.successColor.withAlpha(20),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green.shade200),
+                    border: Border.all(color: AppTheme.successColor.withAlpha(60)),
                   ),
                   child: Text('Active',
                       style: TextStyle(
                           fontSize: 11,
-                          color: Colors.green.shade700,
+                          color: AppTheme.successColor,
                           fontWeight: FontWeight.w600)),
                 ),
               ],
@@ -372,32 +424,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _doLogout(BuildContext context, AuthProvider auth) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Logout'),
-        content: const Text('You will be signed out of this device.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.errorColor,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    await auth.logout();
-    if (context.mounted) context.go('/welcome');
-  }
 }
 
 class _SectionCard extends StatelessWidget {

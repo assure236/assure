@@ -424,6 +424,16 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
+  /// Revokes all active sessions on the server, then clears local state.
+  Future<void> logoutAllDevices() async {
+    try {
+      await ApiService.post('/auth/logout-all', {});
+    } catch (_) {
+      // Even if API fails, clear local session
+    }
+    await logout();
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);

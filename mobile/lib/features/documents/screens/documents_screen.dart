@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -587,7 +587,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
         statusIcon = Icons.cancel;
         break;
       default:
-        statusColor = Colors.orange;
+        statusColor = AppTheme.warningColor;
         statusLabel = 'KYC Not Verified';
         statusIcon = Icons.person_outline;
     }

@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -56,7 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   void _showSuccess(String msg, {Duration duration = const Duration(seconds: 3)}) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: Colors.green,
+      backgroundColor: AppTheme.successColor,
       behavior: SnackBarBehavior.floating,
       duration: duration,
     ));
@@ -66,6 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final name = _nameController.text.trim();
     final mobile = _phoneController.text.trim();
     if (name.isEmpty) return _showError('Please enter your full name');
+    if (name.length < 4) return _showError('Name must be at least 4 characters long');
     if (mobile.length != 10) return _showError('Enter a valid 10-digit mobile number');
 
     if (!mounted) return;

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -277,7 +277,7 @@ class _AuctionCardState extends State<_AuctionCard> {
                           width: 8,
                           height: 8,
                           decoration: const BoxDecoration(
-                              color: Colors.red,
+                              color: AppTheme.errorColor,
                               shape: BoxShape.circle),
                         ),
                         const SizedBox(width: 4),

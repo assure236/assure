@@ -47,7 +47,6 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
           SliverAppBar(
             floating: true,
             pinned: true,
-            toolbarHeight: 48,
             backgroundColor: AppTheme.primaryColor,
             foregroundColor: Colors.white,
             elevation: 0,
@@ -58,7 +57,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
-                'Chit Groups',
+                'Invest',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.bold,
@@ -74,13 +73,13 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
               labelColor: Colors.white,
               unselectedLabelColor: Colors.white60,
               tabs: const [
-                Tab(text: 'New'),
-                Tab(text: 'Vacant'),
+                Tab(text: 'New Chits'),   // Item 17: renamed
+                Tab(text: 'Vacant Chits'), // Item 17: renamed
               ],
             ),
           ),
         ],
-        body: Column(children: [
+      body: Column(children: [
           _SearchBar(
             controller: _searchController,
             onChanged: (q) => setState(() => _searchQuery = q),
@@ -100,6 +99,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
     );
   }
 }
+
 
 class _SearchBar extends StatelessWidget {
   final TextEditingController controller;
@@ -154,6 +154,8 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
   bool _loading = true;
   List<Map<String, dynamic>> _available = [];
   String? _error;
+  // Item 23: checkbox selection for bottom Invest Now button
+  final Set<String> _selectedIds = {};
 
   Future<bool> _ensureEnrollmentAllowed() async {
     try {
@@ -243,9 +245,9 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
     final decision = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Confirm Enrollment'),
+        title: const Text('Confirm Investment'),
         content: Text(
-          'Do you want to enroll in $groupName?\n\n'
+          'Do you want to invest in $groupName?\n\n'
           'Monthly installment: ₹${NumberFormat('#,##,###').format(monthly)}',
         ),
         actions: [
@@ -257,7 +259,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
             onPressed: () => Navigator.of(ctx).pop(true),
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor),
-            child: const Text('Enroll'),
+            child: const Text('Invest Now'),
           ),
         ],
       ),
@@ -276,6 +278,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
     setState(() {
       _loading = true;
       _error = null;
+      _selectedIds.clear();
     });
     try {
       final provider = context.read<ChitGroupProvider>();
@@ -299,6 +302,50 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
         });
       }
     }
+  }
+
+  Future<void> _investNow() async {
+    if (_selectedIds.isEmpty) return;
+    final allowed = await _ensureEnrollmentAllowed();
+    if (!context.mounted || !allowed) return;
+
+    for (final id in _selectedIds.toList()) {
+      final group = _available.firstWhere(
+          (g) => (g['_id'] ?? g['id']).toString() == id,
+          orElse: () => {});
+      if (group.isEmpty) continue;
+
+      final shouldEnroll = await _confirmEnrollment(group);
+      if (!context.mounted || !shouldEnroll) continue;
+
+      final result =
+          await context.read<ChitGroupProvider>().enrollInChitGroup(id);
+      final ok = result['success'] == true;
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text((result['message'] ??
+                  (ok ? 'Invested successfully' : 'Investment failed'))
+              .toString()),
+          backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+
+      if (ok) {
+        setState(() => _selectedIds.remove(id));
+        await context.read<DashboardProvider>().refresh();
+        if (!context.mounted) return;
+        CelebrationOverlay.showGroupJoined(context,
+            groupName: group['group_name'] ?? 'Chit Group');
+        await Future.delayed(const Duration(seconds: 2));
+        if (!context.mounted) return;
+        context.go('/dashboard');
+        return;
+      }
+    }
+    await _fetchAvailable();
   }
 
   @override
@@ -333,69 +380,75 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _fetchAvailable,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: filtered.length,
-        itemBuilder: (context, i) => _AvailableGroupCard(
-          data: filtered[i],
-          onTap: () => context.push(
-              '/chit-groups/${(filtered[i]['_id'] ?? filtered[i]['id']).toString()}'),
-          onEnroll: () async {
-            final group = filtered[i];
-            final groupId = (group['_id'] ?? group['id']).toString();
-
-            final allowed = await _ensureEnrollmentAllowed();
-            if (!context.mounted || !allowed) return;
-
-            final shouldEnroll = await _confirmEnrollment(group);
-            if (!context.mounted || !shouldEnroll) return;
-
-            final result = await context
-                .read<ChitGroupProvider>()
-                .enrollInChitGroup(groupId);
-            final ok = result['success'] == true;
-
-            if (!context.mounted) return;
-
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text((result['message'] ??
-                        (ok ? 'Enrolled successfully' : 'Enrollment failed'))
-                    .toString()),
-                backgroundColor:
-                    ok ? AppTheme.successColor : AppTheme.errorColor,
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-
-            if (ok) {
-              await _fetchAvailable();
-              if (!context.mounted) return;
-
-              await context.read<DashboardProvider>().refresh();
-              if (!context.mounted) return;
-
-              CelebrationOverlay.showGroupJoined(context,
-                  groupName: group['group_name'] ?? 'Chit Group');
-              await Future.delayed(const Duration(seconds: 2));
-              if (!context.mounted) return;
-              context.go('/dashboard');
-            }
-          },
+    return Column(
+      children: [
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _fetchAvailable,
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+              itemCount: filtered.length,
+              itemBuilder: (context, i) {
+                final id = (filtered[i]['_id'] ?? filtered[i]['id']).toString();
+                final isSelected = _selectedIds.contains(id);
+                return _AvailableGroupCard(
+                  data: filtered[i],
+                  isSelected: isSelected,
+                  filter: widget.filter,
+                  onTap: () => context.push('/chit-groups/$id'),
+                  onToggleSelect: () => setState(() {
+                    if (isSelected) {
+                      _selectedIds.remove(id);
+                    } else {
+                      _selectedIds.add(id);
+                    }
+                  }),
+                );
+              },
+            ),
+          ),
         ),
-      ),
+        // Item 23: bottom Invest Now button
+        if (_selectedIds.isNotEmpty)
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _investNow,
+                  icon: const Icon(Icons.trending_up_rounded),
+                  label: Text('Invest Now (${_selectedIds.length} selected)'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    textStyle: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
 
 class _AvailableGroupCard extends StatelessWidget {
   final Map<String, dynamic> data;
-  final VoidCallback onEnroll;
+  final bool isSelected;
+  final String filter;
   final VoidCallback? onTap;
+  final VoidCallback? onToggleSelect;
   const _AvailableGroupCard(
-      {required this.data, required this.onEnroll, this.onTap});
+      {required this.data,
+      this.isSelected = false,
+      this.filter = 'new',
+      this.onTap,
+      this.onToggleSelect});
 
   @override
   Widget build(BuildContext context) {
@@ -411,42 +464,39 @@ class _AvailableGroupCard extends StatelessWidget {
     final duration = data['duration_months'] ?? 0;
     final groupName = data['group_name'] ?? '';
     final psoNumber = data['pso_number'] ?? data['registration_number'] ?? '';
-    final commencementDate = data['commencement_date'];
+    // Item 21: removed first auction date; items 18, 19
     final int membersInt = members is int ? members : (members as num).toInt();
     final int enrolledInt =
         enrolledCount is int ? enrolledCount : (enrolledCount as num).toInt();
-    final int slotsLeft = membersInt - enrolledInt;
+    // Vacant chit specific fields (item 20, 22)
+    final currentMonth = data['current_month'] ?? 0;
+    final purchaseValue =
+        double.tryParse(data['purchase_value']?.toString() ?? '0') ?? 0;
 
-    String dateStr = '';
-    if (commencementDate != null) {
-      try {
-        dateStr = DateFormat('d MMM yyyy')
-            .format(DateTime.parse(commencementDate.toString()));
-      } catch (_) {}
-    }
-
-    final bool isVacant = (data['status'] ?? '') == 'vacant';
+    final bool isVacant = filter == 'vacant';
     final bool isNotStarted = (data['status'] ?? '') == 'not_started';
     final bool isActive = (data['status'] ?? '') == 'active';
     final Color accentColor = AppTheme.primaryColor;
     final String statusLabel = isVacant
-        ? 'Seats Available'
+        ? 'Vacant'
         : isNotStarted
             ? 'Starting Soon'
             : isActive
                 ? 'Active'
                 : 'Upcoming';
 
-    final bool enrollDisabled = slotsLeft <= 0 || isNotStarted;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: isSelected ? AppTheme.primaryColor.withAlpha(15) : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
+          border: Border.all(
+              color: isSelected
+                  ? AppTheme.primaryColor
+                  : const Color(0xFFE2E8F0),
+              width: isSelected ? 2 : 1),
           boxShadow: [
             BoxShadow(
                 color: Colors.black.withAlpha(8),
@@ -455,25 +505,39 @@ class _AvailableGroupCard extends StatelessWidget {
           ],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // ── Header ──
+          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 4,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    borderRadius: BorderRadius.circular(4),
+                // Item 23: checkbox for selection
+                GestureDetector(
+                  onTap: onToggleSelect,
+                  child: Container(
+                    width: 24,
+                    height: 24,
+                    margin: const EdgeInsets.only(right: 10, top: 2),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+                      border: Border.all(
+                          color: isSelected
+                              ? AppTheme.primaryColor
+                              : Colors.grey.shade400,
+                          width: 2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: isSelected
+                        ? const Icon(Icons.check,
+                            color: Colors.white, size: 16)
+                        : null,
                   ),
                 ),
-                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Item 19: chit value in primary color, not red
                         Text(
                           '₹ ${NumberFormat('#,##,###').format(chitValue)}',
                           style: TextStyle(
@@ -514,7 +578,7 @@ class _AvailableGroupCard extends StatelessWidget {
 
           const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
 
-          // ── Details ──
+          // Details
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(children: [
@@ -523,78 +587,50 @@ class _AvailableGroupCard extends StatelessWidget {
                     child: _DetailItem(
                         label: 'Monthly EMI', value: '₹${_fmt(monthly)}')),
                 Expanded(
-                    child: _DetailItem(label: 'Months', value: '$duration')),
+                    child: _DetailItem(label: 'Duration', value: '$duration months')),
               ]),
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(
                     child: _DetailItem(
-                        label: 'Members', value: '$enrolledInt/$membersInt')),
+                        label: 'Members', value: '$enrolledInt / $membersInt')),
+                // Item 18: no Slots Available — show auction type
                 Expanded(
                     child: _DetailItem(
-                  label: 'Auction',
+                  label: 'Auction Type',
                   value: data['auction_type']?.toString().isNotEmpty == true
                       ? data['auction_type'].toString()
                       : 'Monthly',
                   valueColor: AppTheme.primaryColor,
                 )),
               ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                    child: _DetailItem(
-                  label: isVacant
-                      ? 'Slots Available'
-                      : isActive
-                          ? 'Started'
-                          : 'Starts',
-                  value: isVacant
-                      ? (slotsLeft > 0 ? '$slotsLeft open' : 'Almost full')
-                      : (dateStr.isNotEmpty
-                          ? dateStr
-                          : (isActive ? 'In progress' : 'TBD')),
-                  valueColor: isVacant
-                      ? (slotsLeft > 0
-                          ? const Color(0xFF0B6E4F)
-                          : AppTheme.errorColor)
-                      : AppTheme.primaryColor,
-                )),
-                if (psoNumber.toString().isNotEmpty)
+              // Item 20: show completed duration for vacant; Item 22: purchase value
+              if (isVacant) ...[
+                const SizedBox(height: 12),
+                Row(children: [
                   Expanded(
                       child: _DetailItem(
-                          label: 'PSO No.', value: psoNumber.toString())),
-              ]),
+                          label: 'Completed',
+                          value: '$currentMonth / $duration months')),
+                  if (purchaseValue > 0)
+                    Expanded(
+                        child: _DetailItem(
+                            label: 'Purchase Value',
+                            value: '₹${_fmt(purchaseValue)}',
+                            valueColor: AppTheme.primaryColor)),
+                ]),
+              ],
+              if (psoNumber.toString().isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _DetailItem(
+                      label: 'PSO No.', value: psoNumber.toString()),
+                ),
+              ],
             ]),
           ),
-
-          // ── Enroll button ──
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: enrollDisabled ? null : onEnroll,
-                icon: const Icon(Icons.how_to_reg_rounded, size: 18),
-                label: Text(
-                  isNotStarted
-                      ? 'Enrollment Closed'
-                      : enrollDisabled
-                          ? 'Group Full'
-                          : 'Enroll Now',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: accentColor,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10)),
-                  textStyle: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 14),
-                ),
-              ),
-            ),
-          ),
+          // Item 23: NO per-card enroll button — selection only
         ]),
       ),
     );

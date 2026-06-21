@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfwebcheckoutpayment.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayservice.dart';
@@ -161,7 +161,7 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
           Icon(
             success ? Icons.check_circle_rounded : Icons.cancel_rounded,
             size: 72,
-            color: success ? Colors.green : Colors.red,
+            color: success ? AppTheme.successColor : AppTheme.errorColor,
           ),
           const SizedBox(height: 16),
           Text(title,
@@ -240,10 +240,10 @@ class _CashfreePaymentScreenState extends State<CashfreePaymentScreen> {
                     color: Colors.red.withAlpha(26),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.error_outline, size: 56, color: Colors.red),
+                  child: const Icon(Icons.error_outline, size: 56, color: AppTheme.errorColor),
                 ),
                 const SizedBox(height: 24),
-                Text(_errorMsg!, style: const TextStyle(fontSize: 16, color: Colors.red), textAlign: TextAlign.center),
+                Text(_errorMsg!, style: const TextStyle(fontSize: 16, color: AppTheme.errorColor), textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,

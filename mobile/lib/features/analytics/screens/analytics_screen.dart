@@ -1,4 +1,4 @@
-import 'package:fl_chart/fl_chart.dart';
+﻿import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -451,7 +451,7 @@ class _DividendCalculatorTabState extends State<_DividendCalculatorTab> {
             const SizedBox(height: 8),
             _ResultRow(label: 'Foreman Commission (5%)', value: 'INR ${NumberFormat('#,##,###').format(_foremanCommission!)}', color: Colors.grey),
             const SizedBox(height: 8),
-            _ResultRow(label: 'Forfeiture Pool', value: 'INR ${NumberFormat('#,##,###').format(_forfeiturePool!)}', color: Colors.orange),
+            _ResultRow(label: 'Forfeiture Pool', value: 'INR ${NumberFormat('#,##,###').format(_forfeiturePool!)}', color: AppTheme.warningColor),
           ]))),
           const SizedBox(height: 12),
           Container(
@@ -596,7 +596,7 @@ class _AccountStatementTabState extends State<_AccountStatementTab> {
               Row(children: [
                 Expanded(child: _SummaryCard(label: 'Successful', value: '$successful', icon: Icons.check_circle_outline, color: AppTheme.successColor)),
                 const SizedBox(width: 12),
-                Expanded(child: _SummaryCard(label: 'Pending', value: '$pending', icon: Icons.pending_outlined, color: Colors.orange)),
+                Expanded(child: _SummaryCard(label: 'Pending', value: '$pending', icon: Icons.pending_outlined, color: AppTheme.warningColor)),
               ]),
               const SizedBox(height: 20),
               const Text('Transaction History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
@@ -633,11 +633,11 @@ class _PaymentTile extends StatelessWidget {
         statusIcon = Icons.cancel;
         break;
       case 'overdue':
-        statusColor = Colors.red;
+        statusColor = AppTheme.errorColor;
         statusIcon = Icons.warning;
         break;
       default:
-        statusColor = Colors.orange;
+        statusColor = AppTheme.warningColor;
         statusIcon = Icons.pending;
     }
 

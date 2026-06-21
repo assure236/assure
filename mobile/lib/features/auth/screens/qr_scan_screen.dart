@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
@@ -85,10 +85,10 @@ class _QrScanScreenState extends State<QrScanScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.shield, color: Colors.green, size: 16),
+                Icon(Icons.shield, color: AppTheme.successColor, size: 16),
                 SizedBox(width: 4),
                 Text('Secure login via QR code',
-                    style: TextStyle(fontSize: 12, color: Colors.green)),
+                    style: TextStyle(fontSize: 12, color: AppTheme.successColor)),
               ],
             ),
           ],
@@ -129,7 +129,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
       builder: (_) => AlertDialog(
         icon: Icon(
           success ? Icons.check_circle_outline : Icons.error_outline,
-          color: success ? Colors.green : Colors.red,
+          color: success ? AppTheme.successColor : AppTheme.errorColor,
           size: 52,
         ),
         title: Text(success ? 'Web Login Confirmed' : 'Login Failed'),

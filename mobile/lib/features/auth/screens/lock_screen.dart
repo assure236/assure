@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
@@ -142,7 +142,7 @@ class _LockScreenState extends State<LockScreen> {
       setState(() => _otpSent = true);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('OTP sent to $_maskedMobile'),
-        backgroundColor: Colors.green,
+        backgroundColor: AppTheme.successColor,
         behavior: SnackBarBehavior.floating,
       ));
     } else {

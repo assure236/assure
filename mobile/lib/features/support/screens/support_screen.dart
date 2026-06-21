@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
@@ -253,7 +253,7 @@ class _SupportScreenState extends State<SupportScreen> {
   Color _priorityColor(String p) {
     switch (p) {
       case 'high':
-        return Colors.orange;
+        return AppTheme.warningColor;
       case 'normal':
         return AppTheme.primaryColor;
       default:
@@ -269,7 +269,7 @@ class _SupportScreenState extends State<SupportScreen> {
       case 'in_progress':
         return AppTheme.secondaryColor;
       default:
-        return Colors.orange;
+        return AppTheme.warningColor;
     }
   }
 
@@ -517,13 +517,13 @@ class _SupportScreenState extends State<SupportScreen> {
                     if (mounted) {
                       setState(() => _agentRequestStatus = 'pending');
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(res['message'] ?? 'Agent request submitted!'), backgroundColor: Colors.green),
+                        SnackBar(content: Text(res['message'] ?? 'Agent request submitted!'), backgroundColor: AppTheme.successColor),
                       );
                     }
                   } catch (e) {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: Colors.red),
+                        SnackBar(content: Text(e.toString().replaceAll('Exception: ', '')), backgroundColor: AppTheme.errorColor),
                       );
                     }
                   }

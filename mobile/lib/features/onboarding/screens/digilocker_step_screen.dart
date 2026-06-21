@@ -1,7 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../services/onboarding_api.dart';
 import 'onboarding_layout.dart';
 
@@ -202,7 +203,7 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: isError ? Colors.red.shade700 : Colors.blueGrey.shade700,
+      backgroundColor: isError ? AppTheme.errorColor : AppTheme.accentBlue,
     ));
   }
 
@@ -222,16 +223,16 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: AppTheme.successColor.withAlpha(20),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.green.shade300),
+                border: Border.all(color: AppTheme.successColor.withAlpha(80)),
               ),
               child: Row(children: [
-                const Icon(Icons.verified, color: Colors.green, size: 22),
+                const Icon(Icons.verified, color: AppTheme.successColor, size: 22),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('Identity already verified!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                    const Text('Identity already verified!', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.successColor)),
                     const SizedBox(height: 4),
                     TextButton(
                       onPressed: () => context.go('/onboarding/face'),
@@ -296,11 +297,11 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
                 border: Border.all(color: Colors.blue.shade200),
               ),
               child: Column(children: [
-                const Icon(Icons.hourglass_empty, color: Colors.blue, size: 36),
+                const Icon(Icons.hourglass_empty, color: AppTheme.accentBlue, size: 36),
                 const SizedBox(height: 10),
                 const Text(
                   'Waiting for DigiLocker...',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Colors.blue),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.accentBlue),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -352,16 +353,16 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.green.shade50,
+                color: AppTheme.successColor.withAlpha(20),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.green.shade300),
+                border: Border.all(color: AppTheme.successColor.withAlpha(80)),
               ),
               child: const Row(children: [
-                Icon(Icons.check_circle, color: Colors.green, size: 28),
+                Icon(Icons.check_circle, color: AppTheme.successColor, size: 28),
                 SizedBox(width: 10),
                 Expanded(child: Text(
                   'Aadhaar & PAN verified successfully!',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.successColor),
                 )),
               ]),
             ),
@@ -380,7 +381,7 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
                 Row(children: [
                   Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
                   const SizedBox(width: 8),
-                  const Text('Verification failed', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                  const Text('Verification failed', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.errorColor)),
                 ]),
                 const SizedBox(height: 6),
                 Text(_error ?? 'Unknown error. Please try again.', style: const TextStyle(fontSize: 13)),

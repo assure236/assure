@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -242,7 +242,7 @@ class _MemberCard extends StatelessWidget {
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Edit')])),
-                PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('Remove', style: TextStyle(color: Colors.red))])),
+                PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: AppTheme.errorColor), SizedBox(width: 8), Text('Remove', style: TextStyle(color: AppTheme.errorColor))])),
               ],
             ),
           ],
@@ -262,41 +262,18 @@ class _FamilyMemberForm extends StatefulWidget {
 
 class _FamilyMemberFormState extends State<_FamilyMemberForm> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameCtrl;
-  late TextEditingController _mobileCtrl;
-  late TextEditingController _emailCtrl;
-  late TextEditingController _dobCtrl;
-  late TextEditingController _aadhaarCtrl;
-  late TextEditingController _panCtrl;
-  String _relationship = 'spouse';
-  String? _gender;
-  bool _isNominee = false;
-
-  static const _relationships = ['spouse', 'parent', 'child', 'sibling', 'grandparent', 'other'];
+  late TextEditingController _memberIdCtrl;
 
   @override
   void initState() {
     super.initState();
     final m = widget.member;
-    _nameCtrl = TextEditingController(text: m?['full_name'] ?? '');
-    _mobileCtrl = TextEditingController(text: m?['mobile'] ?? '');
-    _emailCtrl = TextEditingController(text: m?['email'] ?? '');
-    _dobCtrl = TextEditingController(text: m?['date_of_birth'] ?? '');
-    _aadhaarCtrl = TextEditingController(text: m?['aadhaar_number'] ?? '');
-    _panCtrl = TextEditingController(text: m?['pan_number'] ?? '');
-    _relationship = m?['relationship'] ?? 'spouse';
-    _gender = m?['gender'];
-    _isNominee = m?['is_nominee'] == true;
+    _memberIdCtrl = TextEditingController(text: m?['member_id'] ?? m?['full_name'] ?? '');
   }
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
-    _mobileCtrl.dispose();
-    _emailCtrl.dispose();
-    _dobCtrl.dispose();
-    _aadhaarCtrl.dispose();
-    _panCtrl.dispose();
+    _memberIdCtrl.dispose();
     super.dispose();
   }
 
@@ -325,68 +302,12 @@ class _FamilyMemberFormState extends State<_FamilyMemberForm> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(children: [
                     TextFormField(
-                      controller: _nameCtrl,
-                      decoration: const InputDecoration(labelText: 'Full Name *', prefixIcon: Icon(Icons.person_outline)),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Name is required' : null,
+                      controller: _memberIdCtrl,
+                      decoration: const InputDecoration(labelText: 'Member ID *', prefixIcon: Icon(Icons.badge_outlined)),
+                      validator: (v) => v == null || v.trim().isEmpty ? 'Member ID is required' : null,
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: _relationship,
-                      decoration: const InputDecoration(labelText: 'Relationship *', prefixIcon: Icon(Icons.people_outline)),
-                      items: _relationships.map((r) => DropdownMenuItem(value: r, child: Text('${r[0].toUpperCase()}${r.substring(1)}'))).toList(),
-                      onChanged: (v) => setState(() => _relationship = v!),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _mobileCtrl,
-                      decoration: const InputDecoration(labelText: 'Mobile', prefixIcon: Icon(Icons.phone_outlined)),
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _emailCtrl,
-                      decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined)),
-                      keyboardType: TextInputType.emailAddress,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _dobCtrl,
-                      decoration: const InputDecoration(labelText: 'Date of Birth', prefixIcon: Icon(Icons.cake_outlined), hintText: 'DD/MM/YYYY'),
-                      keyboardType: TextInputType.datetime,
-                    ),
-                    const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
-                      value: _gender,
-                      decoration: const InputDecoration(labelText: 'Gender', prefixIcon: Icon(Icons.wc)),
-                      items: const [
-                        DropdownMenuItem(value: 'male', child: Text('Male')),
-                        DropdownMenuItem(value: 'female', child: Text('Female')),
-                        DropdownMenuItem(value: 'other', child: Text('Other')),
-                      ],
-                      onChanged: (v) => setState(() => _gender = v),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _aadhaarCtrl,
-                      decoration: const InputDecoration(labelText: 'Aadhaar Number', prefixIcon: Icon(Icons.fingerprint)),
-                      keyboardType: TextInputType.number,
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _panCtrl,
-                      decoration: const InputDecoration(labelText: 'PAN Number', prefixIcon: Icon(Icons.credit_card)),
-                      textCapitalization: TextCapitalization.characters,
-                    ),
-                    const SizedBox(height: 12),
-                    SwitchListTile(
-                      title: const Text('Mark as Nominee'),
-                      subtitle: const Text('This person will be your chit nominee'),
-                      value: _isNominee,
-                      onChanged: (v) => setState(() => _isNominee = v),
-                      activeColor: AppTheme.secondaryColor,
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    const SizedBox(height: 16),
+                    const Text('An OTP will be sent to the member\'s registered mobile number for verification. After verification, the request will be sent to Admin for approval.', style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ]),
                 ),
               ),
@@ -399,15 +320,7 @@ class _FamilyMemberFormState extends State<_FamilyMemberForm> {
                     onPressed: () {
                       if (!_formKey.currentState!.validate()) return;
                       Navigator.pop(context, {
-                        'full_name': _nameCtrl.text.trim(),
-                        'relationship': _relationship,
-                        'mobile': _mobileCtrl.text.trim(),
-                        'email': _emailCtrl.text.trim(),
-                        'date_of_birth': _dobCtrl.text.trim(),
-                        'gender': _gender,
-                        'aadhaar_number': _aadhaarCtrl.text.trim(),
-                        'pan_number': _panCtrl.text.trim().toUpperCase(),
-                        'is_nominee': _isNominee,
+                        'member_id': _memberIdCtrl.text.trim(),
                       });
                     },
                     style: ElevatedButton.styleFrom(

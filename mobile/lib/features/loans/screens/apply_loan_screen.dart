@@ -219,7 +219,7 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
       case 'defaulted':
         return Colors.red.shade800;
       default:
-        return Colors.orange;
+        return AppTheme.warningColor;
     }
   }
 

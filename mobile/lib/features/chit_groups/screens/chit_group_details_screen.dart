@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -488,7 +488,7 @@ class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
             statusIcon = Icons.cancel;
             break;
           default:
-            statusColor = Colors.orange;
+            statusColor = AppTheme.warningColor;
             statusIcon = Icons.schedule;
         }
 
@@ -620,9 +620,9 @@ class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
                 if ((p['dividend_reduction'] ?? 0) > 0) ...[
                   const SizedBox(height: 6),
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Dividend Applied', style: TextStyle(color: Colors.green, fontSize: 13)),
+                    const Text('Dividend Applied', style: TextStyle(color: AppTheme.successColor, fontSize: 13)),
                     Text('-\u20b9${NumberFormat('#,##,###').format(p['dividend_reduction'])}',
-                        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600)),
+                        style: const TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.w600)),
                   ]),
                 ],
               ]),
@@ -649,11 +649,11 @@ class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
               decoration: BoxDecoration(
                   color: Colors.blue.withAlpha(13), borderRadius: BorderRadius.circular(10)),
               child: const Row(children: [
-                Icon(Icons.lock_outlined, color: Colors.blue, size: 14),
+                Icon(Icons.lock_outlined, color: AppTheme.accentBlue, size: 14),
                 SizedBox(width: 6),
                 Expanded(
                   child: Text('Secure payment via Cashfree \u00b7 UPI \u00b7 Cards \u00b7 Net Banking',
-                      style: TextStyle(color: Colors.blue, fontSize: 11)),
+                      style: TextStyle(color: AppTheme.accentBlue, fontSize: 11)),
                 ),
               ]),
             ),
@@ -702,7 +702,7 @@ class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Payment successful! \u2713'),
-                                    backgroundColor: Colors.green,
+                                    backgroundColor: AppTheme.successColor,
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
@@ -723,7 +723,7 @@ class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(res['message'] ?? 'Could not create payment order'),
-                                  backgroundColor: Colors.red,
+                                  backgroundColor: AppTheme.errorColor,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );

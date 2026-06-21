@@ -39,7 +39,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _showSuccess(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(msg),
-      backgroundColor: Colors.green,
+      backgroundColor: AppTheme.successColor,
       behavior: SnackBarBehavior.floating,
       duration: const Duration(seconds: 10),
     ));

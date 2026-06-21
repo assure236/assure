@@ -105,7 +105,7 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
     Color statusColor = isVerified ? AppTheme.successColor
         : isPending ? AppTheme.secondaryColor
         : isRejected ? AppTheme.errorColor
-        : Colors.orange;
+        : AppTheme.warningColor;
     String statusLabel = isVerified ? 'KYC Verified'
         : isPending ? 'Under Review'
         : isRejected ? 'KYC Rejected'

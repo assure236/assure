@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../core/theme/app_theme.dart';
 
 import '../services/onboarding_api.dart';
 import 'onboarding_layout.dart';
@@ -56,7 +58,7 @@ class _BankStepScreenState extends State<BankStepScreen> {
         const SizedBox(height: 10),
         TextField(controller: _ifsc, decoration: const InputDecoration(labelText: 'IFSC Code', hintText: 'ABCD0123456'), textCapitalization: TextCapitalization.characters, maxLength: 11),
         if (_holder != null) Padding(padding: const EdgeInsets.only(top: 10), child: Card(color: const Color(0xFFD1FAE5), child: Padding(padding: const EdgeInsets.all(10), child: Text('Verified: $_holder')))),
-        if (_error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: const TextStyle(color: Colors.red))),
+        if (_error != null) Padding(padding: const EdgeInsets.only(top: 10), child: Text(_error!, style: const TextStyle(color: AppTheme.errorColor))),
         const SizedBox(height: 16),
         ElevatedButton(
           onPressed: _busy ? null : _submit,

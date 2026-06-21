@@ -1,4 +1,4 @@
-import 'package:fl_chart/fl_chart.dart';
+﻿import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -62,12 +62,12 @@ class _BidAnalyticsWidgetState extends State<BidAnalyticsWidget> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.indigo.shade50, Colors.blue.shade50],
+          colors: [AppTheme.accentBlue.withAlpha(20), AppTheme.lightBlueBg],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.indigo.shade100),
+        border: Border.all(color: AppTheme.accentBlue.withAlpha(30)),
       ),
       child: Column(
         children: [
@@ -82,10 +82,10 @@ class _BidAnalyticsWidgetState extends State<BidAnalyticsWidget> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.indigo.shade100,
+                      color: AppTheme.accentBlue.withAlpha(30),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.auto_awesome, color: Colors.indigo.shade700, size: 20),
+                    child: Icon(Icons.auto_awesome, color: AppTheme.accentBlue, size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -98,7 +98,7 @@ class _BidAnalyticsWidgetState extends State<BidAnalyticsWidget> {
                           Text(
                             '₹${NumberFormat('#,##,###').format(sugMin.toInt())} — ₹${NumberFormat('#,##,###').format(sugMax.toInt())}',
                             style: TextStyle(
-                              color: Colors.indigo.shade700,
+                              color: AppTheme.accentBlue,
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -123,7 +123,7 @@ class _BidAnalyticsWidgetState extends State<BidAnalyticsWidget> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber.shade700),
+                    Icon(Icons.lightbulb_outline, size: 16, color: AppTheme.warningColor),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(message,
@@ -139,7 +139,7 @@ class _BidAnalyticsWidgetState extends State<BidAnalyticsWidget> {
                 padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
                 child: Row(
                   children: [
-                    _statChip('Avg', history['avg_winning_bid'] as num, Colors.blue),
+                    _statChip('Avg', history['avg_winning_bid'] as num, AppTheme.accentBlue),
                     const SizedBox(width: 8),
                     _statChip('Min', history['min_winning_bid'] as num, AppTheme.successColor),
                     const SizedBox(width: 8),
@@ -274,14 +274,14 @@ class _BidAnalyticsWidgetState extends State<BidAnalyticsWidget> {
             spots: spots,
             isCurved: true,
             curveSmoothness: 0.3,
-            color: Colors.indigo,
+            color: AppTheme.accentBlue,
             barWidth: 2.5,
             isStrokeCapRound: true,
             dotData: FlDotData(
               show: true,
               getDotPainter: (spot, percent, bar, index) => FlDotCirclePainter(
                 radius: 3.5,
-                color: Colors.indigo,
+                color: AppTheme.accentBlue,
                 strokeWidth: 1.5,
                 strokeColor: Colors.white,
               ),
@@ -290,8 +290,8 @@ class _BidAnalyticsWidgetState extends State<BidAnalyticsWidget> {
               show: true,
               gradient: LinearGradient(
                 colors: [
-                  Colors.indigo.withAlpha(51),
-                  Colors.indigo.withAlpha(10),
+                  AppTheme.accentBlue.withAlpha(51),
+                  AppTheme.accentBlue.withAlpha(10),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
