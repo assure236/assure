@@ -1,1972 +1,621 @@
-import 'dart:async';
-import 'dart:convert';
+﻿import 'dart:convert';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
-import 'package:file_picker/file_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 
+Future<Map<String, String>> _authHeaders() async {
+  final prefs = await SharedPreferences.getInstance();
+  final token = prefs.getString('token');
+  return {
+    if (token != null) 'Authorization': 'Bearer $token',
+  };
+}
+
+const _kStates = [
+  'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa',
+  'Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala',
+  'Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland',
+  'Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura',
+  'Uttar Pradesh','Uttarakhand','West Bengal','Andaman and Nicobar Islands',
+  'Chandigarh','Dadra and Nagar Haveli and Daman and Diu','Delhi',
+  'Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry',
+];
+const _kRelations = ['Spouse','Parent','Sibling','Child','Friend','Other'];
+
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
-
   @override
   State<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
-  final _formKey = GlobalKey<FormState>();
-  late TextEditingController _nameCtrl;
-  late TextEditingController _emailCtrl;
-  late TextEditingController _panCtrl;
-  late TextEditingController _addressCtrl;
-  late TextEditingController _cityCtrl;
-  late TextEditingController _stateCtrl;
-  late TextEditingController _pincodeCtrl;
-  late TextEditingController _dobCtrl;
-  late TextEditingController _nomineeNameCtrl;
-  late TextEditingController _nomineeRelCtrl;
-  late TextEditingController _bankAccCtrl;
-  late TextEditingController _bankIfscCtrl;
-  late TextEditingController _bankNameCtrl;
-  late TextEditingController _currentAddressCtrl;
-  late TextEditingController _currentCityCtrl;
-  late TextEditingController _currentStateCtrl;
-  late TextEditingController _currentPincodeCtrl;
-  String? _selectedGender;
-  bool _digilockerConnected = false;
-  bool _isSaving = false;
-  bool _isIfscLoading = false;
-  String? _ifscBankName;
-  String? _ifscBranch;
-  String? _ifscLookupError;
-  String? _accountHolderName;
-  String? _accountLookupError;
-  String? _accountLookupInfo;
-  bool _isAccountLookupLoading = false;
-  bool _sameAsPermanent = false;
-  String? _verifiedDobIso;
-  String? _verifiedGender;
-  int _ifscLookupRequestId = 0;
-  int _accountLookupRequestId = 0;
-  Timer? _accountLookupDebounce;
-  String _lastVerifiedAccountKey = '';
-  String _lastRequestedAccountKey = '';
-  String _lastRequestedIfsc = '';
-  
-  // Tracking changes for required proofs
-  String _originalAddressKey = '';
-  String _originalBankKey = '';
-  String? _addressProofPath;
-  String? _bankProofPath;
+  bool _saving = false;
 
-  bool get _isIfscResolved =>
-      (_ifscBankName?.trim().isNotEmpty == true) ||
-      (_ifscBranch?.trim().isNotEmpty == true);
-
-  void _resetAccountLookupState({bool resetKeys = true}) {
-    _isAccountLookupLoading = false;
-    _accountHolderName = null;
-    _accountLookupError = null;
-    _accountLookupInfo = null;
-    if (resetKeys) {
-      _lastRequestedAccountKey = '';
-      _lastVerifiedAccountKey = '';
-    }
+  void _snack(String msg, {bool err = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: err ? AppTheme.errorColor : AppTheme.successColor,
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
-  void _scheduleAccountVerification() {
-    _accountLookupDebounce?.cancel();
-    _accountLookupDebounce = Timer(const Duration(milliseconds: 350), () {
-      if (!mounted) return;
-      _verifyBankAccountHolder();
-    });
-  }
+  Future<void> _refresh() => context.read<AuthProvider>().refreshProfile();
 
-  String? _normalizeGender(String? raw) {
-    final value = (raw ?? '').trim().toLowerCase();
-    if (value.isEmpty) return null;
-    if (value == 'm' || value == 'male') return 'male';
-    if (value == 'f' || value == 'female') return 'female';
-    if (value == 'o' || value == 'other') return 'other';
-    return null;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    final user = context.read<AuthProvider>().user;
-    _nameCtrl = TextEditingController(text: user?.fullName ?? '');
-    _emailCtrl = TextEditingController(text: user?.email ?? '');
-    _panCtrl = TextEditingController(text: user?.panNumber ?? '');
-    _addressCtrl = TextEditingController(text: user?.address ?? '');
-    _cityCtrl = TextEditingController(text: user?.city ?? '');
-    _stateCtrl = TextEditingController(text: user?.state ?? '');
-    _pincodeCtrl = TextEditingController(text: user?.pincode ?? '');
-    _dobCtrl =
-        TextEditingController(text: _formatDobForDisplay(user?.dateOfBirth));
-    _nomineeNameCtrl = TextEditingController(text: user?.nomineeName ?? '');
-    _nomineeRelCtrl =
-        TextEditingController(text: user?.nomineeRelationship ?? '');
-    _bankAccCtrl = TextEditingController(text: user?.bankAccountNumber ?? '');
-    _bankIfscCtrl = TextEditingController(text: user?.bankIfscCode ?? '');
-    _bankNameCtrl = TextEditingController(text: user?.bankName ?? '');
-    _currentAddressCtrl =
-        TextEditingController(text: user?.currentAddress ?? '');
-    _currentCityCtrl = TextEditingController(text: user?.currentCity ?? '');
-    _currentStateCtrl = TextEditingController(text: user?.currentState ?? '');
-    _currentPincodeCtrl =
-        TextEditingController(text: user?.currentPincode ?? '');
-    
-    _originalAddressKey = '${user?.address}_${user?.city}_${user?.state}_${user?.pincode}_${user?.currentAddress}_${user?.currentCity}_${user?.currentState}_${user?.currentPincode}';
-    _originalBankKey = '${user?.bankAccountNumber}_${user?.bankIfscCode}';
-
-    _selectedGender = _normalizeGender(user?.gender);
-    _verifiedDobIso = _normalizeDate(user?.dateOfBirth);
-    _verifiedGender = _normalizeGender(user?.gender);
-    _sameAsPermanent = _isCurrentSameAsPermanent();
-    if (_sameAsPermanent) {
-      _copyPermanentToCurrent();
-    }
-    _fetchKycStatus();
-    final existingIfsc = (user?.bankIfscCode ?? '').trim().toUpperCase();
-    if (RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(existingIfsc)) {
-      _lookupIfsc(existingIfsc);
-    }
-    _verifyBankAccountHolder();
-  }
-
-  String? _normalizeDate(String? raw) {
-    final text = (raw ?? '').trim();
-    if (text.isEmpty) return null;
-    final slash = RegExp(r'^(\d{2})/(\d{2})/(\d{4})$').firstMatch(text);
-    if (slash != null) {
-      final dd = int.parse(slash.group(1)!);
-      final mm = int.parse(slash.group(2)!);
-      final yyyy = int.parse(slash.group(3)!);
-      final dt = DateTime.tryParse(
-          '${yyyy.toString().padLeft(4, '0')}-${mm.toString().padLeft(2, '0')}-${dd.toString().padLeft(2, '0')}');
-      if (dt == null) return null;
-      return dt.toIso8601String().split('T').first;
-    }
-    if (RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(text)) return text;
-    final parsed = DateTime.tryParse(text);
-    if (parsed == null) return null;
-    return parsed.toIso8601String().split('T').first;
-  }
-
-  String _formatDobForDisplay(String? isoDate) {
-    final normalized = _normalizeDate(isoDate);
-    if (normalized == null) return '';
-    final parts = normalized.split('-');
-    if (parts.length != 3) return normalized;
-    return '${parts[2]}/${parts[1]}/${parts[0]}';
-  }
-
-  bool _isCurrentSameAsPermanent() {
-    final currentAddress = _currentAddressCtrl.text.trim();
-    final currentCity = _currentCityCtrl.text.trim();
-    final currentState = _currentStateCtrl.text.trim();
-    final currentPincode = _currentPincodeCtrl.text.trim();
-    final allCurrentEmpty = currentAddress.isEmpty &&
-        currentCity.isEmpty &&
-        currentState.isEmpty &&
-        currentPincode.isEmpty;
-
-    if (allCurrentEmpty) return true;
-
-    return currentAddress.toLowerCase() ==
-            _addressCtrl.text.trim().toLowerCase() &&
-        currentCity.toLowerCase() == _cityCtrl.text.trim().toLowerCase() &&
-        currentState.toLowerCase() == _stateCtrl.text.trim().toLowerCase() &&
-        currentPincode == _pincodeCtrl.text.trim();
-  }
-
-  void _copyPermanentToCurrent() {
-    _currentAddressCtrl.text = _addressCtrl.text;
-    _currentCityCtrl.text = _cityCtrl.text;
-    _currentStateCtrl.text = _stateCtrl.text;
-    _currentPincodeCtrl.text = _pincodeCtrl.text;
-  }
-
-  void _toggleSameAsPermanent(bool value) {
-    if (value) {
-      setState(() {
-        _sameAsPermanent = true;
-        _copyPermanentToCurrent();
-      });
-      return;
-    }
-
-    setState(() {
-      _sameAsPermanent = false;
-      if (_isCurrentSameAsPermanent()) {
-        _currentAddressCtrl.clear();
-        _currentCityCtrl.clear();
-        _currentStateCtrl.clear();
-        _currentPincodeCtrl.clear();
-      }
-    });
-  }
-
-  Future<void> _fetchKycStatus() async {
-    try {
-      final auth = context.read<AuthProvider>();
-      final res = await ApiService.get('/kyc/status');
-      if (res['success'] == true && mounted) {
-        final connected = res['data']?['digilocker_connected'] == true;
-
-        String? verifiedDob = _verifiedDobIso;
-        String? verifiedGender = _verifiedGender;
-        String? verifiedPan;
-        if (connected) {
-          await auth.refreshProfile();
-          final refreshedUser = auth.user;
-          verifiedDob = _normalizeDate(refreshedUser?.dateOfBirth);
-          verifiedGender = _normalizeGender(refreshedUser?.gender);
-          verifiedPan = (refreshedUser?.panNumber ?? '').trim().toUpperCase();
-        }
-
-        if (!mounted) return;
-        setState(() {
-          _digilockerConnected = connected;
-          _verifiedDobIso = verifiedDob;
-          _verifiedGender = verifiedGender;
-          if (verifiedDob != null) {
-            _dobCtrl.text = _formatDobForDisplay(verifiedDob);
-          }
-          if (verifiedGender != null) {
-            _selectedGender = verifiedGender;
-          }
-          if (verifiedPan != null && verifiedPan.isNotEmpty) {
-            _panCtrl.text = verifiedPan;
-          }
-        });
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _pickDateOfBirth() async {
-    final now = DateTime.now();
-    final initialIso = _normalizeDate(_dobCtrl.text);
-    final initial = (initialIso != null ? DateTime.tryParse(initialIso) : null) ??
-        DateTime(now.year - 25, 1, 1);
-
-    int selDay = initial.day;
-    int selMonth = initial.month;
-    int selYear = initial.year;
-
-    final days = List.generate(31, (i) => i + 1);
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    final years = List.generate(now.year - 1940 - 17, (i) => 1940 + i);
-
-    final picked = await showModalBottomSheet<DateTime>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setS) {
-          return SizedBox(
-            height: 300,
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-                      const Text('Date of Birth', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      TextButton(
-                        onPressed: () {
-                          final maxDays = DateTime(selYear, selMonth + 1, 0).day;
-                          final day = selDay > maxDays ? maxDays : selDay;
-                          Navigator.pop(ctx, DateTime(selYear, selMonth, day));
-                        },
-                        child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(height: 1),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ListWheelScrollView.useDelegate(
-                          itemExtent: 40,
-                          physics: const FixedExtentScrollPhysics(),
-                          controller: FixedExtentScrollController(initialItem: selDay - 1),
-                          onSelectedItemChanged: (i) => setS(() => selDay = days[i]),
-                          childDelegate: ListWheelChildBuilderDelegate(
-                            childCount: days.length,
-                            builder: (_, i) => Center(
-                              child: Text('${days[i]}', style: TextStyle(fontSize: 18, color: selDay == days[i] ? AppTheme.primaryColor : Colors.black87)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: ListWheelScrollView.useDelegate(
-                          itemExtent: 40,
-                          physics: const FixedExtentScrollPhysics(),
-                          controller: FixedExtentScrollController(initialItem: selMonth - 1),
-                          onSelectedItemChanged: (i) => setS(() => selMonth = i + 1),
-                          childDelegate: ListWheelChildBuilderDelegate(
-                            childCount: months.length,
-                            builder: (_, i) => Center(
-                              child: Text(months[i], style: TextStyle(fontSize: 18, color: selMonth == i + 1 ? AppTheme.primaryColor : Colors.black87)),
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        flex: 2,
-                        child: ListWheelScrollView.useDelegate(
-                          itemExtent: 40,
-                          physics: const FixedExtentScrollPhysics(),
-                          controller: FixedExtentScrollController(initialItem: years.indexOf(selYear).clamp(0, years.length - 1)),
-                          onSelectedItemChanged: (i) => setS(() => selYear = years[i]),
-                          childDelegate: ListWheelChildBuilderDelegate(
-                            childCount: years.length,
-                            builder: (_, i) => Center(
-                              child: Text('${years[i]}', style: TextStyle(fontSize: 18, color: selYear == years[i] ? AppTheme.primaryColor : Colors.black87)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-
-    if (picked != null && mounted) {
-      setState(() {
-        _dobCtrl.text = _formatDobForDisplay(picked.toIso8601String().split('T').first);
-      });
-    }
-  }
-
-  Future<void> _lookupIfsc(String rawValue) async {
-    final requestId = ++_ifscLookupRequestId;
-    final ifsc = rawValue.trim().toUpperCase();
-    if (ifsc.length < 11) {
-      if (mounted) {
-        setState(() {
-          _lastRequestedIfsc = '';
-          _bankNameCtrl.clear();
-          _ifscBankName = null;
-          _ifscBranch = null;
-          _ifscLookupError = null;
-          _resetAccountLookupState();
-          _isIfscLoading = false;
-        });
-      }
-      return;
-    }
-
-    if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc)) {
-      if (mounted) {
-        setState(() {
-          _lastRequestedIfsc = '';
-          _bankNameCtrl.clear();
-          _ifscBankName = null;
-          _ifscBranch = null;
-          _resetAccountLookupState();
-          _ifscLookupError = 'Invalid IFSC format';
-          _isIfscLoading = false;
-        });
-      }
-      return;
-    }
-
-    if ((ifsc == _lastRequestedIfsc && _ifscBankName != null) ||
-        (ifsc == _lastRequestedIfsc && _isIfscLoading)) {
-      return;
-    }
-    _lastRequestedIfsc = ifsc;
-
-    if (mounted) {
-      setState(() {
-        _isIfscLoading = true;
-        _resetAccountLookupState();
-        _ifscLookupError = null;
-      });
-    }
-
-    try {
-      final response = await ApiService.get('/users/bank/ifsc/$ifsc');
-      if (!mounted || requestId != _ifscLookupRequestId) return;
-
-      if (response['success'] == true) {
-        final data = Map<String, dynamic>.from(response['data'] ?? const {});
-        final bank = (data['bank'] ?? '').toString().trim();
-        final branch = (data['branch'] ?? '').toString().trim();
-
-        setState(() {
-          _ifscBankName = bank.isNotEmpty ? bank : null;
-          _ifscBranch = branch.isNotEmpty ? branch : null;
-          _ifscLookupError = null;
-          _bankNameCtrl.text = bank;
-        });
-        _scheduleAccountVerification();
-      } else {
-        final fallback = await _lookupIfscFromPublicApi(ifsc);
-        if (!mounted || requestId != _ifscLookupRequestId) return;
-        if (fallback != null) {
-          setState(() {
-            _ifscBankName =
-                fallback['bank']!.isNotEmpty ? fallback['bank'] : null;
-            _ifscBranch =
-                fallback['branch']!.isNotEmpty ? fallback['branch'] : null;
-            _ifscLookupError = null;
-            _bankNameCtrl.text = fallback['bank']!;
-          });
-          _scheduleAccountVerification();
-        } else {
-          setState(() {
-            _lastRequestedIfsc = '';
-            _bankNameCtrl.clear();
-            _ifscBankName = null;
-            _ifscBranch = null;
-            _resetAccountLookupState();
-            _ifscLookupError =
-                (response['message'] ?? 'Unable to validate IFSC').toString();
-          });
-        }
-      }
-    } catch (_) {
-      final fallback = await _lookupIfscFromPublicApi(ifsc);
-      if (!mounted || requestId != _ifscLookupRequestId) return;
-      if (fallback != null) {
-        setState(() {
-          _ifscBankName =
-              fallback['bank']!.isNotEmpty ? fallback['bank'] : null;
-          _ifscBranch =
-              fallback['branch']!.isNotEmpty ? fallback['branch'] : null;
-          _ifscLookupError = null;
-          _bankNameCtrl.text = fallback['bank']!;
-        });
-        _scheduleAccountVerification();
-      } else {
-        setState(() {
-          _lastRequestedIfsc = '';
-          _bankNameCtrl.clear();
-          _ifscBankName = null;
-          _ifscBranch = null;
-          _resetAccountLookupState();
-          _ifscLookupError = 'Unable to validate IFSC right now';
-        });
-      }
-    } finally {
-      if (mounted && requestId == _ifscLookupRequestId) {
-        setState(() => _isIfscLoading = false);
-      }
-    }
-  }
-
-  Future<Map<String, String>?> _lookupIfscFromPublicApi(String ifsc) async {
-    try {
-      final response = await http
-          .get(Uri.parse('https://ifsc.razorpay.com/$ifsc'))
-          .timeout(const Duration(seconds: 8));
-      if (response.statusCode != 200 || response.body.trim().isEmpty) {
-        return null;
-      }
-
-      final body = jsonDecode(response.body);
-      if (body is! Map<String, dynamic>) return null;
-      final bank = (body['BANK'] ?? '').toString().trim();
-      final branch = (body['BRANCH'] ?? '').toString().trim();
-      if (bank.isEmpty && branch.isEmpty) return null;
-
-      return {
-        'bank': bank,
-        'branch': branch,
-      };
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<void> _verifyBankAccountHolder() async {
-    final accountNumber = _bankAccCtrl.text.trim();
-    final ifsc = _bankIfscCtrl.text.trim().toUpperCase();
-    final accountValid = RegExp(r'^\d{9,20}$').hasMatch(accountNumber);
-    final ifscValid = RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc);
-
-    if (!accountValid) {
-      if (mounted) {
-        setState(() {
-          _lastRequestedAccountKey = '';
-          _isAccountLookupLoading = false;
-          _accountHolderName = null;
-          _accountLookupError = null;
-          _accountLookupInfo = null;
-          _lastVerifiedAccountKey = '';
-        });
-      }
-      return;
-    }
-
-    if (!ifscValid) {
-      if (mounted) {
-        setState(() {
-          _lastRequestedAccountKey = '';
-          _isAccountLookupLoading = false;
-          _accountHolderName = null;
-          _accountLookupError = null;
-          _accountLookupInfo = null;
-          _lastVerifiedAccountKey = '';
-        });
-      }
-      return;
-    }
-
-    if (_isIfscLoading) {
-      if (mounted) {
-        setState(() {
-          _isAccountLookupLoading = false;
-          _accountLookupError = null;
-          _accountLookupInfo = null;
-        });
-      }
-      return;
-    }
-
-    final ifscValidated = _isIfscResolved;
-    if (!ifscValidated) {
-      if (mounted) {
-        setState(() {
-          _resetAccountLookupState();
-        });
-      }
-      return;
-    }
-
-    final currentKey = '$accountNumber|$ifsc';
-    if ((currentKey == _lastRequestedAccountKey && _isAccountLookupLoading) ||
-        (currentKey == _lastRequestedAccountKey &&
-            _accountHolderName != null &&
-            _accountLookupError == null)) {
-      return;
-    }
-    if (currentKey == _lastVerifiedAccountKey && _accountHolderName != null) {
-      return;
-    }
-    _lastRequestedAccountKey = currentKey;
-
-    final requestId = ++_accountLookupRequestId;
-    if (mounted) {
-      setState(() {
-        _isAccountLookupLoading = true;
-        _accountLookupError = null;
-        _accountLookupInfo = null;
-      });
-    }
-
-    try {
-      final response = await ApiService.post('/users/bank/verify-account', {
-        'account_number': accountNumber,
-        'ifsc': ifsc,
-      });
-
-      if (!mounted || requestId != _accountLookupRequestId) return;
-
-      if (response['success'] == true) {
-        final data = Map<String, dynamic>.from(response['data'] ?? const {});
-        final holder = (data['account_holder_name'] ?? '').toString().trim();
-        final bankFromVerify = (data['bank_name'] ?? '').toString().trim();
-        final branchFromVerify = (data['branch'] ?? '').toString().trim();
-
-        setState(() {
-          _accountHolderName = holder.isNotEmpty ? holder : null;
-          _accountLookupError = null;
-          _accountLookupInfo = holder.isNotEmpty
-              ? null
-              : 'Account holder not found for entered details.';
-          _lastVerifiedAccountKey = currentKey;
-
-          if (bankFromVerify.isNotEmpty && _bankNameCtrl.text.trim().isEmpty) {
-            _bankNameCtrl.text = bankFromVerify;
-          }
-          if (bankFromVerify.isNotEmpty) {
-            _bankNameCtrl.text = bankFromVerify;
-          }
-          if (bankFromVerify.isNotEmpty) {
-            _ifscBankName = bankFromVerify;
-          }
-          if (branchFromVerify.isNotEmpty) {
-            _ifscBranch = branchFromVerify;
-          }
-        });
-      } else {
-        final backendMessage = (response['message'] ??
-                'Unable to verify account holder right now.')
-            .toString();
-        final normalized = backendMessage.toLowerCase();
-        final userFriendly = normalized.contains('temporarily unavailable') ||
-                normalized.contains('service is unavailable')
-            ? 'Live bank verification is temporarily unavailable. You can continue and admin will verify bank details.'
-            : normalized.contains('too many verification attempts')
-                ? 'Too many verification attempts. Please wait a few minutes and try again.'
-                : normalized.contains('something went wrong') ||
-                        normalized.contains('try after some time') ||
-                        normalized.contains('unable to verify') ||
-                        normalized.contains('failed') ||
-                        normalized.contains('right now')
-                    ? 'Could not verify this account right now. Please check number/IFSC and try again.'
-                    : backendMessage;
-        setState(() {
-          _accountHolderName = null;
-          _accountLookupError = null;
-          _accountLookupInfo = userFriendly;
-          _lastRequestedAccountKey = '';
-          _lastVerifiedAccountKey = '';
-        });
-      }
-    } catch (_) {
-      if (!mounted || requestId != _accountLookupRequestId) return;
-      setState(() {
-        _accountHolderName = null;
-        _accountLookupError = null;
-        _accountLookupInfo = 'Could not verify account details right now.';
-        _lastRequestedAccountKey = '';
-        _lastVerifiedAccountKey = '';
-      });
-    } finally {
-      if (mounted && requestId == _accountLookupRequestId) {
-        setState(() => _isAccountLookupLoading = false);
-      }
-    }
-  }
-
-  Future<void> _showUpdateWithOtpSheet({
-    required String title,
-    required String fieldKey,
-    required String currentValue,
-    required String hint,
-    required Function(String) onSuccess,
-  }) async {
-    final ctrl = TextEditingController(text: currentValue);
-    final otpCtrl = TextEditingController();
-    bool otpSent = false;
-    bool loading = false;
-
+  // ── EMAIL CHANGE ──────────────────────────────────────────────────────────
+  Future<void> _showEmailSheet() async {
+    final ec = TextEditingController();
+    final oc = TextEditingController();
+    bool sent = false, loading = false;
+    String? err;
     await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
+      context: context, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setModalState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(ctx).viewInsets.bottom,
-              left: 24, right: 24, top: 24,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: ctrl,
-                  decoration: InputDecoration(
-                    labelText: 'New Value',
-                    hintText: hint,
-                    border: const OutlineInputBorder(),
-                  ),
-                  enabled: !otpSent,
-                ),
-                if (otpSent) ...[
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: otpCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Enter OTP sent to your Mobile',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.number,
-                  ),
-                ],
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: loading ? null : () async {
-                      if (ctrl.text.trim().isEmpty) return;
-                      setModalState(() => loading = true);
-
-                      try {
-                        if (!otpSent) {
-                          // Send OTP
-                          final res = await ApiService.post('/auth/send-otp', {'mobile': context.read<AuthProvider>().user?.mobile});
-                          if (res['success'] == true) {
-                            setModalState(() => otpSent = true);
-                          } else {
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Failed to send OTP')));
-                          }
-                        } else {
-                          // Verify OTP & Update
-                          final res = await ApiService.post('/profile/update-secure', {
-                            'field': fieldKey,
-                            'value': ctrl.text.trim(),
-                            'otp': otpCtrl.text.trim(),
-                          });
-                          if (res['success'] == true) {
-                            onSuccess(ctrl.text.trim());
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Updated successfully'), backgroundColor: AppTheme.successColor));
-                              Navigator.pop(ctx);
-                            }
-                          } else {
-                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(res['message'] ?? 'Invalid OTP')));
-                          }
-                        }
-                      } catch (e) {
-                        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Error connecting to server')));
-                      } finally {
-                        setModalState(() => loading = false);
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white),
-                    child: loading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(otpSent ? 'Verify & Update' : 'Send OTP'),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          );
-        });
-      },
+      builder: (ctx) => StatefulBuilder(builder: (ctx, ss) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 20, right: 20, top: 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _handle(), const SizedBox(height: 8),
+          const Text('Change Email', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          if (!sent) ...[
+            _tf(ec, 'New Email', Icons.email_outlined, type: TextInputType.emailAddress),
+            const SizedBox(height: 8),
+            if (err != null) _errText(err!),
+            const SizedBox(height: 10),
+            _btn(loading ? 'Sending OTP…' : 'Send OTP', loading: loading, onTap: () async {
+              final email = ec.text.trim();
+              if (!RegExp(r'^[\w\.\-]+@[\w\.\-]+\.\w+$').hasMatch(email)) {
+                ss(() => err = 'Enter a valid email'); return;
+              }
+              ss(() { loading = true; err = null; });
+              try {
+                final r = await ApiService.post('/users/profile/change-email/send-otp', {'email': email});
+                if (r['success'] == true) {
+                  ss(() { sent = true; loading = false; });
+                } else {
+                  ss(() { err = r['message']?.toString() ?? 'Failed to send OTP'; loading = false; });
+                }
+              } catch (_) { ss(() { err = 'Network error'; loading = false; }); }
+            }),
+          ] else ...[
+            Text('OTP sent to ${ec.text}', style: const TextStyle(color: Colors.black54, fontSize: 13)),
+            const SizedBox(height: 12),
+            _tf(oc, '6-digit OTP', Icons.lock_outline, type: TextInputType.number,
+              formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)]),
+            if (err != null) ...[const SizedBox(height: 6), _errText(err!)],
+            Align(alignment: Alignment.centerRight,
+              child: TextButton(onPressed: loading ? null : () => ss(() { sent = false; oc.clear(); err = null; }),
+                child: const Text('Resend / change email'))),
+            _btn(loading ? 'Verifying…' : 'Verify & Update', loading: loading, onTap: () async {
+              if (oc.text.trim().length != 6) { ss(() => err = 'Enter 6-digit OTP'); return; }
+              ss(() { loading = true; err = null; });
+              try {
+                final r = await ApiService.post('/users/profile/change-email/verify-otp',
+                  {'email': ec.text.trim(), 'otp': oc.text.trim()});
+                if (r['success'] == true) {
+                  await _refresh();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  _snack('Email updated');
+                } else ss(() { err = r['message']?.toString() ?? 'Invalid OTP'; loading = false; });
+              } catch (_) { ss(() { err = 'Network error'; loading = false; }); }
+            }),
+          ],
+          const SizedBox(height: 24),
+        ]),
+      )),
     );
   }
 
-  void _showEmailOtpSheet() {
-    _showUpdateWithOtpSheet(
-      title: 'Update Email Address',
-      fieldKey: 'email',
-      currentValue: _emailCtrl.text,
-      hint: 'new.email@example.com',
-      onSuccess: (val) => setState(() => _emailCtrl.text = val),
-    );
-  }
-
-  void _showNomineeOtpSheet() {
-    _showUpdateWithOtpSheet(
-      title: 'Update Nominee Name',
-      fieldKey: 'nominee_name',
-      currentValue: _nomineeNameCtrl.text,
-      hint: 'Full Name',
-      onSuccess: (val) => setState(() => _nomineeNameCtrl.text = val),
-    );
-  }
-
-  Future<void> _pickAddressProof() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf']);
-    if (result != null && result.files.single.path != null) {
-      setState(() => _addressProofPath = result.files.single.path);
-    }
-  }
-
-  Future<void> _pickBankProof() async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf']);
-    if (result != null && result.files.single.path != null) {
-      setState(() => _bankProofPath = result.files.single.path);
-    }
-  }
-
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate() || _isSaving) return;
-
-    final enteredDobIso = _normalizeDate(_dobCtrl.text);
-
-    if (_digilockerConnected) {
-      final enteredDob = enteredDobIso;
-      final enteredGender = _normalizeGender(_selectedGender);
-      if (_verifiedDobIso != null &&
-          enteredDob != null &&
-          enteredDob != _verifiedDobIso) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Date of birth must match your DigiLocker/PAN verified details.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-      if (_verifiedGender != null &&
-          enteredGender != null &&
-          enteredGender != _verifiedGender) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:
-                Text('Gender must match your DigiLocker/PAN verified details.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return;
-      }
-    }
-
-    final currentAddressKey = '${_addressCtrl.text.trim()}_${_cityCtrl.text.trim()}_${_stateCtrl.text.trim()}_${_pincodeCtrl.text.trim()}_${_currentAddressCtrl.text.trim()}_${_currentCityCtrl.text.trim()}_${_currentStateCtrl.text.trim()}_${_currentPincodeCtrl.text.trim()}';
-    final currentBankKey = '${_bankAccCtrl.text.trim()}_${_bankIfscCtrl.text.trim().toUpperCase()}';
-
-    final addressChanged = currentAddressKey != _originalAddressKey;
-    final bankChanged = currentBankKey != _originalBankKey;
-
-    if (addressChanged && _addressProofPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Address details modified. Please attach an Address Proof document.'), behavior: SnackBarBehavior.floating)
-      );
-      return;
-    }
-    if (bankChanged && _bankProofPath == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bank details modified. Please attach a Bank Proof document.'), behavior: SnackBarBehavior.floating)
-      );
-      return;
-    }
-
-    final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Confirm Details'),
-            content: const Text(
-              'Please confirm all profile details are correct. Submitted details will be saved to your account.',
+  // ── ADDRESS CHANGE ────────────────────────────────────────────────────────
+  Future<void> _showAddressSheet(dynamic user) async {
+    final ac = TextEditingController(text: user?.address ?? '');
+    final cc = TextEditingController(text: user?.city ?? '');
+    final pc = TextEditingController(text: user?.pincode ?? '');
+    String? state = (user?.state ?? '').isEmpty ? null : user?.state as String?;
+    String? proofPath, proofName, err;
+    bool loading = false;
+    await showModalBottomSheet(
+      context: context, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, ss) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: _handle()), const SizedBox(height: 8),
+            const Center(child: Text('Change Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            const SizedBox(height: 20),
+            _tf(ac, 'Street / Area', Icons.home_outlined),
+            const SizedBox(height: 12),
+            _tf(cc, 'City', Icons.location_city_outlined),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: state,
+              decoration: InputDecoration(labelText: 'State', prefixIcon: const Icon(Icons.map_outlined, size: 20),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+              items: _kStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+              onChanged: (v) => ss(() => state = v),
             ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('Review Again'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Submit'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
-
-    if (!confirmed) return;
-
-    final payload = {
-      'address': _addressCtrl.text.trim(),
-      'city': _cityCtrl.text.trim(),
-      'state': _stateCtrl.text.trim(),
-      'pincode': _pincodeCtrl.text.trim(),
-      'date_of_birth': enteredDobIso,
-      'gender': _selectedGender,
-      'pan_number': _panCtrl.text.trim().toUpperCase(),
-      'nominee_name': _nomineeNameCtrl.text.trim(),
-      'nominee_relationship': _nomineeRelCtrl.text.trim(),
-      'bank_name': (_ifscBankName ?? _bankNameCtrl.text).trim(),
-      'bank_account_number': _bankAccCtrl.text.trim(),
-      'bank_ifsc_code': _bankIfscCtrl.text.trim().toUpperCase(),
-      'current_address': _currentAddressCtrl.text.trim(),
-      'current_city': _currentCityCtrl.text.trim(),
-      'current_state': _currentStateCtrl.text.trim(),
-      'current_pincode': _currentPincodeCtrl.text.trim(),
-    };
-
-    payload.removeWhere((key, value) => value == null);
-
-    setState(() => _isSaving = true);
-    try {
-      final response = await ApiService.put('/users/profile', payload);
-      if (!mounted) return;
-
-      final ok = response['success'] == true;
-      if (ok) {
-        try {
-          if (addressChanged && _addressProofPath != null) {
-             await ApiService.uploadFile('/profile/address-proof', _addressProofPath!);
-          }
-          if (bankChanged && _bankProofPath != null) {
-             await ApiService.uploadFile('/profile/bank-proof', _bankProofPath!);
-          }
-        } catch (_) {}
-
-        await context.read<AuthProvider>().refreshProfile();
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                (response['message'] ?? 'Profile submitted for admin approval')
-                    .toString()),
-            backgroundColor: AppTheme.successColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        context.pop();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                (response['message'] ?? 'Unable to update profile').toString()),
-            backgroundColor: AppTheme.errorColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content:
-              Text('Unable to update profile right now. Please try again.'),
-          behavior: SnackBarBehavior.floating,
+            const SizedBox(height: 12),
+            _tf(pc, 'Pincode', Icons.pin_drop_outlined, type: TextInputType.number,
+              formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)]),
+            const SizedBox(height: 16),
+            _proofPicker(proofPath, proofName, 'Attach Address Proof (required)',
+              'Aadhaar, Voter ID, Utility Bill, Rent Agreement',
+              onPick: () async {
+                final r = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg','jpeg','png','pdf']);
+                if (r?.files.single.path != null) ss(() { proofPath = r!.files.single.path; proofName = r.files.single.name; });
+              }),
+            if (err != null) ...[const SizedBox(height: 8), _errText(err!)],
+            const SizedBox(height: 20),
+            _btn(loading ? 'Saving…' : 'Save Address', loading: loading, onTap: () async {
+              if (ac.text.trim().isEmpty || cc.text.trim().isEmpty || state == null || pc.text.trim().length != 6) {
+                ss(() => err = 'Fill all address fields correctly'); return;
+              }
+              if (proofPath == null) { ss(() => err = 'Attach an address proof document'); return; }
+              ss(() { loading = true; err = null; });
+              try {
+                final req = http.MultipartRequest('PUT', Uri.parse('${ApiService.baseUrl}/users/profile/change-address'));
+                req.headers.addAll(await _authHeaders());
+                req.fields['address'] = ac.text.trim();
+                req.fields['city'] = cc.text.trim();
+                req.fields['state'] = state!;
+                req.fields['pincode'] = pc.text.trim();
+                req.files.add(await http.MultipartFile.fromPath('address_proof', proofPath!));
+                final res = jsonDecode((await http.Response.fromStream(await req.send())).body);
+                if (res['success'] == true) {
+                  await _refresh();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  _snack('Address updated — pending admin review');
+                } else ss(() { err = res['message']?.toString() ?? 'Failed'; loading = false; });
+              } catch (_) { ss(() { err = 'Network error'; loading = false; }); }
+            }),
+          ]),
         ),
-      );
-    } finally {
-      if (mounted) setState(() => _isSaving = false);
-    }
+      )),
+    );
   }
 
-  @override
-  void dispose() {
-    _accountLookupDebounce?.cancel();
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _panCtrl.dispose();
-    _addressCtrl.dispose();
-    _cityCtrl.dispose();
-    _stateCtrl.dispose();
-    _pincodeCtrl.dispose();
-    _dobCtrl.dispose();
-    _nomineeNameCtrl.dispose();
-    _nomineeRelCtrl.dispose();
-    _bankAccCtrl.dispose();
-    _bankIfscCtrl.dispose();
-    _bankNameCtrl.dispose();
-    _currentAddressCtrl.dispose();
-    _currentCityCtrl.dispose();
-    _currentStateCtrl.dispose();
-    _currentPincodeCtrl.dispose();
-    super.dispose();
+  // ── NOMINEE CHANGE ────────────────────────────────────────────────────────
+  Future<void> _showNomineeSheet(dynamic user) async {
+    final nc = TextEditingController(text: user?.nomineeName ?? '');
+    final oc = TextEditingController();
+    String? rel = (user?.nomineeRelationship ?? '').isEmpty ? null : user?.nomineeRelationship as String?;
+    bool otpSent = false, loading = false;
+    String? err;
+    await showModalBottomSheet(
+      context: context, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, ss) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom, left: 20, right: 20, top: 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _handle(), const SizedBox(height: 8),
+          const Text('Change Nominee', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: rel,
+            decoration: InputDecoration(labelText: 'Relationship', prefixIcon: const Icon(Icons.people_outline, size: 20),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+            items: _kRelations.map((r) => DropdownMenuItem(value: r, child: Text(r))).toList(),
+            onChanged: (v) => ss(() => rel = v),
+          ),
+          const SizedBox(height: 14),
+          const Divider(),
+          const SizedBox(height: 6),
+          const Align(alignment: Alignment.centerLeft,
+            child: Text('Change Nominee Name (OTP required)', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+          const SizedBox(height: 10),
+          if (!otpSent) ...[
+            _tf(nc, 'New Nominee Name', Icons.person_add_outlined),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: loading ? null : () async {
+                if (nc.text.trim().length < 2) { ss(() => err = 'Enter nominee name'); return; }
+                ss(() { loading = true; err = null; });
+                try {
+                  final r = await ApiService.post('/users/profile/nominee-otp/send', {});
+                  if (r['success'] == true) {
+                    ss(() { otpSent = true; loading = false; });
+                  } else {
+                    ss(() { err = r['message']?.toString() ?? 'Failed'; loading = false; });
+                  }
+                } catch (_) { ss(() { err = 'Network error'; loading = false; }); }
+              },
+              icon: const Icon(Icons.send),
+              label: Text(loading ? 'Sending…' : 'Send OTP to change name'),
+              style: OutlinedButton.styleFrom(minimumSize: const Size(double.infinity, 44)),
+            ),
+          ] else ...[
+            const Text('OTP sent to your registered mobile', style: TextStyle(color: Colors.black54, fontSize: 12)),
+            const SizedBox(height: 10),
+            _tf(oc, '6-digit OTP', Icons.lock_outline, type: TextInputType.number,
+              formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)]),
+            Align(alignment: Alignment.centerRight,
+              child: TextButton(onPressed: loading ? null : () => ss(() { otpSent = false; oc.clear(); err = null; }),
+                child: const Text('Resend OTP'))),
+          ],
+          if (err != null) ...[const SizedBox(height: 4), _errText(err!)],
+          const SizedBox(height: 14),
+          _btn(loading ? 'Saving…' : 'Save Nominee', loading: loading, onTap: () async {
+            if (rel == null) { ss(() => err = 'Select relationship'); return; }
+            ss(() { loading = true; err = null; });
+            try {
+              final body = <String, dynamic>{'nominee_relationship': rel};
+              if (otpSent && oc.text.trim().length == 6) {
+                body['nominee_name'] = nc.text.trim();
+                body['otp'] = oc.text.trim();
+              }
+              final r = await ApiService.put('/users/profile', body);
+              if (r['success'] == true) {
+                await _refresh();
+                if (ctx.mounted) Navigator.pop(ctx);
+                _snack('Nominee updated');
+              } else ss(() { err = r['message']?.toString() ?? 'Update failed'; loading = false; });
+            } catch (_) { ss(() { err = 'Network error'; loading = false; }); }
+          }),
+          const SizedBox(height: 24),
+        ]),
+      )),
+    );
   }
 
+  // ── BANK CHANGE ───────────────────────────────────────────────────────────
+  Future<void> _showBankSheet() async {
+    final ac = TextEditingController();
+    final ic = TextEditingController();
+    String bankName = '';
+    String? proofPath, proofName, err, ifscErr;
+    bool loading = false, looking = false;
+    await showModalBottomSheet(
+      context: context, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, ss) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Center(child: _handle()), const SizedBox(height: 8),
+            const Center(child: Text('Change Bank Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            const SizedBox(height: 20),
+            _tf(ac, 'Account Number', Icons.account_balance_outlined, type: TextInputType.number,
+              formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(20)]),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ic,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')), LengthLimitingTextInputFormatter(11)],
+              decoration: InputDecoration(
+                labelText: 'IFSC Code', prefixIcon: const Icon(Icons.code), errorText: ifscErr,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                suffixIcon: looking
+                  ? const SizedBox(width: 20, height: 20, child: Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator(strokeWidth: 2)))
+                  : bankName.isNotEmpty ? const Icon(Icons.check_circle, color: AppTheme.successColor) : null,
+              ),
+              onChanged: (v) async {
+                final ifsc = v.trim().toUpperCase();
+                if (ifsc.length == 11) {
+                  ss(() { looking = true; ifscErr = null; bankName = ''; });
+                  try {
+                    final r = await ApiService.get('/users/bank/ifsc/$ifsc');
+                    if (r['success'] == true) {
+                        ss(() { bankName = (r['data']?['bank'] ?? '').toString().trim(); looking = false; });
+                      } else {
+                        ss(() { ifscErr = 'Invalid IFSC'; looking = false; });
+                      }
+                  } catch (_) { ss(() { looking = false; }); }
+                } else { ss(() { bankName = ''; ifscErr = null; looking = false; }); }
+              },
+            ),
+            if (bankName.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Text('Bank: $bankName', style: const TextStyle(fontSize: 12, color: AppTheme.successColor, fontWeight: FontWeight.w600)),
+            ],
+            const SizedBox(height: 16),
+            _proofPicker(proofPath, proofName, 'Attach Bank Proof (required)',
+              'Passbook, Cancelled Cheque, Bank Statement',
+              onPick: () async {
+                final r = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg','jpeg','png','pdf']);
+                if (r?.files.single.path != null) ss(() { proofPath = r!.files.single.path; proofName = r.files.single.name; });
+              }),
+            if (err != null) ...[const SizedBox(height: 8), _errText(err!)],
+            const SizedBox(height: 20),
+            _btn(loading ? 'Saving…' : 'Submit for Admin Approval', loading: loading, onTap: () async {
+              final acc = ac.text.trim();
+              final ifsc = ic.text.trim().toUpperCase();
+              if (acc.length < 9) { ss(() => err = 'Enter valid account number'); return; }
+              if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$').hasMatch(ifsc)) { ss(() => err = 'Enter valid 11-char IFSC'); return; }
+              if (proofPath == null) { ss(() => err = 'Attach bank proof document'); return; }
+              ss(() { loading = true; err = null; });
+              try {
+                final req = http.MultipartRequest('PUT', Uri.parse('${ApiService.baseUrl}/users/profile/change-bank'));
+                req.headers.addAll(await _authHeaders());
+                req.fields['bank_account_number'] = acc;
+                req.fields['bank_ifsc_code'] = ifsc;
+                if (bankName.isNotEmpty) req.fields['bank_name'] = bankName;
+                req.files.add(await http.MultipartFile.fromPath('bank_proof', proofPath!));
+                final res = jsonDecode((await http.Response.fromStream(await req.send())).body);
+                if (res['success'] == true) {
+                  await _refresh();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  _snack('Bank details submitted — pending admin approval');
+                } else ss(() { err = res['message']?.toString() ?? 'Failed'; loading = false; });
+              } catch (_) { ss(() { err = 'Network error'; loading = false; }); }
+            }),
+          ]),
+        ),
+      )),
+    );
+  }
+
+  // ── shared widgets ────────────────────────────────────────────────────────
+  Widget _handle() => Container(width: 40, height: 4,
+    decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)));
+
+  Widget _errText(String msg) => Text(msg, style: const TextStyle(color: AppTheme.errorColor, fontSize: 12));
+
+  Widget _btn(String label, {required VoidCallback? onTap, bool loading = false}) =>
+    SizedBox(width: double.infinity, height: 48,
+      child: ElevatedButton(
+        onPressed: loading ? null : onTap,
+        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        child: loading
+          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+          : Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+      ));
+
+  Widget _tf(TextEditingController ctrl, String label, IconData icon,
+      {TextInputType type = TextInputType.text, List<TextInputFormatter>? formatters}) =>
+    TextField(controller: ctrl, keyboardType: type, inputFormatters: formatters,
+      decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 20),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))));
+
+  Widget _proofPicker(String? path, String? name, String placeholder, String hint,
+      {required VoidCallback onPick}) =>
+    Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      GestureDetector(
+        onTap: onPick,
+        child: Container(
+          width: double.infinity, padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: path != null ? AppTheme.primaryColor.withAlpha(15) : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: path != null ? AppTheme.primaryColor : Colors.grey.shade300, width: path != null ? 1.5 : 1),
+          ),
+          child: Row(children: [
+            Icon(path != null ? Icons.check_circle_outline : Icons.upload_file_outlined,
+              color: path != null ? AppTheme.primaryColor : Colors.grey),
+            const SizedBox(width: 10),
+            Expanded(child: Text(path != null ? name ?? 'File attached' : placeholder,
+              style: TextStyle(color: path != null ? AppTheme.primaryColor : Colors.grey.shade600, fontSize: 13),
+              overflow: TextOverflow.ellipsis)),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 4),
+      Text('Accepted: $hint', style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+    ]);
+
+  // ── BUILD ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final profileStatus = (user?.profileEditStatus ?? 'none').toString();
-    final isProfileLocked =
-        profileStatus == 'pending' || profileStatus == 'approved';
-    final isDobLocked = isProfileLocked ||
-        (_digilockerConnected && (_verifiedDobIso?.trim().isNotEmpty ?? false));
-    final isGenderLocked = isProfileLocked ||
-        (_digilockerConnected && (_verifiedGender?.trim().isNotEmpty ?? false));
-    final rejectionFields = (user?.profileEditRejectionFields ??
-                user?.raw?['profile_edit_rejection_fields'] as List?)
-            ?.map((e) => e.toString())
-            .where((e) => e.trim().isNotEmpty)
-            .toList() ??
-        const [];
-        
-    final currentAddressKey = '${_addressCtrl.text.trim()}_${_cityCtrl.text.trim()}_${_stateCtrl.text.trim()}_${_pincodeCtrl.text.trim()}_${_currentAddressCtrl.text.trim()}_${_currentCityCtrl.text.trim()}_${_currentStateCtrl.text.trim()}_${_currentPincodeCtrl.text.trim()}';
-    final currentBankKey = '${_bankAccCtrl.text.trim()}_${_bankIfscCtrl.text.trim().toUpperCase()}';
-
-    final addressChanged = _originalAddressKey.isNotEmpty && currentAddressKey != _originalAddressKey;
-    final bankChanged = _originalBankKey.isNotEmpty && currentBankKey != _originalBankKey;
-
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: Colors.white,
-        actions: [
-          TextButton.icon(
-            onPressed: () => context.push('/support'),
-            icon:
-                const Icon(Icons.support_agent, color: Colors.white, size: 18),
-            label: const Text('Support',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16)),
-          ),
-        ],
-      ),
-      body: AbsorbPointer(
-        absorbing: false,
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            inputDecorationTheme: InputDecorationTheme(
-              filled: true,
-              fillColor: const Color(0xFFF5F5F5),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              errorBorder: InputBorder.none,
-              disabledBorder: InputBorder.none,
-              labelStyle: const TextStyle(color: Colors.black54, fontSize: 12),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: CustomScrollView(slivers: [
+          SliverAppBar(
+            expandedHeight: 190, pinned: true,
+            backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+            leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new), onPressed: () => context.pop()),
+            title: const Text('My Profile'),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                color: AppTheme.primaryColor,
+                child: SafeArea(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const SizedBox(height: 48),
+                  CircleAvatar(
+                    radius: 38, backgroundColor: Colors.white24,
+                    backgroundImage: (user?.profileImageUrl?.isNotEmpty == true)
+                      ? NetworkImage(user!.profileImageUrl!) : null,
+                    child: (user?.profileImageUrl?.isNotEmpty != true)
+                      ? Text(user?.fullName.isNotEmpty == true ? user!.fullName[0].toUpperCase() : '?',
+                          style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold))
+                      : null,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(user?.fullName ?? '', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                  if (user?.memberId != null)
+                    Text('ID: ${user!.memberId}', style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                ])),
+              ),
             ),
           ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
               child: Column(children: [
-                // Pending approval banner
-                if (user?.profileEditStatus == 'pending')
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: Row(children: [
-                      Icon(Icons.hourglass_top,
-                          color: Colors.orange.shade700, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Changes Pending Approval',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Colors.orange.shade900)),
-                            const SizedBox(height: 2),
-                            Text(
-                                'Some field changes are awaiting admin review.',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.orange.shade700)),
-                          ],
-                        ),
-                      ),
-                    ]),
-                  ),
-                if (user?.profileEditStatus == 'approved')
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
-                    child: Row(children: [
-                      Icon(Icons.verified_rounded,
-                          color: Colors.green.shade700, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Profile Approved',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Colors.green.shade900)),
-                            const SizedBox(height: 2),
-                            Text(
-                                'Your submitted profile details were approved by admin and are now locked.',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.green.shade700)),
-                          ],
-                        ),
-                      ),
-                    ]),
-                  ),
-                if (user?.profileEditStatus == 'rejected')
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.shade200),
-                    ),
-                    child: Row(children: [
-                      Icon(Icons.cancel_outlined,
-                          color: Colors.red.shade700, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Changes Rejected',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                    color: Colors.red.shade900)),
-                            const SizedBox(height: 2),
-                            Text(
-                                user?.profileEditRejectionReason ??
-                                    'Profile submission rejected. Contact support for help.',
-                                style: TextStyle(
-                                    fontSize: 11, color: Colors.red.shade700)),
-                            if (rejectionFields.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                'Please update: ${rejectionFields.map((f) => f.replaceAll('_', ' ')).join(', ')}',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.red.shade800,
-                                    fontWeight: FontWeight.w600),
-                              ),
-                            ],
-                            const SizedBox(height: 4),
-                            Text('You can edit and submit again.',
-                                style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.red.shade700,
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ]),
-                  ),
-                // Avatar — read-only. Photo comes from the live selfie uploaded in Documents.
-                Center(
-                  child: Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      (user?.profileImageUrl != null &&
-                              user!.profileImageUrl!.isNotEmpty)
-                          ? CircleAvatar(
-                              radius: 52,
-                              backgroundColor:
-                                  AppTheme.primaryColor.withAlpha(38),
-                              backgroundImage:
-                                  NetworkImage(user.profileImageUrl!),
-                            )
-                          : CircleAvatar(
-                              radius: 52,
-                              backgroundColor:
-                                  AppTheme.primaryColor.withAlpha(38),
-                              child: Text(
-                                user?.fullName.isNotEmpty == true
-                                    ? user!.fullName[0].toUpperCase()
-                                    : '?',
-                                style: const TextStyle(
-                                    fontSize: 40,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.primaryColor),
-                              ),
-                            ),
-                      Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: const BoxDecoration(
-                            color: AppTheme.secondaryColor,
-                            shape: BoxShape.circle),
-                        child: const Icon(Icons.verified_user,
-                            size: 16, color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Center(
-                  child: Text(
-                    'Profile photo is set from your live selfie in Documents',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (user?.memberId != null)
-                  Text('Member ID: ${user!.memberId}',
-                      style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-                const SizedBox(height: 24),
+                if (_saving) const LinearProgressIndicator(),
 
-                // Editable fields
-                _buildFormCard([
-                  _ReadOnlyField(
-                    label: 'Full Name',
-                    value: _nameCtrl.text.isNotEmpty ? _nameCtrl.text : '—',
-                    icon: Icons.person_outline,
-                    note: 'Synced from PAN/Aadhaar/DigiLocker',
-                  ),
-                  const Divider(height: 1),
-                  _ReadOnlyField(
-                    label: 'Email Address',
-                    value: _emailCtrl.text.isNotEmpty ? _emailCtrl.text : '—',
-                    icon: Icons.email_outlined,
-                    note: 'Requires OTP to change',
-                    onEdit: isProfileLocked ? null : _showEmailOtpSheet,
-                  ),
+                // Identity — all locked
+                _Card(title: 'Identity', children: [
+                  _Row('Full Name', user?.fullName, locked: true),
+                  _Row('Mobile', user?.mobile, locked: true),
+                  _Row('PAN Number', user?.panNumber, locked: true),
+                  _Row('Date of Birth', _fmtDob(user?.dateOfBirth), locked: true),
+                  _Row('Gender', _cap(user?.gender), locked: true),
                 ]),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-                // Read-only + PAN
-                _buildFormCard([
-                  _ReadOnlyField(
-                    label: 'Mobile Number',
-                    value: user?.mobile ?? '—',
-                    icon: Icons.phone_outlined,
-                    note: 'Cannot be changed',
-                  ),
-                  const Divider(height: 1),
-                  _ReadOnlyField(
-                    label: 'PAN Number',
-                    value: _panCtrl.text.isNotEmpty ? _panCtrl.text : '—',
-                    icon: Icons.credit_card,
-                    note: 'Read-only',
-                  ),
+                // Contact — email changeable
+                _Card(title: 'Contact', children: [
+                  _Row('Email', user?.email, actionLabel: 'Change', onAction: _showEmailSheet),
                 ]),
-                const SizedBox(height: 16),
-
-                // Personal Details
-                _buildSectionLabel('Personal Details'),
-                _buildFormCard([
-                  _FormField(
-                    controller: _dobCtrl,
-                    label: 'Date of Birth',
-                    icon: Icons.cake_outlined,
-                    hint: 'DD/MM/YYYY',
-                    keyboardType: TextInputType.datetime,
-                    readOnly: true,
-                    enabled: !isDobLocked,
-                    onTap: isDobLocked ? null : _pickDateOfBirth,
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Date of Birth is required';
-                      }
-                      if (_normalizeDate(v) == null) {
-                        return 'Enter DOB in DD/MM/YYYY format';
-                      }
-                      return null;
-                    },
-                  ),
-                  const Divider(height: 1),
-                  _ReadOnlyField(
-                    label: 'Gender',
-                    value: _selectedGender != null ? '${_selectedGender![0].toUpperCase()}${_selectedGender!.substring(1)}' : '—',
-                    icon: Icons.wc,
-                    note: 'Read-only',
-                  ),
-                ]),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
                 // Address
-                _buildSectionLabel('Address'),
-                _buildFormCard([
-                  _FormField(
-                    controller: _addressCtrl,
-                    label: 'Address',
-                    icon: Icons.home_outlined,
-                    hint: 'Street / Area / Locality',
-                    enabled: !isProfileLocked,
-                    onChanged: isProfileLocked
-                        ? null
-                        : (_) {
-                            if (_sameAsPermanent) {
-                              setState(_copyPermanentToCurrent);
-                            }
-                          },
-                    validator: (v) => _requiredValidator(v, 'Address'),
+                _Card(
+                  title: 'Address',
+                  trailing: TextButton.icon(
+                    onPressed: () => _showAddressSheet(user),
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Change', style: TextStyle(fontSize: 12)),
                   ),
-                  const Divider(height: 1),
-                  _FormField(
-                    controller: _cityCtrl,
-                    label: 'City',
-                    icon: Icons.location_city_outlined,
-                    enabled: !isProfileLocked,
-                    onChanged: isProfileLocked
-                        ? null
-                        : (_) {
-                            if (_sameAsPermanent) {
-                              setState(_copyPermanentToCurrent);
-                            }
-                          },
-                    validator: (v) => _requiredValidator(v, 'City'),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: DropdownButtonFormField<String>(
-                      value: _stateCtrl.text.isNotEmpty ? _stateCtrl.text : null,
-                      decoration: const InputDecoration(
-                        labelText: 'State',
-                        prefixIcon: Icon(Icons.map_outlined, size: 20),
-                        border: InputBorder.none,
-                      ),
-                      items: [
-                        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-                        'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-                        'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-                        'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-                        'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-                        'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
-                        'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
-                      ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                      onChanged: isProfileLocked
-                          ? null
-                          : (v) {
-                              if (v != null) {
-                                setState(() => _stateCtrl.text = v);
-                                if (_sameAsPermanent) setState(_copyPermanentToCurrent);
-                              }
-                            },
-                      validator: (v) => _requiredValidator(v, 'State'),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  _FormField(
-                    controller: _pincodeCtrl,
-                    label: 'Pincode',
-                    icon: Icons.pin_drop_outlined,
-                    keyboardType: TextInputType.number,
-                    hint: '500001',
-                    enabled: !isProfileLocked,
-                    onChanged: isProfileLocked
-                        ? null
-                        : (_) {
-                            if (_sameAsPermanent) {
-                              setState(_copyPermanentToCurrent);
-                            }
-                          },
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty)
-                        return 'Pincode is required';
-                      if (!RegExp(r'^\d{6}$').hasMatch(v.trim()))
-                        return 'Enter 6-digit pincode';
-                      return null;
-                    },
-                  ),
-                ]),
-                const SizedBox(height: 16),
-
-                // Current Address
-                _buildSectionLabel('Current Address'),
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.only(bottom: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(10),
-                    onTap: isProfileLocked
-                        ? null
-                        : () => _toggleSameAsPermanent(!_sameAsPermanent),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 10),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _sameAsPermanent
-                                ? Icons.check_box
-                                : Icons.check_box_outline_blank,
-                            size: 18,
-                            color: _sameAsPermanent
-                                ? AppTheme.primaryColor
-                                : Colors.grey,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Same as Permanent Address',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _sameAsPermanent
-                                    ? AppTheme.primaryColor
-                                    : Colors.grey[700],
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                _buildFormCard([
-                  _FormField(
-                    controller: _currentAddressCtrl,
-                    label: 'Current Address',
-                    icon: Icons.location_on_outlined,
-                    hint: 'Street / Area / Locality',
-                    enabled: !isProfileLocked && !_sameAsPermanent,
-                    validator: (v) => _requiredValidator(v, 'Current Address'),
-                  ),
-                  const Divider(height: 1),
-                  _FormField(
-                    controller: _currentCityCtrl,
-                    label: 'City',
-                    icon: Icons.location_city_outlined,
-                    enabled: !isProfileLocked && !_sameAsPermanent,
-                    validator: (v) => _requiredValidator(v, 'Current City'),
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: DropdownButtonFormField<String>(
-                      value: _currentStateCtrl.text.isNotEmpty ? _currentStateCtrl.text : null,
-                      decoration: const InputDecoration(
-                        labelText: 'State',
-                        prefixIcon: Icon(Icons.map_outlined, size: 20),
-                        border: InputBorder.none,
-                      ),
-                      items: [
-                        'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-                        'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-                        'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-                        'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-                        'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-                        'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu',
-                        'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
-                      ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                      onChanged: (isProfileLocked || _sameAsPermanent)
-                          ? null
-                          : (v) {
-                              if (v != null) {
-                                setState(() => _currentStateCtrl.text = v);
-                              }
-                            },
-                      validator: (v) => _requiredValidator(v, 'Current State'),
-                    ),
-                  ),
-                  const Divider(height: 1),
-                  _FormField(
-                    controller: _currentPincodeCtrl,
-                    label: 'Pincode',
-                    icon: Icons.pin_drop_outlined,
-                    keyboardType: TextInputType.number,
-                    hint: '500001',
-                    enabled: !isProfileLocked && !_sameAsPermanent,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty)
-                        return 'Current pincode is required';
-                      if (!RegExp(r'^\d{6}$').hasMatch(v.trim()))
-                        return 'Enter 6-digit pincode';
-                      return null;
-                    },
-                  ),
-                ]),
-                if (addressChanged)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: OutlinedButton.icon(
-                      onPressed: _pickAddressProof,
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(_addressProofPath != null ? 'Address Proof Selected' : 'Attach Address Proof (Required)'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _addressProofPath != null ? Colors.green : Colors.red,
-                        side: BorderSide(color: _addressProofPath != null ? Colors.green : Colors.red),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
-
-                // Nominee Details
-                _buildSectionLabel('Nominee Details'),
-                _buildFormCard([
-                  _ReadOnlyField(
-                    label: 'Nominee Name',
-                    value: _nomineeNameCtrl.text.isNotEmpty ? _nomineeNameCtrl.text : '—',
-                    icon: Icons.person_add_outlined,
-                    note: 'Requires OTP to change',
-                    onEdit: isProfileLocked ? null : _showNomineeOtpSheet,
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: DropdownButtonFormField<String>(
-                      value: _nomineeRelCtrl.text.isNotEmpty ? _nomineeRelCtrl.text : null,
-                      decoration: const InputDecoration(
-                        labelText: 'Relationship',
-                        prefixIcon: Icon(Icons.people_outline, size: 20),
-                        border: InputBorder.none,
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'Spouse', child: Text('Spouse')),
-                        DropdownMenuItem(value: 'Parent', child: Text('Parent')),
-                        DropdownMenuItem(value: 'Sibling', child: Text('Sibling')),
-                        DropdownMenuItem(value: 'Child', child: Text('Child')),
-                        DropdownMenuItem(value: 'Other', child: Text('Other')),
-                      ],
-                      onChanged: isProfileLocked
-                          ? null
-                          : (v) {
-                              if (v != null) {
-                                setState(() => _nomineeRelCtrl.text = v);
-                              }
-                            },
-                      validator: (v) => _requiredValidator(v, 'Nominee Relationship'),
-                    ),
-                  ),
-                ]),
-                const SizedBox(height: 16),
-
-                // Bank Details
-                _buildSectionLabel('Bank Details'),
-                _buildFormCard([
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withAlpha(12),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.blue.withAlpha(45)),
-                      ),
-                      child: Text(
-                        _isIfscResolved
-                            ? 'Bank: ${_ifscBankName ?? '-'}\nBranch: ${_ifscBranch ?? '-'}'
-                            : 'Bank name and branch are fetched automatically from IFSC code.',
-                        style: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                  ),
-                  _FormField(
-                    controller: _bankIfscCtrl,
-                    label: 'IFSC Code',
-                    icon: Icons.code_outlined,
-                    textCapitalization: TextCapitalization.characters,
-                    hint: 'SBIN0001234',
-                    enabled: !isProfileLocked,
-                    onChanged: isProfileLocked
-                        ? null
-                        : (value) {
-                            _lookupIfsc(value);
-                          },
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9]')),
-                      LengthLimitingTextInputFormatter(11),
-                      UpperCaseTextFormatter(),
-                    ],
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty)
-                        return 'IFSC Code is required';
-                      if (!RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$')
-                          .hasMatch(v.trim().toUpperCase())) {
-                        return 'Invalid IFSC format';
-                      }
-                      return null;
-                    },
-                  ),
-                  if (_isIfscLoading)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          SizedBox(width: 8),
-                          Text('Validating IFSC...'),
-                        ],
-                      ),
-                    )
-                  else if (_isIfscResolved)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.green.withAlpha(14),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.green.withAlpha(60)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (_ifscBankName != null)
-                              Text('Bank: $_ifscBankName',
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600)),
-                            if (_ifscBranch != null)
-                              Text('Branch: $_ifscBranch',
-                                  style: const TextStyle(fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                    )
-                  else if (_ifscLookupError != null)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Text(_ifscLookupError!,
-                          style:
-                              const TextStyle(color: Colors.red, fontSize: 11)),
-                    ),
-                  const Divider(height: 1),
-                  if (_isIfscResolved) ...[
-                    _FormField(
-                      controller: _bankAccCtrl,
-                      label: 'Account Number',
-                      icon: Icons.numbers_outlined,
-                      keyboardType: TextInputType.number,
-                      enabled: !isProfileLocked,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(20),
-                      ],
-                      onChanged: (_) {
-                        setState(() => _resetAccountLookupState());
-                        _scheduleAccountVerification();
-                      },
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty)
-                          return 'Account Number is required';
-                        if (!RegExp(r'^\d{9,20}$').hasMatch(v.trim())) {
-                          return 'Enter a valid account number';
-                        }
-                        return null;
-                      },
-                    ),
-                    if (_accountLookupInfo != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                        child: Text(
-                          _accountLookupInfo!,
-                          style: const TextStyle(
-                              color: Colors.black54, fontSize: 11),
-                        ),
-                      ),
-                    if (_isAccountLookupLoading)
+                  children: [
+                    _Row('Street', user?.address),
+                    _Row('City', user?.city),
+                    _Row('State', user?.state),
+                    _Row('Pincode', user?.pincode),
+                    if ((user?.currentAddress ?? '').isNotEmpty) ...[
+                      const Padding(padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Divider()),
                       const Padding(
-                        padding: EdgeInsets.fromLTRB(16, 0, 16, 10),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                            SizedBox(width: 8),
-                            Text('Verifying account holder...'),
-                          ],
-                        ),
-                      )
-                    else if (_accountHolderName != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.green.withAlpha(14),
-                            borderRadius: BorderRadius.circular(10),
-                            border:
-                                Border.all(color: Colors.green.withAlpha(45)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Verified account holder',
-                                style: TextStyle(
-                                    fontSize: 11, color: Colors.black54),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _accountHolderName!,
-                                style: const TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.w700),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else if (_accountLookupError != null)
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                        child: Text(
-                          _accountLookupError!,
-                          style:
-                              const TextStyle(color: Colors.red, fontSize: 11),
-                        ),
+                        padding: EdgeInsets.fromLTRB(16, 0, 16, 4),
+                        child: Text('Current Address', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.grey)),
                       ),
-                  ] else
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 10, 16, 12),
-                      child: Text(
-                        'Enter a valid IFSC first to unlock account verification.',
-                        style: TextStyle(color: Colors.black54, fontSize: 11),
-                      ),
-                    ),
-                ]),
-                if (bankChanged)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: OutlinedButton.icon(
-                      onPressed: _pickBankProof,
-                      icon: const Icon(Icons.upload_file),
-                      label: Text(_bankProofPath != null ? 'Bank Proof Selected' : 'Attach Cancelled Cheque / Passbook (Required)'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: _bankProofPath != null ? Colors.green : Colors.red,
-                        side: BorderSide(color: _bankProofPath != null ? Colors.green : Colors.red),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 16),
+                      _Row('Street', user?.currentAddress),
+                      _Row('City', user?.currentCity),
+                      _Row('State', user?.currentState),
+                      _Row('Pincode', user?.currentPincode),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 14),
 
-                // Info note
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                      color: Colors.blue.withAlpha(15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.blue.withAlpha(51))),
-                  child: const Row(children: [
-                    Icon(Icons.info_outline, color: Colors.blue, size: 18),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Profile is verified by admin. If rejected, update requested fields and submit again.',
-                        style: TextStyle(color: Colors.blue, fontSize: 12),
-                      ),
-                    ),
-                  ]),
+                // Nominee
+                _Card(
+                  title: 'Nominee',
+                  trailing: TextButton.icon(
+                    onPressed: () => _showNomineeSheet(user),
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Change', style: TextStyle(fontSize: 12)),
+                  ),
+                  children: [
+                    _Row('Nominee Name', user?.nomineeName, note: 'Name change requires OTP'),
+                    _Row('Relationship', user?.nomineeRelationship),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Bank
+                _Card(
+                  title: 'Bank Details',
+                  trailing: TextButton.icon(
+                    onPressed: _showBankSheet,
+                    icon: const Icon(Icons.edit_outlined, size: 16),
+                    label: const Text('Change', style: TextStyle(fontSize: 12)),
+                  ),
+                  children: [
+                    _Row('Account Number', _mask(user?.bankAccountNumber), note: 'Requires admin approval'),
+                    _Row('IFSC Code', user?.bankIfscCode),
+                    _Row('Bank Name', user?.bankName),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
-                if (!isProfileLocked)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      icon: _isSaving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.save_outlined),
-                      label: Text(_isSaving ? 'Saving...' : 'Save Profile'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Text(
-                      profileStatus == 'pending'
-                          ? 'Profile is locked while approval is pending.'
-                          : 'Profile is in read-only mode.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          color: Colors.grey.shade700,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                // Issue in Profile button
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: OutlinedButton.icon(
-                    onPressed: () => context.push('/support'),
-                    icon: const Icon(Icons.help_outline),
-                    label: const Text('Issue in Profile? Raise a ticket'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
+                // Support button
+                OutlinedButton.icon(
+                  onPressed: () => context.push('/support'),
+                  icon: const Icon(Icons.headset_mic_outlined),
+                  label: const Text('Issue in Profile? Raise a Ticket'),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 48),
+                    foregroundColor: AppTheme.primaryColor,
+                    side: const BorderSide(color: AppTheme.primaryColor),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
                 const SizedBox(height: 32),
               ]),
             ),
           ),
-        ),
+        ]),
       ),
     );
   }
 
-  Widget _buildFormCard(List<Widget> children) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: 1,
-      child: Column(children: children),
-    );
+  String _fmtDob(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return '—';
+    final dt = DateTime.tryParse(raw.trim());
+    if (dt == null) return raw;
+    return '${dt.day.toString().padLeft(2,'0')}/${dt.month.toString().padLeft(2,'0')}/${dt.year}';
   }
-
-  Widget _buildSectionLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(text,
-          style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-              color: Colors.black54)),
-    );
+  String _cap(String? v) => (v == null || v.isEmpty) ? '—' : '${v[0].toUpperCase()}${v.substring(1)}';
+  String _mask(String? v) {
+    if (v == null || v.length < 4) return v ?? '—';
+    return '${'*' * (v.length - 4)}${v.substring(v.length - 4)}';
   }
 }
 
-String? _requiredValidator(String? value, String fieldLabel) {
-  if (value == null || value.trim().isEmpty) {
-    return '$fieldLabel is required';
-  }
-  return null;
-}
-
-class _FormField extends StatelessWidget {
-  final TextEditingController controller;
-  final String label;
-  final IconData icon;
-  final String? Function(String?)? validator;
-  final TextInputType? keyboardType;
-  final TextCapitalization textCapitalization;
-  final String? hint;
-  final bool enabled;
-  final bool readOnly;
-  final VoidCallback? onTap;
-  final ValueChanged<String>? onChanged;
-  final List<TextInputFormatter>? inputFormatters;
-
-  const _FormField({
-    required this.controller,
-    required this.label,
-    required this.icon,
-    this.validator,
-    this.keyboardType,
-    this.textCapitalization = TextCapitalization.words,
-    this.hint,
-    this.enabled = true,
-    this.readOnly = false,
-    this.onTap,
-    this.onChanged,
-    this.inputFormatters,
-  });
+// ─── Section Card ─────────────────────────────────────────────────────────────
+class _Card extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+  final Widget? trailing;
+  const _Card({required this.title, required this.children, this.trailing});
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: TextFormField(
-        controller: controller,
-        enabled: enabled,
-        readOnly: readOnly,
-        onTap: onTap,
-        onChanged: onChanged,
-        keyboardType: keyboardType,
-        textCapitalization: textCapitalization,
-        inputFormatters: inputFormatters,
-        validator: validator,
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          prefixIcon: Icon(icon, size: 20),
-          border: InputBorder.none,
-          errorStyle: const TextStyle(fontSize: 11),
-        ),
+  Widget build(BuildContext context) => Container(
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14),
+      boxShadow: [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 8, offset: const Offset(0, 2))]),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 8, 4),
+        child: Row(children: [
+          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryColor))),
+          if (trailing != null) trailing!,
+        ]),
       ),
-    );
-  }
+      const Divider(height: 1),
+      ...children,
+      const SizedBox(height: 8),
+    ]),
+  );
 }
 
-class _ReadOnlyField extends StatelessWidget {
+// ─── Info Row ─────────────────────────────────────────────────────────────────
+class _Row extends StatelessWidget {
   final String label;
-  final String value;
-  final IconData icon;
+  final String? value;
+  final bool locked;
+  final String? actionLabel;
+  final VoidCallback? onAction;
   final String? note;
-  final VoidCallback? onEdit;
-
-  const _ReadOnlyField({
-    required this.label,
-    required this.value,
-    required this.icon,
-    this.note,
-    this.onEdit,
-  });
+  const _Row(this.label, this.value, {this.locked = false, this.actionLabel, this.onAction, this.note});
 
   @override
   Widget build(BuildContext context) {
+    final display = (value == null || value!.trim().isEmpty) ? '—' : value!;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(children: [
-        Icon(icon, size: 20, color: Colors.grey),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            Text(value,
-                style:
-                    const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-            if (note != null)
-              Text(note!,
-                  style: const TextStyle(color: Colors.grey, fontSize: 11)),
+      padding: const EdgeInsets.fromLTRB(16, 10, 12, 4),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+          const SizedBox(height: 2),
+          Row(children: [
+            Flexible(child: Text(display, style: const TextStyle(fontSize: 14, color: Colors.black87))),
+            if (locked) ...[const SizedBox(width: 6), const Icon(Icons.lock_outline, size: 13, color: Colors.grey)],
           ]),
-        ),
-        if (onEdit != null)
-          IconButton(
-            icon: const Icon(Icons.edit, size: 18, color: AppTheme.primaryColor),
-            onPressed: onEdit,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(),
+          if (note != null) Text(note!, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        ])),
+        if (actionLabel != null)
+          TextButton(
+            onPressed: onAction,
+            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor,
+              padding: const EdgeInsets.symmetric(horizontal: 8), minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+            child: Text(actionLabel!, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
           ),
       ]),
-    );
-  }
-}
-
-class UpperCaseTextFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
-    final upperText = newValue.text.toUpperCase();
-    return TextEditingValue(
-      text: upperText,
-      selection: newValue.selection,
-      composing: TextRange.empty,
     );
   }
 }
