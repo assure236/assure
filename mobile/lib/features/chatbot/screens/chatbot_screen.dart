@@ -113,13 +113,18 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       });
       if (res['success'] == true) {
         final data = res['data'];
-        final List<Map<String, dynamic>> chitGroups =
+        final userQuery = text.trim();
+        final allChitGroups =
             (data['chitGroups'] as List?)?.map((g) => Map<String, dynamic>.from(g)).toList() ?? [];
+        final List<Map<String, dynamic>> chitGroups = _limitChitGroups(allChitGroups, maxItems: 3);
+        final quickLinks = _quickLinksFromUserQuery(userQuery);
+        final reply = _compactReply(data['reply']?.toString() ?? '', userQuery, allChitGroups.length);
         setState(() {
           _messages.add(_ChatMessage(
             from: 'bot',
-            text: data['reply'] ?? '',
+            text: reply,
             chitGroups: chitGroups,
+            quickLinks: quickLinks,
           ));
         });
         _saveHistory();
@@ -263,12 +268,14 @@ class _ChatMessage {
   final String from;
   final String text;
   final List<Map<String, dynamic>> chitGroups;
+  final List<Map<String, dynamic>> quickLinks;
   final DateTime timestamp;
 
   _ChatMessage({
     required this.from,
     required this.text,
     this.chitGroups = const [],
+    this.quickLinks = const [],
     DateTime? timestamp,
   }) : timestamp = timestamp ?? DateTime.now();
 
@@ -277,6 +284,7 @@ class _ChatMessage {
         'text': text,
         'timestamp': timestamp.toIso8601String(),
         'chitGroups': chitGroups,
+        'quickLinks': quickLinks,
       };
 
   static _ChatMessage fromJson(Map<String, dynamic> json) => _ChatMessage(
@@ -288,15 +296,19 @@ class _ChatMessage {
                 ?.map((e) => Map<String, dynamic>.from(e as Map))
                 .toList() ??
             [],
+        quickLinks: (json['quickLinks'] as List<dynamic>?)
+                ?.map((e) => Map<String, dynamic>.from(e as Map))
+                .toList() ??
+            [],
       );
 }
 
-// ── Feature action links extracted from bot reply ────────────────────────────
-List<Map<String, dynamic>> _extractActions(String text) {
+// ── Feature action links derived from user's question ────────────────────────
+List<Map<String, dynamic>> _quickLinksFromUserQuery(String text) {
   final lower = text.toLowerCase();
   final actions = <Map<String, dynamic>>[];
 
-  if (lower.contains('payment') || lower.contains('due') || lower.contains('installment')) {
+  if (lower.contains('payment') || lower.contains('due') || lower.contains('installment') || lower.contains('wallet')) {
     actions.add({'label': '💳 Payments', 'route': '/payments'});
   }
   if (lower.contains('kyc') || lower.contains('aadhaar') || lower.contains('pan')) {
@@ -305,7 +317,7 @@ List<Map<String, dynamic>> _extractActions(String text) {
   if (lower.contains('auction')) {
     actions.add({'label': '🔨 Auctions', 'route': '/auctions'});
   }
-  if (lower.contains('chit') || lower.contains('invest') || lower.contains('enroll')) {
+  if (lower.contains('chit') || lower.contains('invest') || lower.contains('enroll') || lower.contains('scheme')) {
     actions.add({'label': '📈 Invest', 'route': '/chit-groups'});
   }
   if (lower.contains('profile') || lower.contains('account details')) {
@@ -332,7 +344,29 @@ List<Map<String, dynamic>> _extractActions(String text) {
   if (lower.contains('goal')) {
     actions.add({'label': '🎯 Goals', 'route': '/goals'});
   }
-  return actions;
+  final seen = <String>{};
+  return actions.where((a) => seen.add(a['route'] as String)).toList();
+}
+
+bool _isChitQuery(String text) {
+  final lower = text.toLowerCase();
+  return lower.contains('chit') || lower.contains('scheme') || lower.contains('invest') || lower.contains('plan');
+}
+
+List<Map<String, dynamic>> _limitChitGroups(List<Map<String, dynamic>> all, {int maxItems = 3}) {
+  if (all.length <= maxItems) return all;
+  return all.take(maxItems).toList();
+}
+
+String _compactReply(String reply, String userQuery, int totalChits) {
+  final text = reply.trim();
+  if (_isChitQuery(userQuery) && totalChits > 3) {
+    return 'Here are the top chit options for you. Tap a card below to view details. For more schemes, click Invest.';
+  }
+  if (text.length > 700) {
+    return '${text.substring(0, 700).trim()}...';
+  }
+  return text;
 }
 
 class _MessageBubble extends StatelessWidget {
@@ -367,7 +401,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final actions = isUser ? <Map<String, dynamic>>[] : _extractActions(msg.text);
+    final actions = isUser ? <Map<String, dynamic>>[] : msg.quickLinks;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -412,6 +446,29 @@ class _MessageBubble extends StatelessWidget {
                       ]),
                     ),
                   )),
+              GestureDetector(
+                onTap: () => context.push('/chit-groups'),
+                child: Container(
+                  margin: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withAlpha(12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppTheme.primaryColor.withAlpha(60)),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.trending_up, size: 14, color: AppTheme.primaryColor),
+                      SizedBox(width: 6),
+                      Text(
+                        'Invest to see more chits',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryColor),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
             // Feature action links
             if (actions.isNotEmpty) ...[

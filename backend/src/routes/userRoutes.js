@@ -33,8 +33,12 @@ const uploadProof = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const ok = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
-    ok.includes(file.mimetype) ? cb(null, true) : cb(new Error('Only JPG, PNG, PDF allowed'));
+    const okMime = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'application/octet-stream'];
+    const ext = (file.originalname || '').split('.').pop().toLowerCase();
+    const okExt = ['jpg', 'jpeg', 'png', 'pdf'];
+    if (okMime.includes(file.mimetype) && okExt.includes(ext)) return cb(null, true);
+    if (okExt.includes(ext)) return cb(null, true);
+    cb(new Error('Only JPG, PNG, PDF allowed'));
   }
 });
 

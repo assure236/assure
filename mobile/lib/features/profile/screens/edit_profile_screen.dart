@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -40,6 +41,23 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _saving = false;
 
+  Future<http.MultipartFile> _proofPart(String field, String path) {
+    final ext = path.split('.').last.toLowerCase();
+    final mimeMap = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'pdf': 'application/pdf',
+    };
+    final mime = mimeMap[ext] ?? 'application/octet-stream';
+    final parts = mime.split('/');
+    return http.MultipartFile.fromPath(
+      field,
+      path,
+      contentType: MediaType(parts[0], parts[1]),
+    );
+  }
+
   void _snack(String msg, {bool err = false}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -73,7 +91,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 10),
             _btn(loading ? 'Sending OTP…' : 'Send OTP', loading: loading, onTap: () async {
               final email = ec.text.trim();
-              if (!RegExp(r'^[\w\.\-]+@[\w\.\-]+\.\w+$').hasMatch(email)) {
+              if (!RegExp(r'^[\w.+-]+@[\w.-]+\.[a-z]{2,}$', caseSensitive: false).hasMatch(email)) {
                 ss(() => err = 'Enter a valid email'); return;
               }
               ss(() { loading = true; err = null; });
@@ -231,7 +249,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     req.fields['current_state'] = state!;
                     req.fields['current_pincode'] = pc.text.trim();
                   }
-                  req.files.add(await http.MultipartFile.fromPath('address_proof', proofPath!));
+                  req.files.add(await _proofPart('address_proof', proofPath!));
                   final res = jsonDecode((await http.Response.fromStream(await req.send())).body);
                   if (res['success'] == true) {
                     await _refresh();
@@ -403,7 +421,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 req.fields['bank_account_number'] = acc;
                 req.fields['bank_ifsc_code'] = ifsc;
                 if (bankName.isNotEmpty) req.fields['bank_name'] = bankName;
-                req.files.add(await http.MultipartFile.fromPath('bank_proof', proofPath!));
+                req.files.add(await _proofPart('bank_proof', proofPath!));
                 final res = jsonDecode((await http.Response.fromStream(await req.send())).body);
                 if (res['success'] == true) {
                   await _refresh();

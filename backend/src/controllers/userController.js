@@ -72,6 +72,36 @@ exports.updateProfile = async (req, res, next) => {
     const currentUser = await User.findById(userId).select('profile_edit_status full_name digilocker_id date_of_birth gender');
     if (!currentUser) return res.status(404).json({ success: false, message: 'User not found' });
 
+    // Nominee updates are allowed with OTP even when profile is already approved.
+    const hasNomineeName = req.body.nominee_name !== undefined;
+    const hasNomineeRelationship = req.body.nominee_relationship !== undefined;
+    const hasOnlyNomineeFields = Object.keys(req.body || {}).every((k) =>
+      ['nominee_name', 'nominee_relationship', 'otp'].includes(k)
+    );
+    if (hasOnlyNomineeFields && (hasNomineeName || hasNomineeRelationship)) {
+      const directUpdates = {};
+      if (hasNomineeRelationship) {
+        const relation = String(req.body.nominee_relationship || '').trim();
+        if (!relation) return res.status(400).json({ success: false, message: 'Select relationship' });
+        directUpdates.nominee_relationship = relation;
+      }
+      if (hasNomineeName) {
+        const nomineeName = String(req.body.nominee_name || '').trim();
+        if (nomineeName.length < 2) {
+          return res.status(400).json({ success: false, message: 'Enter nominee name' });
+        }
+        if (!_checkOtp('nominee:' + userId, req.body.otp)) {
+          return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
+        }
+        directUpdates.nominee_name = nomineeName;
+      }
+
+      const user = await User.findByIdAndUpdate(userId, directUpdates, { new: true }).select('-password_hash');
+      const userObj = user.toObject();
+      userObj.id = userObj._id;
+      return res.json({ success: true, message: 'Nominee updated successfully.', data: userObj });
+    }
+
     const status = currentUser.profile_edit_status || 'none';
     if (['pending', 'approved'].includes(status)) {
       return res.status(403).json({
@@ -1037,7 +1067,7 @@ exports.changeEmailSendOtp = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
     const email = (req.body.email || '').trim().toLowerCase();
-    if (!/^[w.-]+@[w.-]+.w+$/.test(email))
+    if (!/^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(email))
       return res.status(400).json({ success: false, message: 'Enter a valid email address.' });
     const existing = await User.findOne({ email, _id: { $ne: userId } });
     if (existing) return res.status(400).json({ success: false, message: 'Email already registered with another account.' });
@@ -1075,7 +1105,7 @@ exports.changeAddress = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
     const { address, city, state, pincode, current_address, current_city, current_state, current_pincode } = req.body;
-    if (!address || !city || !state || !/^d{6}$/.test(String(pincode || '')))
+    if (!address || !city || !state || !/^\d{6}$/.test(String(pincode || '')))
       return res.status(400).json({ success: false, message: 'Fill all address fields correctly (6-digit pincode).' });
     if (!req.file) return res.status(400).json({ success: false, message: 'Address proof document is required.' });
     const { fileUrl } = await uploadToGridFS(req.file.buffer, req.file.originalname, req.file.mimetype, { userId: String(userId), category: 'address_proof' });
@@ -1097,7 +1127,7 @@ exports.changeBankDetails = async (req, res, next) => {
     const account = (req.body.bank_account_number || '').trim();
     const ifsc = (req.body.bank_ifsc_code || '').trim().toUpperCase();
     const bankName = (req.body.bank_name || '').trim();
-    if (!/^d{9,20}$/.test(account)) return res.status(400).json({ success: false, message: 'Enter a valid account number.' });
+    if (!/^\d{9,20}$/.test(account)) return res.status(400).json({ success: false, message: 'Enter a valid account number.' });
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) return res.status(400).json({ success: false, message: 'Enter a valid IFSC code.' });
     if (!req.file) return res.status(400).json({ success: false, message: 'Bank proof document is required.' });
     const { fileUrl } = await uploadToGridFS(req.file.buffer, req.file.originalname, req.file.mimetype, { userId: String(userId), category: 'bank_proof' });
