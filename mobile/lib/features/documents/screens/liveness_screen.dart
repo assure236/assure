@@ -1,231 +1,111 @@
-import 'dart:io';
-
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../core/services/api_service.dart';
-import '../../../core/utils/face_confidence.dart';
+import '../../../core/theme/app_theme.dart';
 
-/// Liveness flow.
-/// Flow: Capture selfie via image_picker → backend verification/save → returns photo path.
+/// Simple selfie capture for profile photo / document selfie.
+/// No MLKit — backend handles liveness via Cashfree.
 class LivenessScreen extends StatefulWidget {
   const LivenessScreen({super.key});
-
   @override
   State<LivenessScreen> createState() => _LivenessScreenState();
 }
 
-enum _Step { ready, checking, done }
-
 class _LivenessScreenState extends State<LivenessScreen> {
-  _Step _currentStep = _Step.ready;
-  String _instruction = 'Take a clear selfie for\nliveness verification';
+  bool _capturing = false;
   String? _errorMsg;
-  String? _capturedPath;
-  int? _confidencePercent;
-  String? _confidenceMessage;
 
-  Future<void> _onCapture() async {
-    if (_currentStep != _Step.ready) return;
-
-    final picker = ImagePicker();
-    final XFile? photo = await picker.pickImage(
-      source: ImageSource.camera,
-      preferredCameraDevice: CameraDevice.front,
-      imageQuality: 85,
-      maxWidth: 1200,
-      maxHeight: 1200,
-    );
-    if (photo == null) return;
-
-    setState(() {
-      _currentStep = _Step.checking;
-      _instruction = 'Checking liveness...';
-      _errorMsg = null;
-      _capturedPath = photo.path;
-    });
-
+  Future<void> _capture() async {
+    setState(() { _capturing = true; _errorMsg = null; });
     try {
-      final analysis = await evaluateFaceConfidence(photo.path);
-      if (!analysis.passed) {
-        if (!mounted) return;
-        setState(() {
-          _currentStep = _Step.ready;
-          _confidencePercent = analysis.confidencePercent;
-          _confidenceMessage = analysis.message;
-          _errorMsg = analysis.message;
-          _instruction = 'Take a clear selfie for\nliveness verification';
-        });
+      final picker = ImagePicker();
+      final photo = await picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front,
+        imageQuality: 85,
+        maxWidth: 1200,
+        maxHeight: 1200,
+      );
+      if (photo == null) {
+        setState(() => _capturing = false);
         return;
       }
-
-      setState(() {
-        _confidencePercent = analysis.confidencePercent;
-        _confidenceMessage = analysis.message;
-      });
-
-      // Single backend call: liveness check + save selfie doc + set profile photo
       final result = await ApiService.uploadFile(
         '/liveness/verify-and-save',
         photo.path,
         fieldName: 'photo',
-        extraFields: {
-          'confidence_percent': analysis.confidencePercent.toString(),
-        },
       );
       if (!mounted) return;
-
-      debugPrint('Liveness result: $result');
-      final isLive = result['live'] == true && result['success'] == true;
-
-      if (!isLive) {
-        final msg = result['message'] ?? 'Not a real face detected';
+      if (result['success'] == true) {
+        Navigator.pop(context, 'saved');
+      } else {
         setState(() {
-          _currentStep = _Step.ready;
-          _errorMsg = msg;
-          _instruction = 'Take a clear selfie for\nliveness verification';
-        });
-        try { await File(photo.path).delete(); } catch (_) {}
-        return;
-      }
-
-      setState(() {
-        _currentStep = _Step.done;
-        _instruction = 'Verified! ✅ (${_confidencePercent ?? 0}%)';
-        _errorMsg = null;
-      });
-      await Future.delayed(const Duration(milliseconds: 800));
-      // Pop with a sentinel so caller knows the document is already saved server-side
-      if (mounted) Navigator.pop(context, 'saved');
-    } catch (e) {
-      debugPrint('Liveness check error: $e');
-      if (mounted) {
-        setState(() {
-          _currentStep = _Step.ready;
-          _errorMsg = 'Connection error. Please try again.';
-          _instruction = 'Take a clear selfie for\nliveness verification';
+          _errorMsg = result['message']?.toString() ?? 'Verification failed. Please try again.';
+          _capturing = false;
         });
       }
+    } catch (_) {
+      if (mounted) setState(() { _errorMsg = 'Connection error. Please try again.'; _capturing = false; });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool showCapture = _currentStep == _Step.ready;
-    final bool showSpinner = _currentStep == _Step.checking;
-
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Liveness Verification'),
+        title: const Text('Selfie Verification'),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 40),
-          Text(_instruction,
-              style: const TextStyle(
-                  color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center),
-          if (_confidencePercent != null) ...[
-            const SizedBox(height: 10),
-            Text(
-              'Local confidence: $_confidencePercent%',
-              style: const TextStyle(color: Colors.white70, fontSize: 14),
-            ),
-            const SizedBox(height: 6),
-            SizedBox(
-              width: 240,
-              child: LinearProgressIndicator(
-                value: (_confidencePercent! / 100).clamp(0, 1),
-                minHeight: 7,
-                borderRadius: BorderRadius.circular(5),
-                color: Colors.lightGreenAccent,
-                backgroundColor: Colors.white24,
-              ),
-            ),
-            if (_confidenceMessage != null) ...[
-              const SizedBox(height: 6),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Text(
-                  _confidenceMessage!,
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                  textAlign: TextAlign.center,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.face_retouching_natural, size: 100, color: Colors.white24),
+              const SizedBox(height: 24),
+              const Text('Take a clear front-face selfie',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center),
+              const SizedBox(height: 8),
+              const Text('Make sure your face is well-lit and clearly visible.',
+                  style: TextStyle(color: Colors.white60, fontSize: 13),
+                  textAlign: TextAlign.center),
+              if (_errorMsg != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.errorColor.withAlpha(30),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.errorColor.withAlpha(80)),
+                  ),
+                  child: Text(_errorMsg!, style: const TextStyle(color: Colors.redAccent, fontSize: 13), textAlign: TextAlign.center),
+                ),
+              ],
+              const SizedBox(height: 40),
+              SizedBox(
+                width: double.infinity,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: _capturing ? null : _capture,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: _capturing
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.camera_alt),
+                  label: Text(_capturing ? 'Verifying...' : 'Take Selfie'),
                 ),
               ),
             ],
-          ],
-          if (_errorMsg != null) ...[
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Text(_errorMsg!,
-                  style: const TextStyle(color: Colors.redAccent, fontSize: 13),
-                  textAlign: TextAlign.center),
-            ),
-          ],
-          const SizedBox(height: 40),
-          Expanded(
-            child: Center(
-              child: _capturedPath != null && _currentStep != _Step.ready
-                  ? ClipOval(
-                      child: Image.file(
-                        File(_capturedPath!),
-                        width: 280,
-                        height: 360,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : Container(
-                      width: 280,
-                      height: 360,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white24, width: 3),
-                      ),
-                      child: const Icon(Icons.person, size: 120, color: Colors.white24),
-                    ),
-            ),
           ),
-          const SizedBox(height: 16),
-          if (showSpinner)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 30),
-              child: SizedBox(
-                width: 60, height: 60,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 3),
-              ),
-            )
-          else if (showCapture)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 30),
-              child: GestureDetector(
-                onTap: _onCapture,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 70, height: 70,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 4),
-                      ),
-                      child: const Center(
-                        child: Icon(Icons.camera_alt, color: Colors.white, size: 32),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Tap to capture selfie',
-                        style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  ],
-                ),
-              ),
-            )
-          else
-            const SizedBox(height: 100),
-        ],
+        ),
       ),
     );
   }

@@ -65,9 +65,6 @@ dependencies:
   # SVG Icons
   flutter_svg: ^2.0.10
 
-  # On-device face detection (local liveness checks)
-  google_mlkit_face_detection: ^0.13.0
-
   # Live camera preview for face liveness capture
   camera: ^0.10.5+5
   
