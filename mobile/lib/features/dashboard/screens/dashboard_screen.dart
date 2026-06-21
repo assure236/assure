@@ -118,9 +118,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     label: 'Home',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.add_circle_outline),
-                    selectedIcon: Icon(Icons.add_circle_rounded),
-                    label: 'New Chits',
+                    icon: Icon(Icons.trending_up_outlined),
+                    selectedIcon: Icon(Icons.trending_up_rounded),
+                    label: 'Invest',
                   ),
                   NavigationDestination(
                     icon: Icon(Icons.gavel_outlined),
@@ -283,20 +283,13 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
                       loading: false,
                       onProfileTap: () => context.push('/edit-profile')),
                 ),
-                if (dash.kycStatus != 'verified' ||
-                    !dash.isProfileComplete ||
-                    dash.profileApprovalStatus != 'approved')
-                  SliverToBoxAdapter(
-                    child: _KycProfileBanner(
-                      dash: dash,
-                      switchTab: widget.switchTab,
-                      user: user,
-                    ),
-                  ),
+                // Item 9: KYC banner removed — onboarding handles this
                 SliverToBoxAdapter(
                     child: _DuePaymentsReminder(switchTab: widget.switchTab)),
                 SliverToBoxAdapter(
                     child: _StatsRow(dash: dash, switchTab: widget.switchTab)),
+                // Item 3: Set a Goal card
+                const SliverToBoxAdapter(child: _SetGoalBanner()),
                 SliverToBoxAdapter(
                     child:
                         _ActiveChits(dash: dash, switchTab: widget.switchTab)),
@@ -349,188 +342,217 @@ class _HeaderSection extends StatelessWidget {
       ),
       child: SafeArea(
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Stack(
+          children: [
+            // Watermark logo background
+            Positioned(
+              right: -20,
+              bottom: -10,
+              child: Opacity(
+                opacity: 0.07,
+                child: Image.asset('assets/images/logo.png',
+                    width: 140, height: 140, fit: BoxFit.contain),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: () => onProfileTap?.call(),
-                    child: Row(
-                      children: [
-                        (user?.profileImageUrl != null &&
-                                user!.profileImageUrl!.isNotEmpty)
-                            ? CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Colors.white24,
-                                backgroundImage:
-                                    NetworkImage(user.profileImageUrl!),
-                              )
-                            : CircleAvatar(
-                                radius: 24,
-                                backgroundColor: Colors.white24,
-                                child: Text(
-                                  firstName.isNotEmpty
-                                      ? firstName[0].toUpperCase()
-                                      : 'M',
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: () => onProfileTap?.call(),
+                        child: Row(
+                          children: [
+                            (user?.profileImageUrl != null &&
+                                    user!.profileImageUrl!.isNotEmpty)
+                                ? CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: Colors.white24,
+                                    backgroundImage:
+                                        NetworkImage(user.profileImageUrl!),
+                                  )
+                                : CircleAvatar(
+                                    radius: 24,
+                                    backgroundColor: Colors.white24,
+                                    child: Text(
+                                      firstName.isNotEmpty
+                                          ? firstName[0].toUpperCase()
+                                          : 'M',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                            const SizedBox(width: 12),
+                            // Item 2: removed "Partners in Growth" subtitle
+                            // Item 34: Family Member Dropdown below name
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Hi, $firstName',
                                   style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold),
                                 ),
-                              ),
-                        const SizedBox(width: 12),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Hi, $firstName',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold),
-                            ),
-                            const Text(
-                              'Partners in Growth',
-                              style: TextStyle(
-                                  color: Colors.white54, fontSize: 12),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      // App logo
-                      Container(
-                        width: 32,
-                        height: 32,
-                        decoration: const BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                        ),
-                        child: ClipOval(
-                          child: Image.asset('assets/images/logo.png',
-                              width: 30, height: 30, fit: BoxFit.cover),
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Consumer<NotificationProvider>(
-                        builder: (context, notifProvider, _) {
-                          final unread = notifProvider.unreadCount;
-                          return Stack(
-                            children: [
-                              IconButton(
-                                onPressed: () => context.push('/notifications'),
-                                icon: const Icon(Icons.notifications_outlined,
-                                    color: Colors.white, size: 28),
-                              ),
-                              if (unread > 0)
-                                Positioned(
-                                  top: 6,
-                                  right: 6,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: const BoxDecoration(
-                                      color: AppTheme.secondaryColor,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    constraints: const BoxConstraints(
-                                        minWidth: 18, minHeight: 18),
-                                    child: Text(
-                                      unread > 9 ? '9+' : '$unread',
-                                      style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold),
-                                      textAlign: TextAlign.center,
+                                const SizedBox(height: 2),
+                                Container(
+                                  height: 24,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withAlpha(40),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: 'me',
+                                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
+                                      isDense: true,
+                                      dropdownColor: AppTheme.primaryColor,
+                                      items: [
+                                        DropdownMenuItem(
+                                          value: 'me', 
+                                          child: Text(user?.memberId ?? 'ME', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))
+                                        ),
+                                      ],
+                                      onChanged: (val) {
+                                        // TODO: Switch active context
+                                      },
                                     ),
                                   ),
                                 ),
-                            ],
-                          );
-                        },
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      IconButton(
-                        onPressed: () => context.push('/support'),
-                        icon: SvgPicture.asset('assets/icons/support.svg',
-                            width: 26,
-                            height: 26,
-                            colorFilter: const ColorFilter.mode(
-                                Colors.white, BlendMode.srcIn)),
-                        tooltip: 'Support',
+                      // Item 8: Support first, then Notifications
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () => context.push('/support'),
+                            icon: SvgPicture.asset('assets/icons/support.svg',
+                                width: 26,
+                                height: 26,
+                                colorFilter: const ColorFilter.mode(
+                                    Colors.white, BlendMode.srcIn)),
+                            tooltip: 'Support',
+                          ),
+                          Consumer<NotificationProvider>(
+                            builder: (context, notifProvider, _) {
+                              final unread = notifProvider.unreadCount;
+                              return Stack(
+                                children: [
+                                  IconButton(
+                                    onPressed: () =>
+                                        context.push('/notifications'),
+                                    icon: const Icon(
+                                        Icons.notifications_outlined,
+                                        color: Colors.white,
+                                        size: 28),
+                                  ),
+                                  if (unread > 0)
+                                    Positioned(
+                                      top: 6,
+                                      right: 6,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(4),
+                                        decoration: const BoxDecoration(
+                                          color: AppTheme.secondaryColor,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        constraints: const BoxConstraints(
+                                            minWidth: 18, minHeight: 18),
+                                        child: Text(
+                                          unread > 9 ? '9+' : '$unread',
+                                          style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  // KYC badge + QR
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: kycVerified
+                              ? Colors.green.withAlpha(51)
+                              : Colors.orange.withAlpha(51),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: kycVerified
+                                ? Colors.greenAccent
+                                : Colors.orangeAccent,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              kycVerified
+                                  ? Icons.verified_rounded
+                                  : Icons.pending_rounded,
+                              color: kycVerified
+                                  ? Colors.greenAccent
+                                  : Colors.orangeAccent,
+                              size: 14,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              kycVerified
+                                  ? 'KYC Verified'
+                                  : 'KYC Not Verified',
+                              style: TextStyle(
+                                color: kycVerified
+                                    ? Colors.greenAccent
+                                    : Colors.orangeAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // QR Scan button
+                      GestureDetector(
+                        onTap: () => context.push('/qr-scan'),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white12,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(Icons.qr_code_scanner,
+                              color: Colors.white70, size: 18),
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
-              // KYC badge + QR
-              Row(
-                children: [
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: kycVerified
-                          ? Colors.green.withAlpha(51)
-                          : Colors.orange.withAlpha(51),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: kycVerified
-                            ? Colors.greenAccent
-                            : Colors.orangeAccent,
-                        width: 1,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          kycVerified
-                              ? Icons.verified_rounded
-                              : Icons.pending_rounded,
-                          color: kycVerified
-                              ? Colors.greenAccent
-                              : Colors.orangeAccent,
-                          size: 14,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          kycVerified ? 'KYC Verified' : 'KYC Not Verified',
-                          style: TextStyle(
-                            color: kycVerified
-                                ? Colors.greenAccent
-                                : Colors.orangeAccent,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // QR Scan button
-                  GestureDetector(
-                    onTap: () => context.push('/qr-scan'),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.white12,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: const Icon(Icons.qr_code_scanner,
-                          color: Colors.white70, size: 18),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1440,7 +1462,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                             fontWeight: FontWeight.bold,
                             fontSize: 16)),
                     SizedBox(height: 4),
-                    Text('Earn commissions by referring new members',
+                    Text('Earn commission by referring new members',
                         style: TextStyle(color: Colors.white70, fontSize: 12)),
                   ],
                 ),
@@ -1509,7 +1531,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                     Text(
                       isPending
                           ? 'Our team will contact you within 24 hours'
-                          : 'Earn commissions by referring new members',
+                          : 'Earn commission by referring new members',
                       style: TextStyle(
                           color: Colors.white.withAlpha(180), fontSize: 12),
                     ),
@@ -1558,7 +1580,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text(
-              'Earn commissions by referring new members to Assure ChitFunds. Our team will contact you within 24 hours.',
+              'Earn commission by referring new members to Assure ChitFunds. Our team will contact you within 24 hours.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.black54, fontSize: 14),
             ),
@@ -1617,6 +1639,69 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
   }
 }
 
+// ─── Set a Goal Banner (Item 3) ──────────────────────────────────────────────
+class _SetGoalBanner extends StatelessWidget {
+  const _SetGoalBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: GestureDetector(
+        onTap: () => context.push('/goals'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF1A3A5C), Color(0xFF0D2137)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                  color: AppTheme.primaryColor.withAlpha(60),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryColor.withAlpha(40),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.flag_rounded,
+                    color: AppTheme.secondaryColor, size: 26),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Set a Financial Goal',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15)),
+                    SizedBox(height: 4),
+                    Text('Plan your savings and achieve targets faster',
+                        style:
+                            TextStyle(color: Colors.white70, fontSize: 12)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.white54),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Trust Badges ─────────────────────────────────────────────────────────────
 class _TrustBadges extends StatelessWidget {
   const _TrustBadges();
@@ -1633,25 +1718,26 @@ class _TrustBadges extends StatelessWidget {
           const SizedBox(height: 12),
           Row(
             children: [
+              // Item 11: Order — DPIIT, Telangana Govt, Data Secured
               Expanded(
                   child: _BadgeCard(
                 icon: Icons.verified_outlined,
-                label: 'ISO Certified',
-                color: AppTheme.accentBlue,
+                label: 'DPIIT\nRegistered',
+                color: AppTheme.secondaryColor,
               )),
               const SizedBox(width: 10),
               Expanded(
                   child: _BadgeCard(
-                icon: Icons.account_balance_outlined,
+                icon: Icons.account_balance_rounded,
                 label: 'Telangana Govt.\nRegistered',
                 color: AppTheme.primaryColor,
               )),
               const SizedBox(width: 10),
               Expanded(
                   child: _BadgeCard(
-                icon: Icons.shield_outlined,
-                label: 'DPIIT\nRegistered',
-                color: AppTheme.secondaryColor,
+                icon: Icons.shield_rounded,
+                label: 'Data\nSecured',
+                color: AppTheme.accentBlue,
               )),
             ],
           ),

@@ -47,7 +47,7 @@ class _SupportScreenState extends State<SupportScreen> {
   void _showCreateTicket() {
     final subjectCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    String priority = 'medium';
+    String priority = 'normal'; // Item 5: default to normal
     String category = 'General';
     final categories = [
       'General',
@@ -136,20 +136,48 @@ class _SupportScreenState extends State<SupportScreen> {
                 const SizedBox(height: 14),
                 const Text('Priority', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
+                // Item 5: Priority = Normal and High only — full-width equal buttons
                 Row(
-                  children: ['low', 'medium', 'high', 'urgent'].map((p) {
+                  children: ['normal', 'high'].map((p) {
                     final selected = priority == p;
+                    final color = _priorityColor(p);
                     return Expanded(
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 3),
-                        child: ChoiceChip(
-                          label: Text(p[0].toUpperCase() + p.substring(1),
-                              style: TextStyle(
-                                  fontSize: 11,
-                                  color: selected ? Colors.white : null)),
-                          selected: selected,
-                          selectedColor: _priorityColor(p),
-                          onSelected: (_) => setSheetState(() => priority = p),
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: SizedBox(
+                          height: 44,
+                          child: selected
+                              ? ElevatedButton(
+                                  onPressed: () => setSheetState(() => priority = p),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: color,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10)),
+                                    elevation: 0,
+                                  ),
+                                  child: Text(
+                                    p[0].toUpperCase() + p.substring(1),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold, fontSize: 14),
+                                  ),
+                                )
+                              : OutlinedButton(
+                                  onPressed: () => setSheetState(() => priority = p),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: color,
+                                    side: BorderSide(color: color, width: 1.5),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  child: Text(
+                                    p[0].toUpperCase() + p.substring(1),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                        color: color),
+                                  ),
+                                ),
                         ),
                       ),
                     );
@@ -224,12 +252,10 @@ class _SupportScreenState extends State<SupportScreen> {
 
   Color _priorityColor(String p) {
     switch (p) {
-      case 'urgent':
-        return Colors.red;
       case 'high':
         return Colors.orange;
-      case 'medium':
-        return AppTheme.secondaryColor;
+      case 'normal':
+        return AppTheme.primaryColor;
       default:
         return Colors.grey;
     }
@@ -285,13 +311,12 @@ class _SupportScreenState extends State<SupportScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _fetchTickets,
+              // Item 7: Removed Become Agent card from Support section
               child: _tickets.isEmpty
                   ? _buildEmpty()
                   : ListView(
                       padding: const EdgeInsets.all(16),
                       children: [
-                        _buildBecomeAgentCard(),
-                        const SizedBox(height: 12),
                         ...List.generate(_tickets.length, (i) => _buildTicketCard(_tickets[i])),
                       ],
                     ),
@@ -302,8 +327,7 @@ class _SupportScreenState extends State<SupportScreen> {
   Widget _buildEmpty() {
     return ListView(
       children: [
-        const SizedBox(height: 16),
-        _buildBecomeAgentCard(),
+        // Item 7: Become Agent removed from support — not shown here
         SizedBox(height: MediaQuery.of(context).size.height * 0.12),
         Column(
           children: [
