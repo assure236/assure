@@ -524,10 +524,19 @@ exports.refundPayment = async (req, res, next) => {
 
 exports.downloadReceipt = async (req, res, next) => {
   try {
+    const effectiveUserId = String(req.user?._id || req.user?.id || '');
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'super_admin';
+
     const payment = await Payment.findById(req.params.id)
       .populate('user_id', 'full_name mobile member_id email')
       .populate('chit_group_id', 'group_name group_number chit_value');
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+
+    const ownerId = String(payment.user_id?._id || payment.user_id || '');
+    if (!isAdmin && ownerId !== effectiveUserId) {
+      return res.status(403).json({ success: false, message: 'Not authorized to access this receipt' });
+    }
 
     const user = payment.user_id || {};
     const group = payment.chit_group_id || {};
