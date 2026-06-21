@@ -28,6 +28,23 @@ router.get('/profile', userController.getProfile);
 // @access  Private
 router.put('/profile', userController.updateProfile);
 
+// ── Profile field change routes ───────────────────────────────────────────────
+const uploadProof = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const ok = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    ok.includes(file.mimetype) ? cb(null, true) : cb(new Error('Only JPG, PNG, PDF allowed'));
+  }
+});
+
+router.post('/profile/change-email/send-otp', userController.changeEmailSendOtp);
+router.post('/profile/change-email/verify-otp', userController.changeEmailVerifyOtp);
+router.post('/profile/nominee-otp/send', userController.nomineeOtpSend);
+router.put('/profile/change-address', uploadProof.single('address_proof'), userController.changeAddress);
+router.put('/profile/change-bank', uploadProof.single('bank_proof'), userController.changeBankDetails);
+// ─────────────────────────────────────────────────────────────────────────────
+
 // @route   GET /api/v1/users/bank/ifsc/:ifsc
 // @desc    Lookup bank/branch details by IFSC
 // @access  Private

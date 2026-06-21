@@ -1025,3 +1025,102 @@ exports.deleteUser = async (req, res, next) => {
     res.json({ success: true, message: 'User deleted' });
   } catch (err) { next(err); }
 };
+
+// ─── PROFILE CHANGE ENDPOINTS ───────────────────────────────────────────────
+const _otpStore = new Map();
+const _otpTtl = 10*60*1000;
+function _storeOtp(k,v){_otpStore.set(k,{otp:String(v),exp:Date.now()+_otpTtl})}
+function _checkOtp(k,v){const e=_otpStore.get(k);if(!e||Date.now()>e.exp){_otpStore.delete(k);return false;}if(e.otp!==String(v).trim())return false;_otpStore.delete(k);return true;}
+
+
+exports.changeEmailSendOtp = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const email = (req.body.email || '').trim().toLowerCase();
+    if (!/^[w.-]+@[w.-]+.w+$/.test(email))
+      return res.status(400).json({ success: false, message: 'Enter a valid email address.' });
+    const existing = await User.findOne({ email, _id: { $ne: userId } });
+    if (existing) return res.status(400).json({ success: false, message: 'Email already registered with another account.' });
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    _storeOtp('email:' + userId, otp);
+    try { await sendEmail({ to: email, subject: 'Assure ChitFunds Email Change OTP', text: 'OTP: ' + otp + ' (valid 10 mins)', html: '<p>OTP: <b>' + otp + '</b> Valid 10 mins.</p>' }); } catch (_) {}
+    res.json({ success: true, message: 'OTP sent to ' + email });
+  } catch (err) { next(err); }
+};
+
+exports.changeEmailVerifyOtp = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    if (!_checkOtp('email:' + userId, req.body.otp))
+      return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
+    const email = (req.body.email || '').trim().toLowerCase();
+    await User.findByIdAndUpdate(userId, { email });
+    res.json({ success: true, message: 'Email updated successfully.' });
+  } catch (err) { next(err); }
+};
+
+exports.nomineeOtpSend = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId).select('mobile');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    _storeOtp('nominee:' + userId, otp);
+    try { const { sendSms } = require('../services/notificationService'); await sendSms(user.mobile, 'Assure ChitFunds nominee OTP: ' + otp + ' (valid 10 mins)'); } catch (_) {}
+    res.json({ success: true, message: 'OTP sent to your registered mobile.' });
+  } catch (err) { next(err); }
+};
+
+exports.changeAddress = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const { address, city, state, pincode, current_address, current_city, current_state, current_pincode } = req.body;
+    if (!address || !city || !state || !/^d{6}$/.test(String(pincode || '')))
+      return res.status(400).json({ success: false, message: 'Fill all address fields correctly (6-digit pincode).' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'Address proof document is required.' });
+    const { fileUrl } = await uploadToGridFS(req.file.buffer, req.file.originalname, req.file.mimetype, { userId: String(userId), category: 'address_proof' });
+    const upd = { address: address.trim(), city: city.trim(), state: state.trim(), pincode: String(pincode).trim(), address_proof_url: fileUrl, address_change_status: 'pending_review' };
+    if (current_address) { upd.current_address = current_address.trim(); upd.current_city = (current_city || '').trim(); upd.current_state = (current_state || '').trim(); upd.current_pincode = (current_pincode || '').trim(); }
+    await User.findByIdAndUpdate(userId, upd);
+    try {
+      const { Notification } = require('../models');
+      const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
+      if (admins.length) await Notification.insertMany(admins.map(a => ({ user_id: a._id, type: 'profile_address_change', title: 'Address Change', message: (req.user.full_name || 'A member') + ' submitted address change.', metadata: { user_id: String(userId) } })));
+    } catch (_) {}
+    res.json({ success: true, message: 'Address submitted. Admin will verify within 24 hours.' });
+  } catch (err) { next(err); }
+};
+
+exports.changeBankDetails = async (req, res, next) => {
+  try {
+    const userId = req.user._id || req.user.id;
+    const account = (req.body.bank_account_number || '').trim();
+    const ifsc = (req.body.bank_ifsc_code || '').trim().toUpperCase();
+    const bankName = (req.body.bank_name || '').trim();
+    if (!/^d{9,20}$/.test(account)) return res.status(400).json({ success: false, message: 'Enter a valid account number.' });
+    if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) return res.status(400).json({ success: false, message: 'Enter a valid IFSC code.' });
+    if (!req.file) return res.status(400).json({ success: false, message: 'Bank proof document is required.' });
+    const { fileUrl } = await uploadToGridFS(req.file.buffer, req.file.originalname, req.file.mimetype, { userId: String(userId), category: 'bank_proof' });
+    let verified = false; let holderName = null;
+    try {
+      const appId = process.env.CASHFREE_VRS_CLIENT_ID || process.env.CASHFREE_APP_ID;
+      const sec = process.env.CASHFREE_VRS_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY;
+      if (appId && sec) {
+        const r = await axios.post('https://api.cashfree.com/verification/bank-account/sync', { bank_account: account, ifsc }, { headers: { 'x-client-id': appId, 'x-client-secret': sec, 'x-api-version': '2022-09-01' }, timeout: 10000 });
+        const status = r.data && (r.data.account_status || (r.data.data && r.data.data.account_status));
+        if (status === 'VALID') { verified = true; holderName = (r.data && (r.data.name_at_bank || (r.data.data && r.data.data.name_at_bank))) || null; }
+      }
+    } catch (_) {}
+    const upd = { bank_account_number: account, bank_ifsc_code: ifsc, bank_name: bankName, bank_proof_url: fileUrl, bank_verified: verified, bank_change_status: verified ? 'verified' : 'pending_review' };
+    if (holderName) upd.bank_account_holder_name = holderName;
+    await User.findByIdAndUpdate(userId, upd);
+    if (!verified) {
+      try {
+        const { Notification } = require('../models');
+        const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
+        if (admins.length) await Notification.insertMany(admins.map(a => ({ user_id: a._id, type: 'profile_bank_change', title: 'Bank Change', message: (req.user.full_name || 'A member') + ' submitted bank change.', metadata: { user_id: String(userId) } })));
+      } catch (_) {}
+    }
+    res.json({ success: true, message: verified ? 'Bank account verified and updated.' : 'Bank details submitted. Admin will verify within 24 hours.', verified });
+  } catch (err) { next(err); }
+};

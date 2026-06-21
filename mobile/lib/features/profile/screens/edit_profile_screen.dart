@@ -121,67 +121,129 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final cc = TextEditingController(text: user?.city ?? '');
     final pc = TextEditingController(text: user?.pincode ?? '');
     String? state = (user?.state ?? '').isEmpty ? null : user?.state as String?;
+    // Current address controllers
+    final cac = TextEditingController(text: user?.currentAddress ?? '');
+    final ccc = TextEditingController(text: user?.currentCity ?? '');
+    final cpc = TextEditingController(text: user?.currentPincode ?? '');
+    String? currentState = (user?.currentState ?? '').isEmpty ? null : user?.currentState as String?;
+    bool sameAsPermanent = (user?.currentAddress ?? '').isEmpty || (user?.currentAddress == user?.address);
     String? proofPath, proofName, err;
     bool loading = false;
     await showModalBottomSheet(
       context: context, isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (ctx) => StatefulBuilder(builder: (ctx, ss) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Center(child: _handle()), const SizedBox(height: 8),
-            const Center(child: Text('Change Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
-            const SizedBox(height: 20),
-            _tf(ac, 'Street / Area', Icons.home_outlined),
-            const SizedBox(height: 12),
-            _tf(cc, 'City', Icons.location_city_outlined),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              value: state,
-              decoration: InputDecoration(labelText: 'State', prefixIcon: const Icon(Icons.map_outlined, size: 20),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
-              items: _kStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-              onChanged: (v) => ss(() => state = v),
-            ),
-            const SizedBox(height: 12),
-            _tf(pc, 'Pincode', Icons.pin_drop_outlined, type: TextInputType.number,
-              formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)]),
-            const SizedBox(height: 16),
-            _proofPicker(proofPath, proofName, 'Attach Address Proof (required)',
-              'Aadhaar, Voter ID, Utility Bill, Rent Agreement',
-              onPick: () async {
-                final r = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg','jpeg','png','pdf']);
-                if (r?.files.single.path != null) ss(() { proofPath = r!.files.single.path; proofName = r.files.single.name; });
+      builder: (ctx) => StatefulBuilder(builder: (ctx, ss) {
+        void syncCurrent() {
+          if (sameAsPermanent) {
+            cac.text = ac.text; ccc.text = cc.text; cpc.text = pc.text; currentState = state;
+          }
+        }
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Center(child: _handle()), const SizedBox(height: 8),
+              const Center(child: Text('Change Address', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+              const SizedBox(height: 4),
+              const Center(child: Text('Permanent Address', style: TextStyle(color: Colors.grey, fontSize: 12))),
+              const SizedBox(height: 16),
+              _tf(ac, 'Street / Area', Icons.home_outlined, onChange: (_) => ss(syncCurrent)),
+              const SizedBox(height: 12),
+              _tf(cc, 'City', Icons.location_city_outlined, onChange: (_) => ss(syncCurrent)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: state,
+                decoration: InputDecoration(labelText: 'State', prefixIcon: const Icon(Icons.map_outlined, size: 20),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                items: _kStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                onChanged: (v) => ss(() { state = v; if (sameAsPermanent) currentState = v; }),
+              ),
+              const SizedBox(height: 12),
+              _tf(pc, 'Pincode', Icons.pin_drop_outlined, type: TextInputType.number,
+                formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)],
+                onChange: (_) => ss(syncCurrent)),
+              const SizedBox(height: 16),
+              // Same-as-permanent checkbox
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => ss(() { sameAsPermanent = !sameAsPermanent; if (sameAsPermanent) syncCurrent(); }),
+                child: Row(children: [
+                  Checkbox(
+                    value: sameAsPermanent,
+                    activeColor: AppTheme.primaryColor,
+                    onChanged: (v) => ss(() { sameAsPermanent = v ?? false; if (sameAsPermanent) syncCurrent(); }),
+                  ),
+                  const Text('Current address same as permanent', style: TextStyle(fontSize: 13)),
+                ]),
+              ),
+              if (!sameAsPermanent) ...[
+                const SizedBox(height: 12),
+                const Align(alignment: Alignment.centerLeft, child: Text('Current Address', style: TextStyle(color: Colors.grey, fontSize: 12, fontWeight: FontWeight.w600))),
+                const SizedBox(height: 8),
+                _tf(cac, 'Street / Area', Icons.location_on_outlined),
+                const SizedBox(height: 12),
+                _tf(ccc, 'City', Icons.location_city_outlined),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: currentState,
+                  decoration: InputDecoration(labelText: 'State', prefixIcon: const Icon(Icons.map_outlined, size: 20),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))),
+                  items: _kStates.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                  onChanged: (v) => ss(() => currentState = v),
+                ),
+                const SizedBox(height: 12),
+                _tf(cpc, 'Pincode', Icons.pin_drop_outlined, type: TextInputType.number,
+                  formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(6)]),
+              ],
+              const SizedBox(height: 16),
+              _proofPicker(proofPath, proofName, 'Attach Address Proof (required)',
+                'Aadhaar, Voter ID, Utility Bill, Rent Agreement',
+                onPick: () async {
+                  final r = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['jpg','jpeg','png','pdf']);
+                  if (r?.files.single.path != null) ss(() { proofPath = r!.files.single.path; proofName = r.files.single.name; });
+                }),
+              if (err != null) ...[const SizedBox(height: 8), _errText(err!)],
+              const SizedBox(height: 4),
+              const Text('Address will be verified by admin within 24 hours.', style: TextStyle(fontSize: 11, color: Colors.grey)),
+              const SizedBox(height: 16),
+              _btn(loading ? 'Saving…' : 'Submit for Admin Approval', loading: loading, onTap: () async {
+                if (ac.text.trim().isEmpty || cc.text.trim().isEmpty || state == null || pc.text.trim().length != 6) {
+                  ss(() => err = 'Fill all permanent address fields correctly'); return;
+                }
+                if (proofPath == null) { ss(() => err = 'Attach an address proof document'); return; }
+                ss(() { loading = true; err = null; });
+                try {
+                  final req = http.MultipartRequest('PUT', Uri.parse('${ApiService.baseUrl}/users/profile/change-address'));
+                  req.headers.addAll(await _authHeaders());
+                  req.fields['address'] = ac.text.trim();
+                  req.fields['city'] = cc.text.trim();
+                  req.fields['state'] = state!;
+                  req.fields['pincode'] = pc.text.trim();
+                  if (!sameAsPermanent) {
+                    req.fields['current_address'] = cac.text.trim();
+                    req.fields['current_city'] = ccc.text.trim();
+                    req.fields['current_state'] = currentState ?? state!;
+                    req.fields['current_pincode'] = cpc.text.trim();
+                  } else {
+                    req.fields['current_address'] = ac.text.trim();
+                    req.fields['current_city'] = cc.text.trim();
+                    req.fields['current_state'] = state!;
+                    req.fields['current_pincode'] = pc.text.trim();
+                  }
+                  req.files.add(await http.MultipartFile.fromPath('address_proof', proofPath!));
+                  final res = jsonDecode((await http.Response.fromStream(await req.send())).body);
+                  if (res['success'] == true) {
+                    await _refresh();
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    _snack('Address submitted — pending admin approval');
+                  } else ss(() { err = res['message']?.toString() ?? 'Failed'; loading = false; });
+                } catch (_) { ss(() { err = 'Network error'; loading = false; }); }
               }),
-            if (err != null) ...[const SizedBox(height: 8), _errText(err!)],
-            const SizedBox(height: 20),
-            _btn(loading ? 'Saving…' : 'Save Address', loading: loading, onTap: () async {
-              if (ac.text.trim().isEmpty || cc.text.trim().isEmpty || state == null || pc.text.trim().length != 6) {
-                ss(() => err = 'Fill all address fields correctly'); return;
-              }
-              if (proofPath == null) { ss(() => err = 'Attach an address proof document'); return; }
-              ss(() { loading = true; err = null; });
-              try {
-                final req = http.MultipartRequest('PUT', Uri.parse('${ApiService.baseUrl}/users/profile/change-address'));
-                req.headers.addAll(await _authHeaders());
-                req.fields['address'] = ac.text.trim();
-                req.fields['city'] = cc.text.trim();
-                req.fields['state'] = state!;
-                req.fields['pincode'] = pc.text.trim();
-                req.files.add(await http.MultipartFile.fromPath('address_proof', proofPath!));
-                final res = jsonDecode((await http.Response.fromStream(await req.send())).body);
-                if (res['success'] == true) {
-                  await _refresh();
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  _snack('Address updated — pending admin review');
-                } else ss(() { err = res['message']?.toString() ?? 'Failed'; loading = false; });
-              } catch (_) { ss(() { err = 'Network error'; loading = false; }); }
-            }),
-          ]),
-        ),
-      )),
+            ]),
+          ),
+        );
+      }),
     );
   }
 
@@ -374,8 +436,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       ));
 
   Widget _tf(TextEditingController ctrl, String label, IconData icon,
-      {TextInputType type = TextInputType.text, List<TextInputFormatter>? formatters}) =>
-    TextField(controller: ctrl, keyboardType: type, inputFormatters: formatters,
+      {TextInputType type = TextInputType.text, List<TextInputFormatter>? formatters, ValueChanged<String>? onChange}) =>
+    TextField(controller: ctrl, keyboardType: type, inputFormatters: formatters, onChanged: onChange,
       decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 20),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))));
 
@@ -522,9 +584,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Support button
+                // Support button — auto-open raise ticket with Profile category
                 OutlinedButton.icon(
-                  onPressed: () => context.push('/support'),
+                  onPressed: () => context.push('/support', extra: {'autoOpenTicket': true, 'category': 'Profile / Account Issue'}),
                   icon: const Icon(Icons.headset_mic_outlined),
                   label: const Text('Issue in Profile? Raise a Ticket'),
                   style: OutlinedButton.styleFrom(

@@ -228,7 +228,13 @@ class AppRouter {
         ),
         GoRoute(
           path: '/support',
-          builder: (context, state) => const SupportScreen(),
+          builder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>?;
+            return SupportScreen(
+              autoOpenTicket: extra?['autoOpenTicket'] == true,
+              initialCategory: extra?['category'] as String?,
+            );
+          },
         ),
         GoRoute(
           path: '/edit-profile',

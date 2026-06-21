@@ -6,7 +6,9 @@ import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 
 class SupportScreen extends StatefulWidget {
-  const SupportScreen({super.key});
+  final bool autoOpenTicket;
+  final String? initialCategory;
+  const SupportScreen({super.key, this.autoOpenTicket = false, this.initialCategory});
 
   @override
   State<SupportScreen> createState() => _SupportScreenState();
@@ -22,6 +24,10 @@ class _SupportScreenState extends State<SupportScreen> {
     super.initState();
     _fetchTickets();
     _fetchAgentStatus();
+    // Auto-open raise ticket if directed from profile
+    if (widget.autoOpenTicket) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showCreateTicket(initialCategory: widget.initialCategory));
+    }
   }
 
   Future<void> _fetchAgentStatus() async {
@@ -44,22 +50,26 @@ class _SupportScreenState extends State<SupportScreen> {
     setState(() => _loading = false);
   }
 
-  void _showCreateTicket() {
+  void _showCreateTicket({String? initialCategory}) {
     final subjectCtrl = TextEditingController();
     final descCtrl = TextEditingController();
-    String priority = 'normal'; // Item 5: default to normal
-    String category = 'General';
+    String priority = 'normal';
     final categories = [
       'General',
       'Payment Issue',
       'Auction Related',
       'KYC / Documents',
       'Account Issue',
+      'Profile / Account Issue',
       'Technical Bug',
       'Chit Transfer/Cancel',
       'Loan Related',
       'Other',
     ];
+    // Pre-select category if passed from profile
+    String category = (initialCategory != null && categories.contains(initialCategory))
+        ? initialCategory
+        : 'General';
 
     showModalBottomSheet(
       context: context,
@@ -136,11 +146,12 @@ class _SupportScreenState extends State<SupportScreen> {
                 const SizedBox(height: 14),
                 const Text('Priority', style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
-                // Item 5: Priority = Normal and High only — full-width equal buttons
+                // Item 5: Priority = Normal and High only — full-width equal buttons, equal text size
                 Row(
                   children: ['normal', 'high'].map((p) {
                     final selected = priority == p;
                     final color = _priorityColor(p);
+                    final label = p[0].toUpperCase() + p.substring(1);
                     return Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -155,12 +166,9 @@ class _SupportScreenState extends State<SupportScreen> {
                                     shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(10)),
                                     elevation: 0,
+                                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                                   ),
-                                  child: Text(
-                                    p[0].toUpperCase() + p.substring(1),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
+                                  child: Text(label),
                                 )
                               : OutlinedButton(
                                   onPressed: () => setSheetState(() => priority = p),
@@ -171,7 +179,7 @@ class _SupportScreenState extends State<SupportScreen> {
                                         borderRadius: BorderRadius.circular(10)),
                                   ),
                                   child: Text(
-                                    p[0].toUpperCase() + p.substring(1),
+                                    label,
                                     style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
