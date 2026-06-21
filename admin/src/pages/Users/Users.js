@@ -163,6 +163,21 @@ const Users = () => {
     }
   };
 
+  const handleFamilyStatus = async (familyMemberId, status) => {
+    try {
+      const res = await axios.put(
+        `${process.env.REACT_APP_API_URL}/admin/family-members/${familyMemberId}/status`,
+        { status }
+      );
+      if (res.data.success) {
+        toast.success(`Family member ${status}`);
+        if (selectedUser) openDetail(selectedUser);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Family update failed');
+    }
+  };
+
   return (
     <Container maxWidth="xl" sx={{ py: 2 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -543,7 +558,7 @@ const Users = () => {
                 ) : (
                   <Table size="small">
                     <TableHead><TableRow>
-                      {['Name', 'Relationship', 'Mobile', 'Nominee', 'Added'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}
+                      {['Name', 'Member ID', 'Relationship', 'Mobile', 'Status', 'Nominee', 'Added', 'Actions'].map(h => <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>)}
                     </TableRow></TableHead>
                     <TableBody>
                       {(detailData.familyMembers || []).map(fm => (
@@ -557,10 +572,26 @@ const Users = () => {
                               </Box>
                             </Box>
                           </TableCell>
+                          <TableCell>{fm.member_id || '—'}</TableCell>
                           <TableCell sx={{ textTransform: 'capitalize' }}>{fm.relationship}</TableCell>
                           <TableCell>{fm.mobile || '—'}</TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={fm.status || 'pending'}
+                              color={fm.status === 'approved' || fm.status === 'linked' ? 'success' : fm.status === 'rejected' ? 'error' : 'warning'}
+                            />
+                          </TableCell>
                           <TableCell>{fm.is_nominee ? <Chip label="Nominee" size="small" color="success" /> : '—'}</TableCell>
                           <TableCell>{new Date(fm.created_at).toLocaleDateString('en-IN')}</TableCell>
+                          <TableCell>
+                            {(fm.status || 'pending') === 'pending' ? (
+                              <Box display="flex" gap={1}>
+                                <Button size="small" color="success" variant="outlined" onClick={() => handleFamilyStatus(fm._id || fm.id, 'approved')}>Approve</Button>
+                                <Button size="small" color="error" variant="outlined" onClick={() => handleFamilyStatus(fm._id || fm.id, 'rejected')}>Reject</Button>
+                              </Box>
+                            ) : '—'}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

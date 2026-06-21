@@ -8,6 +8,7 @@ const DOC_SIZE_LIMITS = {
   pan_card: 200 * 1024,         // 200 KB
   cancelled_cheque: 400 * 1024, // 400 KB
   selfie_photo: 300 * 1024,     // 300 KB
+  attachment: 5 * 1024 * 1024,  // 5 MB
 };
 
 async function compressImage(buffer, targetSize) {
@@ -78,6 +79,52 @@ exports.uploadDocument = async (req, res, next) => {
       mime_type: fileMime,
     });
     res.status(201).json({ success: true, message: 'Document uploaded', data: doc });
+  } catch (err) { next(err); }
+};
+
+exports.attachDocument = async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ success: false, message: 'No file provided' });
+
+    const userId = req.user._id || req.user.id;
+    const rawType = String(req.body.document_type || 'attachment').trim().toLowerCase();
+    const documentType = rawType === 'attachment' ? 'attachment' : rawType;
+    const description = String(req.body.description || '').trim();
+    const documentName = String(req.body.document_name || '').trim() || description || req.file.originalname;
+
+    const VALID_TYPES = ['aadhaar_card', 'aadhaar_card_back', 'pan_card', 'cancelled_cheque', 'selfie_photo', 'attachment'];
+    if (!VALID_TYPES.includes(documentType)) {
+      return res.status(400).json({ success: false, message: 'Invalid document type.' });
+    }
+
+    const targetSize = DOC_SIZE_LIMITS[documentType] || 5 * 1024 * 1024;
+    let fileBuffer = req.file.buffer;
+    let fileMime = req.file.mimetype;
+
+    if (fileMime.startsWith('image/') && fileBuffer.length > targetSize) {
+      fileBuffer = await compressImage(fileBuffer, targetSize);
+      fileMime = 'image/jpeg';
+    }
+
+    const { fileId, fileUrl } = await uploadToGridFS(fileBuffer, req.file.originalname, fileMime, {
+      userId: userId.toString(), category: 'documents', documentType,
+    });
+
+    const doc = await Document.create({
+      user_id: userId,
+      document_type: documentType,
+      document_name: documentName,
+      file_name: req.file.originalname,
+      file_url: fileUrl,
+      gridfs_id: fileId,
+      file_size: fileBuffer.length,
+      mime_type: fileMime,
+      notes: description || undefined,
+      uploaded_from: 'mobile',
+      verification_status: 'pending',
+    });
+
+    res.status(201).json({ success: true, message: 'Document attached for admin review', data: doc });
   } catch (err) { next(err); }
 };
 

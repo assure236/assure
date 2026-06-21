@@ -6,7 +6,7 @@ const {
   User, ChitGroup, ChitMember, Auction, Bid, Payment,
   Document, Referral, Notification, AppSetting, Branch,
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
-  Account, JournalEntry, FiscalYear, DefaulterAction,
+  Account, JournalEntry, FiscalYear, DefaulterAction, FamilyMember,
 } = require('../models');
 const notificationService = require('../services/notificationService');
 const { sendPushNotification, sendPushToMultiple } = require('../config/firebase');
@@ -278,6 +278,42 @@ router.get('/users/:id', adminOnly, async (req, res, next) => {
     }
 
     res.json({ success: true, data: { user: userObj, memberships, documents, recentPayments: payments, groupSchedules, familyMembers } });
+  } catch (err) { next(err); }
+});
+
+router.put('/family-members/:id/status', adminOnly, async (req, res, next) => {
+  try {
+    const { status, admin_note } = req.body;
+    if (!['approved', 'rejected', 'linked'].includes(status)) {
+      return res.status(400).json({ success: false, message: 'status must be approved, rejected or linked' });
+    }
+
+    const member = await FamilyMember.findById(req.params.id);
+    if (!member) return res.status(404).json({ success: false, message: 'Family member request not found' });
+
+    member.status = status;
+    member.admin_note = admin_note || null;
+    member.reviewed_at = new Date();
+    member.reviewed_by = req.user._id || req.user.id;
+    await member.save();
+
+    if (status === 'rejected') {
+      notifyUser(
+        member.user_id,
+        'Family Link Rejected',
+        `Family member link request was rejected${admin_note ? `: ${admin_note}` : '.'}`,
+        'family_member_link_request'
+      ).catch(() => {});
+    } else {
+      notifyUser(
+        member.user_id,
+        'Family Link Approved',
+        'Family member has been approved and linked to your profile.',
+        'family_member_link_request'
+      ).catch(() => {});
+    }
+
+    res.json({ success: true, message: `Family member ${status}`, data: member });
   } catch (err) { next(err); }
 });
 

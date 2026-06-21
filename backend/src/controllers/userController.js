@@ -1200,15 +1200,38 @@ exports.changeBankDetails = async (req, res, next) => {
     if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) return res.status(400).json({ success: false, message: 'Enter a valid IFSC code.' });
     if (!req.file) return res.status(400).json({ success: false, message: 'Bank proof document is required.' });
     const { fileUrl } = await uploadToGridFS(req.file.buffer, req.file.originalname, req.file.mimetype, { userId: String(userId), category: 'bank_proof' });
-    let verified = false; let holderName = null;
+    let verified = false;
+    let holderName = null;
     try {
-      const appId = process.env.CASHFREE_VRS_CLIENT_ID || process.env.CASHFREE_APP_ID;
-      const sec = process.env.CASHFREE_VRS_CLIENT_SECRET || process.env.CASHFREE_SECRET_KEY;
-      if (appId && sec) {
-        const r = await axios.post('https://api.cashfree.com/verification/bank-account/sync', { bank_account: account, ifsc }, { headers: { 'x-client-id': appId, 'x-client-secret': sec, 'x-api-version': '2022-09-01' }, timeout: 10000 });
-        const status = r.data && (r.data.account_status || (r.data.data && r.data.data.account_status));
-        if (status === 'VALID') { verified = true; holderName = (r.data && (r.data.name_at_bank || (r.data.data && r.data.data.name_at_bank))) || null; }
-      }
+      const verificationResult = await new Promise((resolve) => {
+        const mockRes = {
+          statusCode: 200,
+          status(code) {
+            this.statusCode = code;
+            return this;
+          },
+          json(payload) {
+            resolve({ statusCode: this.statusCode || 200, payload });
+            return payload;
+          },
+        };
+
+        exports.verifyBankAccount(
+          {
+            body: {
+              account_number: account,
+              ifsc,
+              account_holder_name: req.user?.full_name || '',
+            },
+            user: req.user,
+          },
+          mockRes,
+          () => resolve({ statusCode: 500, payload: { success: false } })
+        );
+      });
+
+      verified = verificationResult?.payload?.success === true && verificationResult?.payload?.data?.verified === true;
+      holderName = verificationResult?.payload?.data?.account_holder_name || null;
     } catch (_) {}
     const upd = { bank_account_number: account, bank_ifsc_code: ifsc, bank_name: bankName, bank_proof_url: fileUrl, bank_verified: verified, bank_change_status: verified ? 'verified' : 'pending_review' };
     if (holderName) upd.bank_account_holder_name = holderName;

@@ -91,6 +91,7 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
 
   // ── Cashfree KYC ──────────────────────────────────────────────────────────
   void _openCashfreeSheet() {
+    _snack('Opening Cashfree KYC flow...', isError: false);
     context.push('/onboarding/digilocker');
   }
 

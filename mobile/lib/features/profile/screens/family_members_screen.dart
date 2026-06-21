@@ -48,6 +48,14 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
         res = await ApiService.put('/users/family-members/${member['_id'] ?? member['id']}', result);
       } else {
         res = await ApiService.post('/users/family-members', result);
+        if (res['success'] == true && res['requires_otp'] == true) {
+          final otp = await _askOtp(result['member_id']?.toString() ?? '');
+          if (otp == null) return;
+          res = await ApiService.post('/users/family-members', {
+            'member_id': result['member_id'],
+            'otp': otp,
+          });
+        }
       }
       if (res['success'] == true) {
         if (mounted) {
@@ -74,6 +82,65 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
         ));
       }
     }
+  }
+
+  Future<String?> _askOtp(String memberId) async {
+    final otpCtrl = TextEditingController();
+    String? error;
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Enter OTP', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('OTP sent for Member ID $memberId', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+              const SizedBox(height: 12),
+              TextField(
+                controller: otpCtrl,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                decoration: InputDecoration(
+                  labelText: '6-digit OTP',
+                  errorText: error,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    if (otpCtrl.text.trim().length != 6) {
+                      ss(() => error = 'Enter a valid 6-digit OTP');
+                      return;
+                    }
+                    Navigator.pop(ctx, otpCtrl.text.trim());
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Verify & Link'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _deleteMember(Map<String, dynamic> member) async {
@@ -156,7 +223,6 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
                     itemCount: _members.length,
                     itemBuilder: (ctx, i) => _MemberCard(
                       member: _members[i],
-                      onEdit: () => _addOrEdit(member: _members[i]),
                       onDelete: () => _deleteMember(_members[i]),
                     ),
                   ),
@@ -167,18 +233,35 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
 
 class _MemberCard extends StatelessWidget {
   final Map<String, dynamic> member;
-  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
-  const _MemberCard({required this.member, required this.onEdit, required this.onDelete});
+  const _MemberCard({required this.member, required this.onDelete});
 
   @override
   Widget build(BuildContext context) {
     final name = member['full_name'] ?? '';
-    final relationship = member['relationship'] ?? '';
+    final memberId = member['member_id']?.toString() ?? '';
     final mobile = member['mobile'] ?? '';
     final isNominee = member['is_nominee'] == true;
+    final status = (member['status'] ?? 'pending').toString();
     final gender = member['gender'];
+
+    Color statusColor;
+    String statusLabel;
+    switch (status) {
+      case 'approved':
+      case 'linked':
+        statusColor = AppTheme.successColor;
+        statusLabel = 'Linked';
+        break;
+      case 'rejected':
+        statusColor = AppTheme.errorColor;
+        statusLabel = 'Rejected';
+        break;
+      default:
+        statusColor = AppTheme.warningColor;
+        statusLabel = 'Pending';
+    }
 
     IconData genderIcon;
     switch (gender) {
@@ -202,8 +285,8 @@ class _MemberCard extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: AppTheme.primaryColor.withAlpha(26),
-              child: Icon(genderIcon, color: AppTheme.primaryColor, size: 28),
+              backgroundColor: statusColor.withAlpha(26),
+              child: Icon(genderIcon, color: statusColor, size: 28),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -212,8 +295,20 @@ class _MemberCard extends StatelessWidget {
                 children: [
                   Row(children: [
                     Flexible(
-                      child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        memberId.isNotEmpty ? memberId : name,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                        overflow: TextOverflow.ellipsis),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: statusColor.withAlpha(30),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(statusLabel,
+                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: statusColor)),
                     ),
                     if (isNominee) ...[
                       const SizedBox(width: 6),
@@ -229,7 +324,7 @@ class _MemberCard extends StatelessWidget {
                   ]),
                   const SizedBox(height: 4),
                   Text(
-                    '${relationship.isNotEmpty ? '${relationship[0].toUpperCase()}${relationship.substring(1)}' : ''}${mobile.isNotEmpty ? ' • $mobile' : ''}',
+                    name.isNotEmpty ? '${name}${mobile.isNotEmpty ? ' • $mobile' : ''}' : mobile,
                     style: TextStyle(color: Colors.grey[600], fontSize: 13),
                   ),
                 ],
@@ -237,11 +332,9 @@ class _MemberCard extends StatelessWidget {
             ),
             PopupMenuButton<String>(
               onSelected: (v) {
-                if (v == 'edit') onEdit();
                 if (v == 'delete') onDelete();
               },
               itemBuilder: (_) => const [
-                PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('Edit')])),
                 PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete, size: 18, color: AppTheme.errorColor), SizedBox(width: 8), Text('Remove', style: TextStyle(color: AppTheme.errorColor))])),
               ],
             ),

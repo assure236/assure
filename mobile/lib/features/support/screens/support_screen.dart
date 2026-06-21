@@ -155,38 +155,47 @@ class _SupportScreenState extends State<SupportScreen> {
                     return Expanded(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
-                        child: SizedBox(
-                          height: 44,
-                          child: selected
-                              ? ElevatedButton(
-                                  onPressed: () => setSheetState(() => priority = p),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: color,
-                                    foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10)),
-                                    elevation: 0,
-                                    textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  ),
-                                  child: Text(label),
-                                )
-                              : OutlinedButton(
-                                  onPressed: () => setSheetState(() => priority = p),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: color,
-                                    side: BorderSide(color: color, width: 1.5),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10)),
-                                  ),
-                                  child: Text(
-                                    label,
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                        color: color),
-                                  ),
+                        child: selected
+                            ? ElevatedButton(
+                                onPressed: () => setSheetState(() => priority = p),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: color,
+                                  foregroundColor: Colors.white,
+                                  minimumSize: const Size(double.infinity, 48),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                  elevation: 0,
                                 ),
-                        ),
+                                child: Text(
+                                  label,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      height: 1.2),
+                                ),
+                              )
+                            : OutlinedButton(
+                                onPressed: () => setSheetState(() => priority = p),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: color,
+                                  minimumSize: const Size(double.infinity, 48),
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  side: BorderSide(color: color, width: 1.5),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                ),
+                                child: Text(
+                                  label,
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                      height: 1.2,
+                                      color: color),
+                                ),
+                              ),
                       ),
                     );
                   }).toList(),

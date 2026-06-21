@@ -358,6 +358,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
   // ── Attach document sheet (for admin review) ─────────────────────────────
   Future<void> _showAttachSheet() async {
     String? pickedPath, pickedName;
+    final nameCtrl = TextEditingController();
     final descCtrl = TextEditingController();
     bool uploading = false;
     String? err;
@@ -408,10 +409,19 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
           ),
           const SizedBox(height: 12),
           TextField(
+            controller: nameCtrl,
+            decoration: InputDecoration(
+              labelText: 'Document Name *',
+              hintText: 'e.g. Bank Passbook, Rent Agreement',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
             controller: descCtrl,
             maxLines: 2,
             decoration: InputDecoration(
-              labelText: 'Description (optional)',
+              labelText: 'Notes (optional)',
               hintText: 'e.g. Updated Aadhaar, Bank Statement...',
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
             ),
@@ -423,11 +433,16 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
             child: ElevatedButton.icon(
               onPressed: uploading ? null : () async {
                 if (pickedPath == null) { ss(() => err = 'Please select a file'); return; }
+                if (nameCtrl.text.trim().isEmpty) { ss(() => err = 'Please enter a document name'); return; }
                 ss(() { uploading = true; err = null; });
                 try {
                   final res = await ApiService.uploadFile('/documents/attach', pickedPath!,
                       fieldName: 'document',
-                      extraFields: {'description': descCtrl.text.trim(), 'document_type': 'attachment'});
+                      extraFields: {
+                        'document_name': nameCtrl.text.trim(),
+                        'description': descCtrl.text.trim(),
+                        'document_type': 'attachment',
+                      });
                   if (res['success'] == true) {
                     await _fetchDocuments();
                     if (ctx.mounted) Navigator.pop(ctx);
@@ -442,7 +457,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
               icon: uploading
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.send),
-              label: Text(uploading ? 'Attaching…' : 'Submit to Admin'),
+              label: Text(uploading ? 'Attaching…' : 'Submit'),
             ),
           ),
           const SizedBox(height: 24),
@@ -494,6 +509,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
 
   Widget _buildDocRow(Map<String, dynamic> doc) {
     final label = _labelForType(doc['document_type']?.toString() ?? 'Document');
+    final docName = (doc['document_name']?.toString().trim().isNotEmpty ?? false)
+        ? doc['document_name'].toString().trim()
+        : label;
     final status = (doc['verification_status'] ?? doc['status'] ?? 'pending').toString();
     final fileUrl = doc['file_url']?.toString();
     final uploadedAt = doc['created_at']?.toString();
@@ -533,7 +551,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
         ),
         const SizedBox(width: 12),
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+          Text(docName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (docName != label)
+            Text(label, style: const TextStyle(color: Colors.black54, fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
           const SizedBox(height: 2),
           Row(children: [
             Container(
