@@ -6,7 +6,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { uploadToGridFS } = require('../utils/gridfs');
 const { notifyUser } = require('../utils/notifyUser');
-const { sendEmail } = require('../services/notificationService');
+const { sendEmail, sendOTP } = require('../services/notificationService');
 const { audit, getIp } = require('../utils/audit');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
@@ -275,7 +275,18 @@ exports.approveProfileEdit = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'No pending edit request' });
     }
 
-    const changes = targetUser.pending_profile_changes || {};
+    const changes = { ...(targetUser.pending_profile_changes || {}) };
+    if (changes.address_change_status === 'pending_review') {
+      changes.address_change_status = 'approved';
+    }
+    if (changes.bank_change_status === 'pending_review') {
+      changes.bank_change_status = 'approved';
+    }
+    if (changes.bank_change_status === 'verified') {
+      changes.bank_verified = true;
+      changes.bank_verified_at = new Date();
+    }
+
     await User.findByIdAndUpdate(user_id, {
       ...changes,
       profile_edit_status: 'approved',
@@ -342,6 +353,15 @@ exports.rejectProfileEdit = async (req, res, next) => {
       ? rejection_fields.filter((field) => allowedRejectionFields.includes(field))
       : [];
 
+    const pendingChanges = targetUser.pending_profile_changes || {};
+    const extraStatusUpdates = {};
+    if (pendingChanges.address_change_status === 'pending_review') {
+      extraStatusUpdates.address_change_status = 'rejected';
+    }
+    if (pendingChanges.bank_change_status === 'pending_review') {
+      extraStatusUpdates.bank_change_status = 'rejected';
+    }
+
     await User.findByIdAndUpdate(user_id, {
       profile_edit_status: 'rejected',
       pending_profile_changes: null,
@@ -349,6 +369,7 @@ exports.rejectProfileEdit = async (req, res, next) => {
       profile_edit_reviewed_by: req.user._id || req.user.id,
       profile_edit_rejection_reason: reason || 'Rejected by admin',
       profile_edit_rejection_fields: rejectionFields,
+      ...extraStatusUpdates,
     });
 
     // Notify user
@@ -1073,7 +1094,14 @@ exports.changeEmailSendOtp = async (req, res, next) => {
     if (existing) return res.status(400).json({ success: false, message: 'Email already registered with another account.' });
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     _storeOtp('email:' + userId, otp);
-    try { await sendEmail({ to: email, subject: 'Assure ChitFunds Email Change OTP', text: 'OTP: ' + otp + ' (valid 10 mins)', html: '<p>OTP: <b>' + otp + '</b> Valid 10 mins.</p>' }); } catch (_) {}
+    const emailResult = await sendEmail(
+      email,
+      'Assure ChitFunds Email Change OTP',
+      `<p>Your OTP is: <b>${otp}</b></p><p>Valid for 10 minutes.</p>`
+    );
+    if (!emailResult) {
+      return res.status(503).json({ success: false, message: 'Email OTP service is unavailable. Please try again shortly.' });
+    }
     res.json({ success: true, message: 'OTP sent to ' + email });
   } catch (err) { next(err); }
 };
@@ -1096,7 +1124,7 @@ exports.nomineeOtpSend = async (req, res, next) => {
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     _storeOtp('nominee:' + userId, otp);
-    try { const { sendSms } = require('../services/notificationService'); await sendSms(user.mobile, 'Assure ChitFunds nominee OTP: ' + otp + ' (valid 10 mins)'); } catch (_) {}
+    await sendOTP(user.mobile, otp);
     res.json({ success: true, message: 'OTP sent to your registered mobile.' });
   } catch (err) { next(err); }
 };
@@ -1104,18 +1132,53 @@ exports.nomineeOtpSend = async (req, res, next) => {
 exports.changeAddress = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
+    const currentUser = await User.findById(userId).select('full_name profile_edit_status pending_profile_changes');
+    if (!currentUser) return res.status(404).json({ success: false, message: 'User not found' });
+    if ((currentUser.profile_edit_status || 'none') === 'pending') {
+      return res.status(403).json({ success: false, message: 'You already have a pending profile review. Please wait for admin approval or rejection.' });
+    }
+
     const { address, city, state, pincode, current_address, current_city, current_state, current_pincode } = req.body;
     if (!address || !city || !state || !/^\d{6}$/.test(String(pincode || '')))
       return res.status(400).json({ success: false, message: 'Fill all address fields correctly (6-digit pincode).' });
     if (!req.file) return res.status(400).json({ success: false, message: 'Address proof document is required.' });
     const { fileUrl } = await uploadToGridFS(req.file.buffer, req.file.originalname, req.file.mimetype, { userId: String(userId), category: 'address_proof' });
-    const upd = { address: address.trim(), city: city.trim(), state: state.trim(), pincode: String(pincode).trim(), address_proof_url: fileUrl, address_change_status: 'pending_review' };
-    if (current_address) { upd.current_address = current_address.trim(); upd.current_city = (current_city || '').trim(); upd.current_state = (current_state || '').trim(); upd.current_pincode = (current_pincode || '').trim(); }
-    await User.findByIdAndUpdate(userId, upd);
+    const pendingUpdates = {
+      ...(currentUser.pending_profile_changes || {}),
+      address: address.trim(),
+      city: city.trim(),
+      state: state.trim(),
+      pincode: String(pincode).trim(),
+      address_proof_url: fileUrl,
+      address_change_status: 'pending_review',
+    };
+    if (current_address) {
+      pendingUpdates.current_address = current_address.trim();
+      pendingUpdates.current_city = (current_city || '').trim();
+      pendingUpdates.current_state = (current_state || '').trim();
+      pendingUpdates.current_pincode = (current_pincode || '').trim();
+    }
+
+    await User.findByIdAndUpdate(userId, {
+      profile_edit_status: 'pending',
+      pending_profile_changes: pendingUpdates,
+      profile_edit_requested_at: new Date(),
+      profile_edit_rejection_reason: null,
+      profile_edit_rejection_fields: [],
+    });
+
     try {
       const { Notification } = require('../models');
       const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
-      if (admins.length) await Notification.insertMany(admins.map(a => ({ user_id: a._id, type: 'profile_address_change', title: 'Address Change', message: (req.user.full_name || 'A member') + ' submitted address change.', metadata: { user_id: String(userId) } })));
+      if (admins.length) {
+        await Notification.insertMany(admins.map(a => ({
+          user_id: a._id,
+          type: 'profile_edit_request',
+          title: 'Address Change Review Needed',
+          message: (currentUser.full_name || req.user.full_name || 'A member') + ' submitted address change for approval.',
+          data: { request_user_id: String(userId), changes: pendingUpdates },
+        })));
+      }
     } catch (_) {}
     res.json({ success: true, message: 'Address submitted. Admin will verify within 24 hours.' });
   } catch (err) { next(err); }
@@ -1124,6 +1187,12 @@ exports.changeAddress = async (req, res, next) => {
 exports.changeBankDetails = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
+    const currentUser = await User.findById(userId).select('full_name profile_edit_status pending_profile_changes');
+    if (!currentUser) return res.status(404).json({ success: false, message: 'User not found' });
+    if ((currentUser.profile_edit_status || 'none') === 'pending') {
+      return res.status(403).json({ success: false, message: 'You already have a pending profile review. Please wait for admin approval or rejection.' });
+    }
+
     const account = (req.body.bank_account_number || '').trim();
     const ifsc = (req.body.bank_ifsc_code || '').trim().toUpperCase();
     const bankName = (req.body.bank_name || '').trim();
@@ -1143,14 +1212,38 @@ exports.changeBankDetails = async (req, res, next) => {
     } catch (_) {}
     const upd = { bank_account_number: account, bank_ifsc_code: ifsc, bank_name: bankName, bank_proof_url: fileUrl, bank_verified: verified, bank_change_status: verified ? 'verified' : 'pending_review' };
     if (holderName) upd.bank_account_holder_name = holderName;
-    await User.findByIdAndUpdate(userId, upd);
-    if (!verified) {
-      try {
-        const { Notification } = require('../models');
-        const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
-        if (admins.length) await Notification.insertMany(admins.map(a => ({ user_id: a._id, type: 'profile_bank_change', title: 'Bank Change', message: (req.user.full_name || 'A member') + ' submitted bank change.', metadata: { user_id: String(userId) } })));
-      } catch (_) {}
+
+    if (verified) {
+      await User.findByIdAndUpdate(userId, upd);
+    } else {
+      await User.findByIdAndUpdate(userId, {
+        profile_edit_status: 'pending',
+        pending_profile_changes: {
+          ...(currentUser.pending_profile_changes || {}),
+          ...upd,
+        },
+        profile_edit_requested_at: new Date(),
+        profile_edit_rejection_reason: null,
+        profile_edit_rejection_fields: [],
+      });
     }
+
+    try {
+      const { Notification } = require('../models');
+      const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
+      if (admins.length) {
+        await Notification.insertMany(admins.map(a => ({
+          user_id: a._id,
+          type: 'profile_edit_request',
+          title: verified ? 'Bank Details Auto-Verified' : 'Bank Change Review Needed',
+          message: (currentUser.full_name || req.user.full_name || 'A member') + (verified
+            ? ' updated bank details (Cashfree verified).'
+            : ' submitted bank details for approval.'),
+          data: { request_user_id: String(userId), changes: upd, verified },
+        })));
+      }
+    } catch (_) {}
+
     res.json({ success: true, message: verified ? 'Bank account verified and updated.' : 'Bank details submitted. Admin will verify within 24 hours.', verified });
   } catch (err) { next(err); }
 };

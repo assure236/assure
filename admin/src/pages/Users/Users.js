@@ -378,8 +378,12 @@ const Users = () => {
                     { label: 'Bank Name', value: detailData.bank_name || '—', field: 'bank_name' },
                     { label: 'Bank IFSC', value: detailData.bank_ifsc_code || '—', field: 'bank_ifsc_code' },
                     { label: 'Bank Account', value: detailData.bank_account_number ? `****${String(detailData.bank_account_number).slice(-4)}` : '—', field: 'bank_account_number' },
+                    { label: 'Bank Change Status', value: detailData.bank_change_status || 'none' },
+                    { label: 'Address Change Status', value: detailData.address_change_status || 'none' },
                     { label: 'City', value: detailData.city || '—', field: 'city' },
                     { label: 'State', value: detailData.state || '—', field: 'state' },
+                    { label: 'Address Proof', value: detailData.address_proof_url ? 'View Proof' : '—' },
+                    { label: 'Bank Proof', value: detailData.bank_proof_url ? 'View Proof' : '—' },
                     { label: 'Current Address', value: detailData.current_address || '—', field: 'current_address' },
                     { label: 'Current City', value: detailData.current_city || '—', field: 'current_city' },
                     { label: 'Current State', value: detailData.current_state || '—', field: 'current_state' },
@@ -390,7 +394,21 @@ const Users = () => {
                         <Box display="flex" alignItems="center" justifyContent="space-between">
                           <Box>
                             <Typography variant="caption" color="text.secondary">{label}</Typography>
-                            <Typography variant="body2" fontWeight={500} sx={{ textTransform: 'capitalize' }}>{value}</Typography>
+                            {(label === 'Address Proof' && detailData.address_proof_url) || (label === 'Bank Proof' && detailData.bank_proof_url) ? (
+                              <Typography
+                                component="a"
+                                href={label === 'Address Proof' ? detailData.address_proof_url : detailData.bank_proof_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                variant="body2"
+                                fontWeight={600}
+                                sx={{ color: 'primary.main', textDecoration: 'underline' }}
+                              >
+                                {value}
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" fontWeight={500} sx={{ textTransform: 'capitalize' }}>{value}</Typography>
+                            )}
                           </Box>
                           {field && (
                             <Box display="flex" gap={0.5}>

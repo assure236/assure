@@ -492,6 +492,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
+    final isProfilePending = (user?.profileEditStatus ?? '').toLowerCase() == 'pending';
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: RefreshIndicator(
@@ -549,11 +550,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 // Address
                 _Card(
                   title: 'Address',
-                  trailing: TextButton.icon(
-                    onPressed: () => _showAddressSheet(user),
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Change', style: TextStyle(fontSize: 12)),
-                  ),
+                  trailing: isProfilePending
+                      ? const Chip(
+                          label: Text('Pending review', style: TextStyle(fontSize: 11)),
+                          visualDensity: VisualDensity.compact,
+                        )
+                      : TextButton.icon(
+                          onPressed: () => _showAddressSheet(user),
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: const Text('Change', style: TextStyle(fontSize: 12)),
+                        ),
                   children: [
                     _Row('Street', user?.address),
                     _Row('City', user?.city),
@@ -592,11 +598,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 // Bank
                 _Card(
                   title: 'Bank Details',
-                  trailing: TextButton.icon(
-                    onPressed: _showBankSheet,
-                    icon: const Icon(Icons.edit_outlined, size: 16),
-                    label: const Text('Change', style: TextStyle(fontSize: 12)),
-                  ),
+                  trailing: isProfilePending
+                      ? const Chip(
+                          label: Text('Pending review', style: TextStyle(fontSize: 11)),
+                          visualDensity: VisualDensity.compact,
+                        )
+                      : TextButton.icon(
+                          onPressed: _showBankSheet,
+                          icon: const Icon(Icons.edit_outlined, size: 16),
+                          label: const Text('Change', style: TextStyle(fontSize: 12)),
+                        ),
                   children: [
                     _Row('Account Number', _mask(user?.bankAccountNumber), note: 'Requires admin approval'),
                     _Row('IFSC Code', user?.bankIfscCode),

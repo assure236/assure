@@ -214,6 +214,24 @@ router.get('/users/:id', adminOnly, async (req, res, next) => {
   try {
     const user = await User.findById(req.params.id).select('-password_hash');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const userObj = user.toObject();
+
+    if (userObj.profile_edit_status === 'pending' && userObj.pending_profile_changes) {
+      const previewFields = [
+        'address', 'city', 'state', 'pincode',
+        'current_address', 'current_city', 'current_state', 'current_pincode',
+        'address_proof_url', 'address_change_status',
+        'bank_account_number', 'bank_ifsc_code', 'bank_name',
+        'bank_proof_url', 'bank_change_status', 'bank_verified', 'bank_account_holder_name',
+      ];
+
+      for (const field of previewFields) {
+        if (userObj.pending_profile_changes[field] !== undefined) {
+          userObj[field] = userObj.pending_profile_changes[field];
+        }
+      }
+    }
+
     const [memberships, documents, payments] = await Promise.all([
       ChitMember.find({ user_id: user._id }).populate('chit_group_id', 'group_name group_number chit_value monthly_installment duration_months commencement_date status'),
       Document.find({ user_id: user._id }).sort({ created_at: -1 }),
@@ -259,7 +277,7 @@ router.get('/users/:id', adminOnly, async (req, res, next) => {
       });
     }
 
-    res.json({ success: true, data: { user, memberships, documents, recentPayments: payments, groupSchedules, familyMembers } });
+    res.json({ success: true, data: { user: userObj, memberships, documents, recentPayments: payments, groupSchedules, familyMembers } });
   } catch (err) { next(err); }
 });
 
