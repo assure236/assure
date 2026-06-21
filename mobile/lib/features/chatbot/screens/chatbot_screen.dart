@@ -291,6 +291,50 @@ class _ChatMessage {
       );
 }
 
+// ── Feature action links extracted from bot reply ────────────────────────────
+List<Map<String, dynamic>> _extractActions(String text) {
+  final lower = text.toLowerCase();
+  final actions = <Map<String, dynamic>>[];
+
+  if (lower.contains('payment') || lower.contains('due') || lower.contains('installment')) {
+    actions.add({'label': '💳 Payments', 'route': '/payments'});
+  }
+  if (lower.contains('kyc') || lower.contains('aadhaar') || lower.contains('pan')) {
+    actions.add({'label': '🪪 KYC', 'route': '/kyc'});
+  }
+  if (lower.contains('auction')) {
+    actions.add({'label': '🔨 Auctions', 'route': '/auctions'});
+  }
+  if (lower.contains('chit') || lower.contains('invest') || lower.contains('enroll')) {
+    actions.add({'label': '📈 Invest', 'route': '/chit-groups'});
+  }
+  if (lower.contains('profile') || lower.contains('account details')) {
+    actions.add({'label': '👤 My Profile', 'route': '/edit-profile'});
+  }
+  if (lower.contains('document') || lower.contains('vault') || lower.contains('proof')) {
+    actions.add({'label': '📁 Documents', 'route': '/documents'});
+  }
+  if (lower.contains('referral') || lower.contains('refer') || lower.contains('reward')) {
+    actions.add({'label': '🎁 Referrals', 'route': '/referrals'});
+  }
+  if (lower.contains('support') || lower.contains('ticket') || lower.contains('help') || lower.contains('issue')) {
+    actions.add({'label': '🎧 Support', 'route': '/support'});
+  }
+  if (lower.contains('notification')) {
+    actions.add({'label': '🔔 Notifications', 'route': '/notifications'});
+  }
+  if (lower.contains('analytic') || lower.contains('insight') || lower.contains('report')) {
+    actions.add({'label': '📊 Analytics', 'route': '/analytics'});
+  }
+  if (lower.contains('loan')) {
+    actions.add({'label': '🏦 Apply Loan', 'route': '/apply-loan'});
+  }
+  if (lower.contains('goal')) {
+    actions.add({'label': '🎯 Goals', 'route': '/goals'});
+  }
+  return actions;
+}
+
 class _MessageBubble extends StatelessWidget {
   final _ChatMessage msg;
   final bool isUser;
@@ -323,10 +367,12 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final actions = isUser ? <Map<String, dynamic>>[] : _extractActions(msg.text);
+
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.82),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.85),
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -338,11 +384,9 @@ class _MessageBubble extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             isUser
-                ? Text(
-                    msg.text,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
-                  )
+                ? Text(msg.text, style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4))
                 : _buildFormattedText(msg.text),
+            // Chit group cards
             if (msg.chitGroups.isNotEmpty) ...[
               const SizedBox(height: 8),
               ...msg.chitGroups.map((g) => GestureDetector(
@@ -355,26 +399,38 @@ class _MessageBubble extends StatelessWidget {
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(color: const Color(0xFFE0E0E0)),
                       ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(g['group_name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${_inr.format(g['chit_value'] ?? 0)} • ${g['duration_months']}mo • ${_inr.format(g['monthly_installment'] ?? 0)}/mo',
-                                  style: const TextStyle(fontSize: 11, color: Colors.black54),
-                                ),
-                              ],
-                            ),
+                      child: Row(children: [
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(g['group_name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_inr.format(g['chit_value'] ?? 0)} • ${g['duration_months']}mo • ${_inr.format(g['monthly_installment'] ?? 0)}/mo',
+                            style: const TextStyle(fontSize: 11, color: Colors.black54),
                           ),
-                          const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.primaryColor),
-                        ],
-                      ),
+                        ])),
+                        const Icon(Icons.arrow_forward_ios, size: 14, color: AppTheme.primaryColor),
+                      ]),
                     ),
                   )),
+            ],
+            // Feature action links
+            if (actions.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              const Text('Quick links:', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w500)),
+              const SizedBox(height: 6),
+              Wrap(spacing: 6, runSpacing: 6, children: actions.map((a) => GestureDetector(
+                onTap: () => context.push(a['route'] as String),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withAlpha(12),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppTheme.primaryColor.withAlpha(60)),
+                  ),
+                  child: Text(a['label'] as String,
+                      style: const TextStyle(fontSize: 12, color: AppTheme.primaryColor, fontWeight: FontWeight.w600)),
+                ),
+              )).toList()),
             ],
           ],
         ),

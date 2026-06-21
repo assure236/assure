@@ -311,7 +311,7 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
 }
 
 // ─── Header ───────────────────────────────────────────────────────────────────
-class _HeaderSection extends StatelessWidget {
+class _HeaderSection extends StatefulWidget {
   final dynamic user;
   final DashboardProvider dash;
   final bool loading;
@@ -324,9 +324,54 @@ class _HeaderSection extends StatelessWidget {
       this.onProfileTap});
 
   @override
+  State<_HeaderSection> createState() => _HeaderSectionState();
+}
+
+class _HeaderSectionState extends State<_HeaderSection> {
+  List<Map<String, dynamic>> _familyMembers = [];
+  String _activeId = 'me';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFamilyMembers();
+  }
+
+  Future<void> _loadFamilyMembers() async {
+    try {
+      final res = await ApiService.get('/users/family-members');
+      if (res['success'] == true && mounted) {
+        setState(() {
+          _familyMembers = List<Map<String, dynamic>>.from(res['data'] ?? []);
+        });
+      }
+    } catch (_) {}
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final user = widget.user;
+    final dash = widget.dash;
     final firstName = (user?.fullName ?? 'Member').split(' ').first;
     final kycVerified = dash.kycStatus == 'verified';
+    final selfId = user?.memberId ?? 'ME';
+
+    // Build dropdown items: self + approved family members
+    final dropdownItems = <DropdownMenuItem<String>>[
+      DropdownMenuItem(
+        value: 'me',
+        child: Text(selfId, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+      ),
+      ..._familyMembers
+          .where((m) => (m['status'] ?? '') == 'approved' || (m['status'] ?? '') == 'linked')
+          .map((m) => DropdownMenuItem(
+                value: m['member_id']?.toString() ?? m['_id']?.toString() ?? '',
+                child: Text(
+                  m['member_id']?.toString() ?? m['full_name']?.toString() ?? '',
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              )),
+    ];
 
     return Container(
       decoration: const BoxDecoration(
@@ -363,7 +408,7 @@ class _HeaderSection extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       GestureDetector(
-                        onTap: () => onProfileTap?.call(),
+                        onTap: () => widget.onProfileTap?.call(),
                         child: Row(
                           children: [
                             (user?.profileImageUrl != null &&
@@ -410,18 +455,13 @@ class _HeaderSection extends StatelessWidget {
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<String>(
-                                      value: 'me',
+                                      value: _activeId,
                                       icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
                                       isDense: true,
                                       dropdownColor: AppTheme.primaryColor,
-                                      items: [
-                                        DropdownMenuItem(
-                                          value: 'me', 
-                                          child: Text(user?.memberId ?? 'ME', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))
-                                        ),
-                                      ],
+                                      items: dropdownItems,
                                       onChanged: (val) {
-                                        // TODO: Switch active context
+                                        if (val != null) setState(() => _activeId = val);
                                       },
                                     ),
                                   ),

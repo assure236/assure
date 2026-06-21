@@ -240,7 +240,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
   }
 
   Future<bool> _detectFace(String imagePath) async {
-    // Basic validation — actual face check is done server-side by Luxand liveness API
+    // Basic validation — final selfie verification is done by backend
     try {
       final file = File(imagePath);
       if (!await file.exists()) return false;
@@ -327,6 +327,13 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
           : _error != null
               ? _buildError()
               : _buildContent(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAttachSheet,
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.attach_file),
+        label: const Text('Attach Document'),
+      ),
     );
   }
 
@@ -348,37 +355,207 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
     );
   }
 
-  Widget _buildContent() {
-    final uploaded = _documents.length;
-    final total = _docTypes.length;
+  // ── Attach document sheet (for admin review) ─────────────────────────────
+  Future<void> _showAttachSheet() async {
+    String? pickedPath, pickedName;
+    final descCtrl = TextEditingController();
+    bool uploading = false;
+    String? err;
 
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, ss) => Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+            left: 20, right: 20, top: 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 12),
+          const Text('Attach Document for Admin Review',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          const Text('Admin will review the document and update your records.',
+              textAlign: TextAlign.center, style: TextStyle(color: Colors.black54, fontSize: 12)),
+          const SizedBox(height: 18),
+          GestureDetector(
+            onTap: () async {
+              final r = await FilePicker.platform.pickFiles(
+                  type: FileType.custom, allowedExtensions: ['jpg','jpeg','png','pdf']);
+              if (r?.files.single.path != null) {
+                ss(() { pickedPath = r!.files.single.path; pickedName = r.files.single.name; });
+              }
+            },
+            child: Container(
+              width: double.infinity, padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: pickedPath != null ? AppTheme.primaryColor.withAlpha(15) : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: pickedPath != null ? AppTheme.primaryColor : Colors.grey.shade300,
+                    width: pickedPath != null ? 1.5 : 1),
+              ),
+              child: Row(children: [
+                Icon(pickedPath != null ? Icons.check_circle_outline : Icons.upload_file_outlined,
+                    color: pickedPath != null ? AppTheme.primaryColor : Colors.grey),
+                const SizedBox(width: 10),
+                Expanded(child: Text(pickedPath != null ? pickedName ?? 'File selected' : 'Tap to select file (JPG, PNG, PDF)',
+                    style: TextStyle(color: pickedPath != null ? AppTheme.primaryColor : Colors.grey.shade600, fontSize: 13),
+                    overflow: TextOverflow.ellipsis)),
+              ]),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: descCtrl,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: 'Description (optional)',
+              hintText: 'e.g. Updated Aadhaar, Bank Statement...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          if (err != null) ...[const SizedBox(height: 6), Text(err!, style: const TextStyle(color: AppTheme.errorColor, fontSize: 12))],
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity, height: 48,
+            child: ElevatedButton.icon(
+              onPressed: uploading ? null : () async {
+                if (pickedPath == null) { ss(() => err = 'Please select a file'); return; }
+                ss(() { uploading = true; err = null; });
+                try {
+                  final res = await ApiService.uploadFile('/documents/attach', pickedPath!,
+                      fieldName: 'document',
+                      extraFields: {'description': descCtrl.text.trim(), 'document_type': 'attachment'});
+                  if (res['success'] == true) {
+                    await _fetchDocuments();
+                    if (ctx.mounted) Navigator.pop(ctx);
+                    _showSnackBar('Document attached for admin review', isError: false);
+                  } else {
+                    ss(() { err = res['message']?.toString() ?? 'Failed to attach'; uploading = false; });
+                  }
+                } catch (_) { ss(() { err = 'Network error'; uploading = false; }); }
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              icon: uploading
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Icon(Icons.send),
+              label: Text(uploading ? 'Attaching…' : 'Submit to Admin'),
+            ),
+          ),
+          const SizedBox(height: 24),
+        ]),
+      )),
+    );
+  }
+
+  Widget _buildContent() {
     return RefreshIndicator(
       onRefresh: _fetchDocuments,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildKycCard(),
-            const SizedBox(height: 16),
-            _buildProgressCard(uploaded, total),
-            const SizedBox(height: 20),
-            const Text('Required Documents (JPG/JPEG/PNG only)',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.72,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              children: _docTypes.map((dt) => _buildDocCard(dt)).toList(),
-            ),
-          ],
-        ),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // KYC status card (go to KYC screen for verification)
+          _buildKycCard(),
+          const SizedBox(height: 20),
+
+          // Documents list
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Your Documents', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            Text('${_documents.length} file(s)', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          ]),
+          const SizedBox(height: 12),
+
+          if (_documents.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(32),
+              decoration: BoxDecoration(
+                  color: Colors.white, borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 8)]),
+              child: const Column(children: [
+                Icon(Icons.folder_open_outlined, size: 52, color: Colors.grey),
+                SizedBox(height: 12),
+                Text('No documents yet', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                SizedBox(height: 4),
+                Text('Tap "Attach Document" to add files for admin review.',
+                    textAlign: TextAlign.center, style: TextStyle(color: Colors.black54, fontSize: 13)),
+              ]),
+            )
+          else
+            ...(_documents.map((doc) => _buildDocRow(doc)).toList()),
+        ]),
       ),
+    );
+  }
+
+  Widget _buildDocRow(Map<String, dynamic> doc) {
+    final label = _labelForType(doc['document_type']?.toString() ?? 'Document');
+    final status = (doc['verification_status'] ?? doc['status'] ?? 'pending').toString();
+    final fileUrl = doc['file_url']?.toString();
+    final uploadedAt = doc['created_at']?.toString();
+
+    Color statusColor = status == 'approved' || status == 'verified' ? AppTheme.successColor
+        : status == 'rejected' ? AppTheme.errorColor
+        : status == 'pending' ? AppTheme.secondaryColor
+        : Colors.grey;
+    String statusLabel = status == 'approved' || status == 'verified' ? 'Verified'
+        : status == 'rejected' ? 'Rejected'
+        : status == 'pending' ? 'Under Review'
+        : 'Uploaded';
+
+    String? dateStr;
+    if (uploadedAt != null) {
+      final dt = DateTime.tryParse(uploadedAt);
+      if (dt != null) {
+        dateStr = '${dt.day.toString().padLeft(2,'0')}/${dt.month.toString().padLeft(2,'0')}/${dt.year}';
+      }
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white, borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(8), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Row(children: [
+        Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(
+            color: statusColor.withAlpha(20), borderRadius: BorderRadius.circular(10)),
+          child: Icon(
+            status == 'approved' || status == 'verified' ? Icons.verified : Icons.insert_drive_file_outlined,
+            color: statusColor, size: 22),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 2),
+          Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(color: statusColor.withAlpha(20), borderRadius: BorderRadius.circular(8)),
+              child: Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.w600)),
+            ),
+            if (dateStr != null) ...[
+              const SizedBox(width: 6),
+              Text(dateStr, style: const TextStyle(color: Colors.grey, fontSize: 10)),
+            ],
+          ]),
+        ])),
+        if (fileUrl != null && fileUrl.isNotEmpty)
+          TextButton.icon(
+            onPressed: () => _viewDocument(fileUrl),
+            icon: const Icon(Icons.visibility_outlined, size: 16),
+            label: const Text('View', style: TextStyle(fontSize: 12)),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor,
+                minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+          ),
+      ]),
     );
   }
 
@@ -608,11 +785,7 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: (status == 'approved' || status == 'verified')
-            ? (doc?['file_url'] != null ? () => _viewDocument(doc!['file_url']) : null)
-            : (doc?['file_url'] != null
-                ? () => _viewDocument(doc!['file_url'])
-                : (!isUploading ? () => _showUploadOptions(key) : null)),
+        onTap: doc?['file_url'] != null ? () => _viewDocument(doc!['file_url']) : null,
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -705,20 +878,20 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
                 SizedBox(
                   width: double.infinity,
                   height: 30,
-                  child: ElevatedButton(
-                    onPressed: isUploading ? null : () => _showUploadOptions(key),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: status == 'rejected'
-                          ? AppTheme.errorColor
-                          : AppTheme.primaryColor,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.zero,
-                      textStyle: const TextStyle(fontSize: 11),
+                  child: Container(
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withAlpha(20),
+                      borderRadius: BorderRadius.circular(6),
                     ),
-                    child: isUploading
-                        ? const SizedBox(height: 14, width: 14,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : Text(status == 'not_uploaded' ? 'Upload' : 'Re-upload'),
+                    child: Text(
+                      status == 'pending' ? 'Pending Review' : 'Upload via KYC',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primaryColor,
+                      ),
+                    ),
                   ),
                 ),
             ],

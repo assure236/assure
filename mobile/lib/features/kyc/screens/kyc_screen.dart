@@ -1,4 +1,5 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/services/api_service.dart';
@@ -7,34 +8,26 @@ import '../../../core/theme/app_theme.dart';
 class KycScreen extends StatefulWidget {
   final String? digilockerStatus;
   const KycScreen({super.key, this.digilockerStatus});
-
   @override
   State<KycScreen> createState() => _KycScreenState();
 }
 
 class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
   bool _loading = false;
-  bool _digilockerLoading = false;
   bool _awaitingDigilocker = false;
-  Map<String, dynamic>? _kycStatus;
-  String? _error;
-
-  final _panController = TextEditingController();
-  String? _panError;
+  Map<String, dynamic>? _kycData;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _fetchKycStatus();
-    // Handle deep link return from DigiLocker
+    _load();
     if (widget.digilockerStatus != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (widget.digilockerStatus == 'success') {
-          _showSnackBar('DigiLocker connected successfully! KYC verified.', isError: false);
-        } else {
-          _showSnackBar('DigiLocker verification failed. Please try again.');
-        }
+        _snack(widget.digilockerStatus == 'success'
+            ? 'DigiLocker connected successfully!'
+            : 'DigiLocker verification failed. Please try again.',
+            isError: widget.digilockerStatus != 'success');
       });
     }
   }
@@ -42,7 +35,6 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _panController.dispose();
     super.dispose();
   }
 
@@ -50,548 +42,246 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed && _awaitingDigilocker) {
       _awaitingDigilocker = false;
-      _fetchKycStatus();
-      _showSnackBar('Checking DigiLocker status...', isError: false);
+      _load();
+      _snack('Checking DigiLocker status...', isError: false);
     }
   }
 
-  Future<void> _fetchKycStatus() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  Future<void> _load() async {
+    setState(() => _loading = true);
     try {
-      final res = await ApiService.get('/kyc/status');
-      if (res['success'] == true) {
-        setState(() => _kycStatus = res['data']);
-      } else {
-        setState(() => _error = res['message'] ?? 'Failed to load KYC status');
-      }
-    } catch (e) {
-      setState(() => _error = 'Could not connect to server');
-    } finally {
-      setState(() => _loading = false);
+      final r = await ApiService.get('/kyc/status');
+      if (r['success'] == true && mounted) setState(() => _kycData = r['data']);
+    } catch (_) {} finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _submitPan() async {
-    final pan = _panController.text.trim().toUpperCase();
-    final panRegex = RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$');
-    if (!panRegex.hasMatch(pan)) {
-      setState(() => _panError = 'Enter a valid PAN (e.g., ABCDE1234F)');
-      return;
-    }
-    setState(() {
-      _panError = null;
-      _loading = true;
-    });
-    try {
-      final res = await ApiService.post('/kyc/verify-pan', {'pan_number': pan});
-      if (res['success'] == true) {
-        final verified = res['data']?['verified'] == true;
-        final name = res['data']?['name'];
-        _showSnackBar(
-          verified 
-            ? 'PAN verified! Name: $name' 
-            : 'PAN saved. Will be verified during review.',
-          isError: false,
-        );
-        await _fetchKycStatus();
-      } else {
-        _showSnackBar(res['message'] ?? 'PAN verification failed');
-      }
-    } catch (e) {
-      _showSnackBar('Could not connect to server');
-    } finally {
-      setState(() => _loading = false);
-    }
+  void _snack(String msg, {bool isError = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(msg),
+      backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
+    ));
   }
 
-  Future<void> _initDigilocker() async {
-    setState(() => _digilockerLoading = true);
+  // ── DigiLocker ─────────────────────────────────────────────────────────────
+  Future<void> _openDigilocker() async {
+    setState(() => _loading = true);
     try {
-      final res = await ApiService.get('/kyc/digilocker/init?platform=mobile');
-      if (res['success'] == true) {
-        final url = res['data']?['auth_url'] ?? res['auth_url'];
-        if (url != null) {
+      final r = await ApiService.get('/kyc/digilocker/init?platform=mobile');
+      if (r['success'] == true) {
+        final url = (r['data']?['auth_url'] ?? r['auth_url'])?.toString();
+        if (url != null && url.isNotEmpty) {
           final uri = Uri.parse(url);
           if (await canLaunchUrl(uri)) {
             _awaitingDigilocker = true;
             await launchUrl(uri, mode: LaunchMode.externalApplication);
-          } else {
-            _showSnackBar('Could not open DigiLocker');
-          }
-        } else {
-          _showSnackBar('DigiLocker URL not received');
-        }
-      } else {
-        _showSnackBar(res['message'] ?? 'DigiLocker init failed');
-      }
-    } catch (e) {
-      _showSnackBar('Could not connect to server');
-    } finally {
-      setState(() => _digilockerLoading = false);
-    }
+          } else _snack('Could not open DigiLocker');
+        } else _snack('DigiLocker URL not received');
+      } else _snack(r['message']?.toString() ?? 'DigiLocker init failed');
+    } catch (_) { _snack('Network error. Please try again.'); }
+    finally { if (mounted) setState(() => _loading = false); }
   }
 
-  void _showSnackBar(String message, {bool isError = true}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: isError ? AppTheme.errorColor : AppTheme.successColor,
-      ),
-    );
+  // ── Manual upload sheet ────────────────────────────────────────────────────
+  void _openManualSheet() {
+    context.push('/documents');
+  }
+
+  // ── Cashfree KYC ──────────────────────────────────────────────────────────
+  void _openCashfreeSheet() {
+    context.push('/onboarding/digilocker');
   }
 
   @override
   Widget build(BuildContext context) {
+    final kycStatus = (_kycData?['kyc_status'] ?? 'not_started').toString();
+    final isVerified = kycStatus == 'verified' || kycStatus == 'approved';
+    final isPending = kycStatus == 'pending';
+    final isRejected = kycStatus == 'rejected';
+    final digiConnected = _kycData?['digilocker_connected'] == true;
+
+    Color statusColor = isVerified ? AppTheme.successColor
+        : isPending ? AppTheme.secondaryColor
+        : isRejected ? AppTheme.errorColor
+        : Colors.orange;
+    String statusLabel = isVerified ? 'KYC Verified'
+        : isPending ? 'Under Review'
+        : isRejected ? 'KYC Rejected'
+        : 'KYC Not Verified';
+    IconData statusIcon = isVerified ? Icons.verified_user
+        : isPending ? Icons.hourglass_empty
+        : isRejected ? Icons.cancel
+        : Icons.pending_outlined;
+
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
         title: const Text('KYC Verification'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchKycStatus,
-          ),
-        ],
+        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? _buildError()
-              : _buildContent(),
-    );
-  }
-
-  Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: AppTheme.errorColor),
-            const SizedBox(height: 16),
-            Text(_error!, textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 16),
-            ElevatedButton(onPressed: _fetchKycStatus, child: const Text('Retry')),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContent() {
-    final status = _kycStatus?['kyc_status'] ?? 'not_started';
-    final panVerified = _kycStatus?['pan_verified'] == true;
-    final aadhaarVerified = _kycStatus?['aadhaar_verified'] == true;
-    final digilockerConnected = _kycStatus?['digilocker_connected'] == true;
-
-    return RefreshIndicator(
-      onRefresh: _fetchKycStatus,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStatusBanner(status),
-            const SizedBox(height: 20),
-            _buildStepsCard(panVerified, aadhaarVerified, digilockerConnected),
-            const SizedBox(height: 20),
-            if (!panVerified && !digilockerConnected) ...[
-              _buildPanCard(),
-              const SizedBox(height: 20),
-            ],
-            if (panVerified || digilockerConnected) ...[
-              _buildPanVerifiedCard(digilockerConnected),
-              const SizedBox(height: 20),
-            ],
-            if (!digilockerConnected) ...[
-              _buildDigilockerCard(),
-              const SizedBox(height: 20),
-            ],
-            if (digilockerConnected) ...[
-              _buildDigilockerConnectedCard(),
-              const SizedBox(height: 20),
-            ],
-            _buildInfoCard(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatusBanner(String status) {
-    Color color;
-    IconData icon;
-    String label;
-
-    switch (status) {
-      case 'approved':
-      case 'verified':
-        color = AppTheme.successColor;
-        icon = Icons.verified_user;
-        label = 'KYC Verified';
-        break;
-      case 'pending':
-        color = AppTheme.secondaryColor;
-        icon = Icons.hourglass_empty;
-        label = 'KYC Under Review';
-        break;
-      case 'rejected':
-        color = AppTheme.errorColor;
-        icon = Icons.cancel;
-        label = 'KYC Rejected';
-        break;
-      case 'not_verified':
-        color = Colors.orange;
-        icon = Icons.warning_amber_rounded;
-        label = 'KYC Not Verified';
-        break;
-      default:
-        color = Colors.grey;
-        icon = Icons.info_outline;
-        label = 'KYC Not Started';
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: color.withAlpha(26),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withAlpha(76)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: color, size: 40),
-          const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: TextStyle(
-                      color: color, fontSize: 18, fontWeight: FontWeight.bold)),
-              if (status == 'pending')
-                const Text('We\'ll notify you once it\'s approved',
-                    style: TextStyle(color: Colors.grey)),
-              if (status == 'rejected')
-                const Text('Please re-submit your documents',
-                    style: TextStyle(color: Colors.grey)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStepsCard(bool panVerified, bool aadhaarVerified, bool digilockerConnected) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Verification Steps',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            _buildStep(1, 'PAN Card Verification',
-                'Link your PAN card for identity verification', panVerified),
-            const Divider(height: 24),
-            _buildStep(2, 'DigiLocker Verification',
-                'Verify Aadhaar & PAN using official DigiLocker', digilockerConnected),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStep(int step, String title, String subtitle, bool done) {
-    return Row(
-      children: [
-        Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: done ? AppTheme.successColor : AppTheme.primaryColor.withAlpha(26),
-            shape: BoxShape.circle,
-          ),
-          child: Center(
-            child: done
-                ? const Icon(Icons.check, color: Colors.white, size: 20)
-                : Text('$step',
-                    style: TextStyle(
-                        color: AppTheme.primaryColor, fontWeight: FontWeight.bold)),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      decoration: done ? TextDecoration.lineThrough : null,
-                      color: done ? Colors.grey : Colors.black87)),
-              Text(subtitle, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-            ],
-          ),
-        ),
-        if (done) const Icon(Icons.check_circle, color: AppTheme.successColor),
-      ],
-    );
-  }
-
-  Widget _buildPanCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.credit_card, color: AppTheme.primaryColor),
-                SizedBox(width: 8),
-                Text('PAN Card', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Text('Enter your 10-digit PAN number',
-                style: TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _panController,
-              textCapitalization: TextCapitalization.characters,
-              maxLength: 10,
-              decoration: InputDecoration(
-                labelText: 'PAN Number',
-                hintText: 'ABCDE1234F',
-                errorText: _panError,
-                prefixIcon: const Icon(Icons.badge),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _loading ? null : _submitPan,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryColor,
-                  foregroundColor: Colors.white,
-                ),
-                child: _loading
-                    ? const SizedBox(height: 20, width: 20,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Verify PAN'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPanVerifiedCard(bool digilockerConnected) {
-    final pan = _kycStatus?['pan_number'] ?? '';
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.check_circle, color: AppTheme.successColor),
-                const SizedBox(width: 8),
-                Text(digilockerConnected ? 'PAN (DigiLocker Verified)' : 'PAN Card Verified',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const Spacer(),
-                if (!digilockerConnected)
-                  TextButton.icon(
-                    onPressed: () {
-                      _panController.text = pan;
-                      setState(() {
-                        _kycStatus?['pan_verified'] = false;
-                      });
-                    },
-                    icon: const Icon(Icons.edit, size: 16),
-                    label: const Text('Edit'),
-                    style: TextButton.styleFrom(foregroundColor: AppTheme.primaryColor),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.successColor.withAlpha(20),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.successColor.withAlpha(76)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.badge, color: AppTheme.successColor, size: 20),
-                  const SizedBox(width: 8),
-                  Text(pan, style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 16, letterSpacing: 1.5)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDigilockerCard() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
-              children: [
-                Icon(Icons.folder_special, color: Color(0xFF0066CC)),
-                SizedBox(width: 8),
-                Text('DigiLocker Verification',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Connect your DigiLocker account to verify Aadhaar. '
-              'You\'ll be redirected to the official DigiLocker portal.',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                children: [
-                  Icon(Icons.security, color: Colors.blue, size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Your data is securely fetched from government servers',
-                      style: TextStyle(color: Colors.blue, fontSize: 12),
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  // Status banner
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: statusColor.withAlpha(25),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: statusColor.withAlpha(80)),
                     ),
+                    child: Row(children: [
+                      Icon(statusIcon, color: statusColor, size: 36),
+                      const SizedBox(width: 14),
+                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 17, fontWeight: FontWeight.bold)),
+                        if (isPending) const Text('We will notify you once approved', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                        if (isRejected) const Text('Please re-submit your documents', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                        if (!isVerified && !isPending && !isRejected)
+                          const Text('Complete KYC to unlock all features', style: TextStyle(color: Colors.black54, fontSize: 12)),
+                      ])),
+                    ]),
                   ),
-                ],
+                  const SizedBox(height: 24),
+
+                  if (isVerified) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: AppTheme.successColor.withAlpha(20),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Column(children: [
+                        Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 52),
+                        SizedBox(height: 10),
+                        Text('Your KYC is fully verified.', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        SizedBox(height: 4),
+                        Text('All features are unlocked.', style: TextStyle(color: Colors.black54)),
+                      ]),
+                    ),
+                  ] else ...[
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Choose Verification Method', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // DigiLocker
+                    _MethodCard(
+                      icon: Icons.folder_special_rounded,
+                      color: const Color(0xFF0066CC),
+                      title: 'DigiLocker',
+                      subtitle: 'Verify PAN & Aadhaar instantly via government DigiLocker portal.',
+                      badge: digiConnected ? 'Connected' : null,
+                      badgeColor: AppTheme.successColor,
+                      buttonLabel: digiConnected ? 'Re-verify DigiLocker' : 'Open DigiLocker',
+                      onTap: _openDigilocker,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Cashfree
+                    _MethodCard(
+                      icon: Icons.verified_outlined,
+                      color: const Color(0xFF00C853),
+                      title: 'Cashfree Verification',
+                      subtitle: 'Verify PAN & Aadhaar using Cashfree secure identity check.',
+                      buttonLabel: 'Verify with Cashfree',
+                      onTap: _openCashfreeSheet,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Manual
+                    _MethodCard(
+                      icon: Icons.upload_file_rounded,
+                      color: AppTheme.secondaryColor,
+                      title: 'Manual Upload',
+                      subtitle: 'Upload clear scans or photos of your PAN card and Aadhaar.',
+                      buttonLabel: 'Upload Documents',
+                      onTap: _openManualSheet,
+                    ),
+                  ],
+                  const SizedBox(height: 32),
+                ]),
               ),
             ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _digilockerLoading ? null : _initDigilocker,
-                icon: _digilockerLoading
-                    ? const SizedBox(height: 16, width: 16,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Icon(Icons.open_in_browser),
-                label: const Text('Connect DigiLocker'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0066CC),
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
+}
 
-  Widget _buildDigilockerConnectedCard() {
-    return Card(
+class _MethodCard extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title, subtitle, buttonLabel;
+  final String? badge;
+  final Color? badgeColor;
+  final VoidCallback onTap;
+
+  const _MethodCard({
+    required this.icon, required this.color,
+    required this.title, required this.subtitle, required this.buttonLabel,
+    required this.onTap, this.badge, this.badgeColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 8, offset: const Offset(0, 2))],
+        border: Border.all(color: color.withAlpha(40)),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.verified, color: AppTheme.successColor),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: color.withAlpha(20), shape: BoxShape.circle),
+            child: Icon(icon, color: color, size: 26),
+          ),
+          const SizedBox(width: 14),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              if (badge != null) ...[
                 const SizedBox(width: 8),
-                const Text('DigiLocker Connected',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const Spacer(),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.successColor.withAlpha(26),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text('Verified',
-                      style: TextStyle(color: AppTheme.successColor, fontSize: 11,
-                          fontWeight: FontWeight.w600)),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(color: (badgeColor ?? AppTheme.successColor).withAlpha(30), borderRadius: BorderRadius.circular(10)),
+                  child: Text(badge!, style: TextStyle(color: badgeColor ?? AppTheme.successColor, fontSize: 10, fontWeight: FontWeight.w700)),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.successColor.withAlpha(20),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.successColor.withAlpha(60)),
-              ),
-              child: const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Aadhaar & PAN verified via DigiLocker',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  SizedBox(height: 4),
-                  Text('Your identity has been verified using government records',
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard() {
-    return Card(
-      color: Colors.amber.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(children: [
-              const Icon(Icons.info, color: Colors.amber),
-              const SizedBox(width: 8),
-              Text('Why KYC?',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.amber.shade900)),
             ]),
-            const SizedBox(height: 8),
-            const Text(
-              '• Required by RBI regulations for chit fund operations\n'
-              '• Ensures secure transactions and fraud prevention\n'
-              '• One-time process — valid for life of your account\n'
-              '• Mandatory to participate in auctions',
-              style: TextStyle(fontSize: 13, height: 1.6),
+            const SizedBox(height: 4),
+            Text(subtitle, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              height: 38,
+              child: ElevatedButton(
+                onPressed: onTap,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  elevation: 0,
+                ),
+                child: Text(buttonLabel, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              ),
             ),
-          ],
-        ),
+          ])),
+        ]),
       ),
     );
   }
