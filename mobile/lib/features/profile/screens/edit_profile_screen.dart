@@ -91,7 +91,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 10),
             _btn(loading ? 'Sending OTP…' : 'Send OTP', loading: loading, onTap: () async {
               final email = ec.text.trim();
-              if (!RegExp(r'^[\w.+-]+@[\w.-]+\.[a-z]{2,}$', caseSensitive: false).hasMatch(email)) {
+              if (!RegExp(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$').hasMatch(email)) {
                 ss(() => err = 'Enter a valid email'); return;
               }
               ss(() { loading = true; err = null; });
@@ -456,6 +456,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _tf(TextEditingController ctrl, String label, IconData icon,
       {TextInputType type = TextInputType.text, List<TextInputFormatter>? formatters, ValueChanged<String>? onChange}) =>
     TextField(controller: ctrl, keyboardType: type, inputFormatters: formatters, onChanged: onChange,
+      autocorrect: type != TextInputType.emailAddress,
+      enableSuggestions: type != TextInputType.emailAddress,
+      textCapitalization: type == TextInputType.emailAddress ? TextCapitalization.none : TextCapitalization.sentences,
       decoration: InputDecoration(labelText: label, prefixIcon: Icon(icon, size: 20),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10))));
 
