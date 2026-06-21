@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import '../../../core/providers/chit_group_provider.dart';
 import '../../../core/providers/dashboard_provider.dart';
-import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/celebration_overlay.dart';
 
@@ -157,86 +156,6 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
   // Item 23: checkbox selection for bottom Invest Now button
   final Set<String> _selectedIds = {};
 
-  Future<bool> _ensureEnrollmentAllowed() async {
-    try {
-      final profileRes = await ApiService.get('/users/profile');
-      if (profileRes['success'] != true) {
-        return false;
-      }
-
-      final profile = Map<String, dynamic>.from(profileRes['data'] ?? const {});
-      final kycStatus = (profile['kyc_status'] ?? '').toString().toLowerCase();
-      final profileStatus =
-          (profile['profile_edit_status'] ?? 'none').toString().toLowerCase();
-
-      if (kycStatus != 'verified') {
-        if (!mounted) return false;
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('KYC Required'),
-            content: const Text(
-                'Please complete KYC verification first. Group joining is enabled only after KYC is verified.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Close')),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  if (mounted) context.push('/kyc');
-                },
-                child: const Text('Go to KYC'),
-              ),
-            ],
-          ),
-        );
-        return false;
-      }
-
-      if (profileStatus == 'pending') {
-        if (!mounted) return false;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-                'Your profile is under admin review. You can join chit groups after final approval.'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-        return false;
-      }
-
-      if (profileStatus != 'approved') {
-        if (!mounted) return false;
-        await showDialog<void>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Profile Approval Required'),
-            content: const Text(
-                'Submit your profile details first. Group joining is available after admin final approval.'),
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(),
-                  child: const Text('Close')),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  if (mounted) context.push('/edit-profile');
-                },
-                child: const Text('Complete Profile'),
-              ),
-            ],
-          ),
-        );
-        return false;
-      }
-
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<bool> _confirmEnrollment(Map<String, dynamic> group) async {
     final groupName = (group['group_name'] ?? 'this chit group').toString();
     final monthly =
@@ -306,8 +225,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
 
   Future<void> _investNow() async {
     if (_selectedIds.isEmpty) return;
-    final allowed = await _ensureEnrollmentAllowed();
-    if (!context.mounted || !allowed) return;
+    if (!context.mounted) return;
 
     for (final id in _selectedIds.toList()) {
       final group = _available.firstWhere(
