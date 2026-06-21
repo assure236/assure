@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { User, FamilyMember } = require('../models');
 const logger = require('../utils/logger');
 
 // ─── In-memory user cache (avoids DB hit on every authenticated request) ─────
@@ -23,6 +23,39 @@ function setCachedUser(userId, user) {
     userCache.delete(firstKey);
   }
   userCache.set(userId, { user, ts: Date.now() });
+}
+
+async function resolveActiveMemberContext(authUser, requestedMemberId) {
+  const memberId = String(requestedMemberId || '').trim().toUpperCase();
+  if (!memberId || memberId === 'ME') return { user: authUser, switched: false };
+  if ((authUser.member_id || '').toUpperCase() === memberId) {
+    return { user: authUser, switched: false };
+  }
+
+  const target = await User.findOne({ member_id: memberId, is_active: true })
+    .select('-password_hash')
+    .lean();
+  if (!target) {
+    return { user: authUser, switched: false };
+  }
+
+  const linkFilter = {
+    user_id: authUser._id,
+    is_active: true,
+    status: { $in: ['approved', 'linked'] },
+    $or: [
+      { linked_user_id: target._id },
+      { member_id: target.member_id },
+    ],
+  };
+
+  const relation = await FamilyMember.findOne(linkFilter).select('_id').lean();
+  if (!relation) {
+    return { user: authUser, switched: false };
+  }
+
+  target.id = String(target._id);
+  return { user: target, switched: true };
 }
 
 // Exported so other code can invalidate on profile update / deactivation
@@ -89,6 +122,23 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.user = user;
+
+    const requestedMemberId =
+      req.headers['x-active-member-id'] ||
+      req.query?.active_member_id;
+
+    req.auth_user = user;
+    req.active_member_context = {
+      requested_member_id: requestedMemberId ? String(requestedMemberId).toUpperCase() : null,
+      switched: false,
+    };
+
+    if (requestedMemberId && user.role === 'member') {
+      const resolved = await resolveActiveMemberContext(user, requestedMemberId);
+      req.user = resolved.user;
+      req.active_member_context.switched = resolved.switched;
+    }
+
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') return res.status(401).json({ success: false, message: 'Invalid token.' });

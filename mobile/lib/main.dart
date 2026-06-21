@@ -6,6 +6,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/providers/auth_provider.dart';
+import 'core/providers/active_member_provider.dart';
 import 'core/providers/chit_group_provider.dart';
 import 'core/providers/auction_provider.dart';
 import 'core/providers/payment_provider.dart';
@@ -19,16 +20,16 @@ import 'core/utils/app_prefs.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize Firebase
   await Firebase.initializeApp();
-  
+
   // Set up background message handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-  
+
   // Initialize FCM service
   await FcmService().init();
-  
+
   // Initialize local notifications (for polling fallback)
   await LocalNotificationService().init();
 
@@ -40,7 +41,7 @@ void main() async {
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
-  
+
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -48,7 +49,7 @@ void main() async {
       statusBarIconBrightness: Brightness.dark,
     ),
   );
-  
+
   runApp(const AssureChitFundsApp());
 }
 
@@ -81,6 +82,7 @@ class _AssureChitFundsAppState extends State<AssureChitFundsApp> {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: _authProvider),
+        ChangeNotifierProvider(create: (_) => ActiveMemberProvider()),
         ChangeNotifierProvider(create: (_) => ChitGroupProvider()),
         ChangeNotifierProvider(create: (_) => AuctionProvider()),
         ChangeNotifierProvider(create: (_) => PaymentProvider()),

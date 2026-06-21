@@ -9,6 +9,7 @@ class ApiService {
   static String get baseUrl => AppConfig.apiBaseUrl;
   static String get socketUrl => AppConfig.socketUrl;
   static const _timeout = Duration(seconds: 30);
+  static const _activeMemberPrefsKey = 'active_member_id';
 
   /// Callback set by AuthProvider to handle forced logout on 401
   static Future<void> Function()? onUnauthorized;
@@ -18,7 +19,44 @@ class ApiService {
     return prefs.getString('token');
   }
 
-  static Future<Map<String, dynamic>> _handleResponse(http.Response response) async {
+  static Future<String?> _getActiveMemberId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getString(_activeMemberPrefsKey)?.trim();
+    if (value == null || value.isEmpty) return null;
+    return value.toUpperCase();
+  }
+
+  static bool _shouldAttachActiveMember(String endpoint) {
+    final normalized = endpoint.toLowerCase();
+    if (normalized.startsWith('/auth/')) return false;
+    if (normalized.startsWith('/users/family-members')) return false;
+    return true;
+  }
+
+  static Future<Uri> _buildUri(String endpoint) async {
+    final base = Uri.parse('$baseUrl$endpoint');
+    if (!_shouldAttachActiveMember(endpoint)) return base;
+
+    final activeMemberId = await _getActiveMemberId();
+    if (activeMemberId == null) return base;
+
+    final qp = Map<String, String>.from(base.queryParameters);
+    qp['active_member_id'] = activeMemberId;
+    return base.replace(queryParameters: qp);
+  }
+
+  static Future<Map<String, String>> _buildHeaders() async {
+    final token = await _getToken();
+    final activeMemberId = await _getActiveMemberId();
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+      if (activeMemberId != null) 'X-Active-Member-Id': activeMemberId,
+    };
+  }
+
+  static Future<Map<String, dynamic>> _handleResponse(
+      http.Response response) async {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     if (response.statusCode == 401 && onUnauthorized != null) {
       await onUnauthorized!();
@@ -27,42 +65,40 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> get(String endpoint) async {
-    final token = await _getToken();
-    final response = await http.get(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
-    ).timeout(_timeout);
+    final uri = await _buildUri(endpoint);
+    final headers = await _buildHeaders();
+    final response = await http
+        .get(
+          uri,
+          headers: headers,
+        )
+        .timeout(_timeout);
 
     return _handleResponse(response);
   }
 
   static Future<Map<String, dynamic>> post(
       String endpoint, Map<String, dynamic> data) async {
-    final token = await _getToken();
-    final response = await http.post(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(data),
-    ).timeout(_timeout);
+    final uri = await _buildUri(endpoint);
+    final headers = await _buildHeaders();
+    final response = await http
+        .post(
+          uri,
+          headers: headers,
+          body: jsonEncode(data),
+        )
+        .timeout(_timeout);
 
     return _handleResponse(response);
   }
 
   static Future<Map<String, dynamic>> put(
       String endpoint, Map<String, dynamic> data) async {
-    final token = await _getToken();
+    final uri = await _buildUri(endpoint);
+    final headers = await _buildHeaders();
     final response = await http.put(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
+      uri,
+      headers: headers,
       body: jsonEncode(data),
     );
 
@@ -70,13 +106,11 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> delete(String endpoint) async {
-    final token = await _getToken();
+    final uri = await _buildUri(endpoint);
+    final headers = await _buildHeaders();
     final response = await http.delete(
-      Uri.parse('$baseUrl$endpoint'),
-      headers: {
-        'Content-Type': 'application/json',
-        if (token != null) 'Authorization': 'Bearer $token',
-      },
+      uri,
+      headers: headers,
     );
 
     return _handleResponse(response);
@@ -89,12 +123,17 @@ class ApiService {
     Map<String, String>? extraFields,
   }) async {
     final token = await _getToken();
+    final activeMemberId = await _getActiveMemberId();
+    final uri = await _buildUri(endpoint);
     final request = http.MultipartRequest(
       'POST',
-      Uri.parse('$baseUrl$endpoint'),
+      uri,
     );
     if (token != null) {
       request.headers['Authorization'] = 'Bearer $token';
+    }
+    if (activeMemberId != null) {
+      request.headers['X-Active-Member-Id'] = activeMemberId;
     }
     // Determine MIME type from file extension (MultipartFile.fromPath often sends application/octet-stream)
     final ext = filePath.split('.').last.toLowerCase();

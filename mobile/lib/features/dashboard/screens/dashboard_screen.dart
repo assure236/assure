@@ -1,11 +1,13 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/providers/active_member_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/providers/auction_provider.dart';
+import '../../../core/providers/chit_group_provider.dart';
 import '../../../core/providers/dashboard_provider.dart';
 import '../../../core/providers/notification_provider.dart';
 import '../../../core/providers/payment_provider.dart';
@@ -329,7 +331,6 @@ class _HeaderSection extends StatefulWidget {
 
 class _HeaderSectionState extends State<_HeaderSection> {
   List<Map<String, dynamic>> _familyMembers = [];
-  String _activeId = 'me';
 
   @override
   void initState() {
@@ -341,11 +342,40 @@ class _HeaderSectionState extends State<_HeaderSection> {
     try {
       final res = await ApiService.get('/users/family-members');
       if (res['success'] == true && mounted) {
+        final members = List<Map<String, dynamic>>.from(res['data'] ?? []);
+        final linkedIds = members
+            .where((m) =>
+                (m['status'] ?? '') == 'approved' ||
+                (m['status'] ?? '') == 'linked')
+            .map((m) => (m['member_id'] ?? '').toString().toUpperCase())
+            .where((v) => v.isNotEmpty)
+            .toSet();
+        final activeProvider = context.read<ActiveMemberProvider>();
+        final active = activeProvider.activeMemberId?.toUpperCase();
+        if (active != null && !linkedIds.contains(active)) {
+          await activeProvider.setActiveMemberId(null);
+        }
         setState(() {
-          _familyMembers = List<Map<String, dynamic>>.from(res['data'] ?? []);
+          _familyMembers = members;
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _switchActiveMember(String selected) async {
+    final provider = context.read<ActiveMemberProvider>();
+    final target = selected == 'me' ? null : selected;
+    await provider.setActiveMemberId(target);
+
+    if (!mounted) return;
+
+    await Future.wait([
+      context.read<DashboardProvider>().refresh(),
+      context.read<PaymentProvider>().fetchPayments(),
+      context.read<ChitGroupProvider>().fetchMyChitGroups(),
+      context.read<AuctionProvider>().fetchAuctions(),
+      context.read<NotificationProvider>().refresh(),
+    ]);
   }
 
   @override
@@ -360,18 +390,35 @@ class _HeaderSectionState extends State<_HeaderSection> {
     final dropdownItems = <DropdownMenuItem<String>>[
       DropdownMenuItem(
         value: 'me',
-        child: Text(selfId, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+        child: Text(selfId,
+            style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600)),
       ),
       ..._familyMembers
-          .where((m) => (m['status'] ?? '') == 'approved' || (m['status'] ?? '') == 'linked')
+          .where((m) =>
+              (m['status'] ?? '') == 'approved' ||
+              (m['status'] ?? '') == 'linked')
           .map((m) => DropdownMenuItem(
                 value: m['member_id']?.toString() ?? m['_id']?.toString() ?? '',
                 child: Text(
-                  m['member_id']?.toString() ?? m['full_name']?.toString() ?? '',
-                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                  m['member_id']?.toString() ??
+                      m['full_name']?.toString() ??
+                      '',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600),
                 ),
               )),
     ];
+
+    final activeMemberId = context.watch<ActiveMemberProvider>().activeMemberId;
+    final validValues =
+        dropdownItems.map((e) => e.value).whereType<String>().toSet();
+    final selectedValue =
+        validValues.contains(activeMemberId) ? activeMemberId! : 'me';
 
     return Container(
       decoration: const BoxDecoration(
@@ -448,20 +495,24 @@ class _HeaderSectionState extends State<_HeaderSection> {
                                 const SizedBox(height: 2),
                                 Container(
                                   height: 24,
-                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  padding:
+                                      const EdgeInsets.symmetric(horizontal: 8),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withAlpha(40),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: DropdownButtonHideUnderline(
                                     child: DropdownButton<String>(
-                                      value: _activeId,
-                                      icon: const Icon(Icons.arrow_drop_down, color: Colors.white, size: 16),
+                                      value: selectedValue,
+                                      icon: const Icon(Icons.arrow_drop_down,
+                                          color: Colors.white, size: 16),
                                       isDense: true,
                                       dropdownColor: AppTheme.primaryColor,
                                       items: dropdownItems,
                                       onChanged: (val) {
-                                        if (val != null) setState(() => _activeId = val);
+                                        if (val != null) {
+                                          _switchActiveMember(val);
+                                        }
                                       },
                                     ),
                                   ),
@@ -559,9 +610,7 @@ class _HeaderSectionState extends State<_HeaderSection> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              kycVerified
-                                  ? 'KYC Verified'
-                                  : 'KYC Not Verified',
+                              kycVerified ? 'KYC Verified' : 'KYC Not Verified',
                               style: TextStyle(
                                 color: kycVerified
                                     ? Colors.greenAccent
@@ -1327,7 +1376,10 @@ class _UpcomingAuctions extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                     child: Icon(Icons.gavel_rounded,
-                        color: isLive ? AppTheme.errorColor : AppTheme.purpleAccent, size: 20),
+                        color: isLive
+                            ? AppTheme.errorColor
+                            : AppTheme.purpleAccent,
+                        size: 20),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1353,7 +1405,9 @@ class _UpcomingAuctions extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: isLive ? AppTheme.errorColor : AppTheme.purpleAccent,
+                          color: isLive
+                              ? AppTheme.errorColor
+                              : AppTheme.purpleAccent,
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -1728,8 +1782,7 @@ class _SetGoalBanner extends StatelessWidget {
                             fontSize: 15)),
                     SizedBox(height: 4),
                     Text('Plan your savings and achieve targets faster',
-                        style:
-                            TextStyle(color: Colors.white70, fontSize: 12)),
+                        style: TextStyle(color: Colors.white70, fontSize: 12)),
                   ],
                 ),
               ),
