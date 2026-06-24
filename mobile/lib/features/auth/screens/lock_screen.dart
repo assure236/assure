@@ -1,5 +1,4 @@
 ﻿import 'package:flutter/material.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
@@ -48,18 +47,8 @@ class _LockScreenState extends State<LockScreen> {
   Future<void> _checkBiometrics() async {
     final auth = context.read<AuthProvider>();
 
-    // OTP is required only after 48h of no app usage.
-    final prefs = await SharedPreferences.getInstance();
-    final lastActivityMs = prefs.getInt('last_activity_at') ?? 0;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    final reauthMs = 2 * 24 * 60 * 60 * 1000;
-    final otpRequiredByInactivity =
-        lastActivityMs > 0 && (now - lastActivityMs) >= reauthMs;
-    final otpRequiredBySession = auth.otpRequiredForUnlock;
-    final otpRequired = otpRequiredByInactivity || otpRequiredBySession;
-
-    if (otpRequired) {
-      // Long idle re-auth requires OTP.
+    // OTP only after 48h idle — normal 10 min lock uses fingerprint only.
+    if (auth.requiresOtpUnlock) {
       if (mounted) {
         setState(() {
           _biometricsAvailable = false;
@@ -100,33 +89,23 @@ class _LockScreenState extends State<LockScreen> {
       );
       if (authenticated && mounted) {
         setState(() => _isLoading = true);
-        // SECURITY FIX: read token from secure storage only.
-        const storage = FlutterSecureStorage();
-        final token = await storage.read(key: 'access_token');
+        final auth = context.read<AuthProvider>();
+        final unlocked = await auth.unlockAfterBiometric();
         if (!mounted) return;
 
-        if (token != null) {
-          final auth = context.read<AuthProvider>();
-          try {
-            await auth.refreshProfile();
-            if (auth.user != null && mounted) {
-              auth.authenticateFromBiometric();
-              context.go('/dashboard');
-              return;
-            }
-          } catch (_) {}
+        if (unlocked) {
+          context.go('/dashboard');
+          return;
         }
 
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _showOtpFallback = true;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Session expired. Please verify with OTP.'),
-            behavior: SnackBarBehavior.floating,
-          ));
-        }
+        setState(() {
+          _isLoading = false;
+          _showOtpFallback = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Session expired. Please verify with OTP.'),
+          behavior: SnackBarBehavior.floating,
+        ));
       }
     } catch (e) {
       debugPrint('Biometric auth error: $e');

@@ -16,6 +16,58 @@ class ApiService {
   /// Callback set by AuthProvider to handle forced logout on 401
   static Future<void> Function()? onUnauthorized;
 
+  static bool _isRefreshing = false;
+
+  static Future<bool> tryRefreshAccessToken() async {
+    if (_isRefreshing) return false;
+    _isRefreshing = true;
+    try {
+      final refreshToken = await _secureStorage.read(key: 'refresh_token');
+      if (refreshToken == null || refreshToken.isEmpty) return false;
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/refresh-token'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'refreshToken': refreshToken}),
+          )
+          .timeout(_timeout);
+
+      if (response.statusCode != 200) return false;
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      if (body['success'] != true) return false;
+
+      final data = body['data'] as Map<String, dynamic>?;
+      final accessToken = data?['token']?.toString();
+      if (accessToken == null || accessToken.isEmpty) return false;
+
+      await _secureStorage.write(key: 'access_token', value: accessToken);
+      final rotatedRefresh = data?['refreshToken']?.toString();
+      if (rotatedRefresh != null && rotatedRefresh.isNotEmpty) {
+        await _secureStorage.write(key: 'refresh_token', value: rotatedRefresh);
+      }
+      return true;
+    } catch (_) {
+      return false;
+    } finally {
+      _isRefreshing = false;
+    }
+  }
+
+  static Future<http.Response> _sendGet(Uri uri, Map<String, String> headers) {
+    return http.get(uri, headers: headers).timeout(_timeout);
+  }
+
+  static Future<http.Response> _sendPost(
+    Uri uri,
+    Map<String, String> headers,
+    Map<String, dynamic> data,
+  ) {
+    return http
+        .post(uri, headers: headers, body: jsonEncode(data))
+        .timeout(_timeout);
+  }
+
   static Future<String?> _getToken() async {
     // SECURITY FIX: fetch auth token only from encrypted secure storage.
     return _secureStorage.read(key: 'access_token');
@@ -62,53 +114,71 @@ class ApiService {
   }
 
   static Future<Map<String, dynamic>> _handleResponse(
-      http.Response response) async {
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode == 401 && onUnauthorized != null) {
+      http.Response response,
+      {String? retryEndpoint, Future<http.Response> Function()? retry}) async {
+    if (response.statusCode == 401 &&
+        retryEndpoint != null &&
+        retryEndpoint != '/auth/refresh-token' &&
+        retry != null) {
+      final refreshed = await tryRefreshAccessToken();
+      if (refreshed) {
+        final retryResponse = await retry();
+        return _handleResponse(retryResponse);
+      }
+      if (onUnauthorized != null) {
+        await onUnauthorized!();
+      }
+    } else if (response.statusCode == 401 && onUnauthorized != null) {
       await onUnauthorized!();
     }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
     return body;
   }
 
   static Future<Map<String, dynamic>> get(String endpoint) async {
     final uri = await _buildUri(endpoint);
     final headers = await _buildHeaders(endpoint);
-    final response = await http
-        .get(
-          uri,
-          headers: headers,
-        )
-        .timeout(_timeout);
+    var response = await _sendGet(uri, headers);
 
-    return _handleResponse(response);
+    return _handleResponse(
+      response,
+      retryEndpoint: endpoint,
+      retry: () async {
+        final retryHeaders = await _buildHeaders(endpoint);
+        return _sendGet(uri, retryHeaders);
+      },
+    );
   }
 
   static Future<Map<String, dynamic>> getWithoutActiveMember(String endpoint) async {
     final uri = await _buildUri(endpoint, includeActiveMember: false);
     final headers = await _buildHeaders(endpoint, includeActiveMember: false);
-    final response = await http
-        .get(
-          uri,
-          headers: headers,
-        )
-        .timeout(_timeout);
+    var response = await _sendGet(uri, headers);
 
-    return _handleResponse(response);
+    return _handleResponse(
+      response,
+      retryEndpoint: endpoint,
+      retry: () async {
+        final retryHeaders = await _buildHeaders(endpoint, includeActiveMember: false);
+        return _sendGet(uri, retryHeaders);
+      },
+    );
   }
 
   static Future<Map<String, dynamic>> post(
       String endpoint, Map<String, dynamic> data) async {
     final uri = await _buildUri(endpoint);
     final headers = await _buildHeaders(endpoint);
-    final response = await http
-        .post(
-          uri,
-          headers: headers,
-          body: jsonEncode(data),
-        )
-        .timeout(_timeout);
+    final response = await _sendPost(uri, headers, data);
 
-    return _handleResponse(response);
+    return _handleResponse(
+      response,
+      retryEndpoint: endpoint,
+      retry: () async {
+        final retryHeaders = await _buildHeaders(endpoint);
+        return _sendPost(uri, retryHeaders, data);
+      },
+    );
   }
 
   /// Account-level auth calls must never carry the family-member switch header.

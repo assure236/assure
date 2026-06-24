@@ -36,6 +36,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   String? get sessionDevice => _sessionDevice;
   DateTime? get sessionLoginAt => _sessionLoginAt;
   bool get otpRequiredForUnlock => _otpRequiredForUnlock;
+  bool get requiresOtpUnlock => _otpRequiredForUnlock || _isOtpReauthDue();
   DateTime? get lastActivityAt => _lastActivityAt;
   String? get loginMemberId => _loginMemberId;
 
@@ -125,8 +126,14 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
 
     if (_token != null) {
-      unawaited(_syncPrimaryProfile());
+      unawaited(_restoreSessionQuietly());
     }
+  }
+
+  Future<void> _restoreSessionQuietly() async {
+    await ApiService.tryRefreshAccessToken();
+    _token = await _secureStorage.read(key: 'access_token');
+    await _syncPrimaryProfile();
   }
 
   Future<void> _syncPrimaryProfile() async {
@@ -371,8 +378,11 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
     final prefs = await SharedPreferences.getInstance();
     if (_token != null) {
-      // SECURITY FIX: store auth token only in encrypted secure storage.
       await _secureStorage.write(key: 'access_token', value: _token!);
+    }
+    final refreshToken = res['data']?['refreshToken']?.toString();
+    if (refreshToken != null && refreshToken.isNotEmpty) {
+      await _secureStorage.write(key: 'refresh_token', value: refreshToken);
     }
     await prefs.setString('user', jsonEncode(_user!.toJson()));
     await prefs.setBool('hasLocalAccount', true);
@@ -406,6 +416,30 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   // ─── QR Login — confirm a web QR session from the mobile app ──────────────
+
+  /// Unlock after biometric — refresh token if needed, keep cached profile (no OTP).
+  Future<bool> unlockAfterBiometric() async {
+    if (_otpRequiredForUnlock || _isOtpReauthDue()) {
+      return false;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final userJson = prefs.getString('user');
+    if (userJson != null) {
+      _user = User.fromJson(jsonDecode(userJson));
+    }
+    _token = await _secureStorage.read(key: 'access_token');
+
+    if (_user == null) return false;
+
+    await ApiService.tryRefreshAccessToken();
+    _token = await _secureStorage.read(key: 'access_token');
+    if (_token == null) return false;
+
+    authenticateFromBiometric();
+    unawaited(refreshProfile());
+    return true;
+  }
 
   /// Called after successful biometric authentication with a valid stored token.
   void authenticateFromBiometric() {
@@ -461,6 +495,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     await prefs.remove('login_member_id');
     await prefs.remove('active_member_id');
     await _secureStorage.delete(key: 'access_token');
+    await _secureStorage.delete(key: 'refresh_token');
 
     notifyListeners();
   }

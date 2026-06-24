@@ -372,10 +372,14 @@ exports.refreshToken = async (req, res, next) => {
       ? generateRefreshToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
       : generateRefreshToken(user._id, user.token_version || 0);
     setAuthCookies(res, token, newRefreshToken);
-    // SECURITY FIX: tokens travel via HttpOnly cookies; body returns access token only.
+    // Web clients use HttpOnly cookies; mobile clients send refreshToken in body and need the rotated token back.
+    const payload = { token };
+    if (req.body?.refreshToken) {
+      payload.refreshToken = newRefreshToken;
+    }
     res.json({
       success: true,
-      data: { token },
+      data: payload,
     });
   } catch (error) { next(error); }
 };
