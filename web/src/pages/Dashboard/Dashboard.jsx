@@ -23,6 +23,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { securityLogger } from '../../utils/securityLogger';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import SimpleTour from '../../components/Onboarding/SimpleTour';
 import ReferralShareModal from '../../components/Onboarding/ReferralShareModal';
@@ -126,7 +127,8 @@ const Dashboard = () => {
       }
     } catch (err) {
       setError('Could not load dashboard data. Please refresh.');
-      console.error('Dashboard error:', err);
+      // SECURITY FIX: sanitize dashboard error logging.
+      securityLogger.error('Dashboard load failed', { status: err?.response?.status });
     } finally {
       setLoading(false);
     }

@@ -18,6 +18,7 @@ import {
 import axios from 'axios';
 import { useActiveMember } from '../../context/ActiveMemberContext';
 import { toast } from 'react-toastify';
+import { securityLogger } from '../../utils/securityLogger';
 
 const statusConfig = {
   success: { color: 'success', icon: <PaidIcon />, bg: 'success.main' },
@@ -140,7 +141,8 @@ const Payments = () => {
           await verifyPaymentOrder(order_id, newPaymentId);
           await fetchPayments();
         } catch (sdkErr) {
-          console.error('Cashfree checkout error:', sdkErr);
+          // SECURITY FIX: sanitize SDK checkout errors in logs.
+          securityLogger.error('Cashfree checkout failed', { code: sdkErr?.code });
           toast.error('Payment checkout failed. Please try again.');
           setPaymentStep(0);
         }

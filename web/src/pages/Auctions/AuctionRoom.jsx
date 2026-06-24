@@ -18,6 +18,7 @@ import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
 import { getSocketUrl } from '../../config/env';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { getAccessToken } from '../../context/AuthContext';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import {
   ResponsiveContainer,
@@ -174,7 +175,8 @@ const AuctionRoom = () => {
     fetchBidAnalytics();
 
     // Socket.io real-time connection
-    const token = localStorage.getItem('token') || axios.defaults.headers.common['Authorization']?.replace('Bearer ', '');
+    // SECURITY FIX: use in-memory access token, not localStorage.
+    const token = getAccessToken() || axios.defaults.headers.common['Authorization']?.replace('Bearer ', '');
     const socket = io(getSocketUrl(), {
       auth: { token },
       transports: ['websocket', 'polling'],

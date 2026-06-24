@@ -2,8 +2,15 @@ import React, { createContext, useState, useContext, useEffect, useRef } from 'r
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { io } from 'socket.io-client';
+import { securityLogger } from '../utils/securityLogger';
 
 const AuthContext = createContext(null);
+// SECURITY FIX: keep access token in memory (not localStorage).
+let _accessToken = null;
+export const getAccessToken = () => _accessToken;
+const setAccessToken = (token) => {
+  _accessToken = token || null;
+};
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -13,23 +20,39 @@ export const useAuth = () => {
   return context;
 };
 
-// Restore user from localStorage cache on startup
-const restoreUser = () => {
-  try {
-    const cached = localStorage.getItem('user');
-    return cached ? JSON.parse(cached) : null;
-  } catch { return null; }
-};
-
 const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(restoreUser);
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // SECURITY FIX: silently refresh web session from HttpOnly refresh cookie on app load.
+    const bootstrapSession = async () => {
+      try {
+        axios.defaults.withCredentials = true;
+        const refreshRes = await axios.post('/auth/refresh-token', {});
+        const newToken = refreshRes?.data?.data?.token;
+        if (!newToken) {
+          setLoading(false);
+          return;
+        }
+        setAccessToken(newToken);
+        setToken(newToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+        await fetchUserProfile();
+      } catch (_) {
+        setLoading(false);
+      }
+    };
+    bootstrapSession();
+  }, []);
 
   // Set axios defaults
   useEffect(() => {
+    // SECURITY FIX: always include secure auth cookies in API requests.
+    axios.defaults.withCredentials = true;
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchUserProfile();
@@ -121,12 +144,10 @@ export const AuthProvider = ({ children }) => {
   const fetchUserProfile = async () => {
     try {
       const response = await axios.get('/users/profile', { skipActiveMember: true });
-      if (response.data.success) {
-        setUser(response.data.data);
-        localStorage.setItem('user', JSON.stringify(response.data.data));
-      }
+      if (response.data.success) setUser(response.data.data);
     } catch (error) {
-      console.error('Error fetching user profile:', error);
+      // SECURITY FIX: avoid exposing raw auth/profile errors in console logs.
+      securityLogger.error('Profile fetch failed', { status: error?.response?.status });
       // Only force logout on definitive auth failure, not network/rate-limit errors
       if (error.response?.status === 401) {
         logout();
@@ -146,12 +167,11 @@ export const AuthProvider = ({ children }) => {
       );
 
       if (response.data.success) {
-        const { token, user } = response.data.data;
-        setToken(token);
+        const { token: accessToken, user } = response.data.data;
+        setAccessToken(accessToken);
+        setToken(accessToken);
         setUser(user);
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
         toast.success('Login successful!');
         return { success: true };
       }
@@ -170,12 +190,11 @@ export const AuthProvider = ({ children }) => {
       );
 
       if (response.data.success) {
-        const { token, user } = response.data.data;
-        setToken(token);
+        const { token: accessToken, user } = response.data.data;
+        setAccessToken(accessToken);
+        setToken(accessToken);
         setUser(user);
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
         toast.success('Registration successful!');
         return { success: true };
       }
@@ -189,8 +208,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     setToken(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    setAccessToken(null);
     localStorage.removeItem('lastActivity');
     localStorage.removeItem('active_member_id');
     delete axios.defaults.headers.common['Authorization'];
@@ -199,10 +217,9 @@ export const AuthProvider = ({ children }) => {
 
   // Used by QR login — mobile app confirms the scan and web gets token directly
   const loginWithToken = (newToken, newUser) => {
+    setAccessToken(newToken);
     setToken(newToken);
     setUser(newUser);
-    localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
     localStorage.removeItem('active_member_id');
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
   };
@@ -228,7 +245,6 @@ export const AuthProvider = ({ children }) => {
         const activeId = localStorage.getItem('active_member_id');
         if (!activeId) {
           setUser(response.data.data);
-          localStorage.setItem('user', JSON.stringify(response.data.data));
         }
         toast.success('Profile updated successfully');
         return { success: true, data: response.data.data };

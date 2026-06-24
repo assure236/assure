@@ -9,6 +9,7 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { getSocketUrl } from '../../config/env';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { securityLogger } from '../../utils/securityLogger';
 
 const formatRemaining = (seconds) => {
   const safe = Math.max(0, Number(seconds) || 0);
@@ -54,7 +55,8 @@ const Auctions = () => {
       if (res.data.success) setAuctions(res.data.data || []);
     } catch (err) {
       setError('Could not load auctions.');
-      console.error(err);
+      // SECURITY FIX: sanitize auction load error logging.
+      securityLogger.error('Auctions fetch failed', { status: err?.response?.status });
     } finally {
       setLoading(false);
     }

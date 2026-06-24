@@ -18,6 +18,7 @@ import {
   Info as InfoIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { securityLogger } from '../../utils/securityLogger';
 import { toast } from 'react-toastify';
 import { useActiveMember } from '../../context/ActiveMemberContext';
 
@@ -79,7 +80,8 @@ const Loans = () => {
       const res = await axios.get('/loans/my-loans');
       if (res.data.success) setLoans(res.data.data || []);
     } catch (err) {
-      console.error('Error fetching loans:', err);
+      // SECURITY FIX: sanitize loan API error logging.
+      securityLogger.error('Loans fetch failed', { status: err?.response?.status });
     } finally {
       setLoading(false);
     }
