@@ -66,8 +66,11 @@ const CreditScoreMeter = ({ score }) => {
 const Profile = () => {
   const navigate = useNavigate();
   const { updateProfile, logoutAllDevices } = useAuth();
-  const user = useDisplayUser();
+  const displayUser = useDisplayUser();
   const { refreshKey, isSwitched, reloadEffectiveProfile } = useActiveMember();
+  const [fullProfile, setFullProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(!isSwitched);
+  const user = isSwitched ? displayUser : (fullProfile || displayUser);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -88,6 +91,29 @@ const Profile = () => {
   const [pwDialog, setPwDialog] = useState(false);
   const [pwData, setPwData] = useState({ current_password: '', new_password: '', confirm: '' });
   const [pwError, setPwError] = useState('');
+
+  useEffect(() => {
+    if (isSwitched) {
+      setFullProfile(null);
+      setProfileLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setProfileLoading(true);
+    (async () => {
+      try {
+        const res = await axios.get('/users/profile', { skipActiveMember: true });
+        if (!cancelled && res.data.success) {
+          setFullProfile(res.data.data);
+        }
+      } catch {
+        if (!cancelled) setFullProfile(null);
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isSwitched, refreshKey]);
 
   useEffect(() => {
     if (!user) return;
@@ -115,7 +141,11 @@ const Profile = () => {
       const result = await updateProfile(formData);
       if (result?.success !== false) {
         setEditing(false);
-        await reloadEffectiveProfile();
+        if (isSwitched) {
+          await reloadEffectiveProfile();
+        } else if (result.data) {
+          setFullProfile(result.data);
+        }
       }
     } finally {
       setSaving(false);
@@ -170,6 +200,16 @@ const Profile = () => {
   const kycColors = { verified: 'success', pending: 'warning', rejected: 'error', not_verified: 'warning' };
   const kycLabels = { verified: 'Verified', pending: 'Under Review', rejected: 'Rejected', not_verified: 'Not Verified' };
   const initials = (user?.full_name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+
+  if (profileLoading && !isSwitched) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 2 }}>
+        <Box display="flex" justifyContent="center" py={6}>
+          <CircularProgress />
+        </Box>
+      </Container>
+    );
+  }
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>

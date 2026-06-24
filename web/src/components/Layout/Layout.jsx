@@ -184,7 +184,7 @@ const Layout = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Member Portal
           </Typography>
-          <Box sx={{ display: { xs: 'none', md: 'block' }, mr: 2 }}>
+          <Box sx={{ mr: 2, minWidth: { xs: 120, sm: 160 } }}>
             <MemberSwitcher compact />
           </Box>
           <IconButton color="inherit" onClick={() => navigate('/notifications')} sx={{ mr: 1 }}>

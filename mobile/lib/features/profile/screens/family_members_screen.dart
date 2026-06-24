@@ -23,7 +23,7 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
   Future<void> _loadMembers() async {
     setState(() => _loading = true);
     try {
-      final res = await ApiService.get('/users/family-members');
+      final res = await ApiService.get('/users/family-members?view=manage');
       if (res['success'] == true) {
         setState(() => _members = List<Map<String, dynamic>>.from(res['data'] ?? []));
       }

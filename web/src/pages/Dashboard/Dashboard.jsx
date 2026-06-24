@@ -27,7 +27,6 @@ import { securityLogger } from '../../utils/securityLogger';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import SimpleTour from '../../components/Onboarding/SimpleTour';
 import ReferralShareModal from '../../components/Onboarding/ReferralShareModal';
-import MemberSwitcher from '../../components/MemberSwitcher';
 
 const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
   <Card
@@ -190,7 +189,6 @@ const Dashboard = () => {
             Member ID: {displayUser?.member_id || '—'} &nbsp;|&nbsp; Last login today
           </Typography>
         </Box>
-        <MemberSwitcher onSwitch={fetchDashboardData} />
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}

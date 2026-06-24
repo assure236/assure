@@ -53,15 +53,15 @@ export const AuthProvider = ({ children }) => {
     axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
   };
 
-  const fetchUserProfile = async () => {
+  const fetchSessionUser = async () => {
     try {
-      const response = await axios.get('/users/profile', { skipActiveMember: true });
+      const response = await axios.get('/auth/me');
       if (response.data.success) {
         setUser(response.data.data);
         profileLoadedRef.current = true;
       }
     } catch (error) {
-      securityLogger.error('Profile fetch failed', { status: error?.response?.status });
+      securityLogger.error('Session user fetch failed', { status: error?.response?.status });
       if (error.response?.status === 401) {
         logout({ silent: true });
       }
@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }) => {
 
         sessionRestoredRef.current = true;
         applyToken(newToken);
-        await fetchUserProfile();
+        await fetchSessionUser();
       } catch (_) {
         if (mounted) setLoading(false);
       } finally {
@@ -201,7 +201,6 @@ export const AuthProvider = ({ children }) => {
         setUser(loginUser);
         setLoading(false);
         profileLoadedRef.current = true;
-        fetchUserProfile();
         toast.success('Login successful!');
         return { success: true };
       }
@@ -224,7 +223,6 @@ export const AuthProvider = ({ children }) => {
         setUser(registeredUser);
         setLoading(false);
         profileLoadedRef.current = true;
-        fetchUserProfile();
         toast.success('Registration successful!');
         return { success: true };
       }
@@ -255,7 +253,6 @@ export const AuthProvider = ({ children }) => {
     setUser(newUser);
     setLoading(false);
     localStorage.removeItem('active_member_id');
-    fetchUserProfile();
   };
 
   const logoutAllDevices = async () => {

@@ -21,13 +21,25 @@ function verifyFamilyOtp(key, otp) {
   return true;
 }
 
-// GET /api/v1/users/family-members
+// GET /api/v1/users/family-members — default view=switcher (minimal); view=manage for edit page
 exports.list = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
     const members = await FamilyMember.find({ user_id: userId, is_active: true })
       .sort({ created_at: -1 });
-    res.json({ success: true, data: members });
+    const view = String(req.query.view || 'switcher').toLowerCase();
+    if (view === 'manage' || view === 'full') {
+      return res.json({ success: true, data: members });
+    }
+    const data = members.map((m) => ({
+      id: String(m._id),
+      _id: String(m._id),
+      member_id: m.member_id,
+      full_name: m.full_name,
+      status: m.status,
+      relationship: m.relationship,
+    }));
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 

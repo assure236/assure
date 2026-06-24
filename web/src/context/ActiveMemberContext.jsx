@@ -30,6 +30,8 @@ export const ActiveMemberProvider = ({ children }) => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [effectiveProfile, setEffectiveProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  const [familyMembers, setFamilyMembers] = useState([]);
+  const [familyMembersLoading, setFamilyMembersLoading] = useState(false);
 
   const reloadEffectiveProfile = useCallback(async () => {
     if (!activeMemberId) {
@@ -62,6 +64,43 @@ export const ActiveMemberProvider = ({ children }) => {
 
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  const loadFamilyMembers = useCallback(async () => {
+    setFamilyMembersLoading(true);
+    try {
+      const res = await axios.get('/users/family-members?view=switcher');
+      if (res.data.success) {
+        const members = (res.data.data || []).filter(
+          (m) => ['approved', 'linked'].includes(m.status),
+        );
+        setFamilyMembers(members);
+        const stored = getActiveMemberId();
+        if (stored) {
+          const linked = new Set(
+            members.map((m) => (m.member_id || '').toString().toUpperCase()),
+          );
+          if (!linked.has(stored.toUpperCase())) {
+            setActiveMemberIdState(null);
+            localStorage.removeItem(ACTIVE_MEMBER_STORAGE_KEY);
+          }
+        }
+      }
+    } catch {
+      setFamilyMembers([]);
+    } finally {
+      setFamilyMembersLoading(false);
+    }
+  }, []);
+
+  const refreshFamilyMembers = useCallback(() => loadFamilyMembers(), [loadFamilyMembers]);
+
+  useEffect(() => {
+    if (!bootstrapDone || !isAuthenticated) {
+      setFamilyMembers([]);
+      return;
+    }
+    loadFamilyMembers();
+  }, [bootstrapDone, isAuthenticated, loadFamilyMembers]);
+
   useEffect(() => {
     if (!bootstrapDone || !isAuthenticated) return;
     if (!activeMemberId) {
@@ -84,6 +123,9 @@ export const ActiveMemberProvider = ({ children }) => {
         profileLoading,
         reloadEffectiveProfile,
         isSwitched,
+        familyMembers,
+        familyMembersLoading,
+        refreshFamilyMembers,
       }}
     >
       {children}

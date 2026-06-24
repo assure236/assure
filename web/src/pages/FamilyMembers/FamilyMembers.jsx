@@ -23,7 +23,7 @@ const emptyForm = {
 
 const FamilyMembers = () => {
   const navigate = useNavigate();
-  const { setActiveMemberId } = useActiveMember();
+  const { setActiveMemberId, refreshFamilyMembers } = useActiveMember();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -38,7 +38,7 @@ const FamilyMembers = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get('/users/family-members');
+      const res = await axios.get('/users/family-members?view=manage');
       if (res.data.success) setMembers(res.data.data || []);
     } catch {
       setError('Could not load family members.');
@@ -84,6 +84,7 @@ const FamilyMembers = () => {
         toast.success(editId ? 'Member updated' : 'Member added');
         setDialogOpen(false);
         fetchMembers();
+        refreshFamilyMembers();
       } else {
         toast.error(res.data.message || 'Operation failed');
       }
@@ -112,6 +113,7 @@ const FamilyMembers = () => {
       if (res.data.success) {
         toast.success('Family member removed');
         fetchMembers();
+        refreshFamilyMembers();
       }
     } catch {
       toast.error('Failed to remove member');
