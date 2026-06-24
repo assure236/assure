@@ -1,1 +1,0 @@
-import{$ as e,Q as t,n,r}from"./Typography-C9ZzKpiO.js";n(),t();function i(t){return e(`MuiListItemIcon`,t)}var a=r(`MuiListItemIcon`,[`root`,`alignItemsFlexStart`]);export{a as n,i as t};

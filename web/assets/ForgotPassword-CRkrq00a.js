@@ -1,1 +1,0 @@
-import{B as e,It as t,t as n}from"./Typography-C9ZzKpiO.js";import{t as r}from"./Container-Vmo-2CML.js";t();var i=e(),a=()=>(0,i.jsxs)(r,{children:[(0,i.jsx)(n,{variant:`h4`,children:`Forgot Password`}),(0,i.jsx)(n,{children:`Password reset functionality will be implemented here.`})]});export{a as default};

@@ -21,6 +21,8 @@ web/build/
 admin/build/
 web/dist/
 admin/dist/
+web/react-app.html
+web/assets/
 
 # Logs
 logs/
