@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => {
       }),
     },
     build: {
+      outDir: 'build',
+      emptyOutDir: true,
       sourcemap: false,
       rollupOptions: {
         input: 'index.vite.html',

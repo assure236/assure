@@ -1,0 +1,1 @@
+import{$ as e,Q as t,n,r}from"./Typography-C9ZzKpiO.js";n(),t();function i(t){return e(`MuiDivider`,t)}var a=r(`MuiDivider`,[`root`,`absolute`,`fullWidth`,`inset`,`middle`,`flexItem`,`light`,`vertical`,`withChildren`,`withChildrenVertical`,`textAlignRight`,`textAlignLeft`,`wrapper`,`wrapperVertical`]);export{i as n,a as t};

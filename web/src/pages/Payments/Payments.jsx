@@ -19,6 +19,7 @@ import axios from 'axios';
 import { useActiveMember } from '../../context/ActiveMemberContext';
 import { toast } from 'react-toastify';
 import { securityLogger } from '../../utils/securityLogger';
+import { ensureCashfreeSdk } from '../../utils/cashfreeSdk';
 
 const statusConfig = {
   success: { color: 'success', icon: <PaidIcon />, bg: 'success.main' },
@@ -130,8 +131,9 @@ const Payments = () => {
       const { payment_session_id, order_id, payment_id: newPaymentId, total_amount } = res.data.data;
       setPaymentStep(2);
 
-      if (payment_session_id && window.Cashfree) {
+      if (payment_session_id) {
         try {
+          await ensureCashfreeSdk();
           const cashfree = window.Cashfree({
             mode: (process.env.REACT_APP_CASHFREE_ENV || 'sandbox'),
           });
@@ -146,14 +148,6 @@ const Payments = () => {
           toast.error('Payment checkout failed. Please try again.');
           setPaymentStep(0);
         }
-      } else if (payment_session_id) {
-        // SDK not loaded — redirect to hosted payment page
-        setPayDialog({ ...payDialog, open: false });
-        const isTest = !process.env.REACT_APP_CASHFREE_ENV || process.env.REACT_APP_CASHFREE_ENV === 'sandbox';
-        const payUrl = isTest
-          ? `https://payments-test.cashfree.com/order/#${payment_session_id}`
-          : `https://payments.cashfree.com/order/#${payment_session_id}`;
-        window.location.href = payUrl;
       } else {
         toast.warning('Cashfree gateway not configured. Contact your admin.');
         setPaymentStep(0);

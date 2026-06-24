@@ -13,6 +13,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { ensureCashfreeSdk } from '../../utils/cashfreeSdk';
 
 const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
@@ -102,8 +103,9 @@ const ChitGroupDetails = () => {
         return;
       }
       const { payment_session_id, order_id, payment_id: newPaymentId } = res.data.data;
-      if (payment_session_id && window.Cashfree) {
+      if (payment_session_id) {
         try {
+          await ensureCashfreeSdk();
           const cashfree = window.Cashfree({ mode: process.env.REACT_APP_CASHFREE_ENV || 'sandbox' });
           setPayDialog({ open: false, item: null });
           await cashfree.checkout({ paymentSessionId: payment_session_id, redirectTarget: '_modal' });
@@ -115,12 +117,6 @@ const ChitGroupDetails = () => {
         } catch (sdkErr) {
           toast?.error?.('Payment checkout failed.');
         }
-      } else if (payment_session_id) {
-        const isTest = !process.env.REACT_APP_CASHFREE_ENV || process.env.REACT_APP_CASHFREE_ENV === 'sandbox';
-        const payUrl = isTest
-          ? `https://payments-test.cashfree.com/order/#${payment_session_id}`
-          : `https://payments.cashfree.com/order/#${payment_session_id}`;
-        window.location.href = payUrl;
       } else {
         toast?.warning?.('Cashfree gateway not configured. Contact admin.');
       }

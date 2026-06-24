@@ -1,0 +1,1 @@
+var e={error:(e,t)=>{}};export{e as t};

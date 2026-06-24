@@ -1,0 +1,1 @@
+import{$ as e,Q as t,n,r}from"./Typography-C9ZzKpiO.js";n(),t();function i(t){return e(`MuiListItemText`,t)}var a=r(`MuiListItemText`,[`root`,`multiline`,`dense`,`inset`,`primary`,`secondary`]);export{a as n,i as t};

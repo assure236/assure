@@ -1,0 +1,1 @@
+import{B as e}from"./Typography-C9ZzKpiO.js";import{m as t,p as n}from"./ButtonBase-DzIGyDmk.js";t();var r=n((0,e().jsx)(`path`,{d:`M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z`}),`Add`);export{r as t};
