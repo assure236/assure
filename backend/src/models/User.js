@@ -1,5 +1,7 @@
 ﻿const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
+const { encrypt, decrypt } = require('../utils/fieldEncryption');
 
 const userSchema = new mongoose.Schema({
   member_id: { type: String, unique: true, sparse: true },
@@ -94,9 +96,25 @@ const userSchema = new mongoose.Schema({
   },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
+const ENCRYPTED_FIELDS = [
+  'pan_number',
+  'aadhaar_number',
+  'bank_account_number',
+  'bank_ifsc_code',
+  'address',
+  'city',
+  'state',
+  'pincode',
+  'current_address',
+  'current_city',
+  'current_state',
+  'current_pincode',
+];
+
 userSchema.pre('save', async function () {
   if (this.isModified('password_hash')) {
-    const salt = await bcrypt.genSalt(parseInt(process.env.BCRYPT_ROUNDS) || 10);
+    // SECURITY FIX: enforce stronger bcrypt cost factor.
+    const salt = await bcrypt.genSalt(Math.max(12, parseInt(process.env.BCRYPT_ROUNDS, 10) || 12));
     this.password_hash = await bcrypt.hash(this.password_hash, salt);
   }
   if (this.isNew && this.role === 'member' && !this.member_id) {
@@ -105,8 +123,38 @@ userSchema.pre('save', async function () {
     this.member_id = `MEM${String(nextNum).padStart(6, '0')}`;
   }
   if (this.isNew && !this.referral_code) {
-    this.referral_code = `${(this.full_name || 'USR').substring(0, 3).toUpperCase()}${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    // SECURITY FIX: use crypto-secure randomness for referral code suffix generation.
+    this.referral_code = `${(this.full_name || 'USR').substring(0, 3).toUpperCase()}${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
   }
+  // SECURITY FIX: encrypt PII fields before persisting to DB.
+  for (const field of ENCRYPTED_FIELDS) {
+    if (this.isModified(field) && this[field]) {
+      this[field] = encrypt(this[field]);
+    }
+  }
+});
+
+function decryptUserDoc(doc) {
+  if (!doc) return;
+  for (const field of ENCRYPTED_FIELDS) {
+    if (doc[field]) {
+      doc[field] = decrypt(doc[field]);
+    }
+  }
+}
+
+// SECURITY FIX: decrypt encrypted PII fields after reading from DB.
+userSchema.post('init', function (doc) {
+  decryptUserDoc(doc);
+});
+
+userSchema.post('findOne', function (doc) {
+  decryptUserDoc(doc);
+});
+
+userSchema.post('find', function (docs) {
+  if (!Array.isArray(docs)) return;
+  docs.forEach((doc) => decryptUserDoc(doc));
 });
 
 userSchema.methods.validatePassword = async function (password) {

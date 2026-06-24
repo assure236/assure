@@ -11,6 +11,7 @@ const Account = require('../models/Account');
 const JournalEntry = require('../models/JournalEntry');
 const FiscalYear = require('../models/FiscalYear');
 const logger = require('../utils/logger');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CHART OF ACCOUNTS — Default Seed (ERPNext-inspired for Chit Funds)
@@ -342,7 +343,18 @@ async function getGeneralLedger({ from_date, to_date, account, party, page = 1, 
   ];
 
   if (account) pipeline.push({ $match: { 'items.account': account } });
-  if (party) pipeline.push({ $match: { 'items.party': { $regex: party, $options: 'i' } } });
+  let partyRegex = null;
+  if (party !== undefined && party !== null && String(party).trim() !== '') {
+    // SECURITY FIX: bound and escape regex search input.
+    const partyText = String(party).trim();
+    if (partyText.length > 100) {
+      const err = new Error('Invalid search query');
+      err.statusCode = 400;
+      throw err;
+    }
+    partyRegex = new RegExp(escapeRegex(partyText.slice(0, 100)), 'i');
+    pipeline.push({ $match: { 'items.party': { $regex: partyRegex } } });
+  }
 
   // Count total
   const countPipeline = [...pipeline, { $count: 'total' }];
@@ -372,7 +384,7 @@ async function getGeneralLedger({ from_date, to_date, account, party, page = 1, 
     { $match: match },
     { $unwind: '$items' },
     ...(account ? [{ $match: { 'items.account': account } }] : []),
-    ...(party ? [{ $match: { 'items.party': { $regex: party, $options: 'i' } } }] : []),
+    ...(partyRegex ? [{ $match: { 'items.party': { $regex: partyRegex } } }] : []),
     { $group: { _id: null, total_debit: { $sum: '$items.debit' }, total_credit: { $sum: '$items.credit' } } },
   ]);
 

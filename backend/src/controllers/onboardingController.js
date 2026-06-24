@@ -5,6 +5,7 @@ const { User, Document, Notification } = require('../models');
 const { uploadToGridFS, deleteFromGridFS } = require('../utils/gridfs');
 const { compareNames } = require('../utils/nameMatch');
 const { notifyUser } = require('../utils/notifyUser');
+const logger = require('../utils/logger');
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -685,7 +686,8 @@ exports.verifyPanKyc = async (req, res, next) => {
         verifiedName = resp.data.registered_name || resp.data.name_on_card || null;
       }
     } catch (apiErr) {
-      console.log('[KYC] PAN Cashfree API error:', apiErr.message);
+      // SECURITY FIX: avoid logging sensitive provider payloads.
+      logger.error('[KYC] PAN Cashfree API error', { message: apiErr.message, code: apiErr.response?.status });
       // Save anyway; admin will review
     }
 
@@ -722,7 +724,8 @@ exports.sendAadhaarOtp = async (req, res, next) => {
 
     const refId = resp.data?.ref_id || resp.data?.reference_id || null;
     if (!refId) {
-      console.log('[KYC] Aadhaar OTP response:', JSON.stringify(resp.data));
+      // SECURITY FIX: do not log full Aadhaar OTP provider response.
+      logger.info('[KYC] Aadhaar OTP request accepted');
       return res.status(502).json({ success: false, message: 'OTP service unavailable. Try again.' });
     }
 
@@ -736,7 +739,8 @@ exports.sendAadhaarOtp = async (req, res, next) => {
     });
   } catch (err) {
     if (err.response) {
-      console.log('[KYC] Aadhaar OTP error:', JSON.stringify(err.response.data));
+      // SECURITY FIX: avoid logging sensitive provider payloads.
+      logger.error('[KYC] Aadhaar OTP error', { code: err.response?.status, message: err.message });
       return res.status(err.response.status || 502).json({
         success: false,
         message: err.response.data?.message || 'OTP request failed. Check Aadhaar number.',
@@ -785,7 +789,8 @@ exports.verifyAadhaarOtp = async (req, res, next) => {
     });
   } catch (err) {
     if (err.response) {
-      console.log('[KYC] Aadhaar OTP verify error:', JSON.stringify(err.response.data));
+      // SECURITY FIX: avoid logging sensitive provider payloads.
+      logger.error('[KYC] Aadhaar OTP verify error', { code: err.response?.status, message: err.message });
       return res.status(err.response.status || 502).json({
         success: false,
         message: err.response.data?.message || 'OTP verification failed.',

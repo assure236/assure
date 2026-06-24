@@ -5,16 +5,46 @@ const logger = require('../utils/logger');
 const { audit, getIp } = require('../utils/audit');
 const { sendOTP, sendEmail } = require('../services/notificationService');
 
+const crypto = require('crypto');
 const otpStore = new Map();
 const OTP_TTL_MS = 10 * 60 * 1000;
 
 const qrSessionStore = new Map();
 const QR_SESSION_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const ACCESS_COOKIE = '__Host-access_token';
+const REFRESH_COOKIE = '__Host-refresh_token';
 
-function genOtp() { return Math.floor(100000 + Math.random() * 900000).toString(); }
+const ACCESS_COOKIE_TTL_MS = 15 * 60 * 1000;
+const REFRESH_COOKIE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+const cookieOptions = (maxAge) => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  path: '/',
+  maxAge,
+});
+
+const setAuthCookies = (res, token, refreshToken) => {
+  // SECURITY FIX: use HttpOnly secure cookies for web/admin auth tokens.
+  res.cookie(ACCESS_COOKIE, token, cookieOptions(ACCESS_COOKIE_TTL_MS));
+  res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions(REFRESH_COOKIE_TTL_MS));
+};
+
+const clearAuthCookies = (res) => {
+  // SECURITY FIX: clear auth cookies on logout/invalid session events.
+  res.clearCookie(ACCESS_COOKIE, cookieOptions(ACCESS_COOKIE_TTL_MS));
+  res.clearCookie(REFRESH_COOKIE, cookieOptions(REFRESH_COOKIE_TTL_MS));
+};
+
+function genOtp() {
+  // SECURITY FIX: use cryptographically secure RNG for OTP generation.
+  return crypto.randomInt(100000, 1000000).toString();
+}
 
 const generateToken = (userId, tokenVersion = 0, extraClaims = {}) =>
-  jwt.sign({ userId, tv: tokenVersion, ...extraClaims }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '24h' });
+  // SECURITY FIX: shorten default access token lifetime.
+  jwt.sign({ userId, tv: tokenVersion, ...extraClaims }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
 
 const generateRefreshToken = (userId, tokenVersion = 0, extraClaims = {}) =>
   jwt.sign({ userId, tv: tokenVersion, ...extraClaims }, process.env.JWT_REFRESH_SECRET, { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' });
@@ -132,6 +162,7 @@ exports.register = async (req, res, next) => {
     const token = generateToken(user._id, user.token_version || 0);
     const refreshToken = generateRefreshToken(user._id, user.token_version || 0);
 
+    setAuthCookies(res, token, refreshToken);
     res.status(201).json({
       success: true,
       message: 'Registration successful',
@@ -184,6 +215,7 @@ exports.login = async (req, res, next) => {
     delete loginUserObj.password_hash;
     loginUserObj.id = loginUserObj._id;
 
+    setAuthCookies(res, token, refreshToken);
     res.json({
       success: true,
       data: {
@@ -274,6 +306,7 @@ exports.loginWithOtp = async (req, res, next) => {
     delete userObj.password_hash;
     userObj.id = userObj._id;
 
+    setAuthCookies(res, token, refreshToken);
     res.json({
       success: true,
       data: {
@@ -286,39 +319,73 @@ exports.loginWithOtp = async (req, res, next) => {
 
 exports.refreshToken = async (req, res, next) => {
   try {
-    const { refreshToken } = req.body;
-    if (!refreshToken) return res.status(400).json({ success: false, message: 'Refresh token required' });
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const providedRefreshToken = req.body?.refreshToken || req.cookies?.[REFRESH_COOKIE];
+    if (!providedRefreshToken) return res.status(400).json({ success: false, message: 'Refresh token required' });
+    const decoded = jwt.verify(providedRefreshToken, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(decoded.userId).select('-password_hash');
     if (!user || !user.is_active) return res.status(401).json({ success: false, message: 'Invalid refresh token' });
     // Check token_version — if bumped, all old tokens are invalid
     if (decoded.tv !== undefined && decoded.tv !== (user.token_version || 0)) {
+      // SECURITY FIX: treat token-version mismatch as refresh replay and invalidate all sessions.
+      user.token_version = (user.token_version || 0) + 1;
+      user.web_token_version = (user.web_token_version || 0) + 1;
+      await user.save();
+      clearAuthCookies(res);
+      logger.warn('Refresh token replay detected (token version mismatch)', {
+        user_id: String(user._id),
+        token_tv: decoded.tv,
+        user_tv: user.token_version,
+      });
       return res.status(401).json({ success: false, message: 'Session invalidated. Please login again.' });
     }
     // For web sessions, also validate web_token_version so only one web session stays active.
     if (decoded.ch === 'web') {
       if (decoded.wv !== undefined && decoded.wv !== (user.web_token_version || 0)) {
+        // SECURITY FIX: web refresh replay/mismatch invalidates all sessions.
+        user.token_version = (user.token_version || 0) + 1;
+        user.web_token_version = (user.web_token_version || 0) + 1;
+        await user.save();
+        clearAuthCookies(res);
+        logger.warn('Refresh token replay detected (web token version mismatch)', {
+          user_id: String(user._id),
+          token_wv: decoded.wv,
+          user_wv: user.web_token_version,
+        });
         return res.status(401).json({ success: false, message: 'Web session invalidated. Please login again.' });
       }
     }
 
+    // SECURITY FIX: rotate refresh token on every use and invalidate previously issued refresh token.
+    user.token_version = (user.token_version || 0) + 1;
+    if (decoded.ch === 'web') {
+      user.web_token_version = (user.web_token_version || 0) + 1;
+    }
+    await user.save();
+    const { invalidateUserCache } = require('../middleware/auth');
+    invalidateUserCache(String(user._id));
+
     const token = decoded.ch === 'web'
       ? generateToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
       : generateToken(user._id, user.token_version || 0);
-    res.json({ success: true, data: { token } });
+    const newRefreshToken = decoded.ch === 'web'
+      ? generateRefreshToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
+      : generateRefreshToken(user._id, user.token_version || 0);
+    setAuthCookies(res, token, newRefreshToken);
+    res.json({ success: true, data: { token, refreshToken: newRefreshToken } });
   } catch (error) { next(error); }
 };
 
 exports.forgotPassword = async (req, res, next) => {
   try {
     const { mobile } = req.body;
-    if (!mobile) return res.status(400).json({ success: false, message: 'Mobile required' });
+    if (!mobile) return res.json({ success: true, message: 'If this account exists, an OTP has been sent.' });
     const user = await User.findOne({ mobile });
-    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    // SECURITY FIX: prevent account enumeration by returning a generic response.
+    if (!user) return res.json({ success: true, message: 'If this account exists, an OTP has been sent.' });
     const otp = genOtp();
     otpStore.set('mobile:' + mobile, { otp, expires: Date.now() + OTP_TTL_MS, verified: false });
     await sendOTP(mobile, otp);
-    res.json({ success: true, message: 'OTP sent for password reset' });
+    res.json({ success: true, message: 'If this account exists, an OTP has been sent.' });
   } catch (error) { next(error); }
 };
 
@@ -351,6 +418,7 @@ exports.changePassword = async (req, res, next) => {
 };
 
 exports.logout = async (req, res) => {
+  clearAuthCookies(res);
   res.json({ success: true, message: 'Logged out successfully' });
 };
 
@@ -373,6 +441,7 @@ exports.logoutAllDevices = async (req, res, next) => {
       });
     }
 
+    clearAuthCookies(res);
     res.json({ success: true, message: 'All devices logged out. Please login again.' });
 
     // Audit log
@@ -403,6 +472,7 @@ exports.qrStatus = async (req, res, next) => {
     }
     if (session.status === 'confirmed') {
       const { token, refreshToken, user } = session;
+      setAuthCookies(res, token, refreshToken);
       qrSessionStore.delete(sessionId);
       return res.json({ success: true, data: { status: 'confirmed', token, refreshToken, user } });
     }

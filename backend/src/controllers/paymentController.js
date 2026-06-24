@@ -1,6 +1,7 @@
 const { Payment, ChitGroup, ChitMember, User, Auction, Referral } = require('../models');
 const axios = require('axios');
 const crypto = require('crypto');
+const logger = require('../utils/logger');
 const notificationService = require('../services/notificationService');
 const { notifyUser } = require('../utils/notifyUser');
 const { audit, getIp } = require('../utils/audit');
@@ -68,10 +69,28 @@ async function handlePaymentSuccess(payment) {
 
 exports.createPaymentOrder = async (req, res, next) => {
   try {
-    const { chit_group_id, month_number, amount, late_fee = 0, payment_type = 'installment' } = req.body;
-    if (!chit_group_id || !month_number || !amount) return res.status(400).json({ success: false, message: 'chit_group_id, month_number, amount required' });
+    const { chit_group_id, month_number, amount: clientAmount, late_fee = 0, payment_type = 'installment' } = req.body;
+    if (!chit_group_id || !month_number) return res.status(400).json({ success: false, message: 'chit_group_id and month_number required' });
 
     const userId = req.user._id || req.user.id;
+    const idempotencyKey = String(req.headers['x-idempotency-key'] || '').trim();
+    if (idempotencyKey) {
+      // SECURITY FIX: enforce idempotent payment-order creation to prevent double charging.
+      const existing = await Payment.findOne({ idempotency_key: idempotencyKey, user_id: userId, payment_status: 'pending' });
+      if (existing) {
+        return res.json({
+          success: true,
+          data: {
+            payment_id: String(existing._id),
+            order_id: existing.cashfree_order_id,
+            payment_session_id: existing.payment_session_id,
+            payment_url: existing._id ? `${getBackendBaseUrl(req)}/api/v1/payments/checkout/${String(existing._id)}` : null,
+            payable_installment_amount: Number(existing.amount || 0),
+            payable_total_amount: Number(existing.total_amount || 0),
+          },
+        });
+      }
+    }
     const member = await ChitMember.findOne({ chit_group_id, user_id: userId, is_active: true });
     if (!member) return res.status(403).json({ success: false, message: 'Not an active member' });
     // Clean up stale pending payments for this user+group+month (prevent duplicates)
@@ -82,35 +101,61 @@ exports.createPaymentOrder = async (req, res, next) => {
       ChitGroup.findById(chit_group_id).select('group_name group_number commencement_date duration_months monthly_installment'),
     ]);
     if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
+    const monthNumber = Number(month_number);
+    // SECURITY FIX: enforce valid installment lookup from authoritative DB data.
+    if (!Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > Number(group.duration_months || 0)) {
+      return res.status(404).json({ success: false, message: 'Installment record not found' });
+    }
 
     const start = group.commencement_date ? new Date(group.commencement_date) : new Date();
     const dueDate = new Date(start);
-    dueDate.setMonth(dueDate.getMonth() + (month_number - 1));
+    dueDate.setMonth(dueDate.getMonth() + (monthNumber - 1));
 
-    const parsedAmount = parseFloat(amount);
+    // SECURITY FIX: compute payable amount only from server-side schedule data.
+    const installmentRecord = {
+      installment_amount: Number(group.monthly_installment || 0),
+      due_date: dueDate,
+    };
+    if (!installmentRecord || !Number.isFinite(installmentRecord.installment_amount)) {
+      return res.status(404).json({ success: false, message: 'Installment record not found' });
+    }
+    const serverAmount = Number(installmentRecord.installment_amount);
     const parsedLateFee = parseFloat(late_fee) || 0;
+    if (serverAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid payment amount' });
+    }
+    if (clientAmount !== undefined && Math.abs(Number(clientAmount) - serverAmount) > 0.01) {
+      // SECURITY FIX: detect client-side payment amount tampering attempts.
+      logger.warn('Payment amount mismatch', {
+        user: String(req.user.id || req.user._id),
+        client_sent: Number(clientAmount),
+        server_computed: serverAmount,
+      });
+    }
 
     let referralDiscountAmount = 0;
     let referralDiscountReferralIds = [];
 
-    if (payment_type === 'installment' && parsedAmount > 0) {
+    if (payment_type === 'installment' && serverAmount > 0) {
       const eligibleReferral = await getEligibleReferralForDiscount(userId);
       if (eligibleReferral) {
         const discount = Number(eligibleReferral.bonus_amount || 100);
-        referralDiscountAmount = Math.min(parsedAmount, discount);
+        referralDiscountAmount = Math.min(serverAmount, discount);
         referralDiscountReferralIds = [eligibleReferral._id];
       }
     }
 
-    const discountedInstallmentAmount = Math.max(0, parsedAmount - referralDiscountAmount);
+    const discountedInstallmentAmount = Math.max(0, serverAmount - referralDiscountAmount);
     const totalAmount = Math.round((discountedInstallmentAmount + parsedLateFee) * 100) / 100;
-    const paymentNumber = 'PAY' + new Date().getFullYear() + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+    // SECURITY FIX: use cryptographically secure randomness for payment reference generation.
+    const randomSuffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const paymentNumber = 'PAY' + new Date().getFullYear() + Date.now().toString(36).toUpperCase() + randomSuffix;
 
     const payment = await Payment.create({
       payment_number: paymentNumber,
       user_id: userId,
       chit_group_id,
-      month_number,
+      month_number: monthNumber,
       payment_type,
       amount: discountedInstallmentAmount,
       late_fee: parsedLateFee,
@@ -122,6 +167,7 @@ exports.createPaymentOrder = async (req, res, next) => {
       referral_discount_amount: referralDiscountAmount,
       referral_discount_referral_ids: referralDiscountReferralIds,
       referral_discount_consumed: false,
+      idempotency_key: idempotencyKey || undefined,
     });
 
     const cfOrderId = 'ACF-' + payment.payment_number + '-' + Date.now().toString(36).toUpperCase();
@@ -160,7 +206,8 @@ exports.createPaymentOrder = async (req, res, next) => {
         order_meta: orderMeta,
       }, { headers: cf.headers });
     } catch (cfErr) {
-      console.error('Cashfree create order error:', cfErr.response?.status, JSON.stringify(cfErr.response?.data));
+      // SECURITY FIX: avoid logging sensitive upstream API payloads.
+      logger.error('Cashfree create order failed', { code: cfErr.response?.status });
       await Payment.findByIdAndDelete(payment._id);
       const cfMsg = cfErr.response?.data?.message || cfErr.response?.data?.type || 'Cashfree gateway error';
       return res.status(502).json({ success: false, message: cfMsg });
@@ -234,6 +281,18 @@ exports.cashfreeWebhook = async (req, res) => {
       if (orderId) {
         const payment = await Payment.findOne({ cashfree_order_id: orderId });
         if (payment && payment.payment_status !== 'success') {
+          // SECURITY FIX: verify provider-reported amount matches DB order amount.
+          const providerAmount = Number(data?.order?.order_amount || data?.payment?.payment_amount || 0);
+          const dbAmount = Number(payment.total_amount || 0);
+          if (!Number.isFinite(providerAmount) || Math.abs(providerAmount - dbAmount) > 0.01) {
+            logger.warn('Webhook amount mismatch - payment not marked successful', {
+              order_id: orderId,
+              provider_amount: providerAmount,
+              db_amount: dbAmount,
+              payment_id: String(payment._id),
+            });
+            return res.status(400).json({ message: 'Amount mismatch' });
+          }
           await Payment.findByIdAndUpdate(payment._id, { payment_status: 'success', payment_date: new Date(), transaction_id: data?.payment?.cf_payment_id });
           const updated = await Payment.findById(payment._id);
           await handlePaymentSuccess(updated);
@@ -406,7 +465,8 @@ exports.checkoutPage = async (req, res, next) => {
     if (result.error) {
       document.getElementById('spinner').style.display='none';
       document.getElementById('error').style.display='block';
-      console.error('Cashfree error:', result.error);
+      // SECURITY FIX: suppress detailed client-side payment error logging.
+      void result.error;
     }
     // Fallback: if still on this page after 8s, show manual redirect link
     setTimeout(function() {
@@ -419,7 +479,8 @@ exports.checkoutPage = async (req, res, next) => {
   } catch(e) {
     document.getElementById('spinner').style.display='none';
     document.getElementById('error').style.display='block';
-    console.error('Checkout error:', e);
+    // SECURITY FIX: suppress detailed client-side checkout error logging.
+    void e;
   }
 })();
 </script></body></html>`;
@@ -474,7 +535,13 @@ exports.checkoutReturn = async (req, res, next) => {
 
 exports.getPaymentById = async (req, res, next) => {
   try {
-    const payment = await Payment.findById(req.params.id)
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'super_admin';
+    // SECURITY FIX: prevent IDOR by binding member lookups to authenticated owner.
+    const filter = isAdmin
+      ? { _id: req.params.id }
+      : { _id: req.params.id, user_id: req.user._id || req.user.id };
+    const payment = await Payment.findOne(filter)
       .populate('user_id', 'full_name mobile member_id')
       .populate('chit_group_id', 'group_name group_number');
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
@@ -516,8 +583,64 @@ exports.recordManualPayment = async (req, res, next) => {
 
 exports.refundPayment = async (req, res, next) => {
   try {
-    const payment = await Payment.findByIdAndUpdate(req.params.id, { payment_status: 'refunded' }, { new: true });
+    const payment = await Payment.findById(req.params.id);
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
+    if (!['success', 'completed'].includes(String(payment.payment_status || '').toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'Only completed payments can be refunded' });
+    }
+    if (String(payment.payment_status || '').toLowerCase() === 'refunded') {
+      return res.status(400).json({ success: false, message: 'Payment is already refunded' });
+    }
+
+    const requestedAmount = req.body?.refund_amount !== undefined ? Number(req.body.refund_amount) : Number(payment.total_amount || payment.amount || 0);
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      return res.status(400).json({ success: false, message: 'Invalid refund amount' });
+    }
+    const originalAmount = Number(payment.total_amount || payment.amount || 0);
+    if (requestedAmount > originalAmount) {
+      return res.status(400).json({ success: false, message: 'Refund amount exceeds original payment amount' });
+    }
+
+    const cf = getCashfree();
+    let refundRef = null;
+    if (payment.cashfree_order_id) {
+      const refundId = `RF-${Date.now().toString(36).toUpperCase()}-${String(payment._id).slice(-6)}`;
+      const refundPayload = {
+        refund_amount: requestedAmount,
+        refund_id: refundId,
+        refund_note: req.body?.reason || 'Admin initiated refund',
+      };
+      const refundRes = await axios.post(
+        `${cf.baseUrl}/orders/${payment.cashfree_order_id}/refunds`,
+        refundPayload,
+        { headers: cf.headers }
+      );
+      const refundStatus = String(refundRes.data?.refund_status || '').toUpperCase();
+      // SECURITY FIX: mark DB refunded only after provider confirms accepted/success state.
+      if (!['SUCCESS', 'PENDING', 'PROCESSED', 'ACCEPTED'].includes(refundStatus)) {
+        return res.status(502).json({ success: false, message: 'Refund was not accepted by payment provider' });
+      }
+      refundRef = refundRes.data?.cf_refund_id || refundRes.data?.refund_id || refundId;
+    }
+
+    payment.payment_status = 'refunded';
+    payment.notes = [payment.notes, `Refunded: ₹${requestedAmount.toFixed(2)}${refundRef ? ` (${refundRef})` : ''}`].filter(Boolean).join(' | ');
+    await payment.save();
+
+    await audit({
+      userId: req.user?._id || req.user?.id,
+      action: 'payment_refund',
+      resourceType: 'payment',
+      resourceId: String(payment._id),
+      description: `Refund processed for payment ${payment.payment_number || payment._id}`,
+      metadata: {
+        original_amount: originalAmount,
+        refund_amount: requestedAmount,
+        refunded_by: String(req.user?._id || req.user?.id || ''),
+      },
+      ipAddress: getIp(req),
+    });
+
     res.json({ success: true, message: 'Payment refunded', data: payment });
   } catch (err) { next(err); }
 };

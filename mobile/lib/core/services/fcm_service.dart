@@ -2,6 +2,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api_service.dart';
@@ -19,6 +20,7 @@ class FcmService {
   FcmService._();
 
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
+  static const _secureStorage = FlutterSecureStorage();
   final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
@@ -80,7 +82,8 @@ class FcmService {
   Future<String?> getToken() async {
     try {
       final token = await _messaging.getToken();
-      debugPrint('FCM Token: ${token?.substring(0, 20)}...');
+      // SECURITY FIX: never log push token values.
+      debugPrint('FCM token fetched');
       return token;
     } catch (e) {
       debugPrint('Failed to get FCM token: $e');
@@ -92,7 +95,8 @@ class FcmService {
   Future<void> registerTokenWithBackend() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final authToken = prefs.getString('token');
+      // SECURITY FIX: read token from secure storage only.
+      final authToken = await _secureStorage.read(key: 'access_token');
       if (authToken == null) return; // Not logged in
 
       final fcmToken = await getToken();
@@ -157,7 +161,8 @@ class FcmService {
 
   /// Handle notification tap (app opened from notification)
   void _handleNotificationTap(RemoteMessage message) {
-    debugPrint('Notification tapped: ${message.data}');
+    // SECURITY FIX: avoid logging full notification payload data.
+    debugPrint('Notification tapped');
     // Navigation can be handled here based on message.data['type']
   }
 

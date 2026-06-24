@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../config/app_config.dart';
@@ -14,6 +14,7 @@ class SocketService {
   static SocketService get instance => _instance;
 
   io.Socket? _socket;
+  static const _secureStorage = FlutterSecureStorage();
   String? _userId;
   BuildContext? _context;
   VoidCallback? _onForceLogout;
@@ -33,8 +34,8 @@ class SocketService {
     _userId = userId;
     disconnect();
 
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    // SECURITY FIX: read token from secure storage only.
+    final token = await _secureStorage.read(key: 'access_token');
 
     _socket = io.io(
       AppConfig.socketUrl,

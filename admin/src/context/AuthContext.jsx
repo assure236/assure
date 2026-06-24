@@ -4,33 +4,50 @@ import { toast } from 'react-toastify';
 import { io as socketIO } from 'socket.io-client';
 
 const AuthContext = createContext(null);
+// SECURITY FIX: keep admin access token in memory only.
+let _adminAccessToken = null;
+export const getAdminAccessToken = () => _adminAccessToken;
+const setAdminAccessToken = (token) => {
+  _adminAccessToken = token || null;
+};
 
 export const useAuth = () => useContext(AuthContext);
 
 // Set axios base URL to API root
 axios.defaults.baseURL = process.env.REACT_APP_API_URL;
-
-// Restore auth header immediately (synchronous) so first-render requests are authenticated
-const _storedToken = localStorage.getItem('adminToken');
-if (_storedToken) {
-  axios.defaults.headers.common['Authorization'] = `Bearer ${_storedToken}`;
-}
+// SECURITY FIX: always include secure auth cookies in API requests.
+axios.defaults.withCredentials = true;
 
 const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(() => {
-    try { const u = localStorage.getItem('adminUser'); return u ? JSON.parse(u) : null; } catch { return null; }
-  });
-  const [token, setToken] = useState(localStorage.getItem('adminToken'));
-  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('adminToken'));
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Restore user info from stored token on mount (optional: decode JWT for role)
   useEffect(() => {
-    const stored = localStorage.getItem('adminToken');
-    if (!stored) {
-      setIsAuthenticated(false);
-    }
+    // SECURITY FIX: silently refresh admin session from HttpOnly refresh cookie on app load.
+    const bootstrapAdminSession = async () => {
+      try {
+        const refreshRes = await axios.post(`${process.env.REACT_APP_API_URL}/auth/refresh-token`, {});
+        const refreshedToken = refreshRes?.data?.data?.token;
+        if (!refreshedToken) return;
+        setAdminAccessToken(refreshedToken);
+        setToken(refreshedToken);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${refreshedToken}`;
+        const meRes = await axios.get(`${process.env.REACT_APP_API_URL}/auth/me`);
+        const me = meRes?.data?.data;
+        if (me && (me.role === 'admin' || me.role === 'super_admin')) {
+          setUser(me);
+          setIsAuthenticated(true);
+        }
+      } catch (_) {
+        setUser(null);
+        setToken(null);
+        setIsAuthenticated(false);
+      }
+    };
+    bootstrapAdminSession();
   }, []);
 
   // ─── Inactivity auto-logout (15 min) ───
@@ -117,8 +134,7 @@ export const AuthProvider = ({ children }) => {
         setToken(token);
         setUser(user);
         setIsAuthenticated(true);
-        localStorage.setItem('adminToken', token);
-        localStorage.setItem('adminUser', JSON.stringify(user));
+        setAdminAccessToken(token);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         toast.success('Login successful!');
         return { success: true };
@@ -133,9 +149,8 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     setUser(null);
     setToken(null);
+    setAdminAccessToken(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('adminToken');
-    localStorage.removeItem('adminUser');
     localStorage.removeItem('adminLastActivity');
     delete axios.defaults.headers.common['Authorization'];
     toast.info('Logged out successfully');

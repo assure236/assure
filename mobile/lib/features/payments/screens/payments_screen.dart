@@ -7,18 +7,17 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers/payment_provider.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import 'cashfree_payment_screen.dart';
 
-Future<Uri> _buildReceiptUri(String paymentId, String token) async {
+Future<Uri> _buildReceiptUri(String paymentId) async {
   final prefs = await SharedPreferences.getInstance();
   final activeMemberId = prefs.getString('active_member_id')?.trim().toUpperCase();
   final base = Uri.parse('${ApiService.baseUrl}/payments/receipt/$paymentId');
-  final qp = <String, String>{'token': token};
+  final qp = <String, String>{};
   if (activeMemberId != null && activeMemberId.isNotEmpty) {
     qp['active_member_id'] = activeMemberId;
   }
@@ -41,12 +40,8 @@ class PaymentsScreenState extends State<PaymentsScreen>
 
   Future<String?> _readAuthToken() async {
     const storage = FlutterSecureStorage();
-    String? token = await storage.read(key: 'access_token');
-    if (token == null || token.isEmpty) {
-      final prefs = await SharedPreferences.getInstance();
-      token = prefs.getString('token');
-    }
-    return token;
+    // SECURITY FIX: read token from secure storage only.
+    return storage.read(key: 'access_token');
   }
 
 
@@ -551,9 +546,12 @@ class _PaymentTile extends StatelessWidget {
                   final paymentId = payment['_id'] ?? payment['id'] ?? '';
                   const storage = FlutterSecureStorage();
                   final token = await storage.read(key: 'access_token') ?? '';
-                  final uri = await _buildReceiptUri(paymentId.toString(), token);
+                  final uri = await _buildReceiptUri(paymentId.toString());
                   try {
-                    final response = await http.get(uri);
+                    // SECURITY FIX: send auth token in Authorization header, never in URL.
+                    final response = await http.get(uri, headers: {
+                      if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+                    });
                     if (response.statusCode == 200) {
                       final dir = Directory.systemTemp;
                       final file = File('${dir.path}/receipt_$paymentId.pdf');
@@ -590,8 +588,22 @@ class _PaymentTile extends StatelessWidget {
                   final paymentId = payment['_id'] ?? payment['id'] ?? '';
                   const storage = FlutterSecureStorage();
                   final token = await storage.read(key: 'access_token') ?? '';
-                  final uri = await _buildReceiptUri(paymentId.toString(), token);
-                  launchUrl(uri, mode: LaunchMode.externalApplication);
+                  final uri = await _buildReceiptUri(paymentId.toString());
+                  // SECURITY FIX: avoid external open with token in URL; fetch via Authorization and share file.
+                  final response = await http.get(uri, headers: {
+                    if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+                  });
+                  if (response.statusCode == 200) {
+                    final dir = Directory.systemTemp;
+                    final file = File('${dir.path}/receipt_$paymentId.pdf');
+                    await file.writeAsBytes(response.bodyBytes);
+                    await SharePlus.instance.share(
+                      ShareParams(
+                        files: [XFile(file.path, mimeType: 'application/pdf')],
+                        subject: 'Payment Receipt - Assure Chit Funds',
+                      ),
+                    );
+                  }
                 },
                 icon: const Icon(Icons.download_rounded, size: 18),
                 label: const Text('Download'),

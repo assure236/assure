@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 
 import '../services/api_service.dart';
@@ -12,6 +12,7 @@ class AuctionProvider with ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   io.Socket? _socket;
+  static const _secureStorage = FlutterSecureStorage();
   double _walletBalance = 0;
   Timer? _reconnectTimer;
   Timer? _pollTimer;
@@ -40,8 +41,8 @@ class AuctionProvider with ChangeNotifier {
     _socket = null;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      // SECURITY FIX: read token from secure storage only.
+      final token = await _secureStorage.read(key: 'access_token');
 
       _socket = io.io(
         ApiService.socketUrl,

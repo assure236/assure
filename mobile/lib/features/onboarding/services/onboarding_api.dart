@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,7 @@ import '../../../core/config/app_config.dart';
 class OnboardingApi {
   static String get _base => AppConfig.apiBaseUrl;
   static const _activeMemberPrefsKey = 'active_member_id';
+  static const _secureStorage = FlutterSecureStorage();
 
   static Future<String?> _activeMemberId() async {
     final prefs = await SharedPreferences.getInstance();
@@ -28,8 +30,8 @@ class OnboardingApi {
   }
 
   static Future<Map<String, String>> _headers({bool json = true}) async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    // SECURITY FIX: read token from secure storage only.
+    final token = await _secureStorage.read(key: 'access_token');
     final active = await _activeMemberId();
     return {
       if (json) 'Content-Type': 'application/json',

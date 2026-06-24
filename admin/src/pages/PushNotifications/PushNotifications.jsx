@@ -14,6 +14,7 @@ import {
   Payment, FiberNew, CreditScore, PersonOff, MoneyOff,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { securityLogger } from '../../utils/securityLogger';
 
 const API = process.env.REACT_APP_API_URL;
 
@@ -102,7 +103,8 @@ export default function PushNotifications() {
       const kycPending = allUsers.filter(u => u.kyc_status !== 'verified').length;
       setStats(s => ({ ...s, total: allUsers.length, withTokens, kycPending }));
     } catch (e) {
-      console.error('Failed to fetch users:', e);
+      // SECURITY FIX: sanitize admin notification error logging.
+      securityLogger.error('Push notification users fetch failed', { status: e?.response?.status });
     }
   }, []);
 

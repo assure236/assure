@@ -1,5 +1,6 @@
 const { User, Document } = require('../models');
 const { uploadToGridFS } = require('../utils/gridfs');
+const logger = require('../utils/logger');
 
 function isTruthy(value) {
   return ['1', 'true', 'yes', 'on'].includes(String(value || '').trim().toLowerCase());
@@ -182,7 +183,8 @@ exports.verifyPan = async (req, res, next) => {
           verificationResult = { verified: true, name: resp.data.registered_name || resp.data.name_on_card };
         }
       } catch (apiErr) {
-        console.log('PAN verification API error:', apiErr.message);
+        // SECURITY FIX: avoid logging sensitive PAN verification payloads.
+        logger.error('PAN verification API error', { code: apiErr.response?.status, message: apiErr.message });
       }
     }
 

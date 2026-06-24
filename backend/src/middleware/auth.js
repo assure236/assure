@@ -65,30 +65,16 @@ function invalidateUserCache(userId) {
 
 const authMiddleware = async (req, res, next) => {
   try {
-    if (process.env.NODE_ENV === 'development') {
-      const authHeader = req.headers.authorization;
-      if (authHeader === 'Bearer dev-bypass-token') {
-        req.user = {
-          id: '000000000000000000000001',
-          _id: '000000000000000000000001',
-          full_name: 'Dev User',
-          email: 'dev@assure.local',
-          mobile: '9999999999',
-          role: 'admin',
-          is_active: true,
-          kyc_status: 'verified',
-        };
-        return next();
-      }
-    }
+    // SECURITY FIX: removed development authentication bypass backdoor.
 
     const authHeader = req.headers.authorization;
     let token;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
     }
-    if (!token && typeof req.query?.token === 'string' && req.query.token.trim()) {
-      token = req.query.token.trim();
+    // SECURITY FIX: support HttpOnly auth cookie, reject token in query string.
+    if (!token && typeof req.cookies?.['__Host-access_token'] === 'string' && req.cookies['__Host-access_token'].trim()) {
+      token = req.cookies['__Host-access_token'].trim();
     }
     if (!token) {
       return res.status(401).json({ success: false, message: 'No token provided.' });

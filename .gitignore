@@ -7,10 +7,20 @@ npm-debug.log*
 backend/.env
 web/.env
 admin/.env
+# SECURITY FIX: stop tracking sensitive environment and deployment docs
+deploy/COMMANDS.md
+backend/.env.example
+web/.env.example
+admin/.env.example
+backend/.env.production
+web/.env.production
+admin/.env.production
 
 # Build outputs
 web/build/
 admin/build/
+web/dist/
+admin/dist/
 
 # Logs
 logs/

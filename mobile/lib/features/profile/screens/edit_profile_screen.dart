@@ -3,6 +3,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -17,7 +18,9 @@ import '../../../core/theme/app_theme.dart';
 
 Future<Map<String, String>> _authHeaders() async {
   final prefs = await SharedPreferences.getInstance();
-  final token = prefs.getString('token');
+  // SECURITY FIX: read token from secure storage only.
+  const storage = FlutterSecureStorage();
+  final token = await storage.read(key: 'access_token');
   final activeMemberId = prefs.getString('active_member_id')?.trim();
   return {
     if (token != null) 'Authorization': 'Bearer $token',

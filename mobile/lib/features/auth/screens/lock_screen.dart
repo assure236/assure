@@ -1,4 +1,5 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
@@ -99,8 +100,9 @@ class _LockScreenState extends State<LockScreen> {
       );
       if (authenticated && mounted) {
         setState(() => _isLoading = true);
-        final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('token');
+        // SECURITY FIX: read token from secure storage only.
+        const storage = FlutterSecureStorage();
+        final token = await storage.read(key: 'access_token');
         if (!mounted) return;
 
         if (token != null) {

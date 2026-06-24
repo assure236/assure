@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -256,8 +257,9 @@ class _AuctionRoomScreenState extends State<AuctionRoomScreen> {
   }
 
   Future<void> _initSocket() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    // SECURITY FIX: read token from secure storage only.
+    const storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'access_token');
     _connectSocket(token);
   }
 

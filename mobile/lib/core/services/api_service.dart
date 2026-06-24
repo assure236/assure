@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,13 +11,14 @@ class ApiService {
   static String get socketUrl => AppConfig.socketUrl;
   static const _timeout = Duration(seconds: 30);
   static const _activeMemberPrefsKey = 'active_member_id';
+  static const _secureStorage = FlutterSecureStorage();
 
   /// Callback set by AuthProvider to handle forced logout on 401
   static Future<void> Function()? onUnauthorized;
 
   static Future<String?> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+    // SECURITY FIX: fetch auth token only from encrypted secure storage.
+    return _secureStorage.read(key: 'access_token');
   }
 
   static Future<String?> _getActiveMemberId() async {

@@ -49,6 +49,8 @@ router.post('/reset-password', validate(resetPasswordSchema), authController.res
 // @desc    Refresh access token
 // @access  Public
 router.post('/refresh-token', authController.refreshToken);
+router.get('/me', authMiddleware, authController.getMe);
+router.post('/logout', authMiddleware, authController.logout);
 
 // QR Login
 router.post('/qr-generate', authController.qrGenerate);
@@ -59,5 +61,7 @@ router.post('/qr-confirm', authMiddleware, authController.qrConfirm);
 // @desc    Invalidate all sessions by bumping token version
 // @access  Private
 router.post('/logout-all-devices', authMiddleware, authController.logoutAllDevices);
+// SECURITY FIX: backward-compatible alias used by clients.
+router.post('/logout-all', authMiddleware, authController.logoutAllDevices);
 
 module.exports = router;

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Polls the backend for new notifications and shows them as local push notifications.
@@ -11,6 +12,7 @@ class LocalNotificationService {
   LocalNotificationService._();
 
   final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
+  static const _secureStorage = FlutterSecureStorage();
   Timer? _pollTimer;
   bool _initialized = false;
 
@@ -60,7 +62,8 @@ class LocalNotificationService {
   Future<void> _checkForNewNotifications() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      // SECURITY FIX: read token from secure storage only.
+      final token = await _secureStorage.read(key: 'access_token');
       if (token == null) return; // Not logged in
 
       // Just update the last check timestamp — push notifications are handled by FCM

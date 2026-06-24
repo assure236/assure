@@ -63,12 +63,23 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  // Default error
-  const statusCode = err.statusCode || 500;
+  // SECURITY FIX: never leak internal server error details to clients.
+  const statusCode = err.statusCode || err.status || 500;
+  const isClientError = statusCode >= 400 && statusCode < 500;
+  const clientMessage = isClientError
+    ? (err.message || 'Bad request')
+    : 'An internal server error occurred';
+
+  logger.error('Server error', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+  });
+
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+    message: clientMessage,
   });
 };
 

@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -50,11 +51,46 @@ const io = socketIO(server, {
   transports: ['websocket', 'polling'],
 });
 
+// SECURITY FIX: apply strict HTTP security headers.
 app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", 'https://sdk.cashfree.com'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: [
+        "'self'",
+        process.env.WEB_CLIENT_URL,
+        process.env.ADMIN_CLIENT_URL,
+        'https://api.cashfree.com',
+      ].filter(Boolean),
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  frameguard: { action: 'deny' },
+  noSniff: true,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  permittedCrossDomainPolicies: false,
+  hidePoweredBy: true,
   crossOriginResourcePolicy: { policy: 'cross-origin' },
   crossOriginEmbedderPolicy: false,
 }));
+// SECURITY FIX: set Permissions-Policy explicitly.
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
 app.use(cors({ origin: [process.env.WEB_CLIENT_URL, process.env.ADMIN_CLIENT_URL, process.env.MOBILE_CLIENT_URL, 'https://www.assure.fund', 'https://assure.fund'].filter(Boolean), credentials: true }));
+app.use(cookieParser());
 
 // ─── Rate Limiting: scaled for 50K concurrent users ─────────────────────────
 const apiLimiter = rateLimit({
@@ -68,18 +104,34 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
-  message: { success: false, message: 'Too many login attempts, please try after 15 minutes.' },
+  // SECURITY FIX: tighten auth brute-force window and skip successful attempts.
+  max: 5,
+  skipSuccessfulRequests: true,
+  message: { success: false, message: 'Too many attempts, please try again later' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 
 app.use('/api', apiLimiter);
-app.use('/api/v1/auth/login', authLimiter);
-app.use('/api/v1/auth/send-otp', authLimiter);
+const apiBasePath = `/api/${process.env.API_VERSION || 'v1'}`;
+app.use(`${apiBasePath}/auth/login`, authLimiter);
+app.use(`${apiBasePath}/auth/admin-login`, authLimiter);
+app.use(`${apiBasePath}/auth/login-otp`, authLimiter);
+app.use(`${apiBasePath}/auth/verify-otp`, authLimiter);
+app.use(`${apiBasePath}/auth/forgot-password`, authLimiter);
+app.use(`${apiBasePath}/auth/reset-password`, authLimiter);
+app.use(`${apiBasePath}/auth/send-otp`, authLimiter);
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// SECURITY FIX: prevent caching of sensitive API responses.
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
+
+// SECURITY FIX: reduce request body size to limit DoS payload abuse.
+app.use(express.json({ limit: '100kb' }));
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 
 // ─── Security: NoSQL injection sanitization ──────────────────────────────────
 app.use(mongoSanitize({ replaceWith: '_', onSanitize: ({ req, key }) => {

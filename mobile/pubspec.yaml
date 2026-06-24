@@ -20,6 +20,7 @@ dependencies:
   # Networking
   http: ^1.1.2
   http_parser: ^4.0.2
+  dio: ^5.9.0
   
   # Local Storage
   shared_preferences: ^2.2.2
@@ -74,6 +75,7 @@ dependencies:
   # Firebase
   firebase_core: ^3.13.0
   firebase_messaging: ^15.2.4
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

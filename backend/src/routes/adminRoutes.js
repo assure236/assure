@@ -15,6 +15,7 @@ const erpnextService = require('../services/erpnextService');
 const accountingService = require('../services/accountingService');
 const logger = require('../utils/logger');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 const adminOnly = [authMiddleware, authorizeRoles('admin', 'manager')];
 const superAdminOnly = [authMiddleware, authorizeRoles('super_admin')];
@@ -195,12 +196,18 @@ router.get('/users', adminOnly, async (req, res, next) => {
     const filter = {};
     if (role) filter.role = role; else filter.role = { $in: ['member', 'agent', 'manager'] };
     if (kyc_status) filter.kyc_status = kyc_status;
-    if (search) {
+    if (search !== undefined) {
+      // SECURITY FIX: validate and escape regex search input.
+      if (typeof search !== 'string' || !search.trim() || search.length > 100) {
+        return res.status(400).json({ success: false, message: 'Invalid search query' });
+      }
+      const safeSearch = escapeRegex(search.trim().slice(0, 100));
+      const searchRegex = new RegExp(safeSearch, 'i');
       filter.$or = [
-        { full_name: new RegExp(search, 'i') },
-        { mobile: new RegExp(search, 'i') },
-        { email: new RegExp(search, 'i') },
-        { member_id: new RegExp(search, 'i') },
+        { full_name: searchRegex },
+        { mobile: searchRegex },
+        { email: searchRegex },
+        { member_id: searchRegex },
       ];
     }
     const total = await User.countDocuments(filter);
@@ -424,7 +431,15 @@ router.get('/chit-groups', adminOnly, async (req, res, next) => {
     const { page = 1, limit = 20, status, search } = req.query;
     const filter = {};
     if (status) filter.status = status;
-    if (search) filter.$or = [{ group_name: new RegExp(search, 'i') }, { group_number: new RegExp(search, 'i') }];
+    if (search !== undefined) {
+      // SECURITY FIX: validate and escape regex search input.
+      if (typeof search !== 'string' || !search.trim() || search.length > 100) {
+        return res.status(400).json({ success: false, message: 'Invalid search query' });
+      }
+      const safeSearch = escapeRegex(search.trim().slice(0, 100));
+      const searchRegex = new RegExp(safeSearch, 'i');
+      filter.$or = [{ group_name: searchRegex }, { group_number: searchRegex }];
+    }
     const total = await ChitGroup.countDocuments(filter);
     const groups = await ChitGroup.find(filter).sort({ created_at: -1 })
       .skip((page - 1) * parseInt(limit)).limit(parseInt(limit));

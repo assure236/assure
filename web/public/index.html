@@ -23,7 +23,8 @@
     />
     <title>Assure Chit Funds - Member Portal</title>
     <!-- Cashfree Payment Gateway JS SDK -->
-    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+    <!-- SECURITY FIX: enforce SRI on third-party payment SDK script -->
+    <script src="https://sdk.cashfree.com/js/v3/cashfree.js" integrity="sha384-h8Pv222I3aTkaRHWHgdxm7hOjaKU3aJHkdiOS6LrFdkPPp1KW8Cew+Yqok/iQNdR" crossorigin="anonymous"></script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

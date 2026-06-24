@@ -1,6 +1,12 @@
 const { Wallet, WalletTransaction, User } = require('../models');
 const axios = require('axios');
+const crypto = require('crypto');
 const { getWebClientUrl } = require('../utils/runtimeUrls');
+const { sendOTP } = require('../services/notificationService');
+
+const WITHDRAWAL_OTP_THRESHOLD = 5000;
+const withdrawalOtpStore = new Map();
+const WITHDRAWAL_OTP_TTL_MS = 5 * 60 * 1000;
 
 const getCashfree = () => {
   const isTest = process.env.CASHFREE_ENV !== 'PROD';
@@ -78,10 +84,35 @@ exports.deposit = async (req, res, next) => {
 exports.withdraw = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { amount, description } = req.body;
+    const { amount, description, withdrawal_otp } = req.body;
     const withdrawAmount = Number(amount);
     if (!withdrawAmount || withdrawAmount <= 0) {
       return res.status(400).json({ success: false, message: 'Invalid amount' });
+    }
+
+    if (withdrawAmount >= WITHDRAWAL_OTP_THRESHOLD) {
+      const otpKey = String(userId);
+      const now = Date.now();
+      const entry = withdrawalOtpStore.get(otpKey);
+      if (!withdrawal_otp) {
+        // SECURITY FIX: enforce OTP step-up auth for high-value wallet withdrawals.
+        // SECURITY FIX: use cryptographically secure RNG for withdrawal OTP.
+        const generatedOtp = crypto.randomInt(100000, 1000000).toString();
+        withdrawalOtpStore.set(otpKey, { otp: generatedOtp, expiresAt: now + WITHDRAWAL_OTP_TTL_MS });
+        const user = await User.findById(userId).select('mobile');
+        if (user?.mobile) {
+          await sendOTP(user.mobile, generatedOtp);
+        }
+        return res.status(202).json({
+          success: true,
+          message: 'OTP sent to your registered mobile. Provide it to confirm withdrawal.',
+          requires_otp: true,
+        });
+      }
+      if (!entry || now > entry.expiresAt || String(entry.otp) !== String(withdrawal_otp).trim()) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+      }
+      withdrawalOtpStore.delete(otpKey);
     }
 
     const wallet = await getOrCreateWallet(userId);

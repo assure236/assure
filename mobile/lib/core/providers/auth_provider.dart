@@ -102,7 +102,8 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _loadFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
-    _token = prefs.getString('token');
+    // SECURITY FIX: read auth token only from secure storage.
+    _token = await _secureStorage.read(key: 'access_token');
     final userJson = prefs.getString('user');
     _hasLocalAccount = prefs.getBool('hasLocalAccount') ?? false;
 
@@ -370,8 +371,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
     final prefs = await SharedPreferences.getInstance();
     if (_token != null) {
-      await prefs.setString('token', _token!);
-      // Also store in secure storage for statement/WebView access
+      // SECURITY FIX: store auth token only in encrypted secure storage.
       await _secureStorage.write(key: 'access_token', value: _token!);
     }
     await prefs.setString('user', jsonEncode(_user!.toJson()));
@@ -456,7 +456,6 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     await FcmService().clearToken();
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
     await prefs.remove('user');
     await prefs.remove('last_activity_at');
     await prefs.remove('login_member_id');

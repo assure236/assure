@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/api_service.dart';
 
 class DashboardProvider with ChangeNotifier {
+  static const _secureStorage = FlutterSecureStorage();
   Map<String, dynamic>? _data;
   Map<String, dynamic>? _kycFlowStatus;
   bool _isLoading = false;
@@ -76,7 +78,8 @@ class DashboardProvider with ChangeNotifier {
 
   Future<void> fetchDashboard() async {
     final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
+    // SECURITY FIX: read token from secure storage only.
+    final token = await _secureStorage.read(key: 'access_token');
     if (token == null) {
       _isLoading = false;
       _data = {};

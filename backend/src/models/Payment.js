@@ -13,6 +13,8 @@ const paymentSchema = new mongoose.Schema({
   payment_gateway: String,
   transaction_id: { type: String, unique: true, sparse: true },
   cashfree_order_id: String,
+  // SECURITY FIX: deduplicate payment creation retries using idempotency key.
+  idempotency_key: { type: String, unique: true, sparse: true },
   payment_session_id: String,
   payment_status: { type: String, enum: ['pending', 'success', 'failed', 'refunded', 'overdue'], default: 'pending' },
   payment_date: Date,

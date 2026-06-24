@@ -1,5 +1,6 @@
 ﻿const Groq = require('groq-sdk');
 const { ChitGroup, User, Payment, Wallet, WalletTransaction, Referral, Notification, SupportTicket, ChitMember, Auction } = require('../models');
+const logger = require('../utils/logger');
 
 // Groq AI Setup
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
@@ -243,7 +244,8 @@ async function generateAIResponse(message, context, history = []) {
     });
     return chatCompletion.choices[0]?.message?.content || null;
   } catch (err) {
-    console.error('Groq AI error:', err.message);
+    // SECURITY FIX: use centralized logger without dumping provider payloads.
+    logger.error('Groq AI error', { message: err.message });
     return null;
   }
 }
