@@ -10,15 +10,30 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/providers/active_member_provider.dart';
+import '../../../core/models/user_model.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 
 Future<Map<String, String>> _authHeaders() async {
   final prefs = await SharedPreferences.getInstance();
   final token = prefs.getString('token');
+  final activeMemberId = prefs.getString('active_member_id')?.trim();
   return {
     if (token != null) 'Authorization': 'Bearer $token',
+    if (activeMemberId != null && activeMemberId.isNotEmpty)
+      'X-Active-Member-Id': activeMemberId.toUpperCase(),
   };
+}
+
+Future<Uri> _activeAwareUri(String path) async {
+  final prefs = await SharedPreferences.getInstance();
+  final activeMemberId = prefs.getString('active_member_id')?.trim();
+  final base = Uri.parse('${ApiService.baseUrl}$path');
+  if (activeMemberId == null || activeMemberId.isEmpty) return base;
+  final qp = Map<String, String>.from(base.queryParameters);
+  qp['active_member_id'] = activeMemberId.toUpperCase();
+  return base.replace(queryParameters: qp);
 }
 
 const _kStates = [
@@ -40,6 +55,36 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _saving = false;
+  User? _displayUser;
+  String? _loadedMemberContext;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadDisplayedProfile());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final activeMemberId = context.watch<ActiveMemberProvider>().activeMemberId;
+    final nextContext = activeMemberId?.toUpperCase() ?? 'me';
+    if (_loadedMemberContext != nextContext) {
+      _loadedMemberContext = nextContext;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _loadDisplayedProfile());
+    }
+  }
+
+  Future<void> _loadDisplayedProfile() async {
+    try {
+      final response = await ApiService.get('/users/profile');
+      if (response['success'] == true && mounted) {
+        setState(() {
+          _displayUser = User.fromJson(Map<String, dynamic>.from(response['data']));
+        });
+      }
+    } catch (_) {}
+  }
 
   Future<http.MultipartFile> _proofPart(String field, String path) {
     final ext = path.split('.').last.toLowerCase();
@@ -67,7 +112,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     ));
   }
 
-  Future<void> _refresh() => context.read<AuthProvider>().refreshProfile();
+  Future<void> _refresh() => _loadDisplayedProfile();
 
   // ── EMAIL CHANGE ──────────────────────────────────────────────────────────
   Future<void> _showEmailSheet() async {
@@ -232,7 +277,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 if (proofPath == null) { ss(() => err = 'Attach an address proof document'); return; }
                 ss(() { loading = true; err = null; });
                 try {
-                  final req = http.MultipartRequest('PUT', Uri.parse('${ApiService.baseUrl}/users/profile/change-address'));
+                  final req = http.MultipartRequest('PUT', await _activeAwareUri('/users/profile/change-address'));
                   req.headers.addAll(await _authHeaders());
                   req.fields['address'] = ac.text.trim();
                   req.fields['city'] = cc.text.trim();
@@ -416,7 +461,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               if (proofPath == null) { ss(() => err = 'Attach bank proof document'); return; }
               ss(() { loading = true; err = null; });
               try {
-                final req = http.MultipartRequest('PUT', Uri.parse('${ApiService.baseUrl}/users/profile/change-bank'));
+                final req = http.MultipartRequest('PUT', await _activeAwareUri('/users/profile/change-bank'));
                 req.headers.addAll(await _authHeaders());
                 req.fields['bank_account_number'] = acc;
                 req.fields['bank_ifsc_code'] = ifsc;
@@ -491,7 +536,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   // ── BUILD ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().user;
+    final user = _displayUser ?? context.watch<AuthProvider>().user;
     final isProfilePending = (user?.profileEditStatus ?? '').toLowerCase() == 'pending';
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,

@@ -13,8 +13,10 @@ class ActiveMemberProvider with ChangeNotifier {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_prefsKey)?.trim();
-    _activeMemberId = (raw == null || raw.isEmpty) ? null : raw.toUpperCase();
+    final value = prefs.getString(_prefsKey)?.trim();
+    _activeMemberId = (value == null || value.isEmpty)
+        ? null
+        : value.toUpperCase();
     notifyListeners();
   }
 

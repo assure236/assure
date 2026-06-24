@@ -192,6 +192,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('lastActivity');
+    localStorage.removeItem('active_member_id');
     delete axios.defaults.headers.common['Authorization'];
     toast.info('Logged out successfully');
   };
@@ -202,7 +203,18 @@ export const AuthProvider = ({ children }) => {
     setUser(newUser);
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
+    localStorage.removeItem('active_member_id');
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
+  };
+
+  const logoutAllDevices = async () => {
+    try {
+      await axios.post('/auth/logout-all', {});
+      toast.success('Logged out from all devices');
+    } catch (_) {
+      toast.error('Could not logout all devices');
+    }
+    logout();
   };
 
   const updateProfile = async (profileData) => {
@@ -232,6 +244,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    logoutAllDevices,
     loginWithToken,
     updateProfile,
     isAuthenticated: !!token && !!user

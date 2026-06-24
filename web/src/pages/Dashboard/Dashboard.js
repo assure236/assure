@@ -23,8 +23,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 import SimpleTour from '../../components/Onboarding/SimpleTour';
 import ReferralShareModal from '../../components/Onboarding/ReferralShareModal';
+import MemberSwitcher from '../../components/MemberSwitcher';
 
 const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
   <Card
@@ -62,6 +64,7 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const { refreshKey } = useActiveMember();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -74,7 +77,7 @@ const Dashboard = () => {
   const [showTour, setShowTour] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
-  useEffect(() => { fetchDashboardData(); }, []);
+  useEffect(() => { fetchDashboardData(); }, [refreshKey]);
 
   // Post-onboarding: take a tour + share popup
   useEffect(() => {
@@ -176,13 +179,16 @@ const Dashboard = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       {/* Header */}
-      <Box mb={3}>
-        <Typography variant="h4">
-          Welcome back, {user?.full_name || 'Member'}! 👋
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Member ID: {user?.member_id || '—'} &nbsp;|&nbsp; Last login today
-        </Typography>
+      <Box mb={3} display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
+        <Box>
+          <Typography variant="h4">
+            Welcome back, {user?.full_name || 'Member'}! 👋
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Member ID: {user?.member_id || '—'} &nbsp;|&nbsp; Last login today
+          </Typography>
+        </Box>
+        <MemberSwitcher onSwitch={fetchDashboardData} />
       </Box>
 
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}

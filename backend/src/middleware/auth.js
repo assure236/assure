@@ -155,4 +155,9 @@ const authorizeRoles = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, authorizeRoles, invalidateUserCache };
+module.exports = {
+  authMiddleware,
+  authorizeRoles,
+  invalidateUserCache,
+  resolveActiveMemberContext,
+};

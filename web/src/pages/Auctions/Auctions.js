@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { getSocketUrl } from '../../config/env';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const formatRemaining = (seconds) => {
   const safe = Math.max(0, Number(seconds) || 0);
@@ -20,13 +21,14 @@ const formatRemaining = (seconds) => {
 
 const Auctions = () => {
   const navigate = useNavigate();
+  const { refreshKey } = useActiveMember();
   const [tab, setTab] = useState(0);
   const [auctions, setAuctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tick, setTick] = useState(0);
 
-  useEffect(() => { fetchAuctions(); }, []);
+  useEffect(() => { fetchAuctions(); }, [refreshKey]);
 
   // Real-time: auto-refresh when admin starts/ends auctions
   const socketRef = useRef(null);

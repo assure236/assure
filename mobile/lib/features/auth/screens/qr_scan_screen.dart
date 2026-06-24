@@ -2,6 +2,7 @@
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/providers/active_member_provider.dart';
 import '../../../core/providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
@@ -66,6 +67,12 @@ class _QrScanScreenState extends State<QrScanScreen> {
   }
 
   void _showConfirmDialog(String sessionId) {
+    final auth = context.read<AuthProvider>();
+    final activeMemberId = context.read<ActiveMemberProvider>().activeMemberId;
+    final loginLabel = (activeMemberId != null && activeMemberId.isNotEmpty)
+        ? 'family member $activeMemberId'
+        : (auth.user?.fullName ?? 'your account');
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -73,13 +80,14 @@ class _QrScanScreenState extends State<QrScanScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         icon: const Icon(Icons.computer, color: AppTheme.primaryColor, size: 52),
         title: const Text('Login to Web Portal?'),
-        content: const Column(
+        content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'You are about to log in to the Assure Chit Funds web portal using your account.',
+              'You are about to log in to the Assure Chit Funds web portal as '
+              '$loginLabel — the same account currently selected on your home screen.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.black54),
+              style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
             SizedBox(height: 12),
             Row(

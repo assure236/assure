@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../../core/providers/active_member_provider.dart';
 import '../../../core/providers/chit_group_provider.dart';
 import '../../../core/providers/dashboard_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -153,6 +154,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
   bool _loading = true;
   List<Map<String, dynamic>> _available = [];
   String? _error;
+  String? _lastActiveMemberId;
   // Item 23: checkbox selection for bottom Invest Now button
   final Set<String> _selectedIds = {};
 
@@ -191,6 +193,20 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
   void initState() {
     super.initState();
     _fetchAvailable();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final activeMemberId = context.watch<ActiveMemberProvider>().activeMemberId;
+    if (_lastActiveMemberId != activeMemberId) {
+      _lastActiveMemberId = activeMemberId;
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _fetchAvailable();
+        });
+      }
+    }
   }
 
   Future<void> _fetchAvailable() async {
@@ -252,7 +268,12 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
       );
 
       if (ok) {
-        setState(() => _selectedIds.remove(id));
+        setState(() {
+          _selectedIds.remove(id);
+          _available.removeWhere(
+            (groupRow) => (groupRow['_id'] ?? groupRow['id']).toString() == id,
+          );
+        });
         await context.read<DashboardProvider>().refresh();
         if (!context.mounted) return;
         CelebrationOverlay.showGroupJoined(context,

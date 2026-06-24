@@ -16,6 +16,7 @@ import {
   CheckCircleOutline as SuccessIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 import { toast } from 'react-toastify';
 
 const statusConfig = {
@@ -31,6 +32,7 @@ const formatCurrency = (v) => `₹${Number(v || 0).toLocaleString('en-IN', { min
 const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
 const Payments = () => {
+  const { refreshKey } = useActiveMember();
   const [tab, setTab] = useState(0);
   const [payments, setPayments] = useState([]);
   const [duePayments, setDuePayments] = useState([]);
@@ -75,7 +77,7 @@ const Payments = () => {
       fetchPayments();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshKey]);
 
   const verifyPaymentOrder = async (orderId, paymentId) => {
     setPaymentStep(3);

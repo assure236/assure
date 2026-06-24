@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -143,6 +144,7 @@ const ChitGroupCard = ({ group, onViewDetails, onEnroll }) => {
 
 const ChitGroups = () => {
   const navigate = useNavigate();
+  const { refreshKey } = useActiveMember();
   const [tab, setTab] = useState(0);
   const [newGroups, setNewGroups] = useState([]);
   const [vacantGroups, setVacantGroups] = useState([]);
@@ -194,7 +196,7 @@ const ChitGroups = () => {
 
   useEffect(() => {
     fetchGroups();
-  }, [fetchGroups]);
+  }, [fetchGroups, refreshKey]);
 
   const ensureEnrollmentAllowed = async () => {
     try {

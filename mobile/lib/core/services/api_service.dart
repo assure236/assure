@@ -28,14 +28,16 @@ class ApiService {
 
   static bool _shouldAttachActiveMember(String endpoint) {
     final normalized = endpoint.toLowerCase();
+    // QR web login should follow the selected family member on mobile.
+    if (normalized == '/auth/qr-confirm') return true;
     if (normalized.startsWith('/auth/')) return false;
     if (normalized.startsWith('/users/family-members')) return false;
     return true;
   }
 
-  static Future<Uri> _buildUri(String endpoint) async {
+  static Future<Uri> _buildUri(String endpoint, {bool includeActiveMember = true}) async {
     final base = Uri.parse('$baseUrl$endpoint');
-    if (!_shouldAttachActiveMember(endpoint)) return base;
+    if (!includeActiveMember || !_shouldAttachActiveMember(endpoint)) return base;
 
     final activeMemberId = await _getActiveMemberId();
     if (activeMemberId == null) return base;
@@ -45,13 +47,15 @@ class ApiService {
     return base.replace(queryParameters: qp);
   }
 
-  static Future<Map<String, String>> _buildHeaders() async {
+  static Future<Map<String, String>> _buildHeaders(String endpoint, {bool includeActiveMember = true}) async {
     final token = await _getToken();
     final activeMemberId = await _getActiveMemberId();
+    final attachActiveMember = includeActiveMember && _shouldAttachActiveMember(endpoint);
     return {
       'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
-      if (activeMemberId != null) 'X-Active-Member-Id': activeMemberId,
+      if (attachActiveMember && activeMemberId != null)
+        'X-Active-Member-Id': activeMemberId,
     };
   }
 
@@ -66,7 +70,20 @@ class ApiService {
 
   static Future<Map<String, dynamic>> get(String endpoint) async {
     final uri = await _buildUri(endpoint);
-    final headers = await _buildHeaders();
+    final headers = await _buildHeaders(endpoint);
+    final response = await http
+        .get(
+          uri,
+          headers: headers,
+        )
+        .timeout(_timeout);
+
+    return _handleResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> getWithoutActiveMember(String endpoint) async {
+    final uri = await _buildUri(endpoint, includeActiveMember: false);
+    final headers = await _buildHeaders(endpoint, includeActiveMember: false);
     final response = await http
         .get(
           uri,
@@ -80,7 +97,23 @@ class ApiService {
   static Future<Map<String, dynamic>> post(
       String endpoint, Map<String, dynamic> data) async {
     final uri = await _buildUri(endpoint);
-    final headers = await _buildHeaders();
+    final headers = await _buildHeaders(endpoint);
+    final response = await http
+        .post(
+          uri,
+          headers: headers,
+          body: jsonEncode(data),
+        )
+        .timeout(_timeout);
+
+    return _handleResponse(response);
+  }
+
+  /// Account-level auth calls must never carry the family-member switch header.
+  static Future<Map<String, dynamic>> postWithoutActiveMember(
+      String endpoint, Map<String, dynamic> data) async {
+    final uri = await _buildUri(endpoint, includeActiveMember: false);
+    final headers = await _buildHeaders(endpoint, includeActiveMember: false);
     final response = await http
         .post(
           uri,
@@ -95,7 +128,7 @@ class ApiService {
   static Future<Map<String, dynamic>> put(
       String endpoint, Map<String, dynamic> data) async {
     final uri = await _buildUri(endpoint);
-    final headers = await _buildHeaders();
+    final headers = await _buildHeaders(endpoint);
     final response = await http.put(
       uri,
       headers: headers,
@@ -107,7 +140,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> delete(String endpoint) async {
     final uri = await _buildUri(endpoint);
-    final headers = await _buildHeaders();
+    final headers = await _buildHeaders(endpoint);
     final response = await http.delete(
       uri,
       headers: headers,
@@ -124,6 +157,7 @@ class ApiService {
   }) async {
     final token = await _getToken();
     final activeMemberId = await _getActiveMemberId();
+    final attachActiveMember = _shouldAttachActiveMember(endpoint);
     final uri = await _buildUri(endpoint);
     final request = http.MultipartRequest(
       'POST',
@@ -132,7 +166,7 @@ class ApiService {
     if (token != null) {
       request.headers['Authorization'] = 'Bearer $token';
     }
-    if (activeMemberId != null) {
+    if (attachActiveMember && activeMemberId != null) {
       request.headers['X-Active-Member-Id'] = activeMemberId;
     }
     // Determine MIME type from file extension (MultipartFile.fromPath often sends application/octet-stream)

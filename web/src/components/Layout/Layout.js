@@ -33,10 +33,14 @@ import {
   Logout as LogoutIcon,
   BarChart as AnalyticsIcon,
   FamilyRestroom as FamilyIcon,
-  AccountBalance as LoanIcon
+  AccountBalance as LoanIcon,
+  SupportAgent as SupportIcon,
+  Flag as GoalsIcon,
+  VerifiedUser as KycIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
 import Chatbot from '../Chatbot/Chatbot';
+import MemberSwitcher from '../MemberSwitcher';
 import axios from 'axios';
 
 const drawerWidth = 240;
@@ -46,13 +50,16 @@ const menuItems = [
   { text: 'My Chit Groups', icon: <GroupIcon />, path: '/chit-groups' },
   { text: 'Auctions', icon: <GavelIcon />, path: '/auctions' },
   { text: 'Payments', icon: <PaymentIcon />, path: '/payments' },
+  { text: 'Goals', icon: <GoalsIcon />, path: '/goals' },
+  { text: 'KYC', icon: <KycIcon />, path: '/kyc' },
   { text: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
   { text: 'Loans', icon: <LoanIcon />, path: '/loans' },
   { text: 'Documents', icon: <DescriptionIcon />, path: '/documents' },
   { text: 'Notifications', icon: <NotifIcon />, path: '/notifications' },
   { text: 'Family Members', icon: <FamilyIcon />, path: '/family-members' },
+  { text: 'Support', icon: <SupportIcon />, path: '/support' },
   { text: 'Referrals', icon: <CardGiftcardIcon />, path: '/referrals' },
-  { text: 'Help & Support', icon: <HelpIcon />, path: '/help' }
+  { text: 'Help Center', icon: <HelpIcon />, path: '/help' }
 ];
 
 const Layout = () => {
@@ -173,6 +180,9 @@ const Layout = () => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             Member Portal
           </Typography>
+          <Box sx={{ display: { xs: 'none', md: 'block' }, mr: 2 }}>
+            <MemberSwitcher compact />
+          </Box>
           <IconButton color="inherit" onClick={() => navigate('/notifications')} sx={{ mr: 1 }}>
             <Badge badgeContent={unreadCount > 0 ? unreadCount : null} color="error" max={99}>
               <NotifIcon />

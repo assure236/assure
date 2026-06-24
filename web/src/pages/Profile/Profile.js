@@ -3,13 +3,15 @@ import {
   Container, Grid, Card, CardContent, Typography, Box, Avatar,
   Button, Divider, TextField, Alert, CircularProgress, Chip, Paper,
   Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress, Tooltip,
-  MenuItem
+  MenuItem, List, ListItemButton, ListItemText
 } from '@mui/material';
 import {
   Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon,
   VerifiedUser as KycIcon, TrendingUp as ScoreIcon,
-  Info as InfoIcon, PhotoCamera as SelfieIcon
+  Info as InfoIcon, PhotoCamera as SelfieIcon,
+  ChevronRight as ChevronRightIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -60,7 +62,8 @@ const CreditScoreMeter = ({ score }) => {
 };
 
 const Profile = () => {
-  const { user, updateProfile } = useAuth();
+  const navigate = useNavigate();
+  const { user, updateProfile, logoutAllDevices } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -277,6 +280,58 @@ const Profile = () => {
                   </Grid>
                 ))}
               </Grid>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" fontWeight={700} gutterBottom>Account & Tools</Typography>
+              <List dense>
+                {[
+                  { label: 'KYC Verification', path: '/kyc' },
+                  { label: 'Documents', path: '/documents' },
+                  { label: 'Savings Goals', path: '/goals' },
+                  { label: 'Analytics', path: '/analytics' },
+                  { label: 'Referrals', path: '/referrals' },
+                  { label: 'Family Members', path: '/family-members' },
+                ].map((item) => (
+                  <ListItemButton key={item.path} onClick={() => navigate(item.path)}>
+                    <ListItemText primary={item.label} />
+                    <ChevronRightIcon fontSize="small" />
+                  </ListItemButton>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" fontWeight={700} gutterBottom>Chit Actions & Support</Typography>
+              <List dense>
+                {[
+                  { label: 'Transfer Chit', path: '/chit-groups/transfer' },
+                  { label: 'Cancel Chit', path: '/chit-groups/cancel' },
+                  { label: 'Support Tickets', path: '/support' },
+                  { label: 'Help Center', path: '/help' },
+                  { label: 'Terms & Conditions', path: '/terms' },
+                  { label: 'Privacy Policy', path: '/privacy-policy' },
+                ].map((item) => (
+                  <ListItemButton key={item.path} onClick={() => navigate(item.path)}>
+                    <ListItemText primary={item.label} />
+                    <ChevronRightIcon fontSize="small" />
+                  </ListItemButton>
+                ))}
+              </List>
+              <Divider sx={{ my: 2 }} />
+              <Button variant="outlined" color="warning" fullWidth sx={{ mb: 1 }}
+                onClick={logoutAllDevices}>
+                Logout All Devices
+              </Button>
             </CardContent>
           </Card>
         </Grid>

@@ -412,7 +412,7 @@ exports.qrStatus = async (req, res, next) => {
 
 exports.qrConfirm = async (req, res, next) => {
   try {
-    const { sessionId, active_member_id: requestedMemberId } = req.body;
+    const { sessionId } = req.body;
     if (!sessionId) return res.status(400).json({ success: false, message: 'sessionId required' });
     const session = qrSessionStore.get(sessionId);
     if (!session || Date.now() > session.expires) {
@@ -423,29 +423,22 @@ exports.qrConfirm = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'QR already used' });
     }
 
-    // Resolve active member context — if the mobile user selected a family member,
-    // issue the web token for that member so the web portal opens as them.
+    // Issue the web token for the same member shown in the mobile app:
+    // primary account when "My Account" is selected, or the linked family member.
+    const { resolveActiveMemberContext } = require('../middleware/auth');
     const authUser = req.auth_user || req.user;
     let effectiveUser = authUser;
-    if (requestedMemberId) {
-      const { resolveActiveMemberContextPublic } = require('../middleware/auth');
-      // Fallback: inline resolution when export not available
-      const memberId = String(requestedMemberId).trim().toUpperCase();
-      if (memberId && memberId !== 'ME' && (authUser.member_id || '').toUpperCase() !== memberId) {
-        const FamilyMember = require('../models').FamilyMember;
-        const targetUser = await User.findOne({ member_id: memberId, is_active: true }).select('-password_hash').lean();
-        if (targetUser) {
-          const relation = await FamilyMember.findOne({
-            user_id: authUser._id,
-            is_active: true,
-            status: { $in: ['approved', 'linked'] },
-            $or: [{ linked_user_id: targetUser._id }, { member_id: targetUser.member_id }],
-          }).select('_id').lean();
-          if (relation) {
-            effectiveUser = { ...targetUser, id: String(targetUser._id) };
-          }
-        }
-      }
+
+    const requestedMemberId =
+      req.body?.active_member_id ||
+      req.headers['x-active-member-id'] ||
+      req.query?.active_member_id;
+
+    if (requestedMemberId && authUser.role === 'member') {
+      const resolved = await resolveActiveMemberContext(authUser, requestedMemberId);
+      effectiveUser = resolved.user;
+    } else if (req.active_member_context?.switched) {
+      effectiveUser = req.user;
     }
 
     const userId = effectiveUser._id || effectiveUser.id;
@@ -458,11 +451,9 @@ exports.qrConfirm = async (req, res, next) => {
     user.web_token_version = (user.web_token_version || 0) + 1;
     await user.save();
 
-    // Also notify primary account's web session to force logout
-    const primaryId = String(authUser._id || authUser.id);
     const io = req.app.get('io');
     if (io) {
-      io.to(`user:${primaryId}`).emit('force_logout_web', {
+      io.to(`user:${String(userId)}`).emit('force_logout_web', {
         message: 'Your web session was logged out because a new web login was detected.',
         device_name: 'Web session',
         platform: 'web',
@@ -475,8 +466,8 @@ exports.qrConfirm = async (req, res, next) => {
 
     const tv = user.token_version || 0;
     const wv = user.web_token_version || 0;
-    const token = generateToken(userId, tv, { ch: 'web', wv });
-    const refreshToken = generateRefreshToken(userId, tv, { ch: 'web', wv });
+    const token = generateToken(String(userId), tv, { ch: 'web', wv });
+    const refreshToken = generateRefreshToken(String(userId), tv, { ch: 'web', wv });
     const userObj = {
       id: user._id,
       full_name: user.full_name,

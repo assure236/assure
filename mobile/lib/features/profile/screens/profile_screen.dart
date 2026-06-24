@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/providers/active_member_provider.dart';
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_prefs.dart';
 
@@ -16,14 +18,62 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  List<Map<String, dynamic>> _familyMembers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFamilyMembers();
+  }
+
+  Future<void> _loadFamilyMembers() async {
+    try {
+      final res = await ApiService.get('/users/family-members');
+      if (res['success'] == true && mounted) {
+        setState(() {
+          _familyMembers = List<Map<String, dynamic>>.from(res['data'] ?? []);
+        });
+      }
+    } catch (_) {}
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
     final user = auth.user;
+    final activeMemberId = context.watch<ActiveMemberProvider>().activeMemberId;
+
+    Map<String, dynamic>? activeFamilyMember;
+    if (activeMemberId != null) {
+      try {
+        activeFamilyMember = _familyMembers.firstWhere(
+          (m) =>
+              (m['member_id'] ?? '').toString().toUpperCase() ==
+              activeMemberId.toUpperCase(),
+        );
+      } catch (_) {}
+    }
+
+    final displayName = activeFamilyMember != null
+        ? ((activeFamilyMember['full_name']?.toString().trim().isNotEmpty ==
+                true)
+            ? activeFamilyMember['full_name'].toString().trim()
+            : (activeFamilyMember['member_id']?.toString().trim().isNotEmpty ==
+                    true)
+                ? activeFamilyMember['member_id'].toString().trim()
+                : (activeMemberId ?? 'Member'))
+        : (user?.fullName ?? 'Member');
+    final displayMemberId = activeFamilyMember != null
+        ? (activeFamilyMember['member_id']?.toString() ?? activeMemberId)
+        : user?.memberId;
+    final displayImageUrl = activeFamilyMember != null ? null : user?.profileImageUrl;
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: RefreshIndicator(
-        onRefresh: () => context.read<AuthProvider>().refreshProfile(),
+        onRefresh: () async {
+          await context.read<AuthProvider>().refreshProfile();
+          await _loadFamilyMembers();
+        },
         child: CustomScrollView(
           slivers: [
             SliverAppBar(
@@ -48,20 +98,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: Stack(
                             alignment: Alignment.bottomRight,
                             children: [
-                              (user?.profileImageUrl != null &&
-                                      user!.profileImageUrl!.isNotEmpty)
+                                (displayImageUrl != null && displayImageUrl.isNotEmpty)
                                   ? CircleAvatar(
                                       radius: 44,
                                       backgroundColor: Colors.white24,
-                                      backgroundImage:
-                                          NetworkImage(user.profileImageUrl!),
+                                    backgroundImage: NetworkImage(displayImageUrl),
                                     )
                                   : CircleAvatar(
                                       radius: 44,
                                       backgroundColor: Colors.white24,
                                       child: Text(
-                                        user != null && user.fullName.isNotEmpty
-                                            ? user.fullName[0].toUpperCase()
+                                    displayName.isNotEmpty
+                                      ? displayName[0].toUpperCase()
                                             : '?',
                                         style: const TextStyle(
                                             color: Colors.white,
@@ -82,15 +130,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          user?.fullName ?? 'Member',
+                          displayName,
                           style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                               fontSize: 18),
                         ),
-                        if (user?.memberId != null)
+                        if (displayMemberId != null)
                           Text(
-                            'ID: ${user!.memberId}',
+                            'ID: $displayMemberId',
                             style: const TextStyle(
                                 color: Colors.white60, fontSize: 12),
                           )

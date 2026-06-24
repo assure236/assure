@@ -9,18 +9,37 @@ import '../../../core/config/app_config.dart';
 /// API wrapper for onboarding endpoints.
 class OnboardingApi {
   static String get _base => AppConfig.apiBaseUrl;
+  static const _activeMemberPrefsKey = 'active_member_id';
+
+  static Future<String?> _activeMemberId() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_activeMemberPrefsKey)?.trim();
+    if (raw == null || raw.isEmpty) return null;
+    return raw.toUpperCase();
+  }
+
+  static Future<Uri> _uri(String path) async {
+    final base = Uri.parse('$_base$path');
+    final active = await _activeMemberId();
+    if (active == null) return base;
+    final qp = Map<String, String>.from(base.queryParameters);
+    qp['active_member_id'] = active;
+    return base.replace(queryParameters: qp);
+  }
 
   static Future<Map<String, String>> _headers({bool json = true}) async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
+    final active = await _activeMemberId();
     return {
       if (json) 'Content-Type': 'application/json',
       if (token != null) 'Authorization': 'Bearer $token',
+      if (active != null) 'X-Active-Member-Id': active,
     };
   }
 
   static Future<Map<String, dynamic>> getStatus() async {
-    final r = await http.get(Uri.parse('$_base/onboarding/status'), headers: await _headers());
+    final r = await http.get(await _uri('/onboarding/status'), headers: await _headers());
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
@@ -28,7 +47,7 @@ class OnboardingApi {
 
   static Future<Map<String, dynamic>> verifyPanKyc(String panNumber) async {
     final r = await http.post(
-      Uri.parse('$_base/onboarding/verify-pan'),
+      await _uri('/onboarding/verify-pan'),
       headers: await _headers(),
       body: jsonEncode({'pan_number': panNumber.toUpperCase().trim()}),
     );
@@ -37,7 +56,7 @@ class OnboardingApi {
 
   static Future<Map<String, dynamic>> sendAadhaarOtp(String aadhaarNumber) async {
     final r = await http.post(
-      Uri.parse('$_base/onboarding/aadhaar/send-otp'),
+      await _uri('/onboarding/aadhaar/send-otp'),
       headers: await _headers(),
       body: jsonEncode({'aadhaar_number': aadhaarNumber.replaceAll(RegExp(r'\D'), '')}),
     );
@@ -50,7 +69,7 @@ class OnboardingApi {
     required String otp,
   }) async {
     final r = await http.post(
-      Uri.parse('$_base/onboarding/aadhaar/verify-otp'),
+      await _uri('/onboarding/aadhaar/verify-otp'),
       headers: await _headers(),
       body: jsonEncode({
         'aadhaar_number': aadhaarNumber.replaceAll(RegExp(r'\D'), ''),
@@ -63,7 +82,7 @@ class OnboardingApi {
 
   static Future<Map<String, dynamic>> createCashfreeDigilockerUrl({String userFlow = 'signup'}) async {
     final r = await http.post(
-      Uri.parse('$_base/onboarding/digilocker/create-url'),
+      await _uri('/onboarding/digilocker/create-url'),
       headers: await _headers(),
       body: jsonEncode({'user_flow': userFlow}),
     );
@@ -79,7 +98,7 @@ class OnboardingApi {
       if (referenceId != null) 'reference_id': referenceId,
     };
     final r = await http.post(
-      Uri.parse('$_base/onboarding/digilocker/sync'),
+      await _uri('/onboarding/digilocker/sync'),
       headers: await _headers(),
       body: jsonEncode(body),
     );
@@ -91,7 +110,7 @@ class OnboardingApi {
     int? confidencePercent,
     Map<String, String>? extraFields,
   }) async {
-    final req = http.MultipartRequest('POST', Uri.parse('$_base/onboarding/face-verify'));
+    final req = http.MultipartRequest('POST', await _uri('/onboarding/face-verify'));
     req.headers.addAll(await _headers(json: false));
     if (confidencePercent != null) {
       req.fields['confidence_percent'] = confidencePercent.toString();
@@ -125,7 +144,7 @@ class OnboardingApi {
 
   static Future<Map<String, dynamic>> saveBank({required String accountNumber, required String ifsc}) async {
     final r = await http.post(
-      Uri.parse('$_base/onboarding/bank'),
+      await _uri('/onboarding/bank'),
       headers: await _headers(),
       body: jsonEncode({'account_number': accountNumber, 'ifsc_code': ifsc}),
     );
@@ -133,7 +152,7 @@ class OnboardingApi {
   }
 
   static Future<Map<String, dynamic>> uploadCheque(String filePath) async {
-    final req = http.MultipartRequest('POST', Uri.parse('$_base/onboarding/cheque'));
+    final req = http.MultipartRequest('POST', await _uri('/onboarding/cheque'));
     req.headers.addAll(await _headers(json: false));
     req.files.add(await http.MultipartFile.fromPath('cheque', filePath, contentType: _mime(filePath)));
     final s = await req.send();
@@ -142,13 +161,13 @@ class OnboardingApi {
   }
 
   static Future<Map<String, dynamic>> skipCheque() async {
-    final r = await http.post(Uri.parse('$_base/onboarding/cheque/skip'), headers: await _headers());
+    final r = await http.post(await _uri('/onboarding/cheque/skip'), headers: await _headers());
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
   static Future<Map<String, dynamic>> saveAddress(Map<String, dynamic> body) async {
     final r = await http.post(
-      Uri.parse('$_base/onboarding/address'),
+      await _uri('/onboarding/address'),
       headers: await _headers(),
       body: jsonEncode(body),
     );
@@ -156,12 +175,12 @@ class OnboardingApi {
   }
 
   static Future<Map<String, dynamic>> complete() async {
-    final r = await http.post(Uri.parse('$_base/onboarding/complete'), headers: await _headers());
+    final r = await http.post(await _uri('/onboarding/complete'), headers: await _headers());
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 
   static Future<Map<String, dynamic>> tourComplete() async {
-    final r = await http.post(Uri.parse('$_base/onboarding/tour-complete'), headers: await _headers());
+    final r = await http.post(await _uri('/onboarding/tour-complete'), headers: await _headers());
     return jsonDecode(r.body) as Map<String, dynamic>;
   }
 

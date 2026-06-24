@@ -8,9 +8,11 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Box from '@mui/material/Box';
 import 'react-toastify/dist/ReactToastify.css';
 import { getApiBaseUrl } from './config/env';
+import { setupAxiosInterceptors } from './utils/setupAxios';
 
 // Context Providers
 import { AuthProvider } from './context/AuthContext';
+import { ActiveMemberProvider } from './context/ActiveMemberContext';
 
 // Eagerly loaded (always needed on first paint)
 import Login from './pages/Auth/Login';
@@ -37,6 +39,13 @@ const Notifications = lazy(() => import('./pages/Notifications/Notifications'));
 const Analytics = lazy(() => import('./pages/Analytics/Analytics'));
 const FamilyMembers = lazy(() => import('./pages/FamilyMembers/FamilyMembers'));
 const Loans = lazy(() => import('./pages/Loans/Loans'));
+const Support = lazy(() => import('./pages/Support/Support'));
+const Goals = lazy(() => import('./pages/Goals/Goals'));
+const KYC = lazy(() => import('./pages/KYC/KYC'));
+const TransferChit = lazy(() => import('./pages/ChitGroups/TransferChit'));
+const CancelChit = lazy(() => import('./pages/ChitGroups/CancelChit'));
+const Terms = lazy(() => import('./pages/Legal/Legal').then((m) => ({ default: m.Terms })));
+const PrivacyPolicy = lazy(() => import('./pages/Legal/Legal').then((m) => ({ default: m.PrivacyPolicy })));
 
 // Onboarding wizard (full-screen, one container per step)
 const DigiLockerStep = lazy(() => import('./pages/Onboarding/DigiLockerStep'));
@@ -59,6 +68,7 @@ const PageLoader = () => (
 
 // Ensure API base URL is always set (fallback for when .env is not loaded)
 axios.defaults.baseURL = getApiBaseUrl();
+setupAxiosInterceptors();
 
 // Theme configuration
 const theme = createTheme({
@@ -115,6 +125,7 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
+        <ActiveMemberProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <OnboardingGuard>
           <Suspense fallback={<PageLoader />}>
@@ -155,6 +166,13 @@ function App() {
               <Route path="/help" element={<Help />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/loans" element={<Loans />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/goals" element={<Goals />} />
+              <Route path="/kyc" element={<KYC />} />
+              <Route path="/chit-groups/transfer" element={<TransferChit />} />
+              <Route path="/chit-groups/cancel" element={<CancelChit />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             </Route>
 
             {/* Redirect /dashboard root if not authenticated handled by PrivateRoute */}
@@ -163,6 +181,7 @@ function App() {
           </Suspense>
           </OnboardingGuard>
         </Router>
+        </ActiveMemberProvider>
         <ToastContainer
           position="top-right"
           autoClose={3000}

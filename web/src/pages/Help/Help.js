@@ -11,6 +11,7 @@ import {
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const TUTORIALS = [
   { title: 'Getting Started with Assure ChitFunds', duration: '3:45', color: '#0B1F3B', description: 'An introduction to the platform — registration, login, and navigating your dashboard.', category: 'Beginner' },
@@ -57,6 +58,7 @@ const FAQS = [
 ];
 
 const Help = () => {
+  const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [form, setForm] = useState({ subject: '', message: '' });
   const [sending, setSending] = useState(false);
@@ -81,7 +83,12 @@ const Help = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Typography variant="h4" gutterBottom>Help & Support</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
+        <Typography variant="h4">Help & Support</Typography>
+        <Button variant="contained" onClick={() => navigate('/support?new=1')}>
+          Open Support Tickets
+        </Button>
+      </Box>
 
       {/* Tutorial Videos Section */}
       <Box mb={4}>

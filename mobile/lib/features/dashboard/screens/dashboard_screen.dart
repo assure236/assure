@@ -382,11 +382,49 @@ class _HeaderSectionState extends State<_HeaderSection> {
   Widget build(BuildContext context) {
     final user = widget.user;
     final dash = widget.dash;
-    final firstName = (user?.fullName ?? 'Member').split(' ').first;
+    final auth = context.watch<AuthProvider>();
+    final activeMemberId = context.watch<ActiveMemberProvider>().activeMemberId;
+    final selfId = auth.loginMemberId ?? user?.memberId ?? 'ME';
     final kycVerified = dash.kycStatus == 'verified';
-    final selfId = user?.memberId ?? 'ME';
 
-    // Build dropdown items: self + approved family members
+    // When a family member is selected, show their name/avatar instead
+    Map<String, dynamic>? activeFamilyMember;
+    if (activeMemberId != null) {
+      try {
+        activeFamilyMember = _familyMembers.firstWhere(
+          (m) => (m['member_id'] ?? '').toString().toUpperCase() == activeMemberId.toUpperCase(),
+        );
+      } catch (_) {}
+    }
+
+    final displayName = activeFamilyMember != null
+      ? ((activeFamilyMember['full_name']?.toString().trim().isNotEmpty == true)
+        ? activeFamilyMember['full_name'].toString().trim()
+        : (activeFamilyMember['member_id']?.toString().trim().isNotEmpty == true)
+          ? activeFamilyMember['member_id'].toString().trim()
+          : (activeMemberId ?? 'Member'))
+      : (user?.fullName ?? 'Member');
+    final firstName = displayName.split(' ').first;
+    final displayImageUrl = activeFamilyMember != null
+        ? null  // family member linked profile image not available; show initials
+        : user?.profileImageUrl;
+
+    final approvedLinkedMembers = _familyMembers
+        .where((m) =>
+            (m['status'] ?? '') == 'approved' ||
+            (m['status'] ?? '') == 'linked')
+        .toList();
+
+    final seenMemberIds = <String>{};
+    final uniqueFamilyMembers = approvedLinkedMembers.where((m) {
+      final key = (m['member_id'] ?? '').toString().toUpperCase();
+      if (key.isEmpty || key == selfId.toUpperCase()) return false;
+      if (seenMemberIds.contains(key)) return false;
+      seenMemberIds.add(key);
+      return true;
+    }).toList();
+
+    // Build dropdown items: self + distinct approved family members
     final dropdownItems = <DropdownMenuItem<String>>[
       DropdownMenuItem(
         value: 'me',
@@ -396,10 +434,7 @@ class _HeaderSectionState extends State<_HeaderSection> {
                 fontSize: 12,
                 fontWeight: FontWeight.w600)),
       ),
-      ..._familyMembers
-          .where((m) =>
-              (m['status'] ?? '') == 'approved' ||
-              (m['status'] ?? '') == 'linked')
+        ...uniqueFamilyMembers
           .map((m) => DropdownMenuItem(
                 value: m['member_id']?.toString() ?? m['_id']?.toString() ?? '',
                 child: Text(
@@ -414,7 +449,6 @@ class _HeaderSectionState extends State<_HeaderSection> {
               )),
     ];
 
-    final activeMemberId = context.watch<ActiveMemberProvider>().activeMemberId;
     final validValues =
         dropdownItems.map((e) => e.value).whereType<String>().toSet();
     final selectedValue =
@@ -436,14 +470,21 @@ class _HeaderSectionState extends State<_HeaderSection> {
         bottom: false,
         child: Stack(
           children: [
-            // Watermark logo background
-            Positioned(
-              right: -20,
-              bottom: -10,
-              child: Opacity(
-                opacity: 0.07,
-                child: Image.asset('assets/images/logo.png',
-                    width: 140, height: 140, fit: BoxFit.contain),
+            IgnorePointer(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 14, right: 10),
+                  child: Opacity(
+                    opacity: 0.16,
+                    child: Image.asset(
+                      'assets/images/logo_header.png',
+                      width: 126,
+                      height: 126,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
               ),
             ),
             Padding(
@@ -458,13 +499,13 @@ class _HeaderSectionState extends State<_HeaderSection> {
                         onTap: () => widget.onProfileTap?.call(),
                         child: Row(
                           children: [
-                            (user?.profileImageUrl != null &&
-                                    user!.profileImageUrl!.isNotEmpty)
+                            (displayImageUrl != null &&
+                                    displayImageUrl.isNotEmpty)
                                 ? CircleAvatar(
                                     radius: 24,
                                     backgroundColor: Colors.white24,
                                     backgroundImage:
-                                        NetworkImage(user.profileImageUrl!),
+                                        NetworkImage(displayImageUrl),
                                   )
                                 : CircleAvatar(
                                     radius: 24,

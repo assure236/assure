@@ -24,6 +24,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   DateTime? _lastActivityAt;
   int _lastActivityWriteMs = 0;
   bool _otpRequiredForUnlock = false;
+  String? _loginMemberId;
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -36,6 +37,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   DateTime? get sessionLoginAt => _sessionLoginAt;
   bool get otpRequiredForUnlock => _otpRequiredForUnlock;
   DateTime? get lastActivityAt => _lastActivityAt;
+  String? get loginMemberId => _loginMemberId;
 
   AuthProvider() {
     WidgetsBinding.instance.addObserver(this);
@@ -109,6 +111,8 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
       // Don't auto-authenticate on cold start — require MPIN re-entry
       // _isAuthenticated stays false so splash redirects to /lock
     }
+    _loginMemberId = prefs.getString('login_member_id')?.trim();
+    _loginMemberId ??= _user?.memberId;
     _sessionDevice = prefs.getString('session_device');
     final loginAtStr = prefs.getString('session_login_at');
     if (loginAtStr != null) _sessionLoginAt = DateTime.tryParse(loginAtStr);
@@ -118,6 +122,28 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
       _otpRequiredForUnlock = DateTime.now().difference(_lastActivityAt!) >= _otpReauthDuration;
     }
     notifyListeners();
+
+    if (_token != null) {
+      unawaited(_syncPrimaryProfile());
+    }
+  }
+
+  Future<void> _syncPrimaryProfile() async {
+    try {
+      final response = await ApiService.getWithoutActiveMember('/users/profile');
+      if (response['success'] == true) {
+        _user = User.fromJson(response['data']);
+        _loginMemberId = _user?.memberId?.trim();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('user', jsonEncode(_user!.toJson()));
+        if (_loginMemberId != null && _loginMemberId!.isNotEmpty) {
+          await prefs.setString('login_member_id', _loginMemberId!);
+        }
+        notifyListeners();
+      }
+    } catch (_) {
+      // Keep cached profile when offline.
+    }
   }
 
   @override
@@ -356,6 +382,13 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     _sessionDevice = SocketService.deviceName;
     await prefs.setString('session_login_at', _sessionLoginAt!.toIso8601String());
     await prefs.setString('session_device', _sessionDevice!);
+    _loginMemberId = _user?.memberId?.trim();
+    if (_loginMemberId != null && _loginMemberId!.isNotEmpty) {
+      await prefs.setString('login_member_id', _loginMemberId!);
+    } else {
+      await prefs.remove('login_member_id');
+    }
+    await prefs.remove('active_member_id');
 
     // Register FCM token for push notifications
     FcmService().registerTokenWithBackend();
@@ -392,7 +425,13 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<Map<String, dynamic>> confirmQrLogin(String sessionId) async {
     try {
-      final res = await ApiService.post('/auth/qr-confirm', {'sessionId': sessionId});
+      final prefs = await SharedPreferences.getInstance();
+      final activeMemberId = prefs.getString('active_member_id')?.trim().toUpperCase();
+      final payload = <String, dynamic>{'sessionId': sessionId};
+      if (activeMemberId != null && activeMemberId.isNotEmpty) {
+        payload['active_member_id'] = activeMemberId;
+      }
+      final res = await ApiService.post('/auth/qr-confirm', payload);
       return res;
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -407,6 +446,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     _isAuthenticated = false;
     _otpRequiredForUnlock = false;
     _lastActivityAt = null;
+    _loginMemberId = null;
     _stopInactivityTimer();
 
     // Disconnect user socket
@@ -419,6 +459,8 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     await prefs.remove('token');
     await prefs.remove('user');
     await prefs.remove('last_activity_at');
+    await prefs.remove('login_member_id');
+    await prefs.remove('active_member_id');
     await _secureStorage.delete(key: 'access_token');
 
     notifyListeners();
@@ -443,11 +485,15 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> refreshProfile() async {
     try {
-      final response = await ApiService.get('/users/profile');
+      final response = await ApiService.getWithoutActiveMember('/users/profile');
       if (response['success'] == true) {
         _user = User.fromJson(response['data']);
+        _loginMemberId = _user?.memberId?.trim();
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('user', jsonEncode(_user!.toJson()));
+        if (_loginMemberId != null && _loginMemberId!.isNotEmpty) {
+          await prefs.setString('login_member_id', _loginMemberId!);
+        }
         notifyListeners();
       }
     } catch (e) {

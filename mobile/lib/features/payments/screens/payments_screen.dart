@@ -14,6 +14,17 @@ import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import 'cashfree_payment_screen.dart';
 
+Future<Uri> _buildReceiptUri(String paymentId, String token) async {
+  final prefs = await SharedPreferences.getInstance();
+  final activeMemberId = prefs.getString('active_member_id')?.trim().toUpperCase();
+  final base = Uri.parse('${ApiService.baseUrl}/payments/receipt/$paymentId');
+  final qp = <String, String>{'token': token};
+  if (activeMemberId != null && activeMemberId.isNotEmpty) {
+    qp['active_member_id'] = activeMemberId;
+  }
+  return base.replace(queryParameters: qp);
+}
+
 class PaymentsScreen extends StatefulWidget {
   const PaymentsScreen({super.key});
 
@@ -540,9 +551,9 @@ class _PaymentTile extends StatelessWidget {
                   final paymentId = payment['_id'] ?? payment['id'] ?? '';
                   const storage = FlutterSecureStorage();
                   final token = await storage.read(key: 'access_token') ?? '';
-                  final url = '${ApiService.baseUrl}/payments/receipt/$paymentId?token=$token';
+                  final uri = await _buildReceiptUri(paymentId.toString(), token);
                   try {
-                    final response = await http.get(Uri.parse(url));
+                    final response = await http.get(uri);
                     if (response.statusCode == 200) {
                       final dir = Directory.systemTemp;
                       final file = File('${dir.path}/receipt_$paymentId.pdf');
@@ -579,8 +590,8 @@ class _PaymentTile extends StatelessWidget {
                   final paymentId = payment['_id'] ?? payment['id'] ?? '';
                   const storage = FlutterSecureStorage();
                   final token = await storage.read(key: 'access_token') ?? '';
-                  final url = '${ApiService.baseUrl}/payments/receipt/$paymentId?token=$token';
-                  launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                  final uri = await _buildReceiptUri(paymentId.toString(), token);
+                  launchUrl(uri, mode: LaunchMode.externalApplication);
                 },
                 icon: const Icon(Icons.download_rounded, size: 18),
                 label: const Text('Download'),

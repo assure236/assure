@@ -11,6 +11,8 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useNavigate } from 'react-router-dom';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const RELATIONSHIPS = ['spouse', 'parent', 'child', 'sibling', 'grandparent', 'other'];
 
@@ -20,6 +22,8 @@ const emptyForm = {
 };
 
 const FamilyMembers = () => {
+  const navigate = useNavigate();
+  const { setActiveMemberId } = useActiveMember();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -90,6 +94,17 @@ const FamilyMembers = () => {
     }
   };
 
+  const handleViewAs = (m) => {
+    const id = (m.member_id || '').toString().trim().toUpperCase();
+    if (!id || !['approved', 'linked'].includes(m.status)) {
+      toast.info('Member must be approved/linked before you can view their account');
+      return;
+    }
+    setActiveMemberId(id);
+    toast.success(`Now viewing ${m.full_name || id}`);
+    navigate('/dashboard');
+  };
+
   const handleDelete = async (m) => {
     if (!window.confirm(`Remove ${m.full_name} from your family list?`)) return;
     try {
@@ -151,6 +166,11 @@ const FamilyMembers = () => {
                       {m.is_nominee ? <Chip label="Nominee" size="small" color="success" /> : '—'}
                     </TableCell>
                     <TableCell>
+                      {['approved', 'linked'].includes(m.status) && m.member_id && (
+                        <Button size="small" variant="outlined" sx={{ mr: 1 }} onClick={() => handleViewAs(m)}>
+                          View
+                        </Button>
+                      )}
                       <IconButton size="small" color="primary" onClick={() => openEdit(m)}><EditIcon fontSize="small" /></IconButton>
                       <IconButton size="small" color="error" onClick={() => handleDelete(m)}><DeleteIcon fontSize="small" /></IconButton>
                     </TableCell>

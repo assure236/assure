@@ -19,6 +19,21 @@ class _SupportScreenState extends State<SupportScreen> {
   List<Map<String, dynamic>> _tickets = [];
   String? _agentRequestStatus; // null, 'pending', 'approved', 'rejected'
 
+  String _toBackendPriority(String uiPriority) {
+    switch (uiPriority) {
+      case 'high':
+        return 'high';
+      case 'normal':
+      default:
+        return 'medium';
+    }
+  }
+
+  String _toBackendCategory(String uiCategory) {
+    if (uiCategory == 'Profile / Account Issue') return 'Account Issue';
+    return uiCategory;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -219,8 +234,8 @@ class _SupportScreenState extends State<SupportScreen> {
                         final res = await ApiService.post('/users/support', {
                           'subject': subjectCtrl.text.trim(),
                           'description': descCtrl.text.trim(),
-                          'priority': priority,
-                          'category': category,
+                          'priority': _toBackendPriority(priority),
+                          'category': _toBackendCategory(category),
                         });
                         if (res['success'] == true) {
                           if (mounted) {
