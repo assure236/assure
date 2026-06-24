@@ -26,6 +26,10 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [bootstrapDone, setBootstrapDone] = useState(false);
+  const touchActivity = () => {
+    localStorage.setItem('lastActivity', Date.now().toString());
+  };
 
   useEffect(() => {
     // SECURITY FIX: silently refresh web session from HttpOnly refresh cookie on app load.
@@ -40,10 +44,13 @@ export const AuthProvider = ({ children }) => {
         }
         setAccessToken(newToken);
         setToken(newToken);
+        touchActivity();
         axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
         await fetchUserProfile();
       } catch (_) {
         setLoading(false);
+      } finally {
+        setBootstrapDone(true);
       }
     };
     bootstrapSession();
@@ -51,6 +58,8 @@ export const AuthProvider = ({ children }) => {
 
   // Set axios defaults
   useEffect(() => {
+    // SECURITY FIX: avoid premature redirect while refresh bootstrap is still in-flight.
+    if (!bootstrapDone) return;
     // SECURITY FIX: always include secure auth cookies in API requests.
     axios.defaults.withCredentials = true;
     if (token) {
@@ -171,6 +180,7 @@ export const AuthProvider = ({ children }) => {
         setAccessToken(accessToken);
         setToken(accessToken);
         setUser(user);
+        touchActivity();
         axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
         toast.success('Login successful!');
         return { success: true };
@@ -194,6 +204,7 @@ export const AuthProvider = ({ children }) => {
         setAccessToken(accessToken);
         setToken(accessToken);
         setUser(user);
+        touchActivity();
         axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
         toast.success('Registration successful!');
         return { success: true };
@@ -220,6 +231,8 @@ export const AuthProvider = ({ children }) => {
     setAccessToken(newToken);
     setToken(newToken);
     setUser(newUser);
+    // SECURITY FIX: reset idle timer for QR/OTP login so stale timestamps don't force immediate logout.
+    touchActivity();
     localStorage.removeItem('active_member_id');
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
   };
