@@ -10,6 +10,9 @@ const getWindowOrigin = () => {
 
 const isLocalHost = (host) => host === 'localhost' || host === '127.0.0.1';
 
+const PRODUCTION_API_HOSTS = new Set(['assure.fund', 'www.assure.fund']);
+const PRODUCTION_API_URL = 'https://api.assure.fund/api/v1';
+
 export const getApiBaseUrl = () => {
   const envUrl = normalizeUrl(process.env.REACT_APP_API_URL);
   if (envUrl) return envUrl;
@@ -17,6 +20,8 @@ export const getApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
     if (isLocalHost(host)) return 'http://localhost:5000/api/v1';
+    // Production web is served from assure.fund; API is on api.assure.fund (no /api proxy on web host).
+    if (PRODUCTION_API_HOSTS.has(host)) return PRODUCTION_API_URL;
     const origin = getWindowOrigin();
     if (origin) return `${origin}/api/v1`;
   }

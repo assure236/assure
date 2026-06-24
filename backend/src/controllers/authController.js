@@ -17,10 +17,13 @@ const REFRESH_COOKIE = '__Host-refresh_token';
 const ACCESS_COOKIE_TTL_MS = 15 * 60 * 1000;
 const REFRESH_COOKIE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+const useSecureCookies = process.env.NODE_ENV === 'production' || process.env.COOKIE_SECURE === 'true';
+
 const cookieOptions = (maxAge) => ({
   httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  // __Host- cookies require Secure; must be true on HTTPS production.
+  secure: useSecureCookies,
+  sameSite: 'lax',
   path: '/',
   maxAge,
 });
@@ -371,7 +374,19 @@ exports.refreshToken = async (req, res, next) => {
       ? generateRefreshToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
       : generateRefreshToken(user._id, user.token_version || 0);
     setAuthCookies(res, token, newRefreshToken);
-    res.json({ success: true, data: { token, refreshToken: newRefreshToken } });
+
+    const userObj = user.toObject();
+    delete userObj.password_hash;
+    userObj.id = userObj._id;
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        refreshToken: newRefreshToken,
+        user: userObj,
+      },
+    });
   } catch (error) { next(error); }
 };
 

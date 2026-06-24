@@ -25,7 +25,7 @@
   },
   "scripts": {
     "start": "vite --open /index.vite.html",
-    "build": "vite build && node -e \"const fs=require('fs'); if(fs.existsSync('dist/index.vite.html')) fs.copyFileSync('dist/index.vite.html','dist/index.html')\"",
+    "build": "vite build && node -e \"const fs=require('fs');const path=require('path');if(fs.existsSync('dist/index.vite.html'))fs.copyFileSync('dist/index.vite.html','dist/index.html');const out='build';fs.rmSync(out,{recursive:true,force:true});fs.cpSync('dist',out,{recursive:true});\"",
     "preview": "vite preview"
   },
   "eslintConfig": {

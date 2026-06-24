@@ -3,6 +3,7 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { io } from 'socket.io-client';
 import { securityLogger } from '../utils/securityLogger';
+import { getSocketUrl } from '../config/env';
 
 const AuthContext = createContext(null);
 // SECURITY FIX: keep access token in memory (not localStorage).
@@ -10,6 +11,23 @@ let _accessToken = null;
 export const getAccessToken = () => _accessToken;
 const setAccessToken = (token) => {
   _accessToken = token || null;
+};
+
+// Single-flight refresh so React Strict Mode / double mount cannot rotate the cookie twice.
+let sessionBootstrapPromise = null;
+
+const refreshSessionFromCookie = () => {
+  if (!sessionBootstrapPromise) {
+    sessionBootstrapPromise = axios
+      .post('/auth/refresh-token', {}, { withCredentials: true })
+      .then((res) => {
+        const payload = res?.data?.data;
+        if (!payload?.token) return null;
+        return payload;
+      })
+      .catch(() => null);
+  }
+  return sessionBootstrapPromise;
 };
 
 export const useAuth = () => {
@@ -27,50 +45,85 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bootstrapDone, setBootstrapDone] = useState(false);
+  const sessionRestoredRef = useRef(false);
+
   const touchActivity = () => {
     localStorage.setItem('lastActivity', Date.now().toString());
   };
 
+  const applySession = (accessToken, sessionUser) => {
+    setAccessToken(accessToken);
+    setToken(accessToken);
+    if (sessionUser) setUser(sessionUser);
+    touchActivity();
+    axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+  };
+
+  const fetchUserProfile = async ({ keepExistingUser = false } = {}) => {
+    try {
+      const response = await axios.get('/users/profile', { skipActiveMember: true });
+      if (response.data.success) setUser(response.data.data);
+    } catch (error) {
+      securityLogger.error('Profile fetch failed', { status: error?.response?.status });
+      if (error.response?.status === 401) {
+        logout({ silent: true });
+        return;
+      }
+      if (!keepExistingUser) {
+        // Keep token; user may already be set from refresh/login payload.
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    // SECURITY FIX: silently refresh web session from HttpOnly refresh cookie on app load.
+    let mounted = true;
+
     const bootstrapSession = async () => {
       try {
         axios.defaults.withCredentials = true;
-        const refreshRes = await axios.post('/auth/refresh-token', {});
-        const newToken = refreshRes?.data?.data?.token;
-        if (!newToken) {
+        const payload = await refreshSessionFromCookie();
+        if (!mounted) return;
+
+        if (!payload?.token) {
           setLoading(false);
           return;
         }
-        setAccessToken(newToken);
-        setToken(newToken);
-        touchActivity();
-        axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
-        await fetchUserProfile();
+
+        sessionRestoredRef.current = true;
+        applySession(payload.token, payload.user || null);
+
+        if (payload.user) {
+          setLoading(false);
+          fetchUserProfile({ keepExistingUser: true });
+        } else {
+          await fetchUserProfile();
+        }
       } catch (_) {
-        setLoading(false);
+        if (mounted) setLoading(false);
       } finally {
-        setBootstrapDone(true);
+        if (mounted) setBootstrapDone(true);
       }
     };
+
     bootstrapSession();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // Set axios defaults
   useEffect(() => {
-    // SECURITY FIX: avoid premature redirect while refresh bootstrap is still in-flight.
     if (!bootstrapDone) return;
-    // SECURITY FIX: always include secure auth cookies in API requests.
     axios.defaults.withCredentials = true;
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchUserProfile();
     } else {
+      delete axios.defaults.headers.common['Authorization'];
       setLoading(false);
     }
-  }, [token]);
+  }, [token, bootstrapDone]);
 
-  // ─── Inactivity auto-logout (15 min) ───
   useEffect(() => {
     if (!token) return;
 
@@ -84,28 +137,29 @@ export const AuthProvider = ({ children }) => {
       }, INACTIVITY_TIMEOUT);
     };
 
-    // If returning from DigiLocker, refresh the activity timestamp
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('digilocker')) {
       localStorage.setItem('lastActivity', Date.now().toString());
     }
 
-    // Check if already expired (e.g. tab was in background)
-    const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0');
-    if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
-      toast.warning('Session expired due to inactivity');
-      logout();
-      return;
+    // Skip stale idle check right after cookie/session restore on reload.
+    if (!sessionRestoredRef.current) {
+      const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0', 10);
+      if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
+        toast.warning('Session expired due to inactivity');
+        logout();
+        return;
+      }
     }
+    sessionRestoredRef.current = false;
 
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
-    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
-    resetTimer(); // start the timer
+    events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
 
-    // Also check on visibility change (tab refocus)
     const onVisibility = () => {
       if (!document.hidden) {
-        const last = parseInt(localStorage.getItem('lastActivity') || '0');
+        const last = parseInt(localStorage.getItem('lastActivity') || '0', 10);
         if (last && Date.now() - last > INACTIVITY_TIMEOUT) {
           toast.warning('Session expired due to inactivity');
           logout();
@@ -118,19 +172,15 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       clearTimeout(timer);
-      events.forEach(e => window.removeEventListener(e, resetTimer));
+      events.forEach((e) => window.removeEventListener(e, resetTimer));
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [token]);
 
-  // ─── Socket: listen for force_logout from logout-all-devices ───
   const socketRef = useRef(null);
   useEffect(() => {
     if (!token || !user) return;
-    const SOCKET_URL = process.env.REACT_APP_API_URL
-      ? process.env.REACT_APP_API_URL.replace('/api/v1', '')
-      : window.location.origin;
-    const socket = io(SOCKET_URL, { transports: ['websocket', 'polling'], reconnectionAttempts: 3 });
+    const socket = io(getSocketUrl(), { transports: ['websocket', 'polling'], reconnectionAttempts: 3 });
     socketRef.current = socket;
     socket.on('connect', () => {
       const userId = user._id || user.id;
@@ -147,41 +197,21 @@ export const AuthProvider = ({ children }) => {
     socket.on('new_login_detected', (data) => {
       toast.info(data?.message || 'New login detected on another device.');
     });
-    return () => { socket.disconnect(); socketRef.current = null; };
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
   }, [token, user?._id]);
-
-  const fetchUserProfile = async () => {
-    try {
-      const response = await axios.get('/users/profile', { skipActiveMember: true });
-      if (response.data.success) setUser(response.data.data);
-    } catch (error) {
-      // SECURITY FIX: avoid exposing raw auth/profile errors in console logs.
-      securityLogger.error('Profile fetch failed', { status: error?.response?.status });
-      // Only force logout on definitive auth failure, not network/rate-limit errors
-      if (error.response?.status === 401) {
-        logout();
-        return;
-      }
-      // Keep the cached user so reload doesn't log out
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const login = async (credentials) => {
     try {
-      const response = await axios.post(
-        '/auth/login',
-        credentials
-      );
+      const response = await axios.post('/auth/login', credentials);
 
       if (response.data.success) {
-        const { token: accessToken, user } = response.data.data;
-        setAccessToken(accessToken);
-        setToken(accessToken);
-        setUser(user);
-        touchActivity();
-        axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+        const { token: accessToken, user: loginUser } = response.data.data;
+        sessionBootstrapPromise = null;
+        applySession(accessToken, loginUser);
+        setLoading(false);
         toast.success('Login successful!');
         return { success: true };
       }
@@ -194,18 +224,13 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post(
-        '/auth/register',
-        userData
-      );
+      const response = await axios.post('/auth/register', userData);
 
       if (response.data.success) {
-        const { token: accessToken, user } = response.data.data;
-        setAccessToken(accessToken);
-        setToken(accessToken);
-        setUser(user);
-        touchActivity();
-        axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+        const { token: accessToken, user: registeredUser } = response.data.data;
+        sessionBootstrapPromise = null;
+        applySession(accessToken, registeredUser);
+        setLoading(false);
         toast.success('Registration successful!');
         return { success: true };
       }
@@ -216,25 +241,23 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = ({ silent = false } = {}) => {
+    sessionBootstrapPromise = null;
     setUser(null);
     setToken(null);
     setAccessToken(null);
     localStorage.removeItem('lastActivity');
     localStorage.removeItem('active_member_id');
     delete axios.defaults.headers.common['Authorization'];
-    toast.info('Logged out successfully');
+    axios.post('/auth/logout', {}, { withCredentials: true }).catch(() => {});
+    if (!silent) toast.info('Logged out successfully');
   };
 
-  // Used by QR login — mobile app confirms the scan and web gets token directly
   const loginWithToken = (newToken, newUser) => {
-    setAccessToken(newToken);
-    setToken(newToken);
-    setUser(newUser);
-    // SECURITY FIX: reset idle timer for QR/OTP login so stale timestamps don't force immediate logout.
-    touchActivity();
+    sessionBootstrapPromise = null;
+    applySession(newToken, newUser);
+    setLoading(false);
     localStorage.removeItem('active_member_id');
-    axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
   };
 
   const logoutAllDevices = async () => {
@@ -249,10 +272,7 @@ export const AuthProvider = ({ children }) => {
 
   const updateProfile = async (profileData) => {
     try {
-      const response = await axios.put(
-        '/users/profile',
-        profileData
-      );
+      const response = await axios.put('/users/profile', profileData);
 
       if (response.data.success) {
         const activeId = localStorage.getItem('active_member_id');
@@ -273,13 +293,14 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     loading,
+    bootstrapDone,
     login,
     register,
     logout,
     logoutAllDevices,
     loginWithToken,
     updateProfile,
-    isAuthenticated: !!token && !!user
+    isAuthenticated: Boolean(token && user),
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
