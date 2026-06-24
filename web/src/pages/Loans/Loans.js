@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const NAVY = '#0B1F3B';
 const GOLD = '#D4AF37';
@@ -66,10 +67,12 @@ const Loans = () => {
     purpose: '',
   });
 
+  const { refreshKey } = useActiveMember();
+
   useEffect(() => {
     fetchLoans();
     fetchChitGroups();
-  }, []);
+  }, [refreshKey]);
 
   const fetchLoans = async () => {
     try {

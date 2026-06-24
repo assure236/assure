@@ -14,6 +14,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const ChitHistory = () => {
   const navigate = useNavigate();
@@ -26,6 +27,7 @@ const ChitHistory = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [rows, setRows] = useState([]);
+  const { refreshKey } = useActiveMember();
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -46,7 +48,7 @@ const ChitHistory = () => {
     };
 
     fetchHistory();
-  }, []);
+  }, [refreshKey]);
 
   const groups = useMemo(() => {
     return rows

@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, {
+  createContext, useContext, useState, useCallback, useEffect,
+} from 'react';
+import axios from 'axios';
 
 const ActiveMemberContext = createContext(null);
 export const ACTIVE_MEMBER_STORAGE_KEY = 'active_member_id';
@@ -22,6 +25,22 @@ export const shouldAttachActiveMember = (url = '') => {
 export const ActiveMemberProvider = ({ children }) => {
   const [activeMemberId, setActiveMemberIdState] = useState(getActiveMemberId);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [effectiveProfile, setEffectiveProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(false);
+
+  const reloadEffectiveProfile = useCallback(async () => {
+    setProfileLoading(true);
+    try {
+      const res = await axios.get('/users/profile');
+      if (res.data.success) {
+        setEffectiveProfile(res.data.data);
+      }
+    } catch {
+      setEffectiveProfile(null);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, []);
 
   const setActiveMemberId = useCallback((memberId) => {
     const normalized = memberId && memberId !== 'me'
@@ -36,9 +55,24 @@ export const ActiveMemberProvider = ({ children }) => {
 
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
+  useEffect(() => {
+    reloadEffectiveProfile();
+  }, [refreshKey, reloadEffectiveProfile]);
+
+  const isSwitched = !!activeMemberId;
+
   return (
     <ActiveMemberContext.Provider
-      value={{ activeMemberId, setActiveMemberId, refreshKey, bumpRefresh }}
+      value={{
+        activeMemberId,
+        setActiveMemberId,
+        refreshKey,
+        bumpRefresh,
+        effectiveProfile,
+        profileLoading,
+        reloadEffectiveProfile,
+        isSwitched,
+      }}
     >
       {children}
     </ActiveMemberContext.Provider>

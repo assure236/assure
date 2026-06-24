@@ -120,7 +120,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUserProfile = async () => {
     try {
-      const response = await axios.get('/users/profile');
+      const response = await axios.get('/users/profile', { skipActiveMember: true });
       if (response.data.success) {
         setUser(response.data.data);
         localStorage.setItem('user', JSON.stringify(response.data.data));
@@ -225,10 +225,13 @@ export const AuthProvider = ({ children }) => {
       );
 
       if (response.data.success) {
-        setUser(response.data.data);
-        localStorage.setItem('user', JSON.stringify(response.data.data));
+        const activeId = localStorage.getItem('active_member_id');
+        if (!activeId) {
+          setUser(response.data.data);
+          localStorage.setItem('user', JSON.stringify(response.data.data));
+        }
         toast.success('Profile updated successfully');
-        return { success: true };
+        return { success: true, data: response.data.data };
       }
     } catch (error) {
       const message = error.response?.data?.message || 'Update failed';

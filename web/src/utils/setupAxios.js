@@ -3,6 +3,8 @@ import { getActiveMemberId, shouldAttachActiveMember } from '../context/ActiveMe
 
 export const setupAxiosInterceptors = () => {
   axios.interceptors.request.use((config) => {
+    if (config.skipActiveMember) return config;
+
     const requestUrl = `${config.baseURL || ''}${config.url || ''}`;
     if (!shouldAttachActiveMember(requestUrl)) return config;
 

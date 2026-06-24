@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container, Grid, Card, CardContent, Typography, Box, Avatar,
   Button, Divider, TextField, Alert, CircularProgress, Chip, Paper,
@@ -13,6 +13,8 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useActiveMember } from '../../context/ActiveMemberContext';
+import { useDisplayUser } from '../../hooks/useDisplayUser';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -63,28 +65,49 @@ const CreditScoreMeter = ({ score }) => {
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { user, updateProfile, logoutAllDevices } = useAuth();
+  const { updateProfile, logoutAllDevices } = useAuth();
+  const user = useDisplayUser();
+  const { refreshKey, isSwitched, reloadEffectiveProfile } = useActiveMember();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
-    full_name: user?.full_name || '',
-    mobile: user?.mobile || '',
-    email: user?.email || '',
-    date_of_birth: user?.date_of_birth || '',
-    gender: user?.gender || '',
-    address: user?.address || '',
-    city: user?.city || '',
-    state: user?.state || '',
-    pincode: user?.pincode || '',
-    current_address: user?.current_address || '',
-    current_city: user?.current_city || '',
-    current_state: user?.current_state || '',
-    current_pincode: user?.current_pincode || '',
+    full_name: '',
+    mobile: '',
+    email: '',
+    date_of_birth: '',
+    gender: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    current_address: '',
+    current_city: '',
+    current_state: '',
+    current_pincode: '',
   });
   const [pwDialog, setPwDialog] = useState(false);
   const [pwData, setPwData] = useState({ current_password: '', new_password: '', confirm: '' });
   const [pwError, setPwError] = useState('');
 
+  useEffect(() => {
+    if (!user) return;
+    setFormData({
+      full_name: user.full_name || '',
+      mobile: user.mobile || '',
+      email: user.email || '',
+      date_of_birth: user.date_of_birth || '',
+      gender: user.gender || '',
+      address: user.address || '',
+      city: user.city || '',
+      state: user.state || '',
+      pincode: user.pincode || '',
+      current_address: user.current_address || '',
+      current_city: user.current_city || '',
+      current_state: user.current_state || '',
+      current_pincode: user.current_pincode || '',
+    });
+    setEditing(false);
+  }, [user, refreshKey]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -92,6 +115,7 @@ const Profile = () => {
       const result = await updateProfile(formData);
       if (result?.success !== false) {
         setEditing(false);
+        await reloadEffectiveProfile();
       }
     } finally {
       setSaving(false);
@@ -149,7 +173,14 @@ const Profile = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Typography variant="h4" gutterBottom>My Profile</Typography>
+      <Typography variant="h4" gutterBottom>
+        {isSwitched ? `Profile — ${user?.member_id || 'Family Member'}` : 'My Profile'}
+      </Typography>
+      {isSwitched && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Viewing and editing profile for the selected family member account.
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {/* Left: Avatar + KYC + Credit Score */}

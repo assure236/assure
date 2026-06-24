@@ -11,7 +11,8 @@ import { ArrowBack as ArrowBackIcon, CheckCircle as CheckIcon, Error as OverdueI
 import { toast } from 'react-toastify';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
+import { useDisplayUser } from '../../hooks/useDisplayUser';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
@@ -27,7 +28,8 @@ const getUserId = (user) => String(user?.id || user?._id || '');
 const ChitGroupDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const user = useDisplayUser();
+  const { refreshKey } = useActiveMember();
   const [tab, setTab] = useState(0);
   const [group, setGroup] = useState(null);
   const [auctions, setAuctions] = useState([]);
@@ -49,7 +51,7 @@ const ChitGroupDetails = () => {
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [paying, setPaying] = useState(false);
 
-  useEffect(() => { fetchAll(); }, [id, user]);
+  useEffect(() => { fetchAll(); }, [id, refreshKey]);
 
   const fetchAll = async () => {
     setLoading(true);

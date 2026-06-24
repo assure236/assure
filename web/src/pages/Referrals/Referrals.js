@@ -6,16 +6,18 @@ import {
 } from '@mui/material';
 import { ContentCopy as CopyIcon, Share as ShareIcon, People as PeopleIcon, CardGiftcard as GiftIcon } from '@mui/icons-material';
 import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
+import { useActiveMember } from '../../context/ActiveMemberContext';
+import { useDisplayUser } from '../../hooks/useDisplayUser';
 import { toast } from 'react-toastify';
 
 const Referrals = () => {
-  const { user } = useAuth();
+  const user = useDisplayUser();
+  const { refreshKey } = useActiveMember();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  useEffect(() => { fetchReferrals(); }, []);
+  useEffect(() => { fetchReferrals(); }, [refreshKey]);
 
   const fetchReferrals = async () => {
     setLoading(true);

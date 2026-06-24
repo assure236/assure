@@ -14,6 +14,7 @@ import {
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useSearchParams } from 'react-router-dom';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const DOC_TYPES = [
   { key: 'aadhaar_card', label: 'Aadhaar Card (Front & Back)', required: true, maxSizeKB: 500 },
@@ -49,8 +50,9 @@ const Documents = () => {
   const [dlStatus, setDlStatus] = useState(null);
   const [dlLoading, setDlLoading] = useState(false);
   const [localPreviews, setLocalPreviews] = useState({});
+  const { refreshKey } = useActiveMember();
 
-  useEffect(() => { fetchDocuments(); fetchDlStatus(); }, []);
+  useEffect(() => { fetchDocuments(); fetchDlStatus(); }, [refreshKey]);
 
   // Handle DigiLocker redirect result (user comes back from DigiLocker)
   const [searchParams, setSearchParams] = useSearchParams();

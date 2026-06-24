@@ -22,8 +22,8 @@ import {
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { useDisplayUser } from '../../hooks/useDisplayUser';
 import SimpleTour from '../../components/Onboarding/SimpleTour';
 import ReferralShareModal from '../../components/Onboarding/ReferralShareModal';
 import MemberSwitcher from '../../components/MemberSwitcher';
@@ -63,8 +63,8 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
 );
 
 const Dashboard = () => {
-  const { user } = useAuth();
   const { refreshKey } = useActiveMember();
+  const displayUser = useDisplayUser();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
@@ -167,7 +167,7 @@ const Dashboard = () => {
     }
   ];
 
-  const kycStatus = dashboardData?.user?.kyc_status || user?.kyc_status || 'pending';
+  const kycStatus = dashboardData?.user?.kyc_status || displayUser?.kyc_status || 'pending';
   const memberships = dashboardData?.memberships || [];
   const recentPayments = dashboardData?.recentPayments || [];
   const upcomingAuctions = dashboardData?.upcomingAuctions || [];
@@ -182,10 +182,10 @@ const Dashboard = () => {
       <Box mb={3} display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h4">
-            Welcome back, {user?.full_name || 'Member'}! 👋
+            Welcome back, {displayUser?.full_name || 'Member'}! 👋
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Member ID: {user?.member_id || '—'} &nbsp;|&nbsp; Last login today
+            Member ID: {displayUser?.member_id || '—'} &nbsp;|&nbsp; Last login today
           </Typography>
         </Box>
         <MemberSwitcher onSwitch={fetchDashboardData} />
@@ -576,7 +576,7 @@ const Dashboard = () => {
       <ReferralShareModal
         open={showShare}
         onClose={() => setShowShare(false)}
-        referralCode={user?.referral_code}
+        referralCode={displayUser?.referral_code}
       />
     </Container>
   );

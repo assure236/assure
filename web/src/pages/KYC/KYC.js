@@ -10,6 +10,7 @@ import {
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const statusChip = (status) => {
   const s = (status || 'not_started').toLowerCase();
@@ -24,6 +25,7 @@ const KYC = () => {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [kycData, setKycData] = useState(null);
+  const { refreshKey } = useActiveMember();
 
   const load = async () => {
     setLoading(true);
@@ -42,7 +44,7 @@ const KYC = () => {
     const dl = searchParams.get('digilocker');
     if (dl === 'success') toast.success('DigiLocker connected successfully');
     if (dl === 'error') toast.error('DigiLocker verification failed');
-  }, [searchParams]);
+  }, [searchParams, refreshKey]);
 
   const openDigilocker = async () => {
     try {

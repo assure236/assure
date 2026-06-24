@@ -17,6 +17,8 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 import { toast } from 'react-toastify';
 import { getSocketUrl } from '../../config/env';
+import { useActiveMember } from '../../context/ActiveMemberContext';
+import { useDisplayUser } from '../../hooks/useDisplayUser';
 import {
   ResponsiveContainer,
   LineChart,
@@ -30,6 +32,8 @@ import {
 const AuctionRoom = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const displayUser = useDisplayUser();
+  const { refreshKey } = useActiveMember();
   const [auction, setAuction] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -54,10 +58,8 @@ const AuctionRoom = () => {
   const [analyticsExpanded, setAnalyticsExpanded] = useState(false);
   const [bidAnalytics, setBidAnalytics] = useState(null);
 
-  // Current user ID for chat-style bid display
-  const currentUserId = (() => {
-    try { return JSON.parse(localStorage.getItem('user') || '{}')._id; } catch { return null; }
-  })();
+  // Current user ID for chat-style bid display (selected member context)
+  const currentUserId = String(displayUser?._id || displayUser?.id || '');
 
   // Format seconds → HH:MM:SS
   const formatTime = (secs) => {
@@ -291,7 +293,7 @@ const AuctionRoom = () => {
       socket.disconnect();
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [id, fetchAuction, fetchBidAnalytics]);
+  }, [id, refreshKey, fetchAuction, fetchBidAnalytics]);
 
   const handleBid = async () => {
     cancelBidConfirm();

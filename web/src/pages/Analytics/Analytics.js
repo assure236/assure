@@ -21,6 +21,7 @@ import {
   ResponsiveContainer, PieChart, Pie, Cell, Legend, LineChart, Line
 } from 'recharts';
 import axios from 'axios';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 const COLORS = ['#0B1F3B', '#4caf50', '#D4AF37', '#e91e63', '#9c27b0', '#00bcd4'];
@@ -337,8 +338,9 @@ const Analytics = () => {
   const [error, setError] = useState(null);
   const [statement, setStatement] = useState(null);
   const [stmtLoading, setStmtLoading] = useState(false);
+  const { refreshKey } = useActiveMember();
 
-  useEffect(() => { fetchAnalytics(); }, []);
+  useEffect(() => { fetchAnalytics(); }, [refreshKey]);
 
   const fetchAnalytics = async () => {
     setLoading(true);
@@ -368,7 +370,7 @@ const Analytics = () => {
     finally { setStmtLoading(false); }
   };
 
-  useEffect(() => { if (tab === 5) fetchStatement(); }, [tab]);
+  useEffect(() => { if (tab === 5) fetchStatement(); }, [tab, refreshKey]);
 
   const handleExportStatement = () => {
     if (!statement?.length) return;

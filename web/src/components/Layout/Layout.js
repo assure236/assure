@@ -39,6 +39,8 @@ import {
   VerifiedUser as KycIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../context/AuthContext';
+import { useActiveMember } from '../../context/ActiveMemberContext';
+import { useDisplayUser } from '../../hooks/useDisplayUser';
 import Chatbot from '../Chatbot/Chatbot';
 import MemberSwitcher from '../MemberSwitcher';
 import axios from 'axios';
@@ -68,7 +70,9 @@ const Layout = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
+  const displayUser = useDisplayUser();
+  const { refreshKey } = useActiveMember();
 
   useEffect(() => {
     const fetchUnread = async () => {
@@ -80,7 +84,7 @@ const Layout = () => {
     fetchUnread();
     const interval = setInterval(fetchUnread, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshKey]);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -189,8 +193,8 @@ const Layout = () => {
             </Badge>
           </IconButton>
           <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0 }}>
-            <Avatar alt={user?.full_name} src={user?.profile_image_url}>
-              {user?.full_name?.charAt(0)}
+            <Avatar alt={displayUser?.full_name} src={displayUser?.profile_image_url}>
+              {displayUser?.full_name?.charAt(0)}
             </Avatar>
           </IconButton>
           <Menu
@@ -249,7 +253,7 @@ const Layout = () => {
           mt: 8
         }}
       >
-        <Outlet />
+        <Outlet key={refreshKey} />
       </Box>
       <Chatbot />
     </Box>

@@ -12,6 +12,7 @@ import {
 import SavingsIcon from '@mui/icons-material/Savings';
 import GroupWorkIcon from '@mui/icons-material/GroupWork';
 import axios from 'axios';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const formatInr = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
 
@@ -19,6 +20,7 @@ const TotalInvestment = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dashboard, setDashboard] = useState(null);
+  const { refreshKey } = useActiveMember();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,7 +41,7 @@ const TotalInvestment = () => {
     };
 
     fetchData();
-  }, []);
+  }, [refreshKey]);
 
   const groups = useMemo(() => {
     const memberships = dashboard?.memberships || [];

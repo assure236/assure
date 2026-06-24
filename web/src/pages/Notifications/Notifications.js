@@ -12,6 +12,7 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { useActiveMember } from '../../context/ActiveMemberContext';
 const formatDistance = (date) => {
   const diff = Math.floor((Date.now() - new Date(date)) / 1000);
   if (diff < 60) return `${diff}s ago`;
@@ -38,12 +39,13 @@ const Notifications = () => {
   const [tab, setTab] = useState(0); // 0=all, 1=unread
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const { refreshKey } = useActiveMember();
 
   useEffect(() => {
     setNotifications([]);
     setPage(1);
     fetchNotifications(1, tab === 1);
-  }, [tab]);
+  }, [tab, refreshKey]);
 
   const fetchNotifications = async (p = 1, unreadOnly = false) => {
     setLoading(true);
