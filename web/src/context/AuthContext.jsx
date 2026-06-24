@@ -6,25 +6,19 @@ import { securityLogger } from '../utils/securityLogger';
 import { getSocketUrl } from '../config/env';
 
 const AuthContext = createContext(null);
-// SECURITY FIX: keep access token in memory (not localStorage).
 let _accessToken = null;
 export const getAccessToken = () => _accessToken;
 const setAccessToken = (token) => {
   _accessToken = token || null;
 };
 
-// Single-flight refresh so React Strict Mode / double mount cannot rotate the cookie twice.
 let sessionBootstrapPromise = null;
 
 const refreshSessionFromCookie = () => {
   if (!sessionBootstrapPromise) {
     sessionBootstrapPromise = axios
       .post('/auth/refresh-token', {}, { withCredentials: true })
-      .then((res) => {
-        const payload = res?.data?.data;
-        if (!payload?.token) return null;
-        return payload;
-      })
+      .then((res) => res?.data?.data?.token || null)
       .catch(() => null);
   }
   return sessionBootstrapPromise;
@@ -38,7 +32,7 @@ export const useAuth = () => {
   return context;
 };
 
-const INACTIVITY_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -46,31 +40,30 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [bootstrapDone, setBootstrapDone] = useState(false);
   const sessionRestoredRef = useRef(false);
+  const profileLoadedRef = useRef(false);
 
   const touchActivity = () => {
     localStorage.setItem('lastActivity', Date.now().toString());
   };
 
-  const applySession = (accessToken, sessionUser) => {
+  const applyToken = (accessToken) => {
     setAccessToken(accessToken);
     setToken(accessToken);
-    if (sessionUser) setUser(sessionUser);
     touchActivity();
     axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
   };
 
-  const fetchUserProfile = async ({ keepExistingUser = false } = {}) => {
+  const fetchUserProfile = async () => {
     try {
       const response = await axios.get('/users/profile', { skipActiveMember: true });
-      if (response.data.success) setUser(response.data.data);
+      if (response.data.success) {
+        setUser(response.data.data);
+        profileLoadedRef.current = true;
+      }
     } catch (error) {
       securityLogger.error('Profile fetch failed', { status: error?.response?.status });
       if (error.response?.status === 401) {
         logout({ silent: true });
-        return;
-      }
-      if (!keepExistingUser) {
-        // Keep token; user may already be set from refresh/login payload.
       }
     } finally {
       setLoading(false);
@@ -83,23 +76,17 @@ export const AuthProvider = ({ children }) => {
     const bootstrapSession = async () => {
       try {
         axios.defaults.withCredentials = true;
-        const payload = await refreshSessionFromCookie();
+        const newToken = await refreshSessionFromCookie();
         if (!mounted) return;
 
-        if (!payload?.token) {
+        if (!newToken) {
           setLoading(false);
           return;
         }
 
         sessionRestoredRef.current = true;
-        applySession(payload.token, payload.user || null);
-
-        if (payload.user) {
-          setLoading(false);
-          fetchUserProfile({ keepExistingUser: true });
-        } else {
-          await fetchUserProfile();
-        }
+        applyToken(newToken);
+        await fetchUserProfile();
       } catch (_) {
         if (mounted) setLoading(false);
       } finally {
@@ -142,7 +129,6 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('lastActivity', Date.now().toString());
     }
 
-    // Skip stale idle check right after cookie/session restore on reload.
     if (!sessionRestoredRef.current) {
       const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0', 10);
       if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
@@ -210,8 +196,12 @@ export const AuthProvider = ({ children }) => {
       if (response.data.success) {
         const { token: accessToken, user: loginUser } = response.data.data;
         sessionBootstrapPromise = null;
-        applySession(accessToken, loginUser);
+        profileLoadedRef.current = false;
+        applyToken(accessToken);
+        setUser(loginUser);
         setLoading(false);
+        profileLoadedRef.current = true;
+        fetchUserProfile();
         toast.success('Login successful!');
         return { success: true };
       }
@@ -229,8 +219,12 @@ export const AuthProvider = ({ children }) => {
       if (response.data.success) {
         const { token: accessToken, user: registeredUser } = response.data.data;
         sessionBootstrapPromise = null;
-        applySession(accessToken, registeredUser);
+        profileLoadedRef.current = false;
+        applyToken(accessToken);
+        setUser(registeredUser);
         setLoading(false);
+        profileLoadedRef.current = true;
+        fetchUserProfile();
         toast.success('Registration successful!');
         return { success: true };
       }
@@ -243,6 +237,7 @@ export const AuthProvider = ({ children }) => {
 
   const logout = ({ silent = false } = {}) => {
     sessionBootstrapPromise = null;
+    profileLoadedRef.current = false;
     setUser(null);
     setToken(null);
     setAccessToken(null);
@@ -255,9 +250,12 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithToken = (newToken, newUser) => {
     sessionBootstrapPromise = null;
-    applySession(newToken, newUser);
+    profileLoadedRef.current = false;
+    applyToken(newToken);
+    setUser(newUser);
     setLoading(false);
     localStorage.removeItem('active_member_id');
+    fetchUserProfile();
   };
 
   const logoutAllDevices = async () => {
@@ -291,7 +289,6 @@ export const AuthProvider = ({ children }) => {
 
   const value = {
     user,
-    token,
     loading,
     bootstrapDone,
     login,

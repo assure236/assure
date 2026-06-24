@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
 const { audit, getIp } = require('../utils/audit');
 const { sendOTP, sendEmail } = require('../services/notificationService');
+const { sessionUserForRole, toSessionUser } = require('../utils/userResponse');
 
 const crypto = require('crypto');
 const otpStore = new Map();
@@ -171,7 +172,7 @@ exports.register = async (req, res, next) => {
       message: 'Registration successful',
       data: {
         token, refreshToken,
-        user: { id: user._id, full_name: user.full_name, email: user.email, mobile: user.mobile, role: user.role, kyc_status: user.kyc_status, member_id: user.member_id }
+        user: toSessionUser(user)
       }
     });
   } catch (error) { next(error); }
@@ -214,16 +215,13 @@ exports.login = async (req, res, next) => {
     const token = generateToken(user._id, user.token_version || 0);
     const refreshToken = generateRefreshToken(user._id, user.token_version || 0);
 
-    const loginUserObj = user.toObject();
-    delete loginUserObj.password_hash;
-    loginUserObj.id = loginUserObj._id;
-
     setAuthCookies(res, token, refreshToken);
     res.json({
       success: true,
       data: {
-        token, refreshToken,
-        user: loginUserObj
+        token,
+        refreshToken,
+        user: sessionUserForRole(user),
       }
     });
 
@@ -314,7 +312,7 @@ exports.loginWithOtp = async (req, res, next) => {
       success: true,
       data: {
         token, refreshToken,
-        user: userObj
+        user: toSessionUser(user),
       }
     });
   } catch (error) { next(error); }
@@ -374,18 +372,10 @@ exports.refreshToken = async (req, res, next) => {
       ? generateRefreshToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
       : generateRefreshToken(user._id, user.token_version || 0);
     setAuthCookies(res, token, newRefreshToken);
-
-    const userObj = user.toObject();
-    delete userObj.password_hash;
-    userObj.id = userObj._id;
-
+    // SECURITY FIX: tokens travel via HttpOnly cookies; body returns access token only.
     res.json({
       success: true,
-      data: {
-        token,
-        refreshToken: newRefreshToken,
-        user: userObj,
-      },
+      data: { token },
     });
   } catch (error) { next(error); }
 };
@@ -574,6 +564,6 @@ exports.getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id || req.user.id).select('-password_hash');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
-    res.json({ success: true, data: { ...user.toObject(), id: user._id } });
+    res.json({ success: true, data: sessionUserForRole(user) });
   } catch (error) { next(error); }
 };

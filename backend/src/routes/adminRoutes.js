@@ -16,6 +16,7 @@ const accountingService = require('../services/accountingService');
 const logger = require('../utils/logger');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { toAdminUserListItem, toAdminUserLookupItem, toAdminUserDetail } = require('../utils/userResponse');
 
 const adminOnly = [authMiddleware, authorizeRoles('admin', 'manager')];
 const superAdminOnly = [authMiddleware, authorizeRoles('super_admin')];
@@ -211,9 +212,35 @@ router.get('/users', adminOnly, async (req, res, next) => {
       ];
     }
     const total = await User.countDocuments(filter);
-    const rows = await User.find(filter).select('-password_hash').sort({ created_at: -1 })
+    const view = String(req.query.view || 'list').toLowerCase();
+    const listSelect = 'member_id full_name email mobile role kyc_status credit_score is_active profile_image_url profile_edit_status created_at';
+    const lookupSelect = 'member_id full_name email mobile kyc_status fcm_token';
+
+    if (view === 'lookup') {
+      const rows = await User.find(filter).select(lookupSelect).sort({ created_at: -1 })
+        .skip((page - 1) * parseInt(limit)).limit(parseInt(limit));
+      return res.json({
+        success: true,
+        data: {
+          users: rows.map(toAdminUserLookupItem),
+          total,
+          page: parseInt(page),
+          totalPages: Math.ceil(total / parseInt(limit)),
+        },
+      });
+    }
+
+    const rows = await User.find(filter).select(listSelect).sort({ created_at: -1 })
       .skip((page - 1) * parseInt(limit)).limit(parseInt(limit));
-    res.json({ success: true, data: { users: rows, total, page: parseInt(page), totalPages: Math.ceil(total / parseInt(limit)) } });
+    res.json({
+      success: true,
+      data: {
+        users: rows.map(toAdminUserListItem),
+        total,
+        page: parseInt(page),
+        totalPages: Math.ceil(total / parseInt(limit)),
+      },
+    });
   } catch (err) { next(err); }
 });
 
@@ -284,7 +311,10 @@ router.get('/users/:id', adminOnly, async (req, res, next) => {
       });
     }
 
-    res.json({ success: true, data: { user: userObj, memberships, documents, recentPayments: payments, groupSchedules, familyMembers } });
+    delete userObj.pending_profile_changes;
+    const safeUser = toAdminUserDetail(userObj);
+
+    res.json({ success: true, data: { user: safeUser, memberships, documents, recentPayments: payments, groupSchedules, familyMembers } });
   } catch (err) { next(err); }
 });
 

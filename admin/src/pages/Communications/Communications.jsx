@@ -71,7 +71,7 @@ export default function Communications() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/admin/users`, { params: { limit: 500 } });
+      const res = await axios.get(`${API}/admin/users`, { params: { limit: 500, view: 'lookup' } });
       setUsers(res.data.data?.users || []);
     } catch { /* ignore */ }
   }, []);

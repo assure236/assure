@@ -2,6 +2,7 @@ import React, {
   createContext, useContext, useState, useCallback, useEffect,
 } from 'react';
 import axios from 'axios';
+import { useAuth } from './AuthContext';
 
 const ActiveMemberContext = createContext(null);
 export const ACTIVE_MEMBER_STORAGE_KEY = 'active_member_id';
@@ -19,16 +20,22 @@ export const shouldAttachActiveMember = (url = '') => {
   const path = url.toLowerCase();
   if (path.includes('/auth/') && !path.includes('/auth/qr-confirm')) return false;
   if (path.includes('/users/family-members')) return false;
+  if (path.includes('/users/profile')) return false;
   return true;
 };
 
 export const ActiveMemberProvider = ({ children }) => {
+  const { isAuthenticated, bootstrapDone } = useAuth();
   const [activeMemberId, setActiveMemberIdState] = useState(getActiveMemberId);
   const [refreshKey, setRefreshKey] = useState(0);
   const [effectiveProfile, setEffectiveProfile] = useState(null);
   const [profileLoading, setProfileLoading] = useState(false);
 
   const reloadEffectiveProfile = useCallback(async () => {
+    if (!activeMemberId) {
+      setEffectiveProfile(null);
+      return;
+    }
     setProfileLoading(true);
     try {
       const res = await axios.get('/users/profile');
@@ -40,7 +47,7 @@ export const ActiveMemberProvider = ({ children }) => {
     } finally {
       setProfileLoading(false);
     }
-  }, []);
+  }, [activeMemberId]);
 
   const setActiveMemberId = useCallback((memberId) => {
     const normalized = memberId && memberId !== 'me'
@@ -56,8 +63,13 @@ export const ActiveMemberProvider = ({ children }) => {
   const bumpRefresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
   useEffect(() => {
+    if (!bootstrapDone || !isAuthenticated) return;
+    if (!activeMemberId) {
+      setEffectiveProfile(null);
+      return;
+    }
     reloadEffectiveProfile();
-  }, [refreshKey, reloadEffectiveProfile]);
+  }, [activeMemberId, refreshKey, bootstrapDone, isAuthenticated, reloadEffectiveProfile]);
 
   const isSwitched = !!activeMemberId;
 

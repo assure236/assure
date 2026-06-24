@@ -96,10 +96,10 @@ export default function PushNotifications() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const res = await axios.get(`${API}/admin/users`, { params: { limit: 500 } });
+      const res = await axios.get(`${API}/admin/users`, { params: { limit: 500, view: 'lookup' } });
       const allUsers = res.data.data?.users || [];
       setUsers(allUsers);
-      const withTokens = allUsers.filter(u => u.fcm_token).length;
+      const withTokens = allUsers.filter((u) => u.has_fcm_token).length;
       const kycPending = allUsers.filter(u => u.kyc_status !== 'verified').length;
       setStats(s => ({ ...s, total: allUsers.length, withTokens, kycPending }));
     } catch (e) {

@@ -9,6 +9,7 @@ const { notifyUser } = require('../utils/notifyUser');
 const { sendEmail, sendOTP } = require('../services/notificationService');
 const { audit, getIp } = require('../utils/audit');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
+const { toMemberProfileUser } = require('../utils/userResponse');
 
 const bankVerifyAttempts = new Map();
 const BANK_VERIFY_WINDOW_MS = 10 * 60 * 1000;
@@ -62,7 +63,8 @@ exports.getProfile = async (req, res, next) => {
     }
 
     userObj.id = userObj._id;
-    res.json({ success: true, data: userObj });
+    delete userObj.pending_profile_changes;
+    res.json({ success: true, data: toMemberProfileUser(userObj) });
   } catch (err) { next(err); }
 };
 
@@ -97,7 +99,7 @@ exports.updateProfile = async (req, res, next) => {
       }
 
       const user = await User.findByIdAndUpdate(userId, directUpdates, { new: true }).select('-password_hash');
-      const userObj = user.toObject();
+      const userObj = toMemberProfileUser(user.toObject());
       userObj.id = userObj._id;
       return res.json({ success: true, message: 'Nominee updated successfully.', data: userObj });
     }
@@ -208,6 +210,7 @@ exports.updateProfile = async (req, res, next) => {
       userObj[field] = value;
     }
     userObj.id = userObj._id;
+    delete userObj.pending_profile_changes;
 
     const { Notification } = require('../models');
     const admins = await User.find({ role: { $in: ['admin', 'super_admin'] }, is_active: true }).select('_id');
@@ -251,7 +254,7 @@ exports.updateProfile = async (req, res, next) => {
       success: true,
       message: 'Profile submitted successfully. Your application will be verified within 24 hours. You will receive app/email notification after admin review.',
       pending_approval: true,
-      data: userObj,
+      data: toMemberProfileUser(userObj),
     });
 
     audit({

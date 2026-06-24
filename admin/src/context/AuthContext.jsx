@@ -4,8 +4,9 @@ import { toast } from 'react-toastify';
 import { io as socketIO } from 'socket.io-client';
 
 const AuthContext = createContext(null);
-// SECURITY FIX: keep admin access token in memory only.
 let _adminAccessToken = null;
+let sessionBootstrapPromise = null;
+
 export const getAdminAccessToken = () => _adminAccessToken;
 const setAdminAccessToken = (token) => {
   _adminAccessToken = token || null;
@@ -13,46 +14,70 @@ const setAdminAccessToken = (token) => {
 
 export const useAuth = () => useContext(AuthContext);
 
-// Set axios base URL to API root
 axios.defaults.baseURL = process.env.REACT_APP_API_URL;
-// SECURITY FIX: always include secure auth cookies in API requests.
 axios.defaults.withCredentials = true;
 
-const INACTIVITY_TIMEOUT = 15 * 60 * 1000; // 15 minutes
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000;
+
+const pickAdminUser = (user) => {
+  if (!user) return null;
+  return {
+    id: user.id || user._id,
+    _id: user._id || user.id,
+    full_name: user.full_name,
+    email: user.email,
+    role: user.role,
+  };
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const sessionRestoredRef = useRef(false);
 
   useEffect(() => {
-    // SECURITY FIX: silently refresh admin session from HttpOnly refresh cookie on app load.
+    let mounted = true;
+
     const bootstrapAdminSession = async () => {
       try {
-        const refreshRes = await axios.post(`${process.env.REACT_APP_API_URL}/auth/refresh-token`, {});
-        const refreshedToken = refreshRes?.data?.data?.token;
-        if (!refreshedToken) return;
+        if (!sessionBootstrapPromise) {
+          sessionBootstrapPromise = axios
+            .post('/auth/refresh-token', {})
+            .then((res) => res?.data?.data?.token || null)
+            .catch(() => null);
+        }
+        const refreshedToken = await sessionBootstrapPromise;
+        if (!mounted || !refreshedToken) return;
+
+        sessionRestoredRef.current = true;
         setAdminAccessToken(refreshedToken);
-        setToken(refreshedToken);
         axios.defaults.headers.common['Authorization'] = `Bearer ${refreshedToken}`;
-        const meRes = await axios.get(`${process.env.REACT_APP_API_URL}/auth/me`);
+
+        const meRes = await axios.get('/auth/me');
         const me = meRes?.data?.data;
         if (me && (me.role === 'admin' || me.role === 'super_admin')) {
-          setUser(me);
+          setUser(pickAdminUser(me));
           setIsAuthenticated(true);
         }
       } catch (_) {
-        setUser(null);
-        setToken(null);
-        setIsAuthenticated(false);
+        if (mounted) {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
+
     bootstrapAdminSession();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  // ─── Inactivity auto-logout (15 min) ───
   useEffect(() => {
-    if (!token) return;
+    if (!isAuthenticated) return;
 
     let timer;
     const resetTimer = () => {
@@ -64,20 +89,23 @@ export const AuthProvider = ({ children }) => {
       }, INACTIVITY_TIMEOUT);
     };
 
-    const lastActivity = parseInt(localStorage.getItem('adminLastActivity') || '0');
-    if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
-      toast.warning('Session expired due to inactivity');
-      logout();
-      return;
+    if (!sessionRestoredRef.current) {
+      const lastActivity = parseInt(localStorage.getItem('adminLastActivity') || '0', 10);
+      if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
+        toast.warning('Session expired due to inactivity');
+        logout();
+        return;
+      }
     }
+    sessionRestoredRef.current = false;
 
     const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
-    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
     resetTimer();
 
     const onVisibility = () => {
       if (!document.hidden) {
-        const last = parseInt(localStorage.getItem('adminLastActivity') || '0');
+        const last = parseInt(localStorage.getItem('adminLastActivity') || '0', 10);
         if (last && Date.now() - last > INACTIVITY_TIMEOUT) {
           toast.warning('Session expired due to inactivity');
           logout();
@@ -90,20 +118,18 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       clearTimeout(timer);
-      events.forEach(e => window.removeEventListener(e, resetTimer));
+      events.forEach((e) => window.removeEventListener(e, resetTimer));
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [token]);
+  }, [isAuthenticated]);
 
-  // ─── Socket.IO: listen for force_logout ───
   const socketRef = useRef(null);
   useEffect(() => {
-    if (!token || !user) return;
+    if (!isAuthenticated || !user) return;
     const baseUrl = (process.env.REACT_APP_API_URL || '').replace(/\/api\/v1$/, '');
     const socket = socketIO(baseUrl, { transports: ['websocket', 'polling'] });
     socketRef.current = socket;
     socket.on('connect', () => {
-      // Backend joins the socket to `user:${userId}` room when it receives this event.
       socket.emit('join', user._id || user.id);
     });
     socket.on('force_logout', () => {
@@ -114,28 +140,26 @@ export const AuthProvider = ({ children }) => {
       socket.disconnect();
       socketRef.current = null;
     };
-  }, [token, user]);
+  }, [isAuthenticated, user?._id]);
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post(`${process.env.REACT_APP_API_URL}/auth/admin-login`, {
-        email,
-        password
-      });
+      const response = await axios.post('/auth/admin-login', { email, password });
 
       if (response.data.success) {
-        const { token, user } = response.data.data;
-        
-        if (user.role !== 'admin' && user.role !== 'super_admin') {
+        const { token, user: loginUser } = response.data.data;
+
+        if (loginUser.role !== 'admin' && loginUser.role !== 'super_admin') {
           toast.error('Access denied. Admin privileges required.');
           return { success: false };
         }
 
-        setToken(token);
-        setUser(user);
-        setIsAuthenticated(true);
+        sessionBootstrapPromise = null;
         setAdminAccessToken(token);
         axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setUser(pickAdminUser(loginUser));
+        setIsAuthenticated(true);
+        localStorage.setItem('adminLastActivity', Date.now().toString());
         toast.success('Login successful!');
         return { success: true };
       }
@@ -147,17 +171,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    sessionBootstrapPromise = null;
     setUser(null);
-    setToken(null);
     setAdminAccessToken(null);
     setIsAuthenticated(false);
     localStorage.removeItem('adminLastActivity');
     delete axios.defaults.headers.common['Authorization'];
+    axios.post('/auth/logout', {}, { withCredentials: true }).catch(() => {});
     toast.info('Logged out successfully');
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
