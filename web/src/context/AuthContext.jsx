@@ -33,23 +33,43 @@ export const useAuth = () => {
 };
 
 const INACTIVITY_TIMEOUT = 10 * 60 * 1000;
+const ACTIVITY_PERSIST_INTERVAL = 30 * 1000;
+
+const getLastActivityMs = () => parseInt(localStorage.getItem('lastActivity') || '0', 10);
+
+const isInactivityExpired = (now = Date.now()) => {
+  const last = getLastActivityMs();
+  if (!last) return false;
+  return now - last >= INACTIVITY_TIMEOUT;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [bootstrapDone, setBootstrapDone] = useState(false);
-  const sessionRestoredRef = useRef(false);
   const profileLoadedRef = useRef(false);
+  const lastActivityMsRef = useRef(getLastActivityMs() || Date.now());
+  const lastActivityWriteMsRef = useRef(0);
+  const inactivityTimerRef = useRef(null);
 
-  const touchActivity = () => {
-    localStorage.setItem('lastActivity', Date.now().toString());
+  const persistActivity = (force = false) => {
+    const now = Date.now();
+    lastActivityMsRef.current = now;
+    if (force || now - lastActivityWriteMsRef.current >= ACTIVITY_PERSIST_INTERVAL) {
+      lastActivityWriteMsRef.current = now;
+      localStorage.setItem('lastActivity', String(now));
+    }
   };
 
-  const applyToken = (accessToken) => {
+  const touchActivity = (force = false) => {
+    persistActivity(force);
+  };
+
+  const applyToken = (accessToken, { recordActivity = true } = {}) => {
     setAccessToken(accessToken);
     setToken(accessToken);
-    touchActivity();
+    if (recordActivity) touchActivity(true);
     axios.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
   };
 
@@ -76,6 +96,19 @@ export const AuthProvider = ({ children }) => {
     const bootstrapSession = async () => {
       try {
         axios.defaults.withCredentials = true;
+
+        const storedActivity = getLastActivityMs();
+        if (storedActivity > 0) {
+          lastActivityMsRef.current = storedActivity;
+        }
+
+        if (isInactivityExpired()) {
+          await axios.post('/auth/logout', {}, { withCredentials: true }).catch(() => {});
+          localStorage.removeItem('lastActivity');
+          setLoading(false);
+          return;
+        }
+
         const newToken = await refreshSessionFromCookie();
         if (!mounted) return;
 
@@ -84,8 +117,7 @@ export const AuthProvider = ({ children }) => {
           return;
         }
 
-        sessionRestoredRef.current = true;
-        applyToken(newToken);
+        applyToken(newToken, { recordActivity: false });
         await fetchSessionUser();
       } catch (_) {
         if (mounted) setLoading(false);
@@ -114,50 +146,57 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (!token) return;
 
-    let timer;
+    const logoutForInactivity = () => {
+      toast.warning('Session expired due to inactivity');
+      logout({ silent: true });
+    };
+
+    const scheduleInactivityLogout = () => {
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+      const elapsed = Date.now() - lastActivityMsRef.current;
+      const remaining = INACTIVITY_TIMEOUT - elapsed;
+      if (remaining <= 0) {
+        logoutForInactivity();
+        return;
+      }
+      inactivityTimerRef.current = setTimeout(logoutForInactivity, remaining);
+    };
+
     const resetTimer = () => {
-      clearTimeout(timer);
-      localStorage.setItem('lastActivity', Date.now().toString());
-      timer = setTimeout(() => {
-        toast.warning('Session expired due to inactivity');
-        logout();
-      }, INACTIVITY_TIMEOUT);
+      persistActivity();
+      scheduleInactivityLogout();
     };
 
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.has('digilocker')) {
-      localStorage.setItem('lastActivity', Date.now().toString());
+      touchActivity(true);
     }
 
-    if (!sessionRestoredRef.current) {
-      const lastActivity = parseInt(localStorage.getItem('lastActivity') || '0', 10);
-      if (lastActivity && Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
-        toast.warning('Session expired due to inactivity');
-        logout();
-        return;
-      }
-    }
-    sessionRestoredRef.current = false;
-
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll', 'mousemove'];
+    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
     events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
-    resetTimer();
+    scheduleInactivityLogout();
 
     const onVisibility = () => {
-      if (!document.hidden) {
-        const last = parseInt(localStorage.getItem('lastActivity') || '0', 10);
-        if (last && Date.now() - last > INACTIVITY_TIMEOUT) {
-          toast.warning('Session expired due to inactivity');
-          logout();
-        } else {
-          resetTimer();
-        }
+      if (document.hidden) {
+        persistActivity(true);
+        return;
+      }
+      const stored = getLastActivityMs();
+      if (stored > 0) {
+        lastActivityMsRef.current = Math.max(lastActivityMsRef.current, stored);
+      }
+      if (Date.now() - lastActivityMsRef.current >= INACTIVITY_TIMEOUT) {
+        logoutForInactivity();
+      } else {
+        scheduleInactivityLogout();
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
-      clearTimeout(timer);
+      if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       events.forEach((e) => window.removeEventListener(e, resetTimer));
       document.removeEventListener('visibilitychange', onVisibility);
     };
@@ -236,6 +275,10 @@ export const AuthProvider = ({ children }) => {
   const logout = ({ silent = false } = {}) => {
     sessionBootstrapPromise = null;
     profileLoadedRef.current = false;
+    if (inactivityTimerRef.current) {
+      clearTimeout(inactivityTimerRef.current);
+      inactivityTimerRef.current = null;
+    }
     setUser(null);
     setToken(null);
     setAccessToken(null);
