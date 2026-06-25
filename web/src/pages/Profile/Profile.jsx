@@ -67,10 +67,11 @@ const Profile = () => {
   const navigate = useNavigate();
   const { updateProfile, logoutAllDevices } = useAuth();
   const displayUser = useDisplayUser();
-  const { refreshKey, isSwitched, reloadEffectiveProfile } = useActiveMember();
+  const { refreshKey, isSwitched, reloadEffectiveProfile, profileLoading: switchedProfileLoading } = useActiveMember();
   const [fullProfile, setFullProfile] = useState(null);
-  const [profileLoading, setProfileLoading] = useState(!isSwitched);
+  const [ownProfileLoading, setOwnProfileLoading] = useState(!isSwitched);
   const user = isSwitched ? displayUser : (fullProfile || displayUser);
+  const profileLoading = isSwitched ? switchedProfileLoading : ownProfileLoading;
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -95,11 +96,10 @@ const Profile = () => {
   useEffect(() => {
     if (isSwitched) {
       setFullProfile(null);
-      setProfileLoading(false);
       return;
     }
     let cancelled = false;
-    setProfileLoading(true);
+    setOwnProfileLoading(true);
     (async () => {
       try {
         const res = await axios.get('/users/profile', { skipActiveMember: true });
@@ -109,7 +109,7 @@ const Profile = () => {
       } catch {
         if (!cancelled) setFullProfile(null);
       } finally {
-        if (!cancelled) setProfileLoading(false);
+        if (!cancelled) setOwnProfileLoading(false);
       }
     })();
     return () => { cancelled = true; };
@@ -201,7 +201,7 @@ const Profile = () => {
   const kycLabels = { verified: 'Verified', pending: 'Under Review', rejected: 'Rejected', not_verified: 'Not Verified' };
   const initials = (user?.full_name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 
-  if (profileLoading && !isSwitched) {
+  if (profileLoading || (isSwitched && !user)) {
     return (
       <Container maxWidth="lg" sx={{ py: 2 }}>
         <Box display="flex" justifyContent="center" py={6}>

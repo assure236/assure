@@ -20,7 +20,6 @@ export const shouldAttachActiveMember = (url = '') => {
   const path = url.toLowerCase();
   if (path.includes('/auth/') && !path.includes('/auth/qr-confirm')) return false;
   if (path.includes('/users/family-members')) return false;
-  if (path.includes('/users/profile')) return false;
   return true;
 };
 
@@ -56,6 +55,8 @@ export const ActiveMemberProvider = ({ children }) => {
       ? String(memberId).trim().toUpperCase()
       : null;
     const next = normalized || null;
+    setEffectiveProfile(null);
+    setProfileLoading(!!next);
     setActiveMemberIdState(next);
     if (next) localStorage.setItem(ACTIVE_MEMBER_STORAGE_KEY, next);
     else localStorage.removeItem(ACTIVE_MEMBER_STORAGE_KEY);

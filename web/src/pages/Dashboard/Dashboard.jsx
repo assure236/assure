@@ -63,7 +63,7 @@ const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
 );
 
 const Dashboard = () => {
-  const { refreshKey } = useActiveMember();
+  const { refreshKey, isSwitched, activeMemberId } = useActiveMember();
   const displayUser = useDisplayUser();
   const navigate = useNavigate();
   const [dashboardData, setDashboardData] = useState(null);
@@ -183,10 +183,10 @@ const Dashboard = () => {
       <Box mb={3} display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
         <Box>
           <Typography variant="h4">
-            Welcome back, {displayUser?.full_name || 'Member'}! 👋
+            Welcome back, {displayUser?.full_name || (isSwitched ? activeMemberId : 'Member')}! 👋
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Member ID: {displayUser?.member_id || '—'} &nbsp;|&nbsp; Last login today
+            Member ID: {displayUser?.member_id || (isSwitched ? activeMemberId : '—')} &nbsp;|&nbsp; Last login today
           </Typography>
         </Box>
       </Box>

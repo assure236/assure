@@ -17,7 +17,9 @@ import {
   Avatar,
   Menu,
   MenuItem,
-  Divider
+  Divider,
+  Alert,
+  Chip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -72,7 +74,7 @@ const Layout = () => {
   const location = useLocation();
   const { logout } = useAuth();
   const displayUser = useDisplayUser();
-  const { refreshKey } = useActiveMember();
+  const { refreshKey, isSwitched, activeMemberId, profileLoading } = useActiveMember();
 
   useEffect(() => {
     const fetchUnread = async () => {
@@ -194,7 +196,7 @@ const Layout = () => {
           </IconButton>
           <IconButton onClick={handleProfileMenuOpen} sx={{ p: 0 }}>
             <Avatar alt={displayUser?.full_name} src={displayUser?.profile_image_url}>
-              {displayUser?.full_name?.charAt(0)}
+              {(displayUser?.full_name || activeMemberId || 'M')?.charAt(0)}
             </Avatar>
           </IconButton>
           <Menu
@@ -253,6 +255,26 @@ const Layout = () => {
           mt: 8
         }}
       >
+        {isSwitched && (
+          <Alert
+            severity="info"
+            sx={{ mb: 2, borderRadius: 2 }}
+            icon={false}
+          >
+            <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+              <Chip
+                size="small"
+                color="warning"
+                label={`Viewing ${displayUser?.member_id || activeMemberId || 'family member'}`}
+              />
+              <Typography variant="body2" component="span">
+                {profileLoading
+                  ? 'Loading member details…'
+                  : `All data below is for ${displayUser?.full_name || 'the selected member'}.`}
+              </Typography>
+            </Box>
+          </Alert>
+        )}
         <Outlet key={refreshKey} />
       </Box>
       <Chatbot />

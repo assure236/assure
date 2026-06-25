@@ -5,6 +5,6 @@ import { useActiveMember } from '../context/ActiveMemberContext';
 export const useDisplayUser = () => {
   const { user: authUser } = useAuth();
   const { effectiveProfile, isSwitched } = useActiveMember();
-  if (isSwitched) return effectiveProfile || authUser;
-  return authUser || effectiveProfile;
+  if (isSwitched) return effectiveProfile;
+  return authUser;
 };
