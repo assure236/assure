@@ -19,6 +19,7 @@ import Login from './pages/Auth/Login';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout/Layout';
 import OnboardingGuard from './components/OnboardingGuard';
+import AuthSessionWatcher from './components/AuthSessionWatcher';
 
 // Lazy-loaded pages (code-split for smaller initial bundle)
 const Register = lazy(() => import('./pages/Auth/Register'));
@@ -127,6 +128,7 @@ function App() {
       <AuthProvider>
         <ActiveMemberProvider>
         <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <AuthSessionWatcher />
           <OnboardingGuard>
           <Suspense fallback={<PageLoader />}>
           <Routes>

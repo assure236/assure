@@ -13,6 +13,11 @@ const setAccessToken = (token) => {
 };
 
 let sessionBootstrapPromise = null;
+let inactivityRedirectHandler = null;
+
+export const registerInactivityRedirect = (handler) => {
+  inactivityRedirectHandler = typeof handler === 'function' ? handler : null;
+};
 
 const refreshSessionFromCookie = () => {
   if (!sessionBootstrapPromise) {
@@ -52,6 +57,8 @@ export const AuthProvider = ({ children }) => {
   const lastActivityMsRef = useRef(getLastActivityMs() || Date.now());
   const lastActivityWriteMsRef = useRef(0);
   const inactivityTimerRef = useRef(null);
+  const inactivityIntervalRef = useRef(null);
+  const logoutRef = useRef(null);
 
   const persistActivity = (force = false) => {
     const now = Date.now();
@@ -148,14 +155,27 @@ export const AuthProvider = ({ children }) => {
 
     const logoutForInactivity = () => {
       toast.warning('Session expired due to inactivity');
-      logout({ silent: true });
+      logoutRef.current?.({ silent: true });
+      inactivityRedirectHandler?.();
+    };
+
+    const isIdleExpired = () => {
+      const stored = getLastActivityMs();
+      const last = stored > 0
+        ? Math.max(lastActivityMsRef.current, stored)
+        : lastActivityMsRef.current;
+      return Date.now() - last >= INACTIVITY_TIMEOUT;
     };
 
     const scheduleInactivityLogout = () => {
       if (inactivityTimerRef.current) {
         clearTimeout(inactivityTimerRef.current);
       }
-      const elapsed = Date.now() - lastActivityMsRef.current;
+      const stored = getLastActivityMs();
+      const last = stored > 0
+        ? Math.max(lastActivityMsRef.current, stored)
+        : lastActivityMsRef.current;
+      const elapsed = Date.now() - last;
       const remaining = INACTIVITY_TIMEOUT - elapsed;
       if (remaining <= 0) {
         logoutForInactivity();
@@ -174,20 +194,26 @@ export const AuthProvider = ({ children }) => {
       touchActivity(true);
     }
 
-    const events = ['mousedown', 'keydown', 'touchstart', 'scroll'];
+    const events = ['mousedown', 'keydown', 'touchstart', 'click'];
     events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
     scheduleInactivityLogout();
 
+    inactivityIntervalRef.current = setInterval(() => {
+      if (isIdleExpired()) {
+        logoutForInactivity();
+      }
+    }, 15000);
+
     const onVisibility = () => {
       if (document.hidden) {
-        persistActivity(true);
+        localStorage.setItem('lastActivity', String(lastActivityMsRef.current));
         return;
       }
       const stored = getLastActivityMs();
       if (stored > 0) {
         lastActivityMsRef.current = Math.max(lastActivityMsRef.current, stored);
       }
-      if (Date.now() - lastActivityMsRef.current >= INACTIVITY_TIMEOUT) {
+      if (isIdleExpired()) {
         logoutForInactivity();
       } else {
         scheduleInactivityLogout();
@@ -197,6 +223,7 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
+      if (inactivityIntervalRef.current) clearInterval(inactivityIntervalRef.current);
       events.forEach((e) => window.removeEventListener(e, resetTimer));
       document.removeEventListener('visibilitychange', onVisibility);
     };
@@ -279,6 +306,10 @@ export const AuthProvider = ({ children }) => {
       clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = null;
     }
+    if (inactivityIntervalRef.current) {
+      clearInterval(inactivityIntervalRef.current);
+      inactivityIntervalRef.current = null;
+    }
     setUser(null);
     setToken(null);
     setAccessToken(null);
@@ -288,6 +319,8 @@ export const AuthProvider = ({ children }) => {
     axios.post('/auth/logout', {}, { withCredentials: true }).catch(() => {});
     if (!silent) toast.info('Logged out successfully');
   };
+
+  logoutRef.current = logout;
 
   const loginWithToken = (newToken, newUser) => {
     sessionBootstrapPromise = null;
