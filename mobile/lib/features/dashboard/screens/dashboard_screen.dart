@@ -15,6 +15,7 @@ import '../../../core/providers/payment_provider.dart';
 import '../../../core/services/local_notification_service.dart';
 import '../../../core/services/socket_service.dart';
 import '../../../core/services/api_service.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_prefs.dart';
 import '../../onboarding/services/onboarding_api.dart';
