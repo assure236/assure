@@ -1,10 +1,11 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../widgets/otp_input_row.dart';
 
@@ -47,7 +48,7 @@ class _LockScreenState extends State<LockScreen> {
   Future<void> _checkBiometrics() async {
     final auth = context.read<AuthProvider>();
 
-    // OTP only after 48h idle — normal 10 min lock uses fingerprint only.
+    // 10 min idle → fingerprint. OTP only when periodic 48h re-auth is due.
     if (auth.requiresOtpUnlock) {
       if (mounted) {
         setState(() {
@@ -94,6 +95,8 @@ class _LockScreenState extends State<LockScreen> {
         if (!mounted) return;
 
         if (unlocked) {
+          await OnboardingCache.refresh();
+          if (!mounted) return;
           context.go('/dashboard');
           return;
         }
@@ -145,9 +148,8 @@ class _LockScreenState extends State<LockScreen> {
     if (!mounted) return;
     setState(() => _isLoading = false);
     if (res['success'] == true) {
-      // Save OTP auth timestamp for audit/visibility.
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('last_otp_auth_time', DateTime.now().millisecondsSinceEpoch);
+      if (!mounted) return;
+      await OnboardingCache.refresh();
       if (!mounted) return;
       context.go('/dashboard');
     } else {
@@ -161,6 +163,7 @@ class _LockScreenState extends State<LockScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -229,9 +232,12 @@ class _LockScreenState extends State<LockScreen> {
                 const Center(child: CircularProgressIndicator())
               else if (_showOtpFallback) ...[
                 if (!_otpSent) ...[
-                  const Text(
-                    'Verify your identity with OTP',
-                    style: TextStyle(fontSize: 14, color: Colors.black54),
+                  Text(
+                    auth.requiresOtpUnlock
+                        ? 'For your security, verify with OTP (required every 48 hours)'
+                        : 'Verify your identity with OTP',
+                    style: const TextStyle(fontSize: 14, color: Colors.black54),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
                   SizedBox(
@@ -271,8 +277,9 @@ class _LockScreenState extends State<LockScreen> {
                 ],
               ] else ...[
                 const Text(
-                  'Use biometrics to unlock',
+                  'You were idle for 10 minutes — unlock with fingerprint',
                   style: TextStyle(fontSize: 14, color: Colors.black54),
+                  textAlign: TextAlign.center,
                 ),
               ],
 
@@ -305,7 +312,7 @@ class _LockScreenState extends State<LockScreen> {
                 ),
               ],
 
-              if (!_showOtpFallback && !_isLoading) ...[
+              if (!_showOtpFallback && !_isLoading && !auth.requiresOtpUnlock) ...[
                 const SizedBox(height: 24),
                 TextButton(
                   onPressed: () => setState(() => _showOtpFallback = true),

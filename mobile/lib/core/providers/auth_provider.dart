@@ -23,8 +23,16 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   DateTime? _sessionLoginAt;
   DateTime? _lastActivityAt;
   int _lastActivityWriteMs = 0;
+  int? _lastOtpAuthMs;
   bool _otpRequiredForUnlock = false;
   String? _loginMemberId;
+  VoidCallback? onSessionLocked;
+  bool _unlockInProgress = false;
+  DateTime? _unlockGraceUntil;
+  Future<void>? _bootstrapFuture;
+  bool _bootstrapDone = false;
+
+  bool get bootstrapDone => _bootstrapDone;
 
   final _secureStorage = const FlutterSecureStorage();
 
@@ -36,16 +44,21 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   String? get sessionDevice => _sessionDevice;
   DateTime? get sessionLoginAt => _sessionLoginAt;
   bool get otpRequiredForUnlock => _otpRequiredForUnlock;
-  bool get requiresOtpUnlock => _otpRequiredForUnlock || _isOtpReauthDue();
+  /// True when periodic OTP re-verification is required (48h since last OTP login).
+  bool get requiresOtpUnlock => _otpRequiredForUnlock;
   DateTime? get lastActivityAt => _lastActivityAt;
   String? get loginMemberId => _loginMemberId;
 
   AuthProvider() {
     WidgetsBinding.instance.addObserver(this);
-    _loadFromStorage();
+    _bootstrapFuture = _loadFromStorage();
     ApiService.onUnauthorized = () async {
-      await logout();
+      await handleUnauthorized();
     };
+  }
+
+  Future<void> waitForBootstrap() async {
+    await (_bootstrapFuture ?? _loadFromStorage());
   }
 
   /// Call this on any user interaction (tap, scroll, type) to reset idle timer
@@ -62,9 +75,8 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   void _scheduleInactivityLock() {
     _inactivityTimer?.cancel();
     _inactivityTimer = Timer(_inactivityDuration + _inactivityGraceDuration, () {
-      final otpRequired = _isOtpReauthDue();
-      debugPrint('Inactivity timeout — locking app');
-      _lockSession(requireOtp: otpRequired);
+      debugPrint('Inactivity timeout — locking app (biometric)');
+      _lockSession(requireOtp: _isPeriodicOtpDue());
     });
   }
 
@@ -73,9 +85,29 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     _inactivityTimer = null;
   }
 
-  bool _isOtpReauthDue() {
-    if (_lastActivityAt == null) return false;
-    return DateTime.now().difference(_lastActivityAt!) >= _otpReauthDuration;
+  /// Periodic OTP is based on last OTP/full login — not last tap (daily use must still re-OTP after 48h).
+  bool _isPeriodicOtpDue() {
+    final anchorMs = _lastOtpAuthMs ??
+        (_sessionLoginAt?.millisecondsSinceEpoch);
+    if (anchorMs == null || anchorMs <= 0) return false;
+    final elapsed = DateTime.now().difference(
+      DateTime.fromMillisecondsSinceEpoch(anchorMs),
+    );
+    return elapsed >= _otpReauthDuration;
+  }
+
+  bool _shouldSuppressUnauthorizedLock() {
+    if (_unlockInProgress) return true;
+    final grace = _unlockGraceUntil;
+    if (grace != null && DateTime.now().isBefore(grace)) return true;
+    return false;
+  }
+
+  Future<void> _touchOtpAuthTime() async {
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    _lastOtpAuthMs = nowMs;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('last_otp_auth_time', nowMs);
   }
 
   Future<void> _recordActivity({bool forcePersist = false}) async {
@@ -99,6 +131,21 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     _otpRequiredForUnlock = requireOtp;
     _stopInactivityTimer();
     notifyListeners();
+    onSessionLocked?.call();
+  }
+
+  /// Token rejected after refresh failed — lock for biometric/OTP, do not wipe local account.
+  Future<void> handleUnauthorized() async {
+    if (_shouldSuppressUnauthorizedLock()) return;
+    if (_hasLocalAccount) {
+      final refresh = await _secureStorage.read(key: 'refresh_token');
+      final access = await _secureStorage.read(key: 'access_token');
+      if (refresh != null || access != null) {
+        _lockSession(requireOtp: _isPeriodicOtpDue());
+        return;
+      }
+    }
+    await logout();
   }
 
   Future<void> _loadFromStorage() async {
@@ -121,13 +168,16 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     final lastActivityMs = prefs.getInt('last_activity_at');
     if (lastActivityMs != null && lastActivityMs > 0) {
       _lastActivityAt = DateTime.fromMillisecondsSinceEpoch(lastActivityMs);
-      _otpRequiredForUnlock = DateTime.now().difference(_lastActivityAt!) >= _otpReauthDuration;
     }
+    _lastOtpAuthMs = prefs.getInt('last_otp_auth_time');
+    _otpRequiredForUnlock = _isPeriodicOtpDue();
     notifyListeners();
 
     if (_token != null) {
-      unawaited(_restoreSessionQuietly());
+      await _restoreSessionQuietly();
     }
+    _bootstrapDone = true;
+    notifyListeners();
   }
 
   Future<void> _restoreSessionQuietly() async {
@@ -156,24 +206,27 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!_isAuthenticated) return;
-
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
-      _recordActivity(forcePersist: true);
+    // Lock when app goes to background — fingerprint required on next open.
+    if (state == AppLifecycleState.paused) {
+      if (_isAuthenticated && !_unlockInProgress) {
+        _lockSession(requireOtp: _isPeriodicOtpDue());
+      }
       return;
     }
+
+    // Don't lock on inactive (fingerprint dialog triggers this state).
+    if (state == AppLifecycleState.inactive) {
+      return;
+    }
+
+    if (!_isAuthenticated) return;
 
     if (state == AppLifecycleState.resumed) {
       final last = _lastActivityAt;
       final idle = last == null ? Duration.zero : DateTime.now().difference(last);
 
-      if (idle >= _otpReauthDuration) {
-        _lockSession(requireOtp: true);
-        return;
-      }
-
       if (idle >= (_inactivityDuration + _inactivityGraceDuration)) {
-        _lockSession(requireOtp: false);
+        _lockSession(requireOtp: _isPeriodicOtpDue());
         return;
       }
 
@@ -411,6 +464,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     }
 
     _otpRequiredForUnlock = false;
+    await _touchOtpAuthTime();
     await _recordActivity(forcePersist: true);
     _scheduleInactivityLock();
   }
@@ -419,26 +473,32 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
   /// Unlock after biometric — refresh token if needed, keep cached profile (no OTP).
   Future<bool> unlockAfterBiometric() async {
-    if (_otpRequiredForUnlock || _isOtpReauthDue()) {
+    if (_otpRequiredForUnlock) {
       return false;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    final userJson = prefs.getString('user');
-    if (userJson != null) {
-      _user = User.fromJson(jsonDecode(userJson));
+    _unlockInProgress = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userJson = prefs.getString('user');
+      if (userJson != null) {
+        _user = User.fromJson(jsonDecode(userJson));
+      }
+      _token = await _secureStorage.read(key: 'access_token');
+
+      if (_user == null) return false;
+
+      await ApiService.tryRefreshAccessToken();
+      _token = await _secureStorage.read(key: 'access_token');
+      if (_token == null) return false;
+
+      authenticateFromBiometric();
+      _unlockGraceUntil = DateTime.now().add(const Duration(seconds: 8));
+      unawaited(refreshProfile());
+      return true;
+    } finally {
+      _unlockInProgress = false;
     }
-    _token = await _secureStorage.read(key: 'access_token');
-
-    if (_user == null) return false;
-
-    await ApiService.tryRefreshAccessToken();
-    _token = await _secureStorage.read(key: 'access_token');
-    if (_token == null) return false;
-
-    authenticateFromBiometric();
-    unawaited(refreshProfile());
-    return true;
   }
 
   /// Called after successful biometric authentication with a valid stored token.
@@ -449,6 +509,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     FcmService().registerTokenWithBackend();
     _recordActivity(forcePersist: true);
     _scheduleInactivityLock();
+    _unlockGraceUntil = DateTime.now().add(const Duration(seconds: 8));
     // Reconnect socket so force_logout events are received
     final userId = _user?.id ?? '';
     if (userId.isNotEmpty) {
@@ -492,6 +553,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user');
     await prefs.remove('last_activity_at');
+    await prefs.remove('last_otp_auth_time');
     await prefs.remove('login_member_id');
     await prefs.remove('active_member_id');
     await _secureStorage.delete(key: 'access_token');

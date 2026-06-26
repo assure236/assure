@@ -9,6 +9,7 @@ import Box from '@mui/material/Box';
 import 'react-toastify/dist/ReactToastify.css';
 import { getApiBaseUrl } from './config/env';
 import { setupAxiosInterceptors } from './utils/setupAxios';
+import { solidTooltipMenuOverrides } from './theme/uiOverrides';
 
 // Context Providers
 import { AuthProvider } from './context/AuthContext';
@@ -118,6 +119,7 @@ const theme = createTheme({
         root: { borderRadius: 12, boxShadow: '0 1px 3px rgba(11,31,59,0.08), 0 1px 2px rgba(11,31,59,0.06)' },
       },
     },
+    ...solidTooltipMenuOverrides,
   },
 });
 

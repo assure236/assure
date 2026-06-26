@@ -20,6 +20,7 @@ import { getSocketUrl } from '../../config/env';
 import { useActiveMember } from '../../context/ActiveMemberContext';
 import { getAccessToken } from '../../context/AuthContext';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
+import { CHART_TOOLTIP_PROPS } from '../../theme/uiOverrides';
 import {
   ResponsiveContainer,
   LineChart,
@@ -513,7 +514,7 @@ const AuctionRoom = () => {
                         <CartesianGrid strokeDasharray="3 3" stroke="#CBD5E1" />
                         <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${Math.round(Number(v || 0) / 1000)}k`} />
-                        <ChartTooltip formatter={(value) => [formatCompactCurrency(value), 'Winning Bid']} />
+                        <ChartTooltip {...CHART_TOOLTIP_PROPS} formatter={(value) => [formatCompactCurrency(value), 'Winning Bid']} />
                         <Line type="monotone" dataKey="winningBid" stroke="#4F46E5" strokeWidth={2.5} dot={{ r: 3 }} />
                       </LineChart>
                     </ResponsiveContainer>

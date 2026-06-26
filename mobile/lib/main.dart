@@ -68,7 +68,14 @@ class _AssureChitFundsAppState extends State<AssureChitFundsApp> {
   void initState() {
     super.initState();
     _authProvider = AuthProvider();
-    _router = AppRouter.router(_authProvider); // Create router once
+    _router = AppRouter.router(_authProvider);
+    _authProvider.onSessionLocked = () {
+      final path = _router.routerDelegate.currentConfiguration.uri.path;
+      const skip = ['/lock', '/splash', '/login', '/register', '/welcome'];
+      if (!skip.contains(path)) {
+        _router.go('/lock');
+      }
+    };
   }
 
   @override
@@ -98,8 +105,6 @@ class _AssureChitFundsAppState extends State<AssureChitFundsApp> {
         builder: (context, child) {
           return Listener(
             onPointerDown: (_) => _authProvider.markUserInteraction(),
-            onPointerMove: (_) => _authProvider.markUserInteraction(),
-            onPointerUp: (_) => _authProvider.markUserInteraction(),
             child: child ?? const SizedBox.shrink(),
           );
         },

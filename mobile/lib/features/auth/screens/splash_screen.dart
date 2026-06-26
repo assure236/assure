@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/auth_provider.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -38,7 +39,12 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
 
     final auth = context.read<AuthProvider>();
+    await auth.waitForBootstrap();
+    if (!mounted) return;
+
     if (auth.isAuthenticated) {
+      await OnboardingCache.refresh();
+      if (!mounted) return;
       context.go('/dashboard');
     } else if (auth.hasLocalAccount) {
       context.go('/lock');

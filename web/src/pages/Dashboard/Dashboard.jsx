@@ -27,6 +27,7 @@ import { securityLogger } from '../../utils/securityLogger';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import SimpleTour from '../../components/Onboarding/SimpleTour';
 import ReferralShareModal from '../../components/Onboarding/ReferralShareModal';
+import { CHART_TOOLTIP_PROPS } from '../../theme/uiOverrides';
 
 const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
   <Card
@@ -384,7 +385,7 @@ const Dashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={v => v > 0 ? `₹${(v/1000).toFixed(0)}k` : '0'} />
-                  <Tooltip formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, 'Amount']} />
+                  <Tooltip {...CHART_TOOLTIP_PROPS} formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, 'Amount']} />
                   <Area type="monotone" dataKey="amount" stroke="#0B1F3B" fill="url(#collGrad)" strokeWidth={2} />
                 </AreaChart>
               </ResponsiveContainer>
@@ -406,7 +407,7 @@ const Dashboard = () => {
                     {['#4caf50', '#D4AF37', '#f44336'].map((color, i) => <Cell key={i} fill={color} />)}
                   </Pie>
                   <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-                  <Tooltip />
+                  <Tooltip {...CHART_TOOLTIP_PROPS} />
                 </PieChart>
               </ResponsiveContainer>
               <Box textAlign="center" mt={1}>

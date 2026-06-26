@@ -17,9 +17,27 @@ class ApiService {
   static Future<void> Function()? onUnauthorized;
 
   static bool _isRefreshing = false;
+  static Future<bool>? _refreshFuture;
 
   static Future<bool> tryRefreshAccessToken() async {
-    if (_isRefreshing) return false;
+    if (_refreshFuture != null) {
+      return _refreshFuture!;
+    }
+    _refreshFuture = _tryRefreshAccessTokenImpl();
+    try {
+      return await _refreshFuture!;
+    } finally {
+      _refreshFuture = null;
+    }
+  }
+
+  static Future<bool> _tryRefreshAccessTokenImpl() async {
+    if (_isRefreshing) {
+      // Wait briefly if another caller is mid-flight (shouldn't happen with _refreshFuture).
+      await Future.delayed(const Duration(milliseconds: 200));
+      final token = await _secureStorage.read(key: 'access_token');
+      return token != null && token.isNotEmpty;
+    }
     _isRefreshing = true;
     try {
       final refreshToken = await _secureStorage.read(key: 'refresh_token');

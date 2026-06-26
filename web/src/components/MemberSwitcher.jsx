@@ -38,6 +38,21 @@ const MemberSwitcher = ({ compact = false }) => {
             const val = e.target.value;
             setActiveMemberId(val === 'me' ? null : val);
           }}
+          MenuProps={{
+            PaperProps: {
+              sx: {
+                bgcolor: '#FFFFFF',
+                border: '1px solid #E2E8F0',
+                boxShadow: '0 8px 24px rgba(11, 31, 59, 0.12)',
+                '& .MuiMenuItem-root': {
+                  color: '#0B1F3B',
+                  '&:hover': { bgcolor: '#F1F5F9' },
+                  '&.Mui-selected': { bgcolor: '#E2E8F0', fontWeight: 600 },
+                  '&.Mui-selected:hover': { bgcolor: '#CBD5E1' },
+                },
+              },
+            },
+          }}
           sx={{
             bgcolor: compact ? 'rgba(11,31,59,0.06)' : 'background.paper',
             fontSize: compact ? 13 : 14,

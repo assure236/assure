@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 
-import '../services/onboarding_api.dart';
+import '../../../core/router/app_router.dart';
+import '../../../core/utils/app_prefs.dart';
 import 'onboarding_layout.dart';
 
 class DoneStepScreen extends StatefulWidget {
@@ -29,9 +30,10 @@ class _DoneStepScreenState extends State<DoneStepScreen> {
     if (mounted) _goToDashboard();
   }
 
-  void _goToDashboard() {
-    OnboardingApi.tourComplete().catchError((_) => <String, dynamic>{});
-    context.go('/dashboard?onboarding=just_completed');
+  Future<void> _goToDashboard() async {
+    await AppPrefs.setPostOnboardingTourPending(true);
+    OnboardingCache.clear();
+    if (mounted) context.go('/dashboard?onboarding=just_completed');
   }
 
   Future<void> _share() async {

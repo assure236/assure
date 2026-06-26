@@ -22,6 +22,7 @@ import {
 } from 'recharts';
 import axios from 'axios';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { CHART_TOOLTIP_PROPS } from '../../theme/uiOverrides';
 
 const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
 const COLORS = ['#0B1F3B', '#4caf50', '#D4AF37', '#e91e63', '#9c27b0', '#00bcd4'];
@@ -127,7 +128,7 @@ const DividendCalculator = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} label={{ value: 'Month', position: 'insideBottom', offset: -2, fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={v => [fmt(v), 'Cumulative Dividends']} />
+                <Tooltip {...CHART_TOOLTIP_PROPS} formatter={v => [fmt(v), 'Cumulative Dividends']} />
                 <Area type="monotone" dataKey="cumulative" stroke="#4caf50" fill="url(#divGrad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
@@ -220,7 +221,7 @@ const SavingsGoalCalculator = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={v => [fmt(v)]} />
+                <Tooltip {...CHART_TOOLTIP_PROPS} formatter={v => [fmt(v)]} />
                 <Area type="monotone" dataKey="saved" stroke="#0B1F3B" fill="url(#savGrad)" strokeWidth={2} name="Savings" />
                 <Line type="monotone" dataKey="target" stroke="#f44336" strokeWidth={1} strokeDasharray="5 5" dot={false} name="Target" />
               </AreaChart>
@@ -474,7 +475,7 @@ const Analytics = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={v => v > 0 ? `₹${(v / 1000).toFixed(0)}k` : '0'} />
-                  <Tooltip formatter={v => [fmt(v), 'Amount Paid']} />
+                  <Tooltip {...CHART_TOOLTIP_PROPS} formatter={v => [fmt(v), 'Amount Paid']} />
                   <Bar dataKey="amount" fill="#0B1F3B" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
@@ -564,7 +565,7 @@ const Analytics = () => {
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} label={{ value: 'Month', position: 'insideBottom', offset: -2, fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
-                    <Tooltip formatter={v => [fmt(v)]} />
+                    <Tooltip {...CHART_TOOLTIP_PROPS} formatter={v => [fmt(v)]} />
                     <Line type="monotone" dataKey="estimated_dividend" stroke="#4caf50" strokeWidth={2} dot={false} name="Est. Dividend" />
                     <Line type="monotone" dataKey="cumulative" stroke="#0B1F3B" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Cumulative" />
                     <Legend />

@@ -144,13 +144,18 @@ const Layout = () => {
                 onClick={() => handleMenuClick(item.path)}
                 selected={active}
                 sx={{
-                  '&.Mui-selected': { bgcolor: '#0B1F3B', color: 'white', '& .MuiListItemIcon-root': { color: '#D4AF37' } },
-                  '&.Mui-selected:hover': { bgcolor: '#1E3A8A' },
+                  '&.Mui-selected': {
+                    bgcolor: '#E2E8F0',
+                    color: '#0B1F3B',
+                    fontWeight: 600,
+                    '& .MuiListItemIcon-root': { color: '#0B1F3B' },
+                  },
+                  '&.Mui-selected:hover': { bgcolor: '#CBD5E1' },
                   '&:hover': { bgcolor: 'rgba(11,31,59,0.06)' },
-                  borderRadius: 1.5, mx: 0.5, mb: 0.25
+                  borderRadius: 1.5, mx: 0.5, mb: 0.25,
                 }}
               >
-                <ListItemIcon sx={{ color: active ? '#D4AF37' : '#475569', minWidth: 36 }}>{item.icon}</ListItemIcon>
+                <ListItemIcon sx={{ color: active ? '#0B1F3B' : '#64748B', minWidth: 36 }}>{item.icon}</ListItemIcon>
                 <ListItemText primary={item.text} />
               </ListItemButton>
             </ListItem>
@@ -230,7 +235,7 @@ const Layout = () => {
           ModalProps={{ keepMounted: true }}
           sx={{
             display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, bgcolor: '#FFFFFF' }
           }}
         >
           {drawer}
@@ -239,7 +244,7 @@ const Layout = () => {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
+            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth, bgcolor: '#FFFFFF' }
           }}
           open
         >

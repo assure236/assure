@@ -40,12 +40,14 @@ import '../../features/onboarding/screens/cheque_step_screen.dart';
 import '../../features/onboarding/screens/address_step_screen.dart';
 import '../../features/onboarding/screens/done_step_screen.dart';
 import '../../features/onboarding/services/onboarding_api.dart';
+import '../utils/app_prefs.dart';
 
 /// Cached so the redirect callback (which must be synchronous) can check
 /// without re-firing the network call on every navigation tick.
 class OnboardingCache {
   static String? nextStep;
   static bool? completed;
+  static bool? tourCompleted;
   static DateTime? fetchedAt;
   static bool fetching = false;
 
@@ -56,23 +58,42 @@ class OnboardingCache {
     if (fetching) return;
     fetching = true;
     try {
+      await AppPrefs.loadPostOnboardingFlags();
       final res = await OnboardingApi.getStatus();
       final data = res['data'] as Map<String, dynamic>?;
       if (data != null) {
         completed = data['completed'] == true;
         nextStep = data['next_step']?.toString();
+        tourCompleted = data['tour_completed'] == true;
         fetchedAt = DateTime.now();
+        if (tourCompleted == true) {
+          await AppPrefs.setPostOnboardingDismissed(true);
+        } else {
+          // Server reset (e.g. testing) — allow tour to run again.
+          await AppPrefs.setPostOnboardingDismissed(false);
+          await AppPrefs.setPostOnboardingTourPending(true);
+        }
       }
     } catch (_) {
       // Network fail: leave cache; allow the user to proceed.
+      await AppPrefs.loadPostOnboardingFlags();
     } finally {
       fetching = false;
     }
   }
 
   static void clear() {
-    nextStep = null; completed = null; fetchedAt = null;
+    nextStep = null;
+    completed = null;
+    tourCompleted = null;
+    fetchedAt = null;
   }
+
+  /// User already saw the "onboarding complete" screen or finished the tour.
+  static bool get shouldSkipDoneScreen =>
+      AppPrefs.tourDismissedSync ||
+      AppPrefs.tourPendingSync ||
+      tourCompleted == true;
 }
 
 class AppRouter {
@@ -130,10 +151,22 @@ class AppRouter {
           OnboardingCache.refresh(); // fire-and-forget; next nav will use it
         }
 
+        // Unknown status — don't flash onboarding while cache loads.
+        if (OnboardingCache.completed == null && OnboardingCache.fetching) {
+          return null;
+        }
+
         if (OnboardingCache.completed != true && !isOnboarding && !isPostOnboardingDashboard) {
+          if (OnboardingCache.completed == null) return null;
+          if (OnboardingCache.nextStep == 'complete' && OnboardingCache.shouldSkipDoneScreen) {
+            return null;
+          }
           return onboardingNextRoute(OnboardingCache.nextStep);
         }
-        if (OnboardingCache.completed == true && isOnboarding && loc != '/onboarding/done') {
+        if (OnboardingCache.completed == true && isOnboarding) {
+          if (loc == '/onboarding/done' && !OnboardingCache.shouldSkipDoneScreen) {
+            return null;
+          }
           return '/dashboard';
         }
         return null;
@@ -163,7 +196,12 @@ class AppRouter {
           path: '/dashboard',
           builder: (context, state) {
             final digilockerStatus = state.uri.queryParameters['digilocker'];
-            return DashboardScreen(digilockerStatus: digilockerStatus);
+            final onboardingJustCompleted =
+                state.uri.queryParameters['onboarding'] == 'just_completed';
+            return DashboardScreen(
+              digilockerStatus: digilockerStatus,
+              onboardingJustCompleted: onboardingJustCompleted,
+            );
           },
         ),
         GoRoute(

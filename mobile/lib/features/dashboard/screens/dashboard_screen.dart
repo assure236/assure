@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../../core/providers/active_member_provider.dart';
 import '../../../core/providers/auth_provider.dart';
@@ -16,6 +17,8 @@ import '../../../core/services/socket_service.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_prefs.dart';
+import '../../onboarding/services/onboarding_api.dart';
+import '../../onboarding/widgets/dashboard_tour_overlay.dart';
 import '../../chit_groups/screens/chit_groups_screen.dart';
 import '../../auctions/screens/auctions_screen.dart';
 import '../../payments/screens/payments_screen.dart';
@@ -29,7 +32,12 @@ final _dtFmt = DateFormat('dd MMM yyyy');
 // ─── Main Shell with Bottom Nav ───────────────────────────────────────────────
 class DashboardScreen extends StatefulWidget {
   final String? digilockerStatus;
-  const DashboardScreen({super.key, this.digilockerStatus});
+  final bool onboardingJustCompleted;
+  const DashboardScreen({
+    super.key,
+    this.digilockerStatus,
+    this.onboardingJustCompleted = false,
+  });
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -38,6 +46,15 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
   final _paymentsKey = GlobalKey<PaymentsScreenState>();
+  bool _showTour = false;
+
+  final _tourHeaderKey = GlobalKey();
+  final _tourInvestedKey = GlobalKey();
+  final _tourChitsKey = GlobalKey();
+  final _tourActiveChitsKey = GlobalKey();
+  final _tourNavChitsKey = GlobalKey();
+  final _tourNavPaymentsKey = GlobalKey();
+  final _tourNavMoreKey = GlobalKey();
 
   @override
   void initState() {
@@ -45,6 +62,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Set context for SocketService multi-device alerts
     WidgetsBinding.instance.addPostFrameCallback((_) {
       SocketService.instance.setContext(context);
+      _handleDigiLockerReturn();
+      _maybeStartTour();
+    });
+  }
+
+  void _handleDigiLockerReturn() {
       // Handle DigiLocker deep link return
       if (widget.digilockerStatus != null) {
         // Force refresh dashboard (bypass cache) to pick up new KYC status
@@ -66,7 +89,125 @@ class _DashboardScreenState extends State<DashboardScreen> {
           );
         }
       }
-    });
+  }
+
+  Future<void> _maybeStartTour() async {
+    await OnboardingCache.refresh();
+    if (!mounted) return;
+    if (OnboardingCache.tourCompleted == true) return;
+
+    final dismissed = await AppPrefs.isPostOnboardingDismissed();
+    if (dismissed || !mounted) return;
+
+    final pending = await AppPrefs.isPostOnboardingTourPending();
+    if (!widget.onboardingJustCompleted && !pending) return;
+
+    if (widget.onboardingJustCompleted && mounted) {
+      context.go('/dashboard');
+    }
+
+    if (!mounted) return;
+    setState(() => _showTour = true);
+  }
+
+  Future<void> _handleTourDone() async {
+    if (!mounted) return;
+    setState(() => _showTour = false);
+    await AppPrefs.setPostOnboardingDismissed(true);
+    OnboardingApi.tourComplete().catchError((_) => <String, dynamic>{});
+    if (!mounted) return;
+    _showSharePrompt();
+  }
+
+  Future<void> _showSharePrompt() async {
+    final share = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.celebration_rounded, color: AppTheme.secondaryColor),
+            SizedBox(width: 8),
+            Expanded(child: Text('You\'re all set!')),
+          ],
+        ),
+        content: const Text(
+          'Share Assure ChitFunds with friends and family so they can save and grow with you.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Maybe later'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, true),
+            icon: const Icon(Icons.share_rounded, size: 18),
+            label: const Text('Share'),
+            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+          ),
+        ],
+      ),
+    );
+    if (share == true && mounted) {
+      const text =
+          'Hi! I\'ve been using Assure ChitFunds — a transparent, secure way to save and grow your money with monthly chit auctions. Join me on the platform.\n\nhttps://assure.fund';
+      await Share.share(text, subject: 'Try Assure ChitFunds');
+    }
+  }
+
+  List<DashboardTourStep> _buildTourSteps() {
+    return [
+      DashboardTourStep(
+        targetKey: _tourHeaderKey,
+        title: 'Welcome to your dashboard',
+        body:
+            'This is your home screen. Here you can see your profile, notifications, and a quick overview of your chit activity.',
+      ),
+      DashboardTourStep(
+        targetKey: _tourInvestedKey,
+        title: 'Total Invested',
+        body:
+            'Track how much you have invested across all your chit groups in one place.',
+        linkLabel: 'Open investment details',
+        onLinkTap: () => context.push('/total-investment'),
+      ),
+      DashboardTourStep(
+        targetKey: _tourChitsKey,
+        title: 'Browse chit groups',
+        body:
+            'See new and vacant chit groups you can join. Tap to explore available options.',
+        linkLabel: 'Go to Invest',
+        onLinkTap: () => setState(() => _currentIndex = 1),
+      ),
+      DashboardTourStep(
+        targetKey: _tourActiveChitsKey,
+        title: 'My Active Chits',
+        body:
+            'Your enrolled chit groups appear here. Tap any card to view details, payments, and auction history.',
+      ),
+      DashboardTourStep(
+        targetKey: _tourNavChitsKey,
+        title: 'Invest tab',
+        body:
+            'Use the bottom navigation to switch between Home, Invest, Auctions, Payments, and More anytime.',
+      ),
+      DashboardTourStep(
+        targetKey: _tourNavPaymentsKey,
+        title: 'Payments',
+        body:
+            'Pay monthly installments, view receipts, and check due or overdue payments from the Payments tab.',
+        linkLabel: 'Open Payments',
+        onLinkTap: () => setState(() => _currentIndex = 3),
+      ),
+      DashboardTourStep(
+        targetKey: _tourNavMoreKey,
+        title: 'Profile & settings',
+        body:
+            'Access your profile, documents, help, support tickets, and account settings from the More tab.',
+        linkLabel: 'Open More',
+        onLinkTap: () => setState(() => _currentIndex = 4),
+      ),
+    ];
   }
 
   void _switchTab(int index) {
@@ -99,7 +240,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               body: IndexedStack(
                 index: _currentIndex,
                 children: [
-                  _HomeTab(switchTab: _switchTab),
+                  _HomeTab(
+                    switchTab: _switchTab,
+                    tourHeaderKey: _tourHeaderKey,
+                    tourInvestedKey: _tourInvestedKey,
+                    tourChitsKey: _tourChitsKey,
+                    tourActiveChitsKey: _tourActiveChitsKey,
+                  ),
                   const ChitGroupsScreen(),
                   const AuctionsScreen(),
                   PaymentsScreen(key: _paymentsKey),
@@ -107,41 +254,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               bottomNavigationBar: NavigationBar(
+                key: _tourNavChitsKey,
                 selectedIndex: _currentIndex,
                 onDestinationSelected: _switchTab,
                 backgroundColor: Colors.white,
                 surfaceTintColor: Colors.transparent,
                 elevation: 8,
                 shadowColor: Colors.black26,
-                destinations: const [
-                  NavigationDestination(
+                destinations: [
+                  const NavigationDestination(
                     icon: Icon(Icons.home_outlined),
                     selectedIcon: Icon(Icons.home_rounded),
                     label: 'Home',
                   ),
-                  NavigationDestination(
+                  const NavigationDestination(
                     icon: Icon(Icons.trending_up_outlined),
                     selectedIcon: Icon(Icons.trending_up_rounded),
                     label: 'Invest',
                   ),
-                  NavigationDestination(
+                  const NavigationDestination(
                     icon: Icon(Icons.gavel_outlined),
                     selectedIcon: Icon(Icons.gavel_rounded),
                     label: 'Auctions',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.account_balance_wallet_outlined),
-                    selectedIcon: Icon(Icons.account_balance_wallet_rounded),
+                    key: _tourNavPaymentsKey,
+                    icon: const Icon(Icons.account_balance_wallet_outlined),
+                    selectedIcon: const Icon(Icons.account_balance_wallet_rounded),
                     label: 'Payments',
                   ),
                   NavigationDestination(
-                    icon: Icon(Icons.menu_rounded),
-                    selectedIcon: Icon(Icons.menu_rounded),
+                    key: _tourNavMoreKey,
+                    icon: const Icon(Icons.menu_rounded),
+                    selectedIcon: const Icon(Icons.menu_rounded),
                     label: 'More',
                   ),
                 ],
               ),
             ),
+            if (_showTour)
+              Positioned.fill(
+                child: DashboardTourOverlay(
+                  steps: _buildTourSteps(),
+                  onDone: _handleTourDone,
+                ),
+              ),
             ValueListenableBuilder<bool>(
               valueListenable: AppPrefs.chatbotVisible,
               builder: (context, chatbotOn, _) {
@@ -159,7 +316,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
 // ─── Home Tab ─────────────────────────────────────────────────────────────────
 class _HomeTab extends StatefulWidget {
   final void Function(int) switchTab;
-  const _HomeTab({required this.switchTab});
+  final GlobalKey tourHeaderKey;
+  final GlobalKey tourInvestedKey;
+  final GlobalKey tourChitsKey;
+  final GlobalKey tourActiveChitsKey;
+  const _HomeTab({
+    required this.switchTab,
+    required this.tourHeaderKey,
+    required this.tourInvestedKey,
+    required this.tourChitsKey,
+    required this.tourActiveChitsKey,
+  });
 
   @override
   State<_HomeTab> createState() => _HomeTabState();
@@ -279,22 +446,33 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
-                  child: _HeaderSection(
-                      user: user,
-                      dash: dash,
-                      loading: false,
-                      onProfileTap: () => context.push('/edit-profile')),
+                  child: KeyedSubtree(
+                    key: widget.tourHeaderKey,
+                    child: _HeaderSection(
+                        user: user,
+                        dash: dash,
+                        loading: false,
+                        onProfileTap: () => context.push('/edit-profile')),
+                  ),
                 ),
                 // Item 9: KYC banner removed — onboarding handles this
                 SliverToBoxAdapter(
                     child: _DuePaymentsReminder(switchTab: widget.switchTab)),
                 SliverToBoxAdapter(
-                    child: _StatsRow(dash: dash, switchTab: widget.switchTab)),
+                    child: _StatsRow(
+                      dash: dash,
+                      switchTab: widget.switchTab,
+                      tourInvestedKey: widget.tourInvestedKey,
+                      tourChitsKey: widget.tourChitsKey,
+                    )),
                 // Item 3: Set a Goal card
                 const SliverToBoxAdapter(child: _SetGoalBanner()),
                 SliverToBoxAdapter(
-                    child:
-                        _ActiveChits(dash: dash, switchTab: widget.switchTab)),
+                    child: KeyedSubtree(
+                      key: widget.tourActiveChitsKey,
+                      child: _ActiveChits(
+                          dash: dash, switchTab: widget.switchTab),
+                    )),
                 if (dash.upcomingAuctions.isNotEmpty)
                   SliverToBoxAdapter(
                       child: _UpcomingAuctions(
@@ -1045,8 +1223,15 @@ class _DuePaymentsReminder extends StatelessWidget {
 class _StatsRow extends StatelessWidget {
   final DashboardProvider dash;
   final void Function(int) switchTab;
+  final GlobalKey tourInvestedKey;
+  final GlobalKey tourChitsKey;
 
-  const _StatsRow({required this.dash, required this.switchTab});
+  const _StatsRow({
+    required this.dash,
+    required this.switchTab,
+    required this.tourInvestedKey,
+    required this.tourChitsKey,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1057,12 +1242,15 @@ class _StatsRow extends StatelessWidget {
           Expanded(
             child: GestureDetector(
               onTap: () => context.push('/total-investment'),
-              child: _StatCard(
-                label: 'Total Invested',
-                value: _inr.format(dash.totalInvested),
-                icon: Icons.savings_rounded,
-                iconBg: AppTheme.lightBlueBg,
-                iconColor: AppTheme.accentBlue,
+              child: KeyedSubtree(
+                key: tourInvestedKey,
+                child: _StatCard(
+                  label: 'Total Invested',
+                  value: _inr.format(dash.totalInvested),
+                  icon: Icons.savings_rounded,
+                  iconBg: AppTheme.lightBlueBg,
+                  iconColor: AppTheme.accentBlue,
+                ),
               ),
             ),
           ),
@@ -1070,12 +1258,15 @@ class _StatsRow extends StatelessWidget {
           Expanded(
             child: GestureDetector(
               onTap: () => switchTab(1),
-              child: _StatCard(
-                label: 'New/Vacant',
-                value: '${dash.availableChitsCount}',
-                icon: Icons.group_work_rounded,
-                iconBg: AppTheme.lightBlueBg,
-                iconColor: AppTheme.accentBlue,
+              child: KeyedSubtree(
+                key: tourChitsKey,
+                child: _StatCard(
+                  label: 'New/Vacant',
+                  value: '${dash.availableChitsCount}',
+                  icon: Icons.group_work_rounded,
+                  iconBg: AppTheme.lightBlueBg,
+                  iconColor: AppTheme.accentBlue,
+                ),
               ),
             ),
           ),
