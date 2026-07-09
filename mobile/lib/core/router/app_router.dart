@@ -137,7 +137,7 @@ class AppRouter {
 
         // Guard private routes — redirect unauthenticated users
         if (!isAuthenticated) {
-          return hasLocalAccount ? '/lock' : '/welcome';
+          return authProvider.canUnlockWithBiometric ? '/lock' : '/welcome';
         }
 
         // Onboarding gate

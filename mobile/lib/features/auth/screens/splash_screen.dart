@@ -46,7 +46,7 @@ class _SplashScreenState extends State<SplashScreen>
       await OnboardingCache.refresh();
       if (!mounted) return;
       context.go('/dashboard');
-    } else if (auth.hasLocalAccount) {
+    } else if (auth.canUnlockWithBiometric) {
       context.go('/lock');
     } else {
       context.go('/welcome');

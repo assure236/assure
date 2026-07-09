@@ -81,6 +81,9 @@ exports.updateProfile = async (req, res, next) => {
       ['nominee_name', 'nominee_relationship', 'otp'].includes(k)
     );
     if (hasOnlyNomineeFields && (hasNomineeName || hasNomineeRelationship)) {
+      if (!_checkOtp('nominee:' + userId, req.body.otp)) {
+        return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
+      }
       const directUpdates = {};
       if (hasNomineeRelationship) {
         const relation = String(req.body.nominee_relationship || '').trim();
@@ -91,9 +94,6 @@ exports.updateProfile = async (req, res, next) => {
         const nomineeName = String(req.body.nominee_name || '').trim();
         if (nomineeName.length < 2) {
           return res.status(400).json({ success: false, message: 'Enter nominee name' });
-        }
-        if (!_checkOtp('nominee:' + userId, req.body.otp)) {
-          return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
         }
         directUpdates.nominee_name = nomineeName;
       }

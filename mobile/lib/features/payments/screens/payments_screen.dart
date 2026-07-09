@@ -666,95 +666,37 @@ class _UpcomingPaymentsTab extends StatelessWidget {
       );
     }
 
-    // Split into payable (overdue/pending) and future (upcoming)
+    // Split into payable (overdue/pending) only — future installments hidden from Upcoming tab
     final payable = payments.where((p) =>
         p['payment_status'] == 'overdue' || p['payment_status'] == 'pending').toList();
-    final future = payments.where((p) =>
-        p['payment_status'] == 'upcoming').toList();
 
     return RefreshIndicator(
       onRefresh: onRefresh,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (payable.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Text('Due Now',
-                  style: TextStyle(
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14)),
+      child: payable.isEmpty
+          ? ListView(
+              children: const [
+                SizedBox(height: 120),
+                _EmptyState(
+                  icon: Icons.check_circle_outline,
+                  title: 'All Caught Up!',
+                  subtitle: 'No upcoming or overdue payments.',
+                ),
+              ],
+            )
+          : ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text('Due Now',
+                      style: TextStyle(
+                          color: Colors.grey[700],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14)),
+                ),
+                ...payable.map((p) => _buildPayableCard(context, p)),
+              ],
             ),
-            ...payable.map((p) => _buildPayableCard(context, p)),
-          ],
-          if (future.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 16, bottom: 8),
-              child: Text('Future Installments',
-                  style: TextStyle(
-                      color: Colors.grey[500],
-                      fontWeight: FontWeight.w600,
-                      fontSize: 13)),
-            ),
-            ...future.map((p) => _buildFutureCard(context, p)),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFutureCard(BuildContext context, Map<String, dynamic> p) {
-    final amount = double.tryParse(p['amount']?.toString() ?? '0') ?? 0;
-    final group = (p['chit_group'] ?? p['chitGroup'])?['group_name'] ?? 'Chit Group';
-    final dueDate = p['due_date'] != null ? DateTime.tryParse(p['due_date']) : null;
-    final monthNum = p['month_number'] ?? 0;
-    final dividend = double.tryParse(p['dividend_reduction']?.toString() ?? '0') ?? 0;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 0,
-      color: Colors.grey[50],
-      child: ListTile(
-        leading: Container(
-          width: 40, height: 40,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Center(
-            child: Text('M$monthNum',
-                style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                    color: Colors.grey[600])),
-          ),
-        ),
-        title: Text(group,
-            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              dueDate != null
-                  ? 'Due: ${DateFormat('dd MMM yyyy').format(dueDate)}'
-                  : 'Upcoming',
-              style: TextStyle(color: Colors.grey[500], fontSize: 11),
-            ),
-            if (dividend > 0)
-              Text(
-                'Dividend: -₹${NumberFormat('#,##,###').format(dividend)}',
-                style: const TextStyle(color: AppTheme.successColor, fontSize: 11),
-              ),
-          ],
-        ),
-        trailing: Text('₹${NumberFormat('#,##,###').format(amount)}',
-            style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
-                color: Colors.grey[600])),
-      ),
     );
   }
 

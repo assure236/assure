@@ -1,4 +1,6 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/services/api_service.dart';
@@ -13,23 +15,14 @@ class ApplyLoanScreen extends StatefulWidget {
   State<ApplyLoanScreen> createState() => _ApplyLoanScreenState();
 }
 
-class _ApplyLoanScreenState extends State<ApplyLoanScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabCtrl;
+class _ApplyLoanScreenState extends State<ApplyLoanScreen> {
   bool _loading = true;
   List<Map<String, dynamic>> _loans = [];
 
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 2, vsync: this);
     _fetchLoans();
-  }
-
-  @override
-  void dispose() {
-    _tabCtrl.dispose();
-    super.dispose();
   }
 
   Future<void> _fetchLoans() async {
@@ -47,7 +40,7 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
     final amountCtrl = TextEditingController();
     final tenureCtrl = TextEditingController(text: '12');
     final purposeCtrl = TextEditingController();
-    String loanType = 'personal_loan';
+    bool acceptedTerms = false;
 
     showModalBottomSheet(
       context: context,
@@ -74,18 +67,6 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                     const Spacer(),
                     IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text('Loan Type', style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    _loanTypeChip('Chit Loan', 'chit_loan', loanType, (v) => setSheetState(() => loanType = v)),
-                    const SizedBox(width: 8),
-                    _loanTypeChip('Personal', 'personal_loan', loanType, (v) => setSheetState(() => loanType = v)),
-                    const SizedBox(width: 8),
-                    _loanTypeChip('Emergency', 'emergency_loan', loanType, (v) => setSheetState(() => loanType = v)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -123,65 +104,97 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
                     prefixIcon: const Icon(Icons.note),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  value: acceptedTerms,
+                  onChanged: (v) => setSheetState(() => acceptedTerms = v ?? false),
+                  title: RichText(
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 13, color: Colors.black87, height: 1.35),
+                      children: [
+                        const TextSpan(text: 'I agree to the '),
+                        TextSpan(
+                          text: 'Terms & Conditions',
+                          style: const TextStyle(
+                            color: AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                          recognizer: TapGestureRecognizer()
+                            ..onTap = () {
+                              Navigator.pop(ctx);
+                              context.push('/terms');
+                            },
+                        ),
+                        const TextSpan(text: ' before submitting this loan application.'),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton.icon(
-                    onPressed: () async {
-                      final amount = double.tryParse(amountCtrl.text.trim());
-                      final tenure = int.tryParse(tenureCtrl.text.trim());
-                      if (amount == null || amount < 1000) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Enter a valid amount (min ₹1,000)'),
-                          behavior: SnackBarBehavior.floating,
-                        ));
-                        return;
-                      }
-                      if (tenure == null || tenure < 1 || tenure > 60) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                          content: Text('Tenure must be 1-60 months'),
-                          behavior: SnackBarBehavior.floating,
-                        ));
-                        return;
-                      }
-                      Navigator.pop(ctx);
-                      try {
-                        final res = await ApiService.post('/loans/apply', {
-                          'loan_type': loanType,
-                          'requested_amount': amount,
-                          'tenure_months': tenure,
-                          'purpose': purposeCtrl.text.trim(),
-                        });
-                        if (res['success'] == true && mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text('Loan application submitted!'),
-                            backgroundColor: AppTheme.successColor,
-                            behavior: SnackBarBehavior.floating,
-                          ));
-                          _fetchLoans();
-                        } else if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                            content: Text(res['message'] ?? 'Failed'),
-                            backgroundColor: AppTheme.errorColor,
-                            behavior: SnackBarBehavior.floating,
-                          ));
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                            content: Text('Failed to submit application'),
-                            backgroundColor: AppTheme.errorColor,
-                            behavior: SnackBarBehavior.floating,
-                          ));
-                        }
-                      }
-                    },
+                    onPressed: acceptedTerms
+                        ? () async {
+                            final amount = double.tryParse(amountCtrl.text.trim());
+                            final tenure = int.tryParse(tenureCtrl.text.trim());
+                            if (amount == null || amount < 1000) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                content: Text('Enter a valid amount (min ₹1,000)'),
+                                behavior: SnackBarBehavior.floating,
+                              ));
+                              return;
+                            }
+                            if (tenure == null || tenure < 1 || tenure > 60) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                content: Text('Tenure must be 1-60 months'),
+                                behavior: SnackBarBehavior.floating,
+                              ));
+                              return;
+                            }
+                            Navigator.pop(ctx);
+                            try {
+                              final res = await ApiService.post('/loans/apply', {
+                                'loan_type': 'personal_loan',
+                                'requested_amount': amount,
+                                'tenure_months': tenure,
+                                'purpose': purposeCtrl.text.trim(),
+                              });
+                              if (res['success'] == true && mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                  content: Text('Loan application submitted!'),
+                                  backgroundColor: AppTheme.successColor,
+                                  behavior: SnackBarBehavior.floating,
+                                ));
+                                _fetchLoans();
+                              } else if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                  content: Text(res['message'] ?? 'Failed'),
+                                  backgroundColor: AppTheme.errorColor,
+                                  behavior: SnackBarBehavior.floating,
+                                ));
+                              }
+                            } catch (e) {
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                                  content: Text('Failed to submit application'),
+                                  backgroundColor: AppTheme.errorColor,
+                                  behavior: SnackBarBehavior.floating,
+                                ));
+                              }
+                            }
+                          }
+                        : null,
                     icon: const Icon(Icons.send),
                     label: const Text('Submit Application'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.primaryColor,
                       foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.grey.shade300,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
@@ -190,18 +203,6 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _loanTypeChip(String label, String value, String current, ValueChanged<String> onSelect) {
-    final selected = current == value;
-    return Expanded(
-      child: ChoiceChip(
-        label: Text(label, style: TextStyle(fontSize: 11, color: selected ? Colors.white : null)),
-        selected: selected,
-        selectedColor: AppTheme.primaryColor,
-        onSelected: (_) => onSelect(value),
       ),
     );
   }
@@ -227,16 +228,6 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
     return s.replaceAll('_', ' ').split(' ').map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '').join(' ');
   }
 
-  String _loanTypeLabel(String t) {
-    switch (t) {
-      case 'chit_loan':
-        return 'Chit Loan';
-      case 'emergency_loan':
-        return 'Emergency';
-      default:
-        return 'Personal';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -246,16 +237,6 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
         title: const Text('Loans'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
-        bottom: TabBar(
-          controller: _tabCtrl,
-          indicatorColor: AppTheme.secondaryColor,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          tabs: const [
-            Tab(text: 'My Loans'),
-            Tab(text: 'About Loans'),
-          ],
-        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showApplyForm,
@@ -264,18 +245,12 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
         icon: const Icon(Icons.add),
         label: const Text('Apply'),
       ),
-      body: TabBarView(
-        controller: _tabCtrl,
-        children: [
-          _loading
-              ? const Center(child: CircularProgressIndicator())
-              : RefreshIndicator(
-                  onRefresh: _fetchLoans,
-                  child: _loans.isEmpty ? _buildEmpty() : _buildLoansList(),
-                ),
-          _buildAboutTab(),
-        ],
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _fetchLoans,
+              child: _loans.isEmpty ? _buildEmpty() : _buildLoansList(),
+            ),
     );
   }
 
@@ -340,17 +315,6 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
                     child: Text(_statusLabel(status),
                         style: TextStyle(color: _statusColor(status),
                             fontSize: 11, fontWeight: FontWeight.w600)),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withAlpha(20),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(_loanTypeLabel(loan['loan_type'] ?? ''),
-                        style: const TextStyle(color: AppTheme.primaryColor,
-                            fontSize: 10, fontWeight: FontWeight.w600)),
                   ),
                   const Spacer(),
                   Text(loan['loan_number'] ?? '',
@@ -456,9 +420,6 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
               const SizedBox(height: 16),
               Text(_inr.format(amount),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 28)),
-              const SizedBox(height: 4),
-              Text(_loanTypeLabel(loan['loan_type'] ?? ''),
-                  style: TextStyle(color: Colors.grey.shade600)),
               const SizedBox(height: 20),
               _detailRow('Requested Amount', _inr.format(loan['requested_amount'] ?? 0)),
               if (loan['approved_amount'] != null)
@@ -513,95 +474,6 @@ class _ApplyLoanScreenState extends State<ApplyLoanScreen>
           Flexible(child: Text(value,
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               textAlign: TextAlign.right)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAboutTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _infoCard(Icons.account_balance_wallet, 'Chit Loan',
-              'Borrow against your chit group holdings. Lower interest rates based on your subscription value and payment history.'),
-          const SizedBox(height: 12),
-          _infoCard(Icons.person, 'Personal Loan',
-              'Get a personal loan based on your credit score and membership history. Flexible tenure from 1 to 60 months.'),
-          const SizedBox(height: 12),
-          _infoCard(Icons.emergency, 'Emergency Loan',
-              'Quick emergency loans with faster processing. Available for medical, education, and other urgent needs.'),
-          const SizedBox(height: 20),
-          const Text('How It Works',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          const SizedBox(height: 12),
-          _step('1', 'Apply', 'Choose loan type, amount, and tenure'),
-          _step('2', 'Review', 'Our team reviews your application'),
-          _step('3', 'Approval', 'Get approved with EMI details'),
-          _step('4', 'Disbursement', 'Amount credited to your account'),
-        ],
-      ),
-    );
-  }
-
-  Widget _infoCard(IconData icon, String title, String desc) {
-    return Card(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withAlpha(26),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: AppTheme.primaryColor, size: 24),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 4),
-                  Text(desc, style: TextStyle(color: Colors.grey.shade600, fontSize: 13, height: 1.4)),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _step(String num, String title, String desc) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Container(
-            width: 32, height: 32,
-            decoration: const BoxDecoration(
-              color: AppTheme.primaryColor,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(num, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                Text(desc, style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-              ],
-            ),
-          ),
         ],
       ),
     );

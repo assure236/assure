@@ -564,7 +564,13 @@ class _HeaderSectionState extends State<_HeaderSection> {
     final auth = context.watch<AuthProvider>();
     final activeMemberId = context.watch<ActiveMemberProvider>().activeMemberId;
     final selfId = auth.loginMemberId ?? user?.memberId ?? 'ME';
-    final kycVerified = dash.kycStatus == 'verified';
+    final profileApproved =
+        dash.profileApprovalStatus.toLowerCase() == 'approved';
+    final profilePct = dash.profilePercentage;
+    final kycAdminVerified =
+        ['verified', 'approved'].contains(dash.kycStatus.toLowerCase());
+    final showKycVerified = profileApproved && kycAdminVerified;
+    final showProfileProgress = !profileApproved;
 
     // When a family member is selected, show their name/avatar instead
     Map<String, dynamic>? activeFamilyMember;
@@ -805,14 +811,18 @@ class _HeaderSectionState extends State<_HeaderSection> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: kycVerified
+                          color: showKycVerified
                               ? Colors.green.withAlpha(51)
-                              : Colors.orange.withAlpha(51),
+                              : showProfileProgress
+                                  ? Colors.blue.withAlpha(51)
+                                  : Colors.orange.withAlpha(51),
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: kycVerified
+                            color: showKycVerified
                                 ? Colors.greenAccent
-                                : Colors.orangeAccent,
+                                : showProfileProgress
+                                    ? Colors.lightBlueAccent
+                                    : Colors.orangeAccent,
                             width: 1,
                           ),
                         ),
@@ -820,21 +830,31 @@ class _HeaderSectionState extends State<_HeaderSection> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              kycVerified
+                              showKycVerified
                                   ? Icons.verified_rounded
-                                  : Icons.pending_rounded,
-                              color: kycVerified
+                                  : showProfileProgress
+                                      ? Icons.account_circle_outlined
+                                      : Icons.pending_rounded,
+                              color: showKycVerified
                                   ? Colors.greenAccent
-                                  : Colors.orangeAccent,
+                                  : showProfileProgress
+                                      ? Colors.lightBlueAccent
+                                      : Colors.orangeAccent,
                               size: 14,
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              kycVerified ? 'KYC Verified' : 'KYC Not Verified',
+                              showKycVerified
+                                  ? 'KYC Verified'
+                                  : showProfileProgress
+                                      ? 'Profile $profilePct% complete'
+                                      : 'KYC Not Verified',
                               style: TextStyle(
-                                color: kycVerified
+                                color: showKycVerified
                                     ? Colors.greenAccent
-                                    : Colors.orangeAccent,
+                                    : showProfileProgress
+                                        ? Colors.lightBlueAccent
+                                        : Colors.orangeAccent,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -1069,7 +1089,7 @@ class _KycProfileBanner extends StatelessWidget {
   }
 }
 
-// ─── Due Payments Reminder (1-click pay) ──────────────────────────────────────
+// ─── Due Payments Reminder (swipeable per group) ─────────────────────────────
 class _DuePaymentsReminder extends StatelessWidget {
   final void Function(int) switchTab;
   const _DuePaymentsReminder({required this.switchTab});
@@ -1088,7 +1108,7 @@ class _DuePaymentsReminder extends StatelessWidget {
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
@@ -1113,104 +1133,113 @@ class _DuePaymentsReminder extends StatelessWidget {
                           fontSize: 14,
                           color: AppTheme.primaryColor),
                     ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: () {
-                        PaymentsScreen.initialTabIndex = 1;
-                        switchTab(3);
-                      },
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('View All',
-                          style: TextStyle(fontSize: 12)),
-                    ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                ...due.take(1).map((p) {
-                  final group = (p['chit_group'] ?? p['chitGroup'])
-                          as Map<String, dynamic>? ??
-                      {};
-                  final groupName =
-                      group['group_name']?.toString() ?? 'Chit Group';
-                  final amount = double.tryParse(
-                          p['total_amount']?.toString() ??
-                              p['amount']?.toString() ??
-                              '0') ??
-                      0;
-                  final isOverdue = p['payment_status'] == 'overdue';
-                  final month = p['month_number'] ?? '';
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 88,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: due.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, i) {
+                      final p = due[i];
+                      final group = (p['chit_group'] ?? p['chitGroup'])
+                              as Map<String, dynamic>? ??
+                          {};
+                      final groupName =
+                          group['group_name']?.toString() ?? 'Chit Group';
+                      final amount = double.tryParse(
+                              p['total_amount']?.toString() ??
+                                  p['amount']?.toString() ??
+                                  '0') ??
+                          0;
+                      final isOverdue = p['payment_status'] == 'overdue';
+                      final month = p['month_number'] ?? '';
 
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isOverdue
-                              ? Icons.warning_amber_rounded
-                              : Icons.schedule,
-                          color: isOverdue
-                              ? AppTheme.errorColor
-                              : AppTheme.secondaryColor,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      return SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.82,
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
                             children: [
-                              Text(groupName,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 12),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                              Text(
+                              Icon(
                                 isOverdue
-                                    ? 'Overdue — Month $month'
-                                    : 'Due — Month $month',
-                                style: TextStyle(
-                                    color: isOverdue
-                                        ? AppTheme.errorColor
-                                        : Colors.grey,
-                                    fontSize: 11),
+                                    ? Icons.warning_amber_rounded
+                                    : Icons.schedule,
+                                color: isOverdue
+                                    ? AppTheme.errorColor
+                                    : AppTheme.secondaryColor,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(groupName,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 12),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis),
+                                    Text(
+                                      isOverdue
+                                          ? 'Overdue — Month $month'
+                                          : 'Due — Month $month',
+                                      style: TextStyle(
+                                          color: isOverdue
+                                              ? AppTheme.errorColor
+                                              : Colors.grey,
+                                          fontSize: 11),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                height: 32,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    PaymentsScreen.initialTabIndex = 1;
+                                    switchTab(3);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.primaryColor,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12),
+                                    textStyle: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
+                                  ),
+                                  child: Text('Pay ${_inr.format(amount)}'),
+                                ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        SizedBox(
-                          height: 32,
-                          child: ElevatedButton(
-                            onPressed: () {
-                              PaymentsScreen.initialTabIndex = 1;
-                              switchTab(3); // Go to Payments → Upcoming tab
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryColor,
-                              foregroundColor: Colors.white,
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 12),
-                              textStyle: const TextStyle(
-                                  fontSize: 12, fontWeight: FontWeight.w600),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
-                            ),
-                            child: Text('Pay ${_inr.format(amount)}'),
-                          ),
-                        ),
-                      ],
+                      );
+                    },
+                  ),
+                ),
+                if (due.length > 1) ...[
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Text(
+                      'Swipe left/right for other groups',
+                      style: TextStyle(
+                          fontSize: 11, color: Colors.grey.shade700),
                     ),
-                  );
-                }),
+                  ),
+                ],
               ],
             ),
           ),

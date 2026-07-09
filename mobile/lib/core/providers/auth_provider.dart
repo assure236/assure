@@ -41,6 +41,9 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
   bool get hasLocalAccount => _hasLocalAccount;
+
+  /// True only when user previously logged in AND credentials still exist on device.
+  bool get canUnlockWithBiometric => _hasLocalAccount && _token != null && _user != null;
   String? get sessionDevice => _sessionDevice;
   DateTime? get sessionLoginAt => _sessionLoginAt;
   bool get otpRequiredForUnlock => _otpRequiredForUnlock;
@@ -157,8 +160,14 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
     if (_token != null && userJson != null) {
       _user = User.fromJson(jsonDecode(userJson));
-      // Don't auto-authenticate on cold start — require MPIN re-entry
+      // Don't auto-authenticate on cold start — require MPIN/biometric re-entry
       // _isAuthenticated stays false so splash redirects to /lock
+    } else {
+      // Stale flag from partial logout — never show lock before a real login.
+      _hasLocalAccount = false;
+      if (prefs.getBool('hasLocalAccount') == true) {
+        await prefs.setBool('hasLocalAccount', false);
+      }
     }
     _loginMemberId = prefs.getString('login_member_id')?.trim();
     _loginMemberId ??= _user?.memberId;
@@ -556,6 +565,9 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     await prefs.remove('last_otp_auth_time');
     await prefs.remove('login_member_id');
     await prefs.remove('active_member_id');
+    await prefs.remove('mobile');
+    await prefs.setBool('hasLocalAccount', false);
+    _hasLocalAccount = false;
     await _secureStorage.delete(key: 'access_token');
     await _secureStorage.delete(key: 'refresh_token');
 
