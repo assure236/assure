@@ -11,6 +11,7 @@ const supportTicketSchema = new mongoose.Schema({
   assigned_to: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   resolution: String,
   resolved_at: Date,
+  attachment_url: String,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 supportTicketSchema.pre('save', async function () {

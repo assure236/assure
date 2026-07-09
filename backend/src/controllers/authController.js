@@ -46,6 +46,19 @@ function genOtp() {
   return crypto.randomInt(100000, 1000000).toString();
 }
 
+function recordLoginDevice(user, deviceName, platform) {
+  const name = String(deviceName || 'Unknown device').trim() || 'Unknown device';
+  const plat = String(platform || 'Unknown').trim() || 'Unknown';
+  const key = `${name}|${plat}`;
+  const rest = (user.login_devices || []).filter(
+    (d) => `${d.device_name}|${d.platform}` !== key
+  );
+  user.login_devices = [
+    { device_name: name, platform: plat, last_active_at: new Date() },
+    ...rest,
+  ].slice(0, 10);
+}
+
 const generateToken = (userId, tokenVersion = 0, extraClaims = {}) =>
   // SECURITY FIX: shorten default access token lifetime.
   jwt.sign({ userId, tv: tokenVersion, ...extraClaims }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '15m' });
@@ -194,6 +207,7 @@ exports.login = async (req, res, next) => {
 
     user.last_login_at = new Date();
     user.token_version = (user.token_version || 0) + 1; // Invalidate all other sessions on new login
+    recordLoginDevice(user, req.body.device_name, req.body.platform);
     await user.save();
 
     // Notify existing sessions about new login & force logout
@@ -268,6 +282,7 @@ exports.loginWithOtp = async (req, res, next) => {
       // Mobile login should invalidate all sessions (mobile + web).
       user.token_version = (user.token_version || 0) + 1;
     }
+    recordLoginDevice(user, req.body.device_name, req.body.platform);
     await user.save();
     otpStore.delete(key);
 

@@ -148,7 +148,7 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
             ),
             Expanded(
               child: _HeaderStat(
-                  label: 'Monthly',
+                  label: 'Subscription',
                   value: '₹${_fmtAmount(group.monthlyInstallment)}'),
             ),
             Expanded(
@@ -355,13 +355,25 @@ Future<void> _showBidHistory(BuildContext context, String auctionId, int month) 
   showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (ctx) => const AlertDialog(
-      content: Row(
-        children: [
-          CircularProgressIndicator(),
-          SizedBox(width: 16),
-          Text('Loading bid history…'),
-        ],
+    builder: (ctx) => Center(
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 48),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.5),
+              ),
+              SizedBox(width: 16),
+              Text('Loading bid history…', style: TextStyle(fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
       ),
     ),
   );
@@ -380,65 +392,137 @@ Future<void> _showBidHistory(BuildContext context, String auctionId, int month) 
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
+    backgroundColor: Colors.transparent,
     builder: (ctx) => DraggableScrollableSheet(
       expand: false,
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.85,
-      builder: (context, scrollController) => Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+      initialChildSize: 0.58,
+      minChildSize: 0.38,
+      maxChildSize: 0.88,
+      builder: (context, scrollController) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 20,
+              offset: Offset(0, -4),
+            ),
+          ],
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
+            const SizedBox(height: 10),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Bid History — Month $month',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [AppTheme.primaryColor, AppTheme.primaryDark],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withAlpha(38),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.gavel_rounded, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Bid History - Month $month',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          bids.isEmpty
+                              ? 'No bids recorded'
+                              : '${bids.length} bid${bids.length == 1 ? '' : 's'} placed',
+                          style: TextStyle(
+                            color: Colors.white.withAlpha(200),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             Expanded(
               child: bids.isEmpty
-                  ? const Center(child: Text('No bids recorded for this auction.'))
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.history_toggle_off_rounded,
+                                size: 48, color: Colors.grey[300]),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No bids recorded',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Bids will appear here after the auction.',
+                              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
                   : ListView.separated(
                       controller: scrollController,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                       itemCount: bids.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (_, i) {
                         final bid = bids[i];
                         final bidder = bid['bidder'] is Map
                             ? (bid['bidder']['full_name'] ?? 'Member')
                             : 'Member';
-                        final amount = NumberFormat('#,##,###').format(
-                          double.tryParse(bid['bid_amount']?.toString() ?? '0') ?? 0,
-                        );
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            backgroundColor: AppTheme.primaryColor.withAlpha(25),
-                            child: Text('${i + 1}',
-                                style: const TextStyle(
-                                    color: AppTheme.primaryColor,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12)),
-                          ),
-                          title: Text(bidder.toString()),
-                          trailing: Text(
-                            '₹$amount',
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
+                        final amount = double.tryParse(
+                                bid['bid_amount']?.toString() ?? '0') ??
+                            0;
+                        final isWinner = i == 0;
+                        return _BidHistoryRow(
+                          rank: i + 1,
+                          name: bidder.toString(),
+                          amount: amount,
+                          isWinner: isWinner,
                         );
                       },
                     ),
@@ -448,6 +532,154 @@ Future<void> _showBidHistory(BuildContext context, String auctionId, int month) 
       ),
     ),
   );
+}
+
+class _BidHistoryRow extends StatelessWidget {
+  final int rank;
+  final String name;
+  final double amount;
+  final bool isWinner;
+
+  const _BidHistoryRow({
+    required this.rank,
+    required this.name,
+    required this.amount,
+    required this.isWinner,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final accent = isWinner ? const Color(0xFFD4AF37) : AppTheme.primaryColor;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: isWinner ? const Color(0xFFFFF8E7) : Colors.grey[50],
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isWinner ? accent.withAlpha(100) : const Color(0xFFE8ECF0),
+        ),
+        boxShadow: isWinner
+            ? [
+                BoxShadow(
+                  color: accent.withAlpha(30),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: accent.withAlpha(isWinner ? 45 : 25),
+              shape: BoxShape.circle,
+              border: Border.all(color: accent.withAlpha(80)),
+            ),
+            child: Center(
+              child: isWinner
+                  ? const Icon(Icons.emoji_events_rounded, color: Color(0xFFD4AF37), size: 18)
+                  : Text(
+                      '$rank',
+                      style: TextStyle(
+                        color: accent,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontWeight: isWinner ? FontWeight.bold : FontWeight.w600,
+                    fontSize: 14,
+                    color: AppTheme.primaryColor,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (isWinner)
+                  const Text(
+                    'Winning bid',
+                    style: TextStyle(
+                      color: Color(0xFFB8860B),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '₹${NumberFormat('#,##,###').format(amount)}',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              color: isWinner ? const Color(0xFF1B7A3E) : AppTheme.primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BidHistoryLink extends StatelessWidget {
+  final String ticketNo;
+  final VoidCallback onTap;
+
+  const _BidHistoryLink({required this.ticketNo, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withAlpha(12),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.primaryColor.withAlpha(40)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.receipt_long_rounded,
+                  size: 14, color: AppTheme.primaryColor.withAlpha(220)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Ticket #$ticketNo - View bid history',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: AppTheme.primaryColor.withAlpha(200)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 // ─── PRIZED TICKETS TAB ───────────────────────────────────────────────────────
@@ -539,113 +771,167 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
         }
 
         return Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.amber.withAlpha(60)),
+          ),
+          color: Colors.white,
+          shadowColor: Colors.black12,
           child: InkWell(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             onTap: canOpenHistory ? openHistory : null,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              child: Row(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [
+                    Colors.amber.withAlpha(12),
+                    Colors.white,
+                  ],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+              ),
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: Colors.amber.withAlpha(35),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.amber.withAlpha(80)),
-                    ),
-                    child: Center(
-                      child: Text(
-                        ticketNo ?? '—',
-                        style: TextStyle(
-                          color: ticketNo != null ? AppTheme.primaryColor : Colors.grey,
-                          fontWeight: FontWeight.bold,
-                          fontSize: ticketNo != null && ticketNo.length > 2 ? 14 : 18,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFD54F), Color(0xFFD4AF37)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Center(
+                          child: Text(
+                            ticketNo ?? '-',
+                            style: TextStyle(
+                              color: ticketNo != null
+                                  ? AppTheme.primaryColor
+                                  : Colors.grey[600],
+                              fontWeight: FontWeight.bold,
+                              fontSize: ticketNo != null && ticketNo.length > 2 ? 13 : 17,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Month $month',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          winnerName,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        if (ticketNo != null)
-                          GestureDetector(
-                            onTap: openHistory,
-                            child: Text(
-                              'Ticket #$ticketNo — View bid history',
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryColor.withAlpha(18),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Month $month',
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: AppTheme.primaryColor,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withAlpha(35),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                        color: Colors.amber.withAlpha(80)),
+                                  ),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.emoji_events_rounded,
+                                          size: 11, color: Color(0xFFB8860B)),
+                                      SizedBox(width: 4),
+                                      Text(
+                                        'Winner',
+                                        style: TextStyle(
+                                          color: Color(0xFFB8860B),
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              winnerName,
                               style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
                                 color: AppTheme.primaryColor,
-                                fontSize: 12,
-                                decoration: TextDecoration.underline,
-                                decorationColor: AppTheme.primaryColor,
+                                height: 1.25,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1B7A3E).withAlpha(18),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              '₹$fmtAmt',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1B7A3E),
+                                fontSize: 14,
                               ),
                             ),
-                          )
-                        else
-                          Text(
-                            'Ticket number unavailable',
-                            style: TextStyle(color: Colors.grey[500], fontSize: 11),
                           ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '₹$fmtAmt',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.successColor,
-                          fontSize: 14,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'Winning bid',
-                        style: TextStyle(color: Colors.grey[500], fontSize: 10),
-                      ),
-                      const SizedBox(height: 4),
-                      const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.emoji_events, size: 12, color: Colors.amber),
-                          SizedBox(width: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            'Winner',
-                            style: TextStyle(
-                              color: Colors.amber,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            'Winning bid',
+                            style: TextStyle(color: Colors.grey[500], fontSize: 10),
                           ),
                         ],
                       ),
                     ],
                   ),
+                  if (ticketNo != null) ...[
+                    const SizedBox(height: 12),
+                    _BidHistoryLink(ticketNo: ticketNo, onTap: openHistory),
+                  ] else ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ticket number unavailable',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -58,7 +58,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
       ShareParams(
         text: 'Join Assure Chit Funds and invest smartly!\n'
             'Use my referral code: $code\n'
-            'When you enroll in your first chit group, I get ₹100 off my next installment.\n'
+            'When your referral pays their first subscription, you earn ₹500 credited to your bank account.\n'
             'Sign up at: https://assurechitfunds.com/register',
         subject: 'Assure Chit Funds - Referral Invitation',
       ),
@@ -73,9 +73,7 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
         title: const Text('Refer & Earn'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchStats),
-        ],
+        actions: [],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -275,8 +273,8 @@ class _ReferralsScreenState extends State<ReferralsScreen> {
             const SizedBox(height: 16),
             _buildStep('1', 'Share your referral code with friends & family'),
             _buildStep('2', 'Your friend registers and enrolls in a chit group'),
-            _buildStep('3', 'Each successful referral unlocks one-time ₹100 benefit'),
-            _buildStep('4', '₹100 is auto-deducted from your next installment'),
+            _buildStep('3', 'When they pay their first subscription, you qualify for ₹500'),
+            _buildStep('4', '₹500 is auto-credited to your registered bank account'),
           ],
         ),
       ),

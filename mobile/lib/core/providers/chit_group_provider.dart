@@ -158,6 +158,42 @@ class ChitGroupProvider with ChangeNotifier {
     return [];
   }
 
+  Future<List<Map<String, dynamic>>> fetchAllInvestGroups() async {
+    try {
+      final responses = await Future.wait([
+        ApiService.get('/chit-groups?status=not_started&limit=50'),
+        ApiService.get('/chit-groups?status=active&limit=50'),
+        ApiService.get('/chit-groups?status=vacant&limit=50'),
+      ]);
+
+      final mergedById = <String, Map<String, dynamic>>{};
+      for (final response in responses) {
+        if (response['success'] != true) continue;
+        final data = response['data'];
+        final list = (data is Map) ? data['groups'] : data;
+        for (final row in List<Map<String, dynamic>>.from(list ?? const [])) {
+          final id = (row['_id'] ?? row['id'] ?? '').toString();
+          if (id.isEmpty) continue;
+          mergedById[id] = row;
+        }
+      }
+
+      final merged = mergedById.values.toList()
+        ..sort((a, b) {
+          final aDate = DateTime.tryParse((a['commencement_date'] ?? '').toString()) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate = DateTime.tryParse((b['commencement_date'] ?? '').toString()) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          return bDate.compareTo(aDate);
+        });
+
+      return merged;
+    } catch (e) {
+      debugPrint('Error fetching invest groups: $e');
+    }
+    return [];
+  }
+
   Future<List<Map<String, dynamic>>> fetchNewGroups() async {
     try {
       final responses = await Future.wait([

@@ -49,10 +49,14 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
       } else {
         res = await ApiService.post('/users/family-members', result);
         if (res['success'] == true && res['requires_otp'] == true) {
-          final otp = await _askOtp(result['member_id']?.toString() ?? '');
+          final otp = await _askOtp(
+            result['member_id']?.toString() ?? '',
+            result['pan_number']?.toString() ?? '',
+          );
           if (otp == null) return;
           res = await ApiService.post('/users/family-members', {
             'member_id': result['member_id'],
+            'pan_number': result['pan_number'],
             'otp': otp,
           });
         }
@@ -84,7 +88,7 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
     }
   }
 
-  Future<String?> _askOtp(String memberId) async {
+  Future<String?> _askOtp(String memberId, String pan) async {
     final otpCtrl = TextEditingController();
     String? error;
     return showModalBottomSheet<String>(
@@ -106,7 +110,8 @@ class _FamilyMembersScreenState extends State<FamilyMembersScreen> {
             children: [
               const Text('Enter OTP', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              Text('OTP sent for Member ID $memberId', style: const TextStyle(color: Colors.black54, fontSize: 12)),
+              Text('OTP sent to family member\'s registered mobile for $memberId',
+                  style: const TextStyle(color: Colors.black54, fontSize: 12)),
               const SizedBox(height: 12),
               TextField(
                 controller: otpCtrl,
@@ -356,17 +361,20 @@ class _FamilyMemberForm extends StatefulWidget {
 class _FamilyMemberFormState extends State<_FamilyMemberForm> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _memberIdCtrl;
+  late TextEditingController _panCtrl;
 
   @override
   void initState() {
     super.initState();
     final m = widget.member;
     _memberIdCtrl = TextEditingController(text: m?['member_id'] ?? m?['full_name'] ?? '');
+    _panCtrl = TextEditingController();
   }
 
   @override
   void dispose() {
     _memberIdCtrl.dispose();
+    _panCtrl.dispose();
     super.dispose();
   }
 
@@ -400,7 +408,24 @@ class _FamilyMemberFormState extends State<_FamilyMemberForm> {
                       validator: (v) => v == null || v.trim().isEmpty ? 'Member ID is required' : null,
                     ),
                     const SizedBox(height: 12),
-                    const Text('An OTP will be sent to the member\'s registered mobile number for verification. After verification, the request will be sent to Admin for approval.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    TextFormField(
+                      controller: _panCtrl,
+                      textCapitalization: TextCapitalization.characters,
+                      decoration: const InputDecoration(labelText: 'PAN *', prefixIcon: Icon(Icons.credit_card_outlined)),
+                      validator: (v) {
+                        final pan = v?.trim().toUpperCase() ?? '';
+                        if (pan.isEmpty) return 'PAN is required';
+                        if (!RegExp(r'^[A-Z]{5}[0-9]{4}[A-Z]$').hasMatch(pan)) {
+                          return 'Enter a valid PAN';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Member ID and PAN must match. OTP will be sent to the family member\'s registered mobile number. After verification, admin approval is required.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ]),
                 ),
               ),
@@ -414,6 +439,7 @@ class _FamilyMemberFormState extends State<_FamilyMemberForm> {
                       if (!_formKey.currentState!.validate()) return;
                       Navigator.pop(context, {
                         'member_id': _memberIdCtrl.text.trim(),
+                        'pan_number': _panCtrl.text.trim().toUpperCase(),
                       });
                     },
                     style: ElevatedButton.styleFrom(

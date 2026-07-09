@@ -493,7 +493,6 @@ class _HomeTabState extends State<_HomeTab> with WidgetsBindingObserver {
                   SliverToBoxAdapter(
                       child: _UpcomingAuctions(
                           dash: dash, switchTab: widget.switchTab)),
-                const SliverToBoxAdapter(child: _BecomeAgentCard()),
                 const SliverToBoxAdapter(child: _TrustBadges()),
                 const SliverToBoxAdapter(child: _PaymentPartners()),
                 const SliverToBoxAdapter(child: SizedBox(height: 32)),
@@ -733,31 +732,6 @@ class _HeaderSectionState extends State<_HeaderSection> {
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold),
                                 ),
-                                const SizedBox(height: 2),
-                                Container(
-                                  height: 24,
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withAlpha(40),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: DropdownButtonHideUnderline(
-                                    child: DropdownButton<String>(
-                                      value: selectedValue,
-                                      icon: const Icon(Icons.arrow_drop_down,
-                                          color: Colors.white, size: 16),
-                                      isDense: true,
-                                      dropdownColor: AppTheme.primaryColor,
-                                      items: dropdownItems,
-                                      onChanged: (val) {
-                                        if (val != null) {
-                                          _switchActiveMember(val);
-                                        }
-                                      },
-                                    ),
-                                  ),
-                                ),
                               ],
                             ),
                           ],
@@ -877,8 +851,37 @@ class _HeaderSectionState extends State<_HeaderSection> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      // QR Scan button
+                      const Spacer(),
+                      if (dropdownItems.length > 1)
+                        Container(
+                          height: 28,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withAlpha(40),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: selectedValue,
+                              icon: const Icon(Icons.arrow_drop_down,
+                                  color: Colors.white, size: 16),
+                              isDense: true,
+                              dropdownColor: AppTheme.primaryColor,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              items: dropdownItems,
+                              onChanged: (val) {
+                                if (val != null) {
+                                  _switchActiveMember(val);
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      if (dropdownItems.length > 1) const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () => context.push('/qr-scan'),
                         child: Container(
@@ -1138,10 +1141,10 @@ class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
     required dynamic month,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withAlpha(18),
@@ -1155,9 +1158,9 @@ class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
           Icon(
             isOverdue ? Icons.warning_amber_rounded : Icons.schedule,
             color: isOverdue ? AppTheme.errorColor : AppTheme.secondaryColor,
-            size: 17,
+            size: 22,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1166,40 +1169,44 @@ class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
                 Text(
                   groupName,
                   style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 2),
                 Text(
-                  isOverdue ? 'Overdue — Month $month' : 'Due — Month $month',
+                  isOverdue ? 'Overdue - Month $month' : 'Due - Month $month',
                   style: TextStyle(
-                    color: isOverdue ? AppTheme.errorColor : Colors.grey,
-                    fontSize: 10,
+                    color: isOverdue ? AppTheme.errorColor : Colors.grey[700],
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           SizedBox(
-            height: 30,
+            height: 38,
             child: ElevatedButton(
               onPressed: () {
-                PaymentsScreen.initialTabIndex = 1;
+                PaymentsScreen.initialTabIndex = 0;
                 widget.switchTab(3);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primaryColor,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
+                elevation: 2,
+                shadowColor: AppTheme.primaryColor.withAlpha(80),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
                 textStyle: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                 ),
               ),
               child: Text('Pay ${_inr.format(amount)}'),
@@ -1227,7 +1234,7 @@ class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Container(
             clipBehavior: Clip.antiAlias,
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 6),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
@@ -1255,7 +1262,7 @@ class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 if (!hasMultiple)
                   _dueCard(
                     groupName: ((due.first['chit_group'] ?? due.first['chitGroup'])
@@ -1274,7 +1281,7 @@ class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: SizedBox(
-                      height: 72,
+                      height: 80,
                       child: PageView.builder(
                         controller: _pageController,
                         physics: const BouncingScrollPhysics(
@@ -1337,7 +1344,7 @@ class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
                     ),
                   ),
                 if (hasMultiple) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -1355,16 +1362,6 @@ class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
                           ),
                         ),
                     ],
-                  ),
-                  const SizedBox(height: 4),
-                  Center(
-                    child: Text(
-                      'Swipe to see other dues',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
                   ),
                 ],
               ],
@@ -1613,13 +1610,6 @@ class _ActiveChitsState extends State<_ActiveChits> {
                               ),
                             ),
                         ],
-                      ),
-                      const SizedBox(height: 2),
-                      Center(
-                        child: Text(
-                          'Swipe to see other chits',
-                          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                        ),
                       ),
                     ],
                   ],
@@ -2238,7 +2228,7 @@ class _SetGoalBanner extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Set a Financial Goal',
+                    Text('Set a Goal',
                         style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -2262,6 +2252,21 @@ class _SetGoalBanner extends StatelessWidget {
 class _TrustBadges extends StatelessWidget {
   const _TrustBadges();
 
+  static const _badges = [
+    (
+      asset: 'assets/images/trusted_dpiit.png',
+      label: 'DPIIT\nRegistered',
+    ),
+    (
+      asset: 'assets/images/trusted_telangana.png',
+      label: 'Telangana Govt.\nRegistered',
+    ),
+    (
+      asset: 'assets/images/trusted_data_secured.png',
+      label: 'Data\nSecured',
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -2272,30 +2277,21 @@ class _TrustBadges extends StatelessWidget {
           const Text('Trusted & Certified',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              // Item 11: Order — DPIIT, Telangana Govt, Data Secured
-              Expanded(
-                  child: _BadgeCard(
-                icon: Icons.verified_outlined,
-                label: 'DPIIT\nRegistered',
-                color: AppTheme.secondaryColor,
-              )),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: _BadgeCard(
-                icon: Icons.account_balance_rounded,
-                label: 'Telangana Govt.\nRegistered',
-                color: AppTheme.primaryColor,
-              )),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: _BadgeCard(
-                icon: Icons.shield_rounded,
-                label: 'Data\nSecured',
-                color: AppTheme.accentBlue,
-              )),
-            ],
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var i = 0; i < _badges.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  Expanded(
+                    child: _TrustLogoCard(
+                      imagePath: _badges[i].asset,
+                      label: _badges[i].label,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ],
       ),
@@ -2303,46 +2299,53 @@ class _TrustBadges extends StatelessWidget {
   }
 }
 
-class _BadgeCard extends StatelessWidget {
-  final IconData icon;
+class _TrustLogoCard extends StatelessWidget {
+  final String imagePath;
   final String label;
-  final Color color;
 
-  const _BadgeCard(
-      {required this.icon, required this.label, required this.color});
+  const _TrustLogoCard({required this.imagePath, required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+      padding: const EdgeInsets.fromLTRB(8, 14, 8, 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE8ECF0)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withAlpha(13),
-              blurRadius: 6,
-              offset: const Offset(0, 2)),
+            color: Colors.black.withAlpha(13),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withAlpha(26),
-              shape: BoxShape.circle,
+          SizedBox(
+            height: 58,
+            width: double.infinity,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Image.asset(
+                imagePath,
+                fit: BoxFit.contain,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.high,
+              ),
             ),
-            child: Icon(icon, color: color, size: 24),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: color,
+            style: const TextStyle(
+              color: AppTheme.primaryColor,
               fontSize: 11,
               fontWeight: FontWeight.w600,
+              height: 1.25,
             ),
           ),
         ],

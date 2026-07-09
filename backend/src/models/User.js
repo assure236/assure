@@ -96,6 +96,11 @@ const userSchema = new mongoose.Schema({
     tour_completed: { type: Boolean, default: false },
     completed_at: Date,
   },
+  login_devices: [{
+    device_name: String,
+    platform: String,
+    last_active_at: Date,
+  }],
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 
 const ENCRYPTED_FIELDS = [
@@ -120,9 +125,19 @@ userSchema.pre('save', async function () {
     this.password_hash = await bcrypt.hash(this.password_hash, salt);
   }
   if (this.isNew && this.role === 'member' && !this.member_id) {
-    const last = await mongoose.model('User').findOne({ member_id: /^MEM\d+$/ }, 'member_id').sort({ member_id: -1 }).lean();
-    const nextNum = last ? parseInt(last.member_id.replace('MEM', ''), 10) + 1 : 1;
-    this.member_id = `MEM${String(nextNum).padStart(6, '0')}`;
+    const signupYear = this.created_at
+      ? new Date(this.created_at).getFullYear()
+      : new Date().getFullYear();
+    const prefix = `VA${signupYear}`;
+    const yearPattern = new RegExp(`^VA${signupYear}(\\d{5})$`);
+    const last = await mongoose.model('User')
+      .findOne({ member_id: yearPattern }, 'member_id')
+      .sort({ member_id: -1 })
+      .lean();
+    const nextNum = last
+      ? parseInt(String(last.member_id).slice(prefix.length), 10) + 1
+      : 1;
+    this.member_id = `${prefix}${String(nextNum).padStart(5, '0')}`;
   }
   if (this.isNew && !this.referral_code) {
     // SECURITY FIX: use crypto-secure randomness for referral code suffix generation.

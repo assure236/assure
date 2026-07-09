@@ -1,4 +1,5 @@
-﻿import 'package:flutter/material.dart';
+﻿import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
@@ -85,6 +86,8 @@ class _SupportScreenState extends State<SupportScreen> {
     String category = (initialCategory != null && categories.contains(initialCategory))
         ? initialCategory
         : 'General';
+    String? attachmentPath;
+    String? attachmentName;
 
     showModalBottomSheet(
       context: context,
@@ -215,6 +218,26 @@ class _SupportScreenState extends State<SupportScreen> {
                     );
                   }).toList(),
                 ),
+                const SizedBox(height: 14),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    final picked = await FilePicker.platform.pickFiles(
+                      type: FileType.custom,
+                      allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+                    );
+                    if (picked != null && picked.files.single.path != null) {
+                      setSheetState(() {
+                        attachmentPath = picked.files.single.path;
+                        attachmentName = picked.files.single.name;
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.attach_file),
+                  label: Text(
+                    attachmentName ?? 'Add attachment (optional)',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
@@ -231,11 +254,29 @@ class _SupportScreenState extends State<SupportScreen> {
                       }
                       Navigator.pop(ctx);
                       try {
+                        String? attachmentUrl;
+                        if (attachmentPath != null) {
+                          final upload = await ApiService.uploadFile(
+                            '/documents/attach',
+                            attachmentPath!,
+                            fieldName: 'document',
+                            extraFields: {
+                              'document_type': 'support_attachment',
+                              'document_name': attachmentName ?? 'Ticket attachment',
+                            },
+                          );
+                          if (upload['success'] == true) {
+                            attachmentUrl = upload['data']?['file_url']?.toString() ??
+                                upload['data']?['url']?.toString();
+                          }
+                        }
                         final res = await ApiService.post('/users/support', {
                           'subject': subjectCtrl.text.trim(),
                           'description': descCtrl.text.trim(),
                           'priority': _toBackendPriority(priority),
                           'category': _toBackendCategory(category),
+                          if (attachmentUrl != null && attachmentUrl.isNotEmpty)
+                            'attachment_url': attachmentUrl,
                         });
                         if (res['success'] == true) {
                           if (mounted) {

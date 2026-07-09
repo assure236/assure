@@ -48,14 +48,18 @@ exports.create = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
     const memberId = String(req.body.member_id || '').trim().toUpperCase();
+    const panNumber = String(req.body.pan_number || '').trim().toUpperCase();
     const otp = String(req.body.otp || '').trim();
 
     if (!memberId) {
       return res.status(400).json({ success: false, message: 'Member ID is required' });
     }
+    if (!otp && !panNumber) {
+      return res.status(400).json({ success: false, message: 'PAN is required to verify the member' });
+    }
 
     const targetUser = await User.findOne({ member_id: memberId, is_active: true })
-      .select('_id full_name mobile email member_id');
+      .select('_id full_name mobile email member_id pan_number');
     if (!targetUser) {
       return res.status(404).json({ success: false, message: 'Member ID not found' });
     }
@@ -71,6 +75,16 @@ exports.create = async (req, res, next) => {
     });
     if (existing) {
       return res.status(409).json({ success: false, message: 'This member is already linked or awaiting approval' });
+    }
+
+    const targetPan = String(targetUser.pan_number || '').trim().toUpperCase();
+    if (!otp) {
+      if (!targetPan) {
+        return res.status(400).json({ success: false, message: 'Linked member has no PAN on file. Contact support.' });
+      }
+      if (panNumber !== targetPan) {
+        return res.status(400).json({ success: false, message: 'Member ID and PAN do not match' });
+      }
     }
 
     const otpKey = `${userId}:${targetUser._id}`;

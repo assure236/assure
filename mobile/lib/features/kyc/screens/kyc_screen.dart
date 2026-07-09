@@ -122,7 +122,6 @@ class _KycScreenState extends State<KycScreen> with WidgetsBindingObserver {
         title: const Text('KYC Verification'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
-        actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: _load)],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

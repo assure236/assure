@@ -261,6 +261,14 @@ class AppRouter {
           builder: (context, state) => const AnalyticsScreen(),
         ),
         GoRoute(
+          path: '/tools/calculator',
+          builder: (context, state) => const DividendCalculatorScreen(),
+        ),
+        GoRoute(
+          path: '/tools/statement',
+          builder: (context, state) => const AccountStatementScreen(),
+        ),
+        GoRoute(
           path: '/help',
           builder: (context, state) => const HelpScreen(),
         ),

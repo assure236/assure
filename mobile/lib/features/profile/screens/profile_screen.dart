@@ -19,11 +19,51 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   List<Map<String, dynamic>> _familyMembers = [];
+  List<Map<String, dynamic>> _activeSessions = [];
+  bool _showCompletedChits = false;
+  bool _showCancelledChits = false;
 
   @override
   void initState() {
     super.initState();
     _loadFamilyMembers();
+    _loadChitHistoryFlags();
+    _loadActiveSessions();
+  }
+
+  Future<void> _loadChitHistoryFlags() async {
+    try {
+      final res = await ApiService.get('/users/my-chit-groups');
+      if (res['success'] == true && mounted) {
+        final rows = List.from(res['data'] ?? []);
+        var hasCompleted = false;
+        var hasCancelled = false;
+        for (final row in rows) {
+          final g = row is Map ? row['chit_group_id'] : null;
+          if (g is Map) {
+            final st = g['status']?.toString();
+            if (st == 'completed') hasCompleted = true;
+            if (st == 'cancelled') hasCancelled = true;
+          }
+        }
+        setState(() {
+          _showCompletedChits = hasCompleted;
+          _showCancelledChits = hasCancelled;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadActiveSessions() async {
+    try {
+      final res = await ApiService.get('/users/active-sessions');
+      if (res['success'] == true && mounted) {
+        setState(() {
+          _activeSessions =
+              List<Map<String, dynamic>>.from(res['data'] ?? []);
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadFamilyMembers() async {
@@ -165,21 +205,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _MenuItem(
                         icon: Icons.shield_outlined,
                         label: 'KYC & Documents',
-                        subtitle: 'Verify identity and manage documents',
+                        subtitle: 'DigiLocker & Cashfree verification',
                         onTap: () => context.push('/kyc'),
                       ),
-                      _MenuItem(
-                        icon: Icons.folder_copy_outlined,
-                        label: 'Document Vault',
-                        subtitle: 'View uploaded documents',
-                        onTap: () => context.push('/documents'),
-                      ),
-                      // Item 32: Notifications removed from More (it's in header)
                       _MenuItem(
                         icon: Icons.bar_chart_rounded,
                         label: 'Analytics',
                         subtitle: 'Payment & chit insights',
                         onTap: () => context.push('/analytics'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.calculate_outlined,
+                        label: 'Calculator',
+                        subtitle: 'Dividend calculator',
+                        onTap: () => context.push('/tools/calculator'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.receipt_long_outlined,
+                        label: 'Statement',
+                        subtitle: 'Account payment statement',
+                        onTap: () => context.push('/tools/statement'),
+                      ),
+                      _MenuItem(
+                        icon: Icons.handshake_outlined,
+                        label: 'Become an Agent',
+                        subtitle: 'Apply to earn referral commission',
+                        onTap: () => _showBecomeAgentSheet(context),
                       ),
                       _MenuItem(
                         icon: Icons.card_giftcard,
@@ -196,26 +247,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       // Item 28: Apply for Loan removed from More
                     ],
                   ),
-                  const SizedBox(height: 16),
-
-                  // Chit History
-                  _SectionCard(
-                    title: 'Chit History',
-                    children: [
-                      _MenuItem(
-                        icon: Icons.check_circle_outline,
-                        label: 'Completed Chits',
-                        subtitle: 'View your completed chit groups',
-                        onTap: () => context.push('/chit-history/completed'),
-                      ),
-                      _MenuItem(
-                        icon: Icons.cancel_outlined,
-                        label: 'Cancelled Chits',
-                        subtitle: 'View cancelled chit groups',
-                        onTap: () => context.push('/chit-history/cancelled'),
-                      ),
-                    ],
-                  ),
+                  if (_showCompletedChits || _showCancelledChits) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: 'Chit History',
+                      children: [
+                        if (_showCompletedChits)
+                          _MenuItem(
+                            icon: Icons.check_circle_outline,
+                            label: 'Completed Chits',
+                            subtitle: 'View your completed chit groups',
+                            onTap: () => context.push('/chit-history/completed'),
+                          ),
+                        if (_showCancelledChits)
+                          _MenuItem(
+                            icon: Icons.cancel_outlined,
+                            label: 'Cancelled Chits',
+                            subtitle: 'View cancelled chit groups',
+                            onTap: () => context.push('/chit-history/cancelled'),
+                          ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 16),
 
                   // Chit Actions
@@ -283,8 +336,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Current Session
-                  _buildCurrentSessionCard(auth),
+                  // Active Sessions
+                  _buildActiveSessionsCard(auth),
                   const SizedBox(height: 16),
 
                   _SectionCard(
@@ -385,19 +438,72 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildCurrentSessionCard(AuthProvider auth) {
-    final device = auth.sessionDevice ?? 'This device';
-    final loginAt = auth.sessionLoginAt;
-    String timeStr = 'Unknown';
-    if (loginAt != null) {
-      final local = loginAt.toLocal();
-      final h = local.hour > 12 ? local.hour - 12 : local.hour;
-      final amPm = local.hour >= 12 ? 'PM' : 'AM';
-      final hStr = (h == 0 ? 12 : h).toString();
-      final minStr = local.minute.toString().padLeft(2, '0');
-      timeStr =
-          '${local.day}/${local.month}/${local.year}  $hStr:$minStr $amPm';
-    }
+  void _showBecomeAgentSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Become an Assure Agent',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            const Text(
+              'Earn commission by referring new members. Our team will contact you within 24 hours.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.black54, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  try {
+                    final res = await ApiService.post('/users/agent-request', {});
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(res['message'] ?? 'Agent request submitted!'),
+                        backgroundColor: AppTheme.successColor,
+                      ),
+                    );
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                        backgroundColor: AppTheme.errorColor,
+                      ),
+                    );
+                  }
+                },
+                child: const Text('Submit Request'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveSessionsCard(AuthProvider auth) {
+    final devices = _activeSessions.isNotEmpty
+        ? _activeSessions
+        : [
+            {
+              'device_name': auth.sessionDevice ?? 'This device',
+              'platform': 'mobile',
+              'last_active_at': auth.sessionLoginAt?.toIso8601String(),
+              'is_current': true,
+            },
+          ];
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -414,64 +520,79 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-            child: Text('Current Session',
+            child: Text('Active Sessions',
                 style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 13,
                     color: Colors.grey[600])),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withAlpha(15),
-                    borderRadius: BorderRadius.circular(10),
+          ...devices.map((d) {
+            final name = d['device_name']?.toString() ?? 'Device';
+            final platform = d['platform']?.toString() ?? '';
+            final isCurrent = d['is_current'] == true;
+            final lastAt = DateTime.tryParse(d['last_active_at']?.toString() ?? '');
+            String timeStr = 'Recently';
+            if (lastAt != null) {
+              timeStr = '${lastAt.day}/${lastAt.month}/${lastAt.year}';
+            }
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withAlpha(15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      platform.toLowerCase().contains('web')
+                          ? Icons.laptop_mac
+                          : Icons.phone_android,
+                      color: AppTheme.primaryColor,
+                      size: 22,
+                    ),
                   ),
-                  child: Icon(Icons.phone_android,
-                      color: AppTheme.primaryColor, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(device,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 14),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                      const SizedBox(height: 2),
-                      Text('Signed in: $timeStr',
-                          style:
-                              TextStyle(fontSize: 12, color: Colors.grey[500])),
-                    ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(name,
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600, fontSize: 14),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis),
+                        Text('Last active: $timeStr',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey[500])),
+                      ],
+                    ),
                   ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.successColor.withAlpha(20),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppTheme.successColor.withAlpha(60)),
-                  ),
-                  child: Text('Active',
-                      style: TextStyle(
-                          fontSize: 11,
-                          color: AppTheme.successColor,
-                          fontWeight: FontWeight.w600)),
-                ),
-              ],
-            ),
-          ),
+                  if (isCurrent)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.successColor.withAlpha(20),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: AppTheme.successColor.withAlpha(60)),
+                      ),
+                      child: Text('Active',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: AppTheme.successColor,
+                              fontWeight: FontWeight.w600)),
+                    ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
   }
-
 }
 
 class _SectionCard extends StatelessWidget {

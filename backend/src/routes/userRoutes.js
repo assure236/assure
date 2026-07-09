@@ -116,6 +116,7 @@ router.post('/update-fcm-token', userController.updateFcmToken);
 
 // Support tickets — user-facing endpoints
 const SupportTicket = require('../models/SupportTicket');
+const User = require('../models/User');
 
 // Family Members CRUD
 const familyMemberController = require('../controllers/familyMemberController');
@@ -197,7 +198,7 @@ router.delete('/goals/:id', async (req, res, next) => {
 router.post('/support', async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { subject, description, priority, category } = req.body;
+    const { subject, description, priority, category, attachment_url } = req.body;
     if (!subject || !description) {
       return res.status(400).json({ success: false, message: 'Subject and description are required' });
     }
@@ -207,6 +208,7 @@ router.post('/support', async (req, res, next) => {
       description,
       priority: priority || 'medium',
       category: category || 'General',
+      attachment_url: attachment_url || undefined,
     });
     res.json({ success: true, message: 'Support ticket created', data: ticket });
   } catch (err) { next(err); }
@@ -230,6 +232,33 @@ router.get('/support/tickets/:id', async (req, res, next) => {
     const ticket = await SupportTicket.findOne({ _id: req.params.id, user_id: userId });
     if (!ticket) return res.status(404).json({ success: false, message: 'Ticket not found' });
     res.json({ success: true, data: ticket });
+  } catch (err) { next(err); }
+});
+
+router.get('/active-sessions', async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user._id || req.user.id)
+      .select('login_devices last_login_at');
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const currentDevice = String(req.headers['x-device-name'] || req.query.device_name || '').trim();
+    const currentPlatform = String(req.headers['x-device-platform'] || req.query.platform || '').trim();
+    const devices = (user.login_devices || []).map((d) => ({
+      device_name: d.device_name || 'Unknown device',
+      platform: d.platform || 'Unknown',
+      last_active_at: d.last_active_at,
+      is_current: currentDevice
+        ? d.device_name === currentDevice && d.platform === currentPlatform
+        : false,
+    }));
+    if (devices.length === 0 && user.last_login_at) {
+      devices.push({
+        device_name: currentDevice || 'This device',
+        platform: currentPlatform || 'mobile',
+        last_active_at: user.last_login_at,
+        is_current: true,
+      });
+    }
+    res.json({ success: true, data: devices });
   } catch (err) { next(err); }
 });
 

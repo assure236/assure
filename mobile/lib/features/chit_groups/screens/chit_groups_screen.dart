@@ -17,16 +17,13 @@ class ChitGroupsScreen extends StatefulWidget {
   State<ChitGroupsScreen> createState() => _ChitGroupsScreenState();
 }
 
-class _ChitGroupsScreenState extends State<ChitGroupsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _ChitGroupsScreenState extends State<ChitGroupsScreen> {
   final _searchController = TextEditingController();
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChitGroupProvider>().fetchMyChitGroups();
     });
@@ -34,68 +31,61 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverAppBar(
-            floating: true,
-            pinned: true,
-            backgroundColor: AppTheme.primaryColor,
-            foregroundColor: Colors.white,
-            elevation: 0,
-            title: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'Invest',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
+      body: Column(
+        children: [
+          Container(
+            width: double.infinity,
+            color: AppTheme.primaryColor,
+            padding: EdgeInsets.fromLTRB(16, topPad + 8, 16, 14),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Invest',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryColor,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            centerTitle: true,
-            bottom: TabBar(
-              controller: _tabController,
-              indicatorColor: AppTheme.secondaryColor,
-              indicatorWeight: 3,
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
-              tabs: const [
-                Tab(text: 'New Chits'),   // Item 17: renamed
-                Tab(text: 'Vacant Chits'), // Item 17: renamed
+                const SizedBox(height: 12),
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'New Chits',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
-        ],
-      body: Column(children: [
           _SearchBar(
             controller: _searchController,
             onChanged: (q) => setState(() => _searchQuery = q),
           ),
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _AvailableGroupsTab(searchQuery: _searchQuery, filter: 'new'),
-                _AvailableGroupsTab(
-                    searchQuery: _searchQuery, filter: 'vacant'),
-              ],
-            ),
+            child: _AvailableGroupsTab(searchQuery: _searchQuery),
           ),
-        ]),
+        ],
       ),
     );
   }
@@ -144,8 +134,7 @@ class _SearchBar extends StatelessWidget {
 
 class _AvailableGroupsTab extends StatefulWidget {
   final String searchQuery;
-  final String filter; // 'new' or 'vacant'
-  const _AvailableGroupsTab({required this.searchQuery, required this.filter});
+  const _AvailableGroupsTab({required this.searchQuery});
 
   @override
   State<_AvailableGroupsTab> createState() => _AvailableGroupsTabState();
@@ -156,8 +145,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
   List<Map<String, dynamic>> _available = [];
   String? _error;
   String? _lastActiveMemberId;
-  // Item 23: checkbox selection for bottom Invest Now button
-  final Set<String> _selectedIds = {};
+  String? _selectedId;
 
   Future<bool> _confirmEnrollment(Map<String, dynamic> group) async {
     final groupName = (group['group_name'] ?? 'this chit group').toString();
@@ -170,7 +158,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
         title: const Text('Confirm Investment'),
         content: Text(
           'Do you want to invest in $groupName?\n\n'
-          'Monthly installment: ₹${NumberFormat('#,##,###').format(monthly)}',
+          'Subscription: ₹${NumberFormat('#,##,###').format(monthly)}',
         ),
         actions: [
           TextButton(
@@ -214,16 +202,11 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
     setState(() {
       _loading = true;
       _error = null;
-      _selectedIds.clear();
+      _selectedId = null;
     });
     try {
       final provider = context.read<ChitGroupProvider>();
-      final List<Map<String, dynamic>> data;
-      if (widget.filter == 'vacant') {
-        data = await provider.fetchVacantGroups();
-      } else {
-        data = await provider.fetchNewGroups();
-      }
+      final data = await provider.fetchAllInvestGroups();
       if (mounted) {
         setState(() {
           _available = data;
@@ -241,49 +224,48 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
   }
 
   Future<void> _investNow() async {
-    if (_selectedIds.isEmpty) return;
+    final id = _selectedId;
+    if (id == null || id.isEmpty) return;
     if (!context.mounted) return;
 
-    for (final id in _selectedIds.toList()) {
-      final group = _available.firstWhere(
-          (g) => (g['_id'] ?? g['id']).toString() == id,
-          orElse: () => {});
-      if (group.isEmpty) continue;
+    final group = _available.firstWhere(
+        (g) => (g['_id'] ?? g['id']).toString() == id,
+        orElse: () => {});
+    if (group.isEmpty) return;
 
-      final shouldEnroll = await _confirmEnrollment(group);
-      if (!context.mounted || !shouldEnroll) continue;
+    final shouldEnroll = await _confirmEnrollment(group);
+    if (!context.mounted || !shouldEnroll) return;
 
-      final result =
-          await context.read<ChitGroupProvider>().enrollInChitGroup(id);
-      final ok = result['success'] == true;
+    final result =
+        await context.read<ChitGroupProvider>().enrollInChitGroup(id);
+    final ok = result['success'] == true;
 
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text((result['message'] ??
+                (ok ? 'Invested successfully' : 'Investment failed'))
+            .toString()),
+        backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    if (ok) {
+      setState(() {
+        _selectedId = null;
+        _available.removeWhere(
+          (groupRow) => (groupRow['_id'] ?? groupRow['id']).toString() == id,
+        );
+      });
+      await context.read<DashboardProvider>().refresh();
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text((result['message'] ??
-                  (ok ? 'Invested successfully' : 'Investment failed'))
-              .toString()),
-          backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
-      if (ok) {
-        setState(() {
-          _selectedIds.remove(id);
-          _available.removeWhere(
-            (groupRow) => (groupRow['_id'] ?? groupRow['id']).toString() == id,
-          );
-        });
-        await context.read<DashboardProvider>().refresh();
-        if (!context.mounted) return;
-        CelebrationOverlay.showGroupJoined(context,
-            groupName: group['group_name'] ?? 'Chit Group');
-        await Future.delayed(const Duration(seconds: 2));
-        if (!context.mounted) return;
-        context.go('/dashboard');
-        return;
-      }
+      CelebrationOverlay.showGroupJoined(context,
+          groupName: group['group_name'] ?? 'Chit Group');
+      await Future.delayed(const Duration(seconds: 2));
+      if (!context.mounted) return;
+      context.go('/dashboard');
+      return;
     }
     await _fetchAvailable();
   }
@@ -330,18 +312,13 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
               itemCount: filtered.length,
               itemBuilder: (context, i) {
                 final id = (filtered[i]['_id'] ?? filtered[i]['id']).toString();
-                final isSelected = _selectedIds.contains(id);
+                final isSelected = _selectedId == id;
                 return _AvailableGroupCard(
                   data: filtered[i],
                   isSelected: isSelected,
-                  filter: widget.filter,
                   onTap: () => context.push('/chit-groups/$id'),
                   onToggleSelect: () => setState(() {
-                    if (isSelected) {
-                      _selectedIds.remove(id);
-                    } else {
-                      _selectedIds.add(id);
-                    }
+                    _selectedId = isSelected ? null : id;
                   }),
                 );
               },
@@ -349,7 +326,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
           ),
         ),
         // Item 23: bottom Invest Now button
-        if (_selectedIds.isNotEmpty)
+        if (_selectedId != null)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
@@ -358,7 +335,7 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
                 child: ElevatedButton.icon(
                   onPressed: _investNow,
                   icon: const Icon(Icons.trending_up_rounded),
-                  label: Text('Invest Now (${_selectedIds.length} selected)'),
+                  label: const Text('Invest Now'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryColor,
                     foregroundColor: Colors.white,
@@ -380,15 +357,14 @@ class _AvailableGroupsTabState extends State<_AvailableGroupsTab> {
 class _AvailableGroupCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final bool isSelected;
-  final String filter;
   final VoidCallback? onTap;
   final VoidCallback? onToggleSelect;
-  const _AvailableGroupCard(
-      {required this.data,
-      this.isSelected = false,
-      this.filter = 'new',
-      this.onTap,
-      this.onToggleSelect});
+  const _AvailableGroupCard({
+    required this.data,
+    this.isSelected = false,
+    this.onTap,
+    this.onToggleSelect,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -397,26 +373,23 @@ class _AvailableGroupCard extends StatelessWidget {
     final monthly =
         double.tryParse(data['monthly_installment']?.toString() ?? '0') ?? 0;
     final members = data['total_members'] ?? 0;
-    final enrolledCount = data['member_count'] ??
-        data['enrolled_members'] ??
-        data['current_members'] ??
-        0;
     final duration = data['duration_months'] ?? 0;
     final groupName = data['group_name'] ?? '';
     final psoNumber = data['pso_number'] ?? data['registration_number'] ?? '';
-    // Item 21: removed first auction date; items 18, 19
     final int membersInt = members is int ? members : (members as num).toInt();
-    final int enrolledInt =
-        enrolledCount is int ? enrolledCount : (enrolledCount as num).toInt();
-    // Vacant chit specific fields (item 20, 22)
     final currentMonth = data['current_month'] ?? 0;
     final purchaseValue =
         double.tryParse(data['purchase_value']?.toString() ?? '0') ?? 0;
 
-    final bool isVacant = filter == 'vacant';
+    final bool isVacant = (data['status'] ?? '') == 'vacant';
     final bool isNotStarted = (data['status'] ?? '') == 'not_started';
     final bool isActive = (data['status'] ?? '') == 'active';
-    final Color accentColor = AppTheme.primaryColor;
+    final Color accentColor = isVacant
+        ? const Color(0xFFE65100)
+        : isNotStarted
+            ? const Color(0xFF1565C0)
+            : const Color(0xFF2E7D32);
+    final Color cardTint = accentColor.withAlpha(18);
     final String statusLabel = isVacant
         ? 'Vacant'
         : isNotStarted
@@ -430,148 +403,153 @@ class _AvailableGroupCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryColor.withAlpha(15) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          color: isSelected ? accentColor.withAlpha(22) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-              color: isSelected
-                  ? AppTheme.primaryColor
-                  : const Color(0xFFE2E8F0),
+              color: isSelected ? accentColor : accentColor.withAlpha(50),
               width: isSelected ? 2 : 1),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withAlpha(8),
-                blurRadius: 8,
-                offset: const Offset(0, 2)),
+                color: accentColor.withAlpha(28),
+                blurRadius: 10,
+                offset: const Offset(0, 3)),
           ],
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Item 23: checkbox for selection
-                GestureDetector(
-                  onTap: onToggleSelect,
-                  child: Container(
-                    width: 24,
-                    height: 24,
-                    margin: const EdgeInsets.only(right: 10, top: 2),
-                    decoration: BoxDecoration(
-                      color: isSelected ? AppTheme.primaryColor : Colors.transparent,
-                      border: Border.all(
-                          color: isSelected
-                              ? AppTheme.primaryColor
-                              : Colors.grey.shade400,
-                          width: 2),
-                      borderRadius: BorderRadius.circular(6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(15),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 4,
+                width: double.infinity,
+                color: accentColor,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    GestureDetector(
+                      onTap: onToggleSelect,
+                      child: Container(
+                        width: 22,
+                        height: 22,
+                        margin: const EdgeInsets.only(right: 10, top: 4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isSelected ? accentColor : Colors.white,
+                          border: Border.all(color: accentColor, width: 2),
+                        ),
+                        child: isSelected
+                            ? const Icon(Icons.circle,
+                                size: 10, color: Colors.white)
+                            : null,
+                      ),
                     ),
-                    child: isSelected
-                        ? const Icon(Icons.check,
-                            color: Colors.white, size: 16)
-                        : null,
-                  ),
+                    Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '₹ ${NumberFormat('#,##,###').format(chitValue)}',
+                              style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: accentColor,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            Text(
+                              groupName,
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600),
+                            ),
+                          ]),
+                    ),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: cardTint,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: accentColor.withAlpha(80)),
+                      ),
+                      child: Text(
+                        statusLabel,
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: accentColor),
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Item 19: chit value in primary color, not red
-                        Text(
-                          '₹ ${NumberFormat('#,##,###').format(chitValue)}',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: accentColor,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        Text(
-                          groupName,
-                          style: const TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w500),
-                        ),
-                      ]),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: accentColor.withAlpha(20),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: accentColor.withAlpha(60)),
-                  ),
-                  child: Text(
-                    statusLabel,
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: accentColor),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const Divider(height: 1, thickness: 1, color: Color(0xFFF1F5F9)),
-
-          // Details
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(children: [
-              Row(children: [
-                Expanded(
-                    child: _DetailItem(
-                        label: 'Monthly EMI', value: '₹${_fmt(monthly)}')),
-                Expanded(
-                    child: _DetailItem(label: 'Duration', value: '$duration months')),
-              ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                    child: _DetailItem(
-                        label: 'Members', value: '$enrolledInt / $membersInt')),
-                // Item 18: no Slots Available — show auction type
-                Expanded(
-                    child: _DetailItem(
-                  label: 'Auction Type',
-                  value: data['auction_type']?.toString().isNotEmpty == true
-                      ? data['auction_type'].toString()
-                      : 'Monthly',
-                  valueColor: AppTheme.primaryColor,
-                )),
-              ]),
-              // Item 20: show completed duration for vacant; Item 22: purchase value
-              if (isVacant) ...[
-                const SizedBox(height: 12),
-                Row(children: [
-                  Expanded(
-                      child: _DetailItem(
-                          label: 'Completed',
-                          value: '$currentMonth / $duration months')),
-                  if (purchaseValue > 0)
+              ),
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                height: 1,
+                color: const Color(0xFFF1F5F9),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(children: [
+                  Row(children: [
                     Expanded(
                         child: _DetailItem(
-                            label: 'Purchase Value',
-                            value: '₹${_fmt(purchaseValue)}',
-                            valueColor: AppTheme.primaryColor)),
+                            label: 'Subscription',
+                            value: '₹${_fmt(monthly)}',
+                            valueColor: accentColor)),
+                    Expanded(
+                        child: _DetailItem(
+                            label: 'Duration',
+                            value: '$duration months')),
+                  ]),
+                  const SizedBox(height: 12),
+                  Row(children: [
+                    Expanded(
+                        child: _DetailItem(
+                            label: 'Members',
+                            value: '$membersInt')),
+                    Expanded(
+                        child: _DetailItem(
+                      label: 'Auction Type',
+                      value: data['auction_type']?.toString().isNotEmpty == true
+                          ? data['auction_type'].toString()
+                          : 'Monthly',
+                      valueColor: accentColor,
+                    )),
+                  ]),
+                  if (isVacant) ...[
+                    const SizedBox(height: 12),
+                    Row(children: [
+                      Expanded(
+                          child: _DetailItem(
+                              label: 'Completed',
+                              value: '$currentMonth / $duration months')),
+                      if (purchaseValue > 0)
+                        Expanded(
+                            child: _DetailItem(
+                                label: 'Purchase Value',
+                                value: '₹${_fmt(purchaseValue)}',
+                                valueColor: accentColor)),
+                    ]),
+                  ],
+                  if (psoNumber.toString().isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _DetailItem(
+                          label: 'PSO No.', value: psoNumber.toString()),
+                    ),
+                  ],
                 ]),
-              ],
-              if (psoNumber.toString().isNotEmpty) ...[
-                const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: _DetailItem(
-                      label: 'PSO No.', value: psoNumber.toString()),
-                ),
-              ],
-            ]),
+              ),
+            ],
           ),
-          // Item 23: NO per-card enroll button — selection only
-        ]),
+        ),
       ),
     );
   }

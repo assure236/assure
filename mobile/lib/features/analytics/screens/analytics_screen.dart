@@ -23,7 +23,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _fetchAnalytics();
   }
 
@@ -85,12 +85,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('My Analytics'),
+        title: const Text('Analytics'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchAnalytics),
-        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.secondaryColor,
@@ -102,8 +99,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
           tabs: const [
             Tab(text: 'Overview'),
             Tab(text: 'Dividends'),
-            Tab(text: 'Calculator'),
-            Tab(text: 'Statement'),
           ],
         ),
       ),
@@ -120,8 +115,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                       touchedIndex: _touchedIndex,
                     ),
                     _DividendAnalyticsTab(analytics: _analytics),
-                    const _DividendCalculatorTab(),
-                    const _AccountStatementTab(),
                   ],
                 ),
     );
@@ -172,12 +165,22 @@ class _PaymentOverviewTab extends StatelessWidget {
           const SizedBox(height: 20),
           if (monthly.isNotEmpty) ...[
             const Text('6-Month Collections', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(
+              'Your successful subscription payments over the last 6 months.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
             const SizedBox(height: 12),
             _buildLineChart(monthly),
             const SizedBox(height: 20),
           ],
           if (paymentStatus.isNotEmpty) ...[
             const Text('Payment Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(
+              'Breakdown of paid, pending, and failed subscription payments.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
             const SizedBox(height: 12),
             _buildPieSection(paymentStatus),
           ],
@@ -278,12 +281,22 @@ class _DividendAnalyticsTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
-          Expanded(child: _SummaryCard(label: 'Total Dividends', value: _fmt(totalDividends), icon: Icons.savings_outlined, color: AppTheme.successColor)),
+          Expanded(child: _SummaryCard(label: 'Dividends Earned', value: _fmt(totalDividends), icon: Icons.savings_outlined, color: AppTheme.successColor)),
           const SizedBox(width: 12),
           Expanded(child: _SummaryCard(label: 'Avg Bid Ratio', value: '${(avgBidRatio*100).toStringAsFixed(1)}%', icon: Icons.trending_up, color: AppTheme.secondaryColor)),
         ]),
-        const SizedBox(height: 20),
+        const SizedBox(height: 6),
+        Text(
+          'Avg Bid Ratio = average winning bid as a % of chit value. Lower bids mean higher dividends.',
+          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+        ),
+        const SizedBox(height: 16),
         const Text('Per Group Performance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Text(
+          'Amount earned shows total dividend savings in that chit group so far.',
+          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        ),
         const SizedBox(height: 12),
         if (groups.isEmpty)
           Card(child: Padding(padding: const EdgeInsets.all(32), child: Column(children: [
@@ -733,5 +746,39 @@ class _InsightRow extends StatelessWidget {
       const SizedBox(width: 8),
       Expanded(child: Text(text, style: const TextStyle(fontSize: 13, height: 1.4))),
     ]);
+  }
+}
+
+class DividendCalculatorScreen extends StatelessWidget {
+  const DividendCalculatorScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Calculator'),
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: const _DividendCalculatorTab(),
+    );
+  }
+}
+
+class AccountStatementScreen extends StatelessWidget {
+  const AccountStatementScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        title: const Text('Statement'),
+        backgroundColor: AppTheme.primaryColor,
+        foregroundColor: Colors.white,
+      ),
+      body: const _AccountStatementTab(),
+    );
   }
 }
