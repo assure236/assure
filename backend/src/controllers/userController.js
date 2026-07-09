@@ -85,18 +85,16 @@ exports.updateProfile = async (req, res, next) => {
         return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
       }
       const directUpdates = {};
-      if (hasNomineeRelationship) {
-        const relation = String(req.body.nominee_relationship || '').trim();
-        if (!relation) return res.status(400).json({ success: false, message: 'Select relationship' });
-        directUpdates.nominee_relationship = relation;
+      const nomineeName = String(req.body.nominee_name || '').trim();
+      const relation = String(req.body.nominee_relationship || '').trim();
+      if (nomineeName.length < 2) {
+        return res.status(400).json({ success: false, message: 'Enter nominee name' });
       }
-      if (hasNomineeName) {
-        const nomineeName = String(req.body.nominee_name || '').trim();
-        if (nomineeName.length < 2) {
-          return res.status(400).json({ success: false, message: 'Enter nominee name' });
-        }
-        directUpdates.nominee_name = nomineeName;
+      if (!relation) {
+        return res.status(400).json({ success: false, message: 'Select relationship' });
       }
+      directUpdates.nominee_name = nomineeName;
+      directUpdates.nominee_relationship = relation;
 
       const user = await User.findByIdAndUpdate(userId, directUpdates, { new: true }).select('-password_hash');
       const userObj = toMemberProfileUser(user.toObject());
