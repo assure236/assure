@@ -1,6 +1,12 @@
-﻿import 'package:fl_chart/fl_chart.dart';
+﻿import 'dart:io';
+
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
@@ -766,8 +772,76 @@ class DividendCalculatorScreen extends StatelessWidget {
   }
 }
 
-class AccountStatementScreen extends StatelessWidget {
+class AccountStatementScreen extends StatefulWidget {
   const AccountStatementScreen({super.key});
+
+  @override
+  State<AccountStatementScreen> createState() => _AccountStatementScreenState();
+}
+
+class _AccountStatementScreenState extends State<AccountStatementScreen> {
+  bool _downloadingPdf = false;
+
+  Future<Uri> _buildStatementUri() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeMemberId = prefs.getString('active_member_id')?.trim().toUpperCase();
+    final qp = <String, String>{'format': 'pdf'};
+    if (activeMemberId != null && activeMemberId.isNotEmpty) {
+      qp['active_member_id'] = activeMemberId;
+    }
+    return Uri.parse('${ApiService.baseUrl}/payments/statement')
+        .replace(queryParameters: qp);
+  }
+
+  Future<void> _downloadStatementPdf() async {
+    if (_downloadingPdf) return;
+    setState(() => _downloadingPdf = true);
+    try {
+      const storage = FlutterSecureStorage();
+      final token = await storage.read(key: 'access_token') ?? '';
+      final uri = await _buildStatementUri();
+      final response = await http.get(uri, headers: {
+        if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+      });
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        final file = File('${Directory.systemTemp.path}/Assure_Statement.pdf');
+        await file.writeAsBytes(response.bodyBytes);
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path, mimeType: 'application/pdf')],
+            subject: 'Assure Account Statement',
+          ),
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Statement PDF downloaded'),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not download statement. Please try again.'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not download statement. Please try again.'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _downloadingPdf = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -777,6 +851,22 @@ class AccountStatementScreen extends StatelessWidget {
         title: const Text('Statement'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            tooltip: 'Download PDF',
+            onPressed: _downloadingPdf ? null : _downloadStatementPdf,
+            icon: _downloadingPdf
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.print_outlined),
+          ),
+        ],
       ),
       body: const _AccountStatementTab(),
     );

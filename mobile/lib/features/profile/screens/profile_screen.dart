@@ -22,6 +22,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   List<Map<String, dynamic>> _activeSessions = [];
   bool _showCompletedChits = false;
   bool _showCancelledChits = false;
+  String? _agentRequestStatus; // null, 'pending', 'approved', 'rejected'
+  Map<String, dynamic>? _agentRequestData;
 
   @override
   void initState() {
@@ -29,6 +31,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadFamilyMembers();
     _loadChitHistoryFlags();
     _loadActiveSessions();
+    _loadAgentRequestStatus();
   }
 
   Future<void> _loadChitHistoryFlags() async {
@@ -75,6 +78,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         });
       }
     } catch (_) {}
+  }
+
+  Future<void> _loadAgentRequestStatus() async {
+    try {
+      final res = await ApiService.get('/users/agent-request');
+      if (!mounted) return;
+      if (res['success'] == true && res['data'] != null) {
+        final data = Map<String, dynamic>.from(res['data'] as Map);
+        setState(() {
+          _agentRequestData = data;
+          _agentRequestStatus = data['status']?.toString();
+        });
+      } else {
+        setState(() {
+          _agentRequestData = null;
+          _agentRequestStatus = null;
+        });
+      }
+    } catch (_) {}
+  }
+
+  String _agentMenuSubtitle() {
+    switch (_agentRequestStatus) {
+      case 'pending':
+        return 'Request submitted — under review';
+      case 'approved':
+        return 'You\'re an Assure Agent';
+      case 'rejected':
+        return 'Not approved — tap to apply again';
+      default:
+        return 'Apply to earn referral commission';
+    }
   }
 
   @override
@@ -229,7 +264,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _MenuItem(
                         icon: Icons.handshake_outlined,
                         label: 'Become an Agent',
-                        subtitle: 'Apply to earn referral commission',
+                        subtitle: _agentMenuSubtitle(),
                         onTap: () => _showBecomeAgentSheet(context),
                       ),
                       _MenuItem(
@@ -438,58 +473,225 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showBecomeAgentSheet(BuildContext context) {
+  Future<void> _showBecomeAgentSheet(BuildContext context) async {
+    await _loadAgentRequestStatus();
+    if (!context.mounted) return;
+
+    final auth = context.read<AuthProvider>();
+    if (_agentRequestStatus == 'approved') {
+      await auth.refreshProfile();
+      if (!context.mounted) return;
+    }
+
+    final status = _agentRequestStatus;
+    final isApproved = status == 'approved' || auth.user?.role == 'agent';
+    final isPending = status == 'pending';
+    final isRejected = status == 'rejected';
+
+    void showSheet(Widget content) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Become an Assure Agent',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text(
-              'Earn commission by referring new members. Our team will contact you within 24 hours.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, fontSize: 14),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: FilledButton(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  try {
-                    final res = await ApiService.post('/users/agent-request', {});
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(res['message'] ?? 'Agent request submitted!'),
-                        backgroundColor: AppTheme.successColor,
-                      ),
-                    );
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(e.toString().replaceAll('Exception: ', '')),
-                        backgroundColor: AppTheme.errorColor,
-                      ),
-                    );
-                  }
-                },
-                child: const Text('Submit Request'),
-              ),
-            ),
-          ],
-        ),
+        padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + MediaQuery.of(ctx).padding.bottom),
+        child: content,
       ),
     );
+  }
+
+    if (isApproved) {
+      final user = auth.user;
+      final memberId = _agentRequestData?['member_id']?.toString() ?? user?.memberId ?? '—';
+      final referralCode = _agentRequestData?['referral_code']?.toString() ?? user?.referralCode ?? '—';
+      showSheet(Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.successColor.withAlpha(26),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.verified, color: AppTheme.successColor, size: 40),
+          ),
+          const SizedBox(height: 16),
+          const Text('You\'re an Assure Agent',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text(
+            'Your application has been approved. Share your referral code to earn commission on new members.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54, fontSize: 14),
+          ),
+          const SizedBox(height: 20),
+          _AgentInfoRow(label: 'Member ID', value: memberId),
+          const SizedBox(height: 10),
+          _AgentInfoRow(label: 'Referral Code', value: referralCode),
+          const SizedBox(height: 16),
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '• Earn up to 2% commission per referral\n• Track referrals in Refer & Earn\n• Share your code with new members',
+              style: TextStyle(fontSize: 13, color: Colors.black87, height: 1.5),
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: FilledButton(
+              onPressed: () {
+                Navigator.pop(context);
+                context.push('/referrals');
+              },
+              child: const Text('View Referrals'),
+            ),
+          ),
+        ],
+      ));
+      return;
+    }
+
+    if (isPending) {
+      showSheet(Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40, height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.secondaryColor.withAlpha(26),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.hourglass_top_rounded,
+                color: AppTheme.secondaryColor, size: 40),
+          ),
+          const SizedBox(height: 16),
+          const Text('Request Submitted',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          const Text(
+            'You have already submitted your agent application. Our team is reviewing it and will contact you within 24 hours.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54, fontSize: 14, height: 1.4),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: OutlinedButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ),
+        ],
+      ));
+      return;
+    }
+
+    showSheet(Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 40, height: 4,
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryColor.withAlpha(26),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.handshake_outlined,
+              color: AppTheme.primaryColor, size: 40),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          isRejected ? 'Apply Again' : 'Become an Assure Agent',
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          isRejected
+              ? 'Your previous application was not approved. You can submit a new request below.'
+              : 'Earn commission by referring new members. Our team will contact you within 24 hours.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.black54, fontSize: 14),
+        ),
+        if (isRejected && (_agentRequestData?['admin_note']?.toString().isNotEmpty ?? false)) ...[
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.errorColor.withAlpha(20),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              _agentRequestData!['admin_note'].toString(),
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+          ),
+        ],
+        const SizedBox(height: 20),
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: FilledButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                final res = await ApiService.post('/users/agent-request', {});
+                if (!context.mounted) return;
+                setState(() {
+                  _agentRequestStatus = 'pending';
+                  _agentRequestData = res['data'] is Map
+                      ? Map<String, dynamic>.from(res['data'] as Map)
+                      : {'status': 'pending'};
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res['message'] ?? 'Agent request submitted!'),
+                    backgroundColor: AppTheme.successColor,
+                  ),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(e.toString().replaceAll('Exception: ', '')),
+                    backgroundColor: AppTheme.errorColor,
+                  ),
+                );
+              }
+            },
+            child: Text(isRejected ? 'Submit Request Again' : 'Submit Request'),
+          ),
+        ),
+      ],
+    ));
   }
 
   Widget _buildActiveSessionsCard(AuthProvider auth) {
@@ -589,6 +791,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             );
           }),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentInfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _AgentInfoRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Text(label,
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+          const Spacer(),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.w600)),
         ],
       ),
     );

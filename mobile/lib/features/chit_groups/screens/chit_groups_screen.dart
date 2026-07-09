@@ -47,32 +47,32 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen> {
             color: AppTheme.primaryColor,
             padding: EdgeInsets.fromLTRB(16, topPad + 8, 16, 14),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Text(
-                    'Invest',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryColor,
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      'Invest',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(height: 12),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    'New Chits',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.bold,
-                    ),
+                const Text(
+                  'New Chits',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -384,11 +384,7 @@ class _AvailableGroupCard extends StatelessWidget {
     final bool isVacant = (data['status'] ?? '') == 'vacant';
     final bool isNotStarted = (data['status'] ?? '') == 'not_started';
     final bool isActive = (data['status'] ?? '') == 'active';
-    final Color accentColor = isVacant
-        ? const Color(0xFFE65100)
-        : isNotStarted
-            ? const Color(0xFF1565C0)
-            : const Color(0xFF2E7D32);
+    const Color accentColor = AppTheme.primaryColor;
     final Color cardTint = accentColor.withAlpha(18);
     final String statusLabel = isVacant
         ? 'Vacant'
@@ -453,10 +449,10 @@ class _AvailableGroupCard extends StatelessWidget {
                           children: [
                             Text(
                               '₹ ${NumberFormat('#,##,###').format(chitValue)}',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
-                                color: accentColor,
+                                color: Colors.black,
                                 letterSpacing: -0.5,
                               ),
                             ),
@@ -500,8 +496,7 @@ class _AvailableGroupCard extends StatelessWidget {
                     Expanded(
                         child: _DetailItem(
                             label: 'Subscription',
-                            value: '₹${_fmt(monthly)}',
-                            valueColor: accentColor)),
+                            value: '₹${_fmt(monthly)}')),
                     Expanded(
                         child: _DetailItem(
                             label: 'Duration',
@@ -519,7 +514,6 @@ class _AvailableGroupCard extends StatelessWidget {
                       value: data['auction_type']?.toString().isNotEmpty == true
                           ? data['auction_type'].toString()
                           : 'Monthly',
-                      valueColor: accentColor,
                     )),
                   ]),
                   if (isVacant) ...[
@@ -533,8 +527,7 @@ class _AvailableGroupCard extends StatelessWidget {
                         Expanded(
                             child: _DetailItem(
                                 label: 'Purchase Value',
-                                value: '₹${_fmt(purchaseValue)}',
-                                valueColor: accentColor)),
+                                value: '₹${_fmt(purchaseValue)}')),
                     ]),
                   ],
                   if (psoNumber.toString().isNotEmpty) ...[
@@ -563,9 +556,7 @@ class _AvailableGroupCard extends StatelessWidget {
 class _DetailItem extends StatelessWidget {
   final String label;
   final String value;
-  final Color? valueColor;
-  const _DetailItem(
-      {required this.label, required this.value, this.valueColor});
+  const _DetailItem({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
@@ -573,10 +564,10 @@ class _DetailItem extends StatelessWidget {
       Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
       const SizedBox(height: 2),
       Text(value,
-          style: TextStyle(
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 14,
-            color: valueColor ?? Colors.black87,
+            color: Colors.black,
           )),
     ]);
   }

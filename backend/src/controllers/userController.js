@@ -1008,8 +1008,20 @@ exports.submitAgentRequest = async (req, res, next) => {
 exports.getMyAgentRequest = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
+    const user = await User.findById(userId).select('role member_id referral_code full_name');
     const request = await AgentRequest.findOne({ user_id: userId }).sort({ createdAt: -1 });
-    res.json({ success: true, data: request });
+
+    if (!request && user?.role !== 'agent') {
+      return res.json({ success: true, data: null });
+    }
+
+    const payload = request ? request.toObject() : { status: 'approved' };
+    payload.is_agent = user?.role === 'agent';
+    payload.member_id = user?.member_id;
+    payload.referral_code = user?.referral_code;
+    payload.full_name = user?.full_name;
+
+    res.json({ success: true, data: payload });
   } catch (err) { next(err); }
 };
 

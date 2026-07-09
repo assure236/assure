@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -159,12 +158,15 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         title: Row(
           children: [
             CircleAvatar(
-              radius: 14,
-              backgroundColor: Colors.white24,
-              child: Padding(
-                padding: const EdgeInsets.all(3),
-                child: SvgPicture.asset('assets/icons/chatbot.svg',
-                    colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn)),
+              radius: 16,
+              backgroundColor: Colors.white,
+              child: ClipOval(
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  width: 28,
+                  height: 28,
+                  fit: BoxFit.contain,
+                ),
               ),
             ),
             const SizedBox(width: 8),

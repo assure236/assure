@@ -2094,7 +2094,79 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
     );
   }
 
-  void _showBecomeAgentSheet(BuildContext context) {
+  Future<void> _showBecomeAgentSheet(BuildContext context) async {
+    await _fetchAgentStatus();
+    if (!context.mounted) return;
+
+    final isPending = _agentStatus == 'pending';
+    final isApproved = _agentStatus == 'approved';
+    final isRejected = _agentStatus == 'rejected';
+
+    if (isPending) {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.hourglass_top_rounded,
+                  color: AppTheme.secondaryColor, size: 48),
+              const SizedBox(height: 16),
+              const Text('Request Submitted',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text(
+                'You have already submitted your agent application. Our team will contact you within 24 hours.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54, fontSize: 14),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (isApproved) {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.verified, color: AppTheme.successColor, size: 48),
+              SizedBox(height: 16),
+              Text('You\'re an Assure Agent',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              SizedBox(height: 8),
+              Text(
+                'Your application is approved. Share your referral code to earn commission on new members.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.black54, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -2170,7 +2242,7 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
                       borderRadius: BorderRadius.circular(14)),
                 ),
                 child: Text(
-                  _agentStatus == 'rejected'
+                  isRejected
                       ? 'Submit Request Again'
                       : 'Submit Request',
                   style: const TextStyle(

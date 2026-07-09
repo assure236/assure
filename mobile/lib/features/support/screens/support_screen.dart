@@ -552,6 +552,72 @@ class _SupportScreenState extends State<SupportScreen> {
   }
 
   void _showBecomeAgentSheet() {
+    final isPending = _agentRequestStatus == 'pending';
+    final isApproved = _agentRequestStatus == 'approved';
+
+    if (isPending) {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.hourglass_top_rounded, color: AppTheme.secondaryColor, size: 48),
+              const SizedBox(height: 16),
+              const Text('Request Submitted',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              const SizedBox(height: 8),
+              Text(
+                'You have already submitted your agent application. Our team will contact you within 24 hours.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey.shade600, height: 1.4),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('OK'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
+    if (isApproved) {
+      showModalBottomSheet(
+        context: context,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.verified, color: AppTheme.successColor, size: 48),
+              SizedBox(height: 16),
+              Text('You\'re an Assure Agent',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              SizedBox(height: 8),
+              Text(
+                'Your application is approved. Share your referral code from Refer & Earn to start earning commission.',
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      );
+      return;
+    }
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
