@@ -96,6 +96,8 @@ exports.updateProfile = async (req, res, next) => {
       }
       directUpdates.nominee_name = nomineeName;
       directUpdates.nominee_relationship = relation;
+      directUpdates.nominee_verified = true;
+      directUpdates.nominee_verified_at = new Date();
 
       const user = await User.findByIdAndUpdate(accountUserId, directUpdates, { new: true }).select('-password_hash');
       const userObj = toMemberProfileUser(user.toObject());

@@ -19,6 +19,7 @@ class User {
   final String? gender;
   final String? nomineeName;
   final String? nomineeRelationship;
+  final bool nomineeVerified;
   final String? bankAccountNumber;
   final String? bankIfscCode;
   final String? bankName;
@@ -52,6 +53,7 @@ class User {
     this.gender,
     this.nomineeName,
     this.nomineeRelationship,
+    this.nomineeVerified = false,
     this.bankAccountNumber,
     this.bankIfscCode,
     this.bankName,
@@ -87,6 +89,7 @@ class User {
       gender: json['gender'],
       nomineeName: json['nominee_name'],
       nomineeRelationship: json['nominee_relationship'],
+      nomineeVerified: json['nominee_verified'] == true,
       bankAccountNumber: json['bank_account_number'],
       bankIfscCode: json['bank_ifsc_code'],
       bankName: json['bank_name'],
@@ -125,6 +128,7 @@ class User {
       'gender': gender,
       'nominee_name': nomineeName,
       'nominee_relationship': nomineeRelationship,
+      'nominee_verified': nomineeVerified,
       'bank_account_number': bankAccountNumber,
       'bank_ifsc_code': bankIfscCode,
       'bank_name': bankName,

@@ -66,6 +66,7 @@ const _kRelations = [
 String _nomineeField(String? value) => (value ?? '').trim();
 
 bool _nomineeIsConfigured(dynamic user) {
+  if (user?.nomineeVerified != true) return false;
   final name = _nomineeField(user?.nomineeName);
   final rel = _nomineeField(user?.nomineeRelationship);
   bool meaningful(String v) =>
@@ -358,11 +359,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } catch (_) {}
 
     final isNewNominee = !_nomineeIsConfigured(nomineeUser);
-    final nc = TextEditingController(text: _nomineeField(nomineeUser?.nomineeName));
+    final nc = TextEditingController(
+      text: isNewNominee ? '' : _nomineeField(nomineeUser?.nomineeName),
+    );
     final otherRelCtrl = TextEditingController();
-    String? rel = _nomineeField(nomineeUser?.nomineeRelationship).isEmpty
+    String? rel = isNewNominee
         ? null
-        : nomineeUser?.nomineeRelationship as String?;
+        : (_nomineeField(nomineeUser?.nomineeRelationship).isEmpty
+            ? null
+            : nomineeUser?.nomineeRelationship as String?);
     if (rel != null && !_kRelations.contains(rel)) {
       otherRelCtrl.text = rel;
       rel = 'Other';
@@ -429,14 +434,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     textAlign: TextAlign.center,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    otpSent
-                        ? 'Step 2 of 2 — enter OTP sent to your registered mobile'
-                        : 'Step 1 of 2 — enter details, then verify with OTP',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.35),
-                  ),
+                  if (otpSent) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'OTP sent to your registered mobile. Enter it below to save.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.35),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   _tf(nc, 'Nominee Name', Icons.person_add_outlined),
                   const SizedBox(height: 14),

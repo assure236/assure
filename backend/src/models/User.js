@@ -41,6 +41,8 @@ const userSchema = new mongoose.Schema({
   gender: { type: String, enum: ['male', 'female', 'other'] },
   nominee_name: String,
   nominee_relationship: String,
+  nominee_verified: { type: Boolean, default: false },
+  nominee_verified_at: Date,
   current_address: String,
   current_city: String,
   current_state: String,
