@@ -10,6 +10,10 @@ class ChitGroup {
   final String status;
   final int currentMonth;
   final DateTime commencementDate;
+  final String fdrCertificateUrl;
+  final String psoCertificateUrl;
+  final String draftAgreementUrl;
+  final String signedAgreementUrl;
 
   ChitGroup({
     required this.id,
@@ -23,6 +27,10 @@ class ChitGroup {
     required this.status,
     required this.currentMonth,
     required this.commencementDate,
+    this.fdrCertificateUrl = '',
+    this.psoCertificateUrl = '',
+    this.draftAgreementUrl = '',
+    this.signedAgreementUrl = '',
   });
 
   factory ChitGroup.fromJson(Map<String, dynamic> json) {
@@ -40,6 +48,10 @@ class ChitGroup {
       commencementDate: json['commencement_date'] != null
           ? DateTime.tryParse(json['commencement_date'].toString()) ?? DateTime.now()
           : DateTime.now(),
+      fdrCertificateUrl: json['fdr_certificate_url']?.toString() ?? '',
+      psoCertificateUrl: json['pso_certificate_url']?.toString() ?? '',
+      draftAgreementUrl: json['draft_agreement_url']?.toString() ?? '',
+      signedAgreementUrl: json['signed_agreement_url']?.toString() ?? '',
     );
   }
 

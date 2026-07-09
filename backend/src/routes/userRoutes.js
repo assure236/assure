@@ -3,7 +3,37 @@ const router = express.Router();
 const multer = require('multer');
 const userController = require('../controllers/userController');
 const { authMiddleware, authorizeRoles } = require('../middleware/auth');
-const { Goal } = require('../models');
+const { Goal, Payment } = require('../models');
+
+async function goalInvestedAmount(userId, goal) {
+  const linked = Array.isArray(goal.linked_chit_group_ids)
+    ? goal.linked_chit_group_ids.filter(Boolean)
+    : [];
+  if (linked.length > 0) {
+    const agg = await Payment.aggregate([
+      {
+        $match: {
+          user_id: userId,
+          payment_status: 'success',
+          chit_group_id: { $in: linked },
+        },
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]);
+    return agg[0]?.total || 0;
+  }
+  return goal.current_amount || 0;
+}
+
+async function enrichGoals(userId, goals) {
+  return Promise.all(
+    goals.map(async (g) => {
+      const obj = g.toObject ? g.toObject() : { ...g };
+      obj.current_amount = await goalInvestedAmount(userId, obj);
+      return obj;
+    })
+  );
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -99,44 +129,59 @@ router.get('/goals', async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
     const goals = await Goal.find({ user_id: userId }).sort({ created_at: -1 });
-    res.json({ success: true, data: goals });
+    const data = await enrichGoals(userId, goals);
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 });
 
 router.post('/goals', async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { name, category, target_amount, target_date } = req.body;
+    const { name, category, target_amount, target_date, linked_chit_group_ids } = req.body;
     if (!name || !target_amount) {
       return res.status(400).json({ success: false, message: 'name and target_amount are required' });
     }
+    const linked = Array.isArray(linked_chit_group_ids)
+      ? linked_chit_group_ids.filter(Boolean)
+      : [];
     const goal = await Goal.create({
       user_id: userId,
       name,
       category: category || 'Savings',
       target_amount: Number(target_amount),
       target_date: target_date ? new Date(target_date) : undefined,
+      linked_chit_group_ids: linked,
     });
-    res.status(201).json({ success: true, message: 'Goal created', data: goal });
+    const obj = goal.toObject();
+    obj.current_amount = await goalInvestedAmount(userId, obj);
+    res.status(201).json({ success: true, message: 'Goal created', data: obj });
   } catch (err) { next(err); }
 });
 
 router.put('/goals/:id', async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
-    const { current_amount, name, target_amount, target_date, is_completed } = req.body;
+    const { current_amount, name, target_amount, target_date, is_completed, category, linked_chit_group_ids } = req.body;
     const update = {};
     if (current_amount !== undefined) update.current_amount = Number(current_amount);
     if (name !== undefined) update.name = name;
     if (target_amount !== undefined) update.target_amount = Number(target_amount);
+    if (category !== undefined) update.category = category;
     if (target_date !== undefined) update.target_date = new Date(target_date);
+    if (linked_chit_group_ids !== undefined) {
+      update.linked_chit_group_ids = Array.isArray(linked_chit_group_ids)
+        ? linked_chit_group_ids.filter(Boolean)
+        : [];
+    }
     if (is_completed !== undefined) {
       update.is_completed = is_completed;
       if (is_completed) update.completed_at = new Date();
     }
     const goal = await Goal.findOneAndUpdate({ _id: req.params.id, user_id: userId }, update, { new: true });
     if (!goal) return res.status(404).json({ success: false, message: 'Goal not found' });
-    res.json({ success: true, data: goal });
+    const obj = goal.toObject();
+    obj.current_amount = await goalInvestedAmount(userId, obj);
+    res.json({ success: true, data: obj });
   } catch (err) { next(err); }
 });
 

@@ -7,6 +7,7 @@ import '../../../core/providers/active_member_provider.dart';
 import '../../../core/providers/chit_group_provider.dart';
 import '../../../core/providers/dashboard_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/amount_format.dart';
 import '../../../core/widgets/celebration_overlay.dart';
 
 class ChitGroupsScreen extends StatefulWidget {
@@ -576,8 +577,7 @@ class _AvailableGroupCard extends StatelessWidget {
   }
 
   String _fmt(double v) {
-    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}K';
+    if (v >= 1000) return formatCompactInr(v);
     return NumberFormat('#,##,###').format(v);
   }
 }

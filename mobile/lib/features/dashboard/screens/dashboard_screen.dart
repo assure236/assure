@@ -18,6 +18,7 @@ import '../../../core/services/api_service.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/app_prefs.dart';
+import '../../../core/utils/amount_format.dart';
 import '../../onboarding/services/onboarding_api.dart';
 import '../../onboarding/widgets/dashboard_tour_overlay.dart';
 import '../../chit_groups/screens/chit_groups_screen.dart';
@@ -190,14 +191,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         targetKey: _tourNavChitsKey,
         title: 'Invest tab',
         body:
-            'Use the bottom navigation to switch between Home, Invest, Auctions, Payments, and More anytime.',
+            'Use the bottom navigation to switch between Home, Invest, Auctions, Transactions, and More anytime.',
       ),
       DashboardTourStep(
         targetKey: _tourNavPaymentsKey,
-        title: 'Payments',
+        title: 'Transactions',
         body:
-            'Pay monthly installments, view receipts, and check due or overdue payments from the Payments tab.',
-        linkLabel: 'Open Payments',
+            'Pay monthly installments, view receipts, and check due or overdue payments from the Transactions tab.',
+        linkLabel: 'Open Transactions',
         onLinkTap: () => setState(() => _currentIndex = 3),
       ),
       DashboardTourStep(
@@ -282,7 +283,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     key: _tourNavPaymentsKey,
                     icon: const Icon(Icons.account_balance_wallet_outlined),
                     selectedIcon: const Icon(Icons.account_balance_wallet_rounded),
-                    label: 'Payments',
+                    label: 'Transactions',
                   ),
                   NavigationDestination(
                     key: _tourNavMoreKey,
@@ -1089,10 +1090,111 @@ class _KycProfileBanner extends StatelessWidget {
   }
 }
 
-// ─── Due Payments Reminder (swipeable per group) ─────────────────────────────
-class _DuePaymentsReminder extends StatelessWidget {
+// ─── Due Payments Reminder (paged swipe per due) ─────────────────────────────
+class _DuePaymentsReminder extends StatefulWidget {
   final void Function(int) switchTab;
   const _DuePaymentsReminder({required this.switchTab});
+
+  @override
+  State<_DuePaymentsReminder> createState() => _DuePaymentsReminderState();
+}
+
+class _DuePaymentsReminderState extends State<_DuePaymentsReminder> {
+  static const double _cardGap = 8;
+  static const double _viewportFraction = 0.86;
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: _viewportFraction);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  Widget _dueCard({
+    required String groupName,
+    required double amount,
+    required bool isOverdue,
+    required dynamic month,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(18),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isOverdue ? Icons.warning_amber_rounded : Icons.schedule,
+            color: isOverdue ? AppTheme.errorColor : AppTheme.secondaryColor,
+            size: 17,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  groupName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  isOverdue ? 'Overdue — Month $month' : 'Due — Month $month',
+                  style: TextStyle(
+                    color: isOverdue ? AppTheme.errorColor : Colors.grey,
+                    fontSize: 10,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 6),
+          SizedBox(
+            height: 30,
+            child: ElevatedButton(
+              onPressed: () {
+                PaymentsScreen.initialTabIndex = 1;
+                widget.switchTab(3);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                textStyle: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: Text('Pay ${_inr.format(amount)}'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1105,10 +1207,13 @@ class _DuePaymentsReminder extends StatelessWidget {
             .toList();
         if (due.isEmpty) return const SizedBox.shrink();
 
+        final hasMultiple = due.length > 1;
+
         return Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
           child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
+            clipBehavior: Clip.antiAlias,
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [Color(0xFFFEF3C7), Color(0xFFFDE68A)],
@@ -1124,119 +1229,127 @@ class _DuePaymentsReminder extends StatelessWidget {
                 Row(
                   children: [
                     const Icon(Icons.payment_rounded,
-                        color: AppTheme.primaryColor, size: 20),
-                    const SizedBox(width: 8),
+                        color: AppTheme.primaryColor, size: 18),
+                    const SizedBox(width: 6),
                     Text(
                       'Due Payments (${due.length})',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                          color: AppTheme.primaryColor),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.primaryColor,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 88,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: due.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, i) {
-                      final p = due[i];
-                      final group = (p['chit_group'] ?? p['chitGroup'])
-                              as Map<String, dynamic>? ??
-                          {};
-                      final groupName =
-                          group['group_name']?.toString() ?? 'Chit Group';
-                      final amount = double.tryParse(
-                              p['total_amount']?.toString() ??
-                                  p['amount']?.toString() ??
-                                  '0') ??
-                          0;
-                      final isOverdue = p['payment_status'] == 'overdue';
-                      final month = p['month_number'] ?? '';
+                const SizedBox(height: 8),
+                if (!hasMultiple)
+                  _dueCard(
+                    groupName: ((due.first['chit_group'] ?? due.first['chitGroup'])
+                                as Map<String, dynamic>?)?['group_name']
+                            ?.toString() ??
+                        'Chit Group',
+                    amount: double.tryParse(
+                            due.first['total_amount']?.toString() ??
+                                due.first['amount']?.toString() ??
+                                '0') ??
+                        0,
+                    isOverdue: due.first['payment_status'] == 'overdue',
+                    month: due.first['month_number'] ?? '',
+                  )
+                else
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: SizedBox(
+                      height: 72,
+                      child: PageView.builder(
+                        controller: _pageController,
+                        physics: const BouncingScrollPhysics(
+                          parent: PageScrollPhysics(),
+                        ),
+                        padEnds: false,
+                        onPageChanged: (i) => setState(() => _currentPage = i),
+                        itemCount: due.length,
+                        itemBuilder: (context, i) {
+                          final p = due[i];
+                          final group = (p['chit_group'] ?? p['chitGroup'])
+                                  as Map<String, dynamic>? ??
+                              {};
+                          final groupName =
+                              group['group_name']?.toString() ?? 'Chit Group';
+                          final amount = double.tryParse(
+                                  p['total_amount']?.toString() ??
+                                      p['amount']?.toString() ??
+                                      '0') ??
+                              0;
+                          final isOverdue = p['payment_status'] == 'overdue';
+                          final month = p['month_number'] ?? '';
 
-                      return SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.82,
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                isOverdue
-                                    ? Icons.warning_amber_rounded
-                                    : Icons.schedule,
-                                color: isOverdue
-                                    ? AppTheme.errorColor
-                                    : AppTheme.secondaryColor,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(groupName,
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 12),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis),
-                                    Text(
-                                      isOverdue
-                                          ? 'Overdue — Month $month'
-                                          : 'Due — Month $month',
-                                      style: TextStyle(
-                                          color: isOverdue
-                                              ? AppTheme.errorColor
-                                              : Colors.grey,
-                                          fontSize: 11),
-                                    ),
-                                  ],
+                          return AnimatedBuilder(
+                            animation: _pageController,
+                            builder: (context, child) {
+                              var scale = 1.0;
+                              var opacity = 1.0;
+                              if (_pageController.position.haveDimensions) {
+                                final page =
+                                    _pageController.page ?? i.toDouble();
+                                final delta = (page - i).abs();
+                                scale = (1 - delta * 0.08).clamp(0.92, 1.0);
+                                opacity = (1 - delta * 0.4).clamp(0.55, 1.0);
+                              }
+                              return Padding(
+                                padding: EdgeInsets.only(
+                                  left: i == 0 ? 0 : _cardGap / 2,
+                                  right: i == due.length - 1 ? 0 : _cardGap / 2,
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              SizedBox(
-                                height: 32,
-                                child: ElevatedButton(
-                                  onPressed: () {
-                                    PaymentsScreen.initialTabIndex = 1;
-                                    switchTab(3);
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppTheme.primaryColor,
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12),
-                                    textStyle: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600),
-                                    shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8)),
+                                child: Opacity(
+                                  opacity: opacity,
+                                  child: Transform.scale(
+                                    scale: scale,
+                                    alignment: Alignment.center,
+                                    child: child,
                                   ),
-                                  child: Text('Pay ${_inr.format(amount)}'),
                                 ),
-                              ),
-                            ],
+                              );
+                            },
+                            child: _dueCard(
+                              groupName: groupName,
+                              amount: amount,
+                              isOverdue: isOverdue,
+                              month: month,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                if (hasMultiple) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      for (var i = 0; i < due.length; i++)
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: _currentPage == i ? 14 : 6,
+                          height: 6,
+                          decoration: BoxDecoration(
+                            color: _currentPage == i
+                                ? AppTheme.primaryColor
+                                : AppTheme.primaryColor.withAlpha(80),
+                            borderRadius: BorderRadius.circular(3),
                           ),
                         ),
-                      );
-                    },
+                    ],
                   ),
-                ),
-                if (due.length > 1) ...[
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 4),
                   Center(
                     child: Text(
-                      'Swipe left/right for other groups',
+                      'Swipe to see other dues',
                       style: TextStyle(
-                          fontSize: 11, color: Colors.grey.shade700),
+                        fontSize: 10,
+                        color: Colors.grey.shade700,
+                      ),
                     ),
                   ),
                 ],
@@ -1374,11 +1487,31 @@ class _StatCard extends StatelessWidget {
 }
 
 // ─── Active Chit Groups ───────────────────────────────────────────────────────
-class _ActiveChits extends StatelessWidget {
+class _ActiveChits extends StatefulWidget {
   final DashboardProvider dash;
   final void Function(int) switchTab;
 
   const _ActiveChits({required this.dash, required this.switchTab});
+
+  @override
+  State<_ActiveChits> createState() => _ActiveChitsState();
+}
+
+class _ActiveChitsState extends State<_ActiveChits> {
+  late final PageController _pageController;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(viewportFraction: 0.88);
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1390,7 +1523,7 @@ class _ActiveChits extends StatelessWidget {
           DateTime.fromMillisecondsSinceEpoch(0);
     }
 
-    final memberships = dash.memberships
+    final memberships = widget.dash.memberships
         .whereType<Map>()
         .map((m) => Map<String, dynamic>.from(m))
         .toList()
@@ -1415,53 +1548,103 @@ class _ActiveChits extends StatelessWidget {
                     icon: Icons.group_work_outlined,
                     message: 'No active chit groups yet',
                     actionLabel: 'Browse Groups',
-                    onAction: () => switchTab(1),
+                    onAction: () => widget.switchTab(1),
                   ),
                 )
-              : SizedBox(
-                  height: 168,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.only(right: 16),
-                    itemCount: memberships.length,
-                    itemBuilder: (context, i) {
-                      final m = memberships[i];
-                      final group =
-                          (m['chit_group_id'] as Map<String, dynamic>?) ??
-                              (m['ChitGroup'] as Map<String, dynamic>?) ??
-                              {};
-                      final current = (group['current_month'] ?? 0) as int;
-                      final total = (group['duration_months'] ?? 1) as int;
-                      final progress =
-                          total > 0 ? (current / total).clamp(0.0, 1.0) : 0.0;
-                      final chitValue = double.tryParse(
-                              group['chit_value']?.toString() ?? '0') ??
-                          0;
-                      final monthly = double.tryParse(
-                              group['monthly_installment']?.toString() ??
-                                  '0') ??
-                          0;
-                      final groupId =
-                          (group['_id'] ?? group['id'] ?? '').toString();
-                      return GestureDetector(
-                        onTap: () {
-                          if (groupId.isNotEmpty) {
-                            context.push('/chit-groups/$groupId');
-                          }
-                        },
-                        child: _ChitCard(
-                          name: group['group_name']?.toString() ?? 'Chit Group',
-                          chitValue: chitValue,
-                          monthly: monthly,
-                          currentMonth: current,
-                          totalMonths: total,
-                          progress: progress,
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 168,
+                      child: memberships.length == 1
+                          ? Padding(
+                              padding: const EdgeInsets.only(right: 16),
+                              child: _buildChitCard(context, memberships.first),
+                            )
+                          : PageView.builder(
+                              controller: _pageController,
+                              padEnds: false,
+                              physics: const BouncingScrollPhysics(
+                                parent: PageScrollPhysics(),
+                              ),
+                              onPageChanged: (i) => setState(() => _currentPage = i),
+                              itemCount: memberships.length,
+                              itemBuilder: (context, i) {
+                                return Padding(
+                                  padding: EdgeInsets.only(
+                                    left: i == 0 ? 0 : 6,
+                                    right: i == memberships.length - 1 ? 16 : 6,
+                                  ),
+                                  child: _buildChitCard(context, memberships[i]),
+                                );
+                              },
+                            ),
+                    ),
+                    if (memberships.length > 1) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          for (var i = 0; i < memberships.length; i++)
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              margin: const EdgeInsets.symmetric(horizontal: 3),
+                              width: _currentPage == i ? 12 : 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color: _currentPage == i
+                                    ? AppTheme.primaryColor
+                                    : AppTheme.primaryColor.withAlpha(80),
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Center(
+                        child: Text(
+                          'Swipe to see other chits',
+                          style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                         ),
-                      );
-                    },
-                  ),
+                      ),
+                    ],
+                  ],
                 ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildChitCard(BuildContext context, Map<String, dynamic> m) {
+    final group =
+        (m['chit_group_id'] as Map<String, dynamic>?) ??
+            (m['ChitGroup'] as Map<String, dynamic>?) ??
+            {};
+    final current = (group['current_month'] ?? 0) as int;
+    final total = (group['duration_months'] ?? 1) as int;
+    final progress = total > 0 ? (current / total).clamp(0.0, 1.0) : 0.0;
+    final chitValue =
+        double.tryParse(group['chit_value']?.toString() ?? '0') ?? 0;
+    final monthly =
+        double.tryParse(group['monthly_installment']?.toString() ?? '0') ?? 0;
+    final invested =
+        double.tryParse(m['total_paid']?.toString() ?? '0') ?? 0;
+    final groupId = (group['_id'] ?? group['id'] ?? '').toString();
+
+    return GestureDetector(
+      onTap: () {
+        if (groupId.isNotEmpty) {
+          context.push('/chit-groups/$groupId');
+        }
+      },
+      child: _ChitCard(
+        name: group['group_name']?.toString() ?? 'Chit Group',
+        invested: invested,
+        chitValue: chitValue,
+        monthly: monthly,
+        currentMonth: current,
+        totalMonths: total,
+        progress: progress,
       ),
     );
   }
@@ -1469,6 +1652,7 @@ class _ActiveChits extends StatelessWidget {
 
 class _ChitCard extends StatelessWidget {
   final String name;
+  final double invested;
   final double chitValue;
   final double monthly;
   final int currentMonth;
@@ -1477,6 +1661,7 @@ class _ChitCard extends StatelessWidget {
 
   const _ChitCard({
     required this.name,
+    required this.invested,
     required this.chitValue,
     required this.monthly,
     required this.currentMonth,
@@ -1525,13 +1710,13 @@ class _ChitCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            _inr.format(chitValue),
+            formatInvestedVsChit(invested, chitValue),
             style: const TextStyle(
                 color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
           ),
-          Text(
-            'Chit Value',
-            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          const Text(
+            'Invested',
+            style: TextStyle(color: Colors.white54, fontSize: 11),
           ),
           const Spacer(),
           Row(
@@ -1775,6 +1960,8 @@ class _BecomeAgentCardState extends State<_BecomeAgentCard> {
   Widget build(BuildContext context) {
     final isPending = _agentStatus == 'pending';
     final isApproved = _agentStatus == 'approved';
+
+    if (isPending) return const SizedBox.shrink();
 
     if (isApproved) {
       return Padding(

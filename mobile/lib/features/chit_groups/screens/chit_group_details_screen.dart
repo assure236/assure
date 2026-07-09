@@ -7,6 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/providers/chit_group_provider.dart';
 import '../../../core/providers/payment_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/services/api_service.dart';
+import '../../../core/utils/amount_format.dart';
 import '../../payments/screens/cashfree_payment_screen.dart';
 
 class ChitGroupDetailsScreen extends StatefulWidget {
@@ -45,53 +47,47 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
 
         return Scaffold(
           backgroundColor: AppTheme.backgroundColor,
-          body: RefreshIndicator(
-            onRefresh: () => provider.fetchChitGroupDetails(widget.groupId),
-            child: provider.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : group == null
-                    ? Center(
-                        child: Column(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
-                          const SizedBox(height: 12),
-                          const Text('Group not found'),
-                          const SizedBox(height: 12),
-                          TextButton(
-                              onPressed: () => context.pop(),
-                              child: const Text('Go Back')),
-                        ]),
-                      )
-                    : NestedScrollView(
-                        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                          _buildAppBar(group),
-                          SliverToBoxAdapter(child: _buildHeader(group)),
-                          SliverToBoxAdapter(child: _buildTabBar()),
-                        ],
-                        body: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _OverviewTab(group: group),
-                            _PrizedTicketsTab(groupId: widget.groupId),
-                            _PaymentHistoryTab(groupId: widget.groupId),
-                          ],
-                        ),
-                      ),
+          appBar: AppBar(
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            title: Text(
+              group?.groupName ?? 'Chit Group Details',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ),
+          body: provider.isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : group == null
+                  ? Center(
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.error_outline, size: 64, color: Colors.grey[400]),
+                        const SizedBox(height: 12),
+                        const Text('Group not found'),
+                        const SizedBox(height: 12),
+                        TextButton(
+                            onPressed: () => context.pop(),
+                            child: const Text('Go Back')),
+                      ]),
+                    )
+                  : Column(
+                      children: [
+                        _buildHeader(group),
+                        _buildTabBar(),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _OverviewTab(group: group),
+                              _PrizedTicketsTab(groupId: widget.groupId),
+                              _PaymentHistoryTab(groupId: widget.groupId),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
         );
       },
-    );
-  }
-
-  Widget _buildAppBar(dynamic group) {
-    return SliverAppBar(
-      pinned: true,
-      backgroundColor: AppTheme.primaryColor,
-      foregroundColor: Colors.white,
-      elevation: 0,
-      title: Text(
-        group?.groupName ?? 'Chit Group Details',
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
-      ),
     );
   }
 
@@ -114,39 +110,23 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Expanded(
-            child: GestureDetector(
-              onTap: () {
-                final psoNo = group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber;
-                final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=$psoNo';
-                launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                    color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('PSO: ${group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber}',
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                            decoration: TextDecoration.underline,
-                            decorationColor: Colors.white70)),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.open_in_new, color: Colors.white70, size: 12),
-                  ],
-                ),
+            child: Text(
+              group.groupName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
                 color: Colors.white24, borderRadius: BorderRadius.circular(20)),
-            child: Text('Auction (Monthly)',
-                style: const TextStyle(
+            child: const Text('Auction (Monthly)',
+                style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 12)),
@@ -208,17 +188,13 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
         tabs: const [
           Tab(text: 'Overview'),
           Tab(text: 'Prized Tickets'),
-          Tab(text: 'Payments'),
+          Tab(text: 'Transactions'),
         ],
       ),
     );
   }
 
-  String _fmtAmount(double v) {
-    if (v >= 100000) return '${(v / 100000).toStringAsFixed(1)}L';
-    if (v >= 1000) return '${(v / 1000).toStringAsFixed(0)}K';
-    return v.toStringAsFixed(0);
-  }
+  String _fmtAmount(double v) => formatCompactInr(v);
 }
 
 class _HeaderStat extends StatelessWidget {
@@ -269,20 +245,16 @@ class _OverviewTab extends StatelessWidget {
             _DetailRow('Monthly Installment', '₹${_fmt(group.monthlyInstallment)}'),
             _DetailRow('Total Members', '${group.totalMembers}'),
             _DetailRow('Months Completed', '${group.currentMonth}/${group.durationMonths}'),
-            _DetailRow('Commenced in', commencedIn),
+            _DetailRow('Commenced from', commencedIn),
           ],
         ),
         const SizedBox(height: 16),
         SizedBox(
           width: double.infinity,
           child: OutlinedButton.icon(
-            onPressed: () {
-              final psoNo = group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber;
-              final url = 'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=$psoNo';
-              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-            },
+            onPressed: () => _showMoreInfoSheet(context, group),
             icon: const Icon(Icons.info_outline, size: 18),
-            label: const Text('More Info — PSO Certificate'),
+            label: const Text('More Info'),
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.primaryColor,
               side: const BorderSide(color: AppTheme.primaryColor),
@@ -300,6 +272,176 @@ class _OverviewTab extends StatelessWidget {
     final f = NumberFormat('#,##,###');
     return f.format(v);
   }
+}
+
+void _showMoreInfoSheet(BuildContext context, dynamic group) {
+  final psoNo = group.psoNumber.isNotEmpty ? group.psoNumber : group.groupNumber;
+  final govtPsoUrl =
+      'https://tchits.telangana.gov.in/CHITS_Display_Approval_Details.htm?PSO_NO=$psoNo';
+
+  final docs = <Map<String, String>>[
+    {
+      'title': 'FDR Certificate',
+      'url': group.fdrCertificateUrl?.toString() ?? '',
+    },
+    {
+      'title': 'PSO Certificate',
+      'url': (group.psoCertificateUrl?.toString() ?? '').isNotEmpty
+          ? group.psoCertificateUrl.toString()
+          : govtPsoUrl,
+    },
+    {
+      'title': 'Draft Agreement',
+      'url': group.draftAgreementUrl?.toString() ?? '',
+    },
+    {
+      'title': 'Signed Agreement',
+      'url': group.signedAgreementUrl?.toString() ?? '',
+    },
+  ];
+
+  showModalBottomSheet(
+    context: context,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Center(
+              child: Text(
+                'More Info',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ...docs.map((doc) {
+              final url = doc['url'] ?? '';
+              final hasUrl = url.isNotEmpty;
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  hasUrl ? Icons.description_outlined : Icons.info_outline,
+                  color: hasUrl ? AppTheme.primaryColor : Colors.grey,
+                ),
+                title: Text(doc['title'] ?? ''),
+                subtitle: hasUrl ? null : const Text('Not uploaded yet'),
+                trailing: hasUrl
+                    ? const Icon(Icons.open_in_new, size: 18, color: AppTheme.primaryColor)
+                    : null,
+                onTap: hasUrl
+                    ? () => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication)
+                    : null,
+              );
+            }),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+Future<void> _showBidHistory(BuildContext context, String auctionId, int month) async {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 16),
+          Text('Loading bid history…'),
+        ],
+      ),
+    ),
+  );
+
+  List<Map<String, dynamic>> bids = [];
+  try {
+    final res = await ApiService.get('/auctions/$auctionId/bids');
+    if (res['success'] == true) {
+      bids = List<Map<String, dynamic>>.from(res['data'] ?? []);
+    }
+  } catch (_) {}
+
+  if (!context.mounted) return;
+  Navigator.pop(context);
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (ctx) => DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.55,
+      minChildSize: 0.35,
+      maxChildSize: 0.85,
+      builder: (context, scrollController) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Bid History — Month $month',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: bids.isEmpty
+                  ? const Center(child: Text('No bids recorded for this auction.'))
+                  : ListView.separated(
+                      controller: scrollController,
+                      itemCount: bids.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final bid = bids[i];
+                        final bidder = bid['bidder'] is Map
+                            ? (bid['bidder']['full_name'] ?? 'Member')
+                            : 'Member';
+                        final amount = NumberFormat('#,##,###').format(
+                          double.tryParse(bid['bid_amount']?.toString() ?? '0') ?? 0,
+                        );
+                        return ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: CircleAvatar(
+                            backgroundColor: AppTheme.primaryColor.withAlpha(25),
+                            child: Text('${i + 1}',
+                                style: const TextStyle(
+                                    color: AppTheme.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12)),
+                          ),
+                          title: Text(bidder.toString()),
+                          trailing: Text(
+                            '₹$amount',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 // ─── PRIZED TICKETS TAB ───────────────────────────────────────────────────────
@@ -360,6 +502,7 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
         final a = _auctions[i];
         final monthNum = a['month_number'] ?? (i + 1);
         final ticketNo = a['winner_ticket_number'] ?? '-';
+        final auctionId = (a['_id'] ?? a['id'] ?? '').toString();
         final winnerObj = a['winner_id'];
         final winnerName = (winnerObj is Map)
             ? (winnerObj['full_name'] ?? 'Winner')
@@ -380,10 +523,19 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
                     color: Colors.amber.withAlpha(30),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Center(
-                    child: Text('$ticketNo',
-                        style: const TextStyle(
-                            color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 16)),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: auctionId.isNotEmpty
+                        ? () => _showBidHistory(context, auctionId, monthNum is int ? monthNum : int.tryParse('$monthNum') ?? (i + 1))
+                        : null,
+                    child: Center(
+                      child: Text('$ticketNo',
+                          style: TextStyle(
+                              color: auctionId.isNotEmpty ? AppTheme.primaryColor : Colors.amber,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              decoration: auctionId.isNotEmpty ? TextDecoration.underline : null)),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -397,7 +549,11 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
                           maxLines: 1),
                       const SizedBox(height: 2),
                       Text('Ticket #$ticketNo',
-                          style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                          style: TextStyle(
+                            color: auctionId.isNotEmpty ? AppTheme.primaryColor : Colors.grey[500],
+                            fontSize: 12,
+                            decoration: auctionId.isNotEmpty ? TextDecoration.underline : null,
+                          )),
                     ],
                   ),
                 ),

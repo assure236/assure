@@ -349,29 +349,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   // ── NOMINEE ───────────────────────────────────────────────────────────────
-  Future<void> _showNomineeSheet(dynamic user) async {
-    dynamic nomineeUser = user;
-    try {
-      final profileRes = await ApiService.getWithoutActiveMember('/users/profile');
-      if (profileRes['success'] == true) {
-        nomineeUser = User.fromJson(Map<String, dynamic>.from(profileRes['data']));
-      }
-    } catch (_) {}
-
-    final isNewNominee = !_nomineeIsConfigured(nomineeUser);
-    final nc = TextEditingController(
-      text: isNewNominee ? '' : _nomineeField(nomineeUser?.nomineeName),
-    );
+  Future<void> _showNomineeSheet() async {
+    final nc = TextEditingController();
     final otherRelCtrl = TextEditingController();
-    String? rel = isNewNominee
-        ? null
-        : (_nomineeField(nomineeUser?.nomineeRelationship).isEmpty
-            ? null
-            : nomineeUser?.nomineeRelationship as String?);
-    if (rel != null && !_kRelations.contains(rel)) {
-      otherRelCtrl.text = rel;
-      rel = 'Other';
-    }
+    String? rel;
     bool otpSent = false;
     bool sendingOtp = false;
     bool saving = false;
@@ -385,7 +366,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       required String relationship,
     }) async {
       if (otpValue.length != 6) {
-        ss(() => err = 'Enter the 6-digit OTP');
+        ss(() => err = 'Enter OTP');
         return;
       }
       ss(() { saving = true; err = null; });
@@ -429,19 +410,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 children: [
                   Center(child: _handle()),
                   const SizedBox(height: 8),
-                  Text(
-                    isNewNominee ? 'Enter Nominee Details' : 'Change Nominee',
+                  const Text(
+                    'Enter Nominee Details',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  if (otpSent) ...[
-                    const SizedBox(height: 6),
-                    Text(
-                      'OTP sent to your registered mobile. Enter it below to save.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.35),
-                    ),
-                  ],
                   const SizedBox(height: 16),
                   _tf(nc, 'Nominee Name', Icons.person_add_outlined),
                   const SizedBox(height: 14),
@@ -471,11 +444,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Text(
-                        'OTP sent to your registered mobile. Enter all 6 digits below.',
+                        'OTP sent to your registered mobile.',
                         style: TextStyle(fontSize: 12, color: Colors.black87, height: 1.35),
                       ),
                     ),
                     const SizedBox(height: 14),
+                    const Text(
+                      'Enter OTP',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 10),
                     OtpInputRow(
                       onCompleted: (v) => ss(() {
                         otpValue = v;
@@ -844,7 +822,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _Card(
                   title: 'Nominee',
                   trailing: TextButton.icon(
-                    onPressed: () => _showNomineeSheet(nomineeUser),
+                    onPressed: () => _showNomineeSheet(),
                     icon: Icon(
                       _nomineeIsConfigured(nomineeUser)
                           ? Icons.edit_outlined

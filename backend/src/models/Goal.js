@@ -7,6 +7,7 @@ const goalSchema = new mongoose.Schema({
   target_amount: { type: Number, required: true },
   current_amount: { type: Number, default: 0 },
   target_date: Date,
+  linked_chit_group_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'ChitGroup' }],
   is_completed: { type: Boolean, default: false },
   completed_at: Date,
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
