@@ -228,6 +228,20 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Profile-level updates (nominee, email, etc.) must target the logged-in account.
+  static Future<Map<String, dynamic>> putWithoutActiveMember(
+      String endpoint, Map<String, dynamic> data) async {
+    final uri = await _buildUri(endpoint, includeActiveMember: false);
+    final headers = await _buildHeaders(endpoint, includeActiveMember: false);
+    final response = await http.put(
+      uri,
+      headers: headers,
+      body: jsonEncode(data),
+    );
+
+    return _handleResponse(response);
+  }
+
   static Future<Map<String, dynamic>> delete(String endpoint) async {
     final uri = await _buildUri(endpoint);
     final headers = await _buildHeaders(endpoint);

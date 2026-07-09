@@ -15,6 +15,7 @@ import '../../../core/providers/active_member_provider.dart';
 import '../../../core/models/user_model.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/widgets/otp_input_row.dart';
 
 Future<Map<String, String>> _authHeaders() async {
   final prefs = await SharedPreferences.getInstance();
@@ -81,6 +82,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   bool _saving = false;
   User? _displayUser;
+  User? _accountUser;
   String? _loadedMemberContext;
 
   @override
@@ -103,9 +105,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _loadDisplayedProfile() async {
     try {
       final response = await ApiService.get('/users/profile');
-      if (response['success'] == true && mounted) {
+      User? accountUser;
+      try {
+        final accountRes = await ApiService.getWithoutActiveMember('/users/profile');
+        if (accountRes['success'] == true) {
+          accountUser = User.fromJson(Map<String, dynamic>.from(accountRes['data']));
+        }
+      } catch (_) {}
+      if (mounted) {
         setState(() {
-          _displayUser = User.fromJson(Map<String, dynamic>.from(response['data']));
+          if (response['success'] == true) {
+            _displayUser = User.fromJson(Map<String, dynamic>.from(response['data']));
+          }
+          _accountUser = accountUser ?? _displayUser;
         });
       }
     } catch (_) {}
@@ -337,37 +349,46 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // ── NOMINEE ───────────────────────────────────────────────────────────────
   Future<void> _showNomineeSheet(dynamic user) async {
-    final isNewNominee = !_nomineeIsConfigured(user);
-    final nc = TextEditingController(text: _nomineeField(user?.nomineeName));
-    final oc = TextEditingController();
+    dynamic nomineeUser = user;
+    try {
+      final profileRes = await ApiService.getWithoutActiveMember('/users/profile');
+      if (profileRes['success'] == true) {
+        nomineeUser = User.fromJson(Map<String, dynamic>.from(profileRes['data']));
+      }
+    } catch (_) {}
+
+    final isNewNominee = !_nomineeIsConfigured(nomineeUser);
+    final nc = TextEditingController(text: _nomineeField(nomineeUser?.nomineeName));
     final otherRelCtrl = TextEditingController();
-    String? rel = _nomineeField(user?.nomineeRelationship).isEmpty
+    String? rel = _nomineeField(nomineeUser?.nomineeRelationship).isEmpty
         ? null
-        : user?.nomineeRelationship as String?;
+        : nomineeUser?.nomineeRelationship as String?;
     if (rel != null && !_kRelations.contains(rel)) {
       otherRelCtrl.text = rel;
       rel = 'Other';
     }
     bool otpSent = false;
-    bool loading = false;
+    bool sendingOtp = false;
+    bool saving = false;
+    String otpValue = '';
     String? err;
+    final scrollCtrl = ScrollController();
 
     Future<void> submitNominee(
       void Function(void Function()) ss,
       BuildContext ctx, {
       required String relationship,
     }) async {
-      final otp = oc.text.trim();
-      if (otp.length != 6) {
+      if (otpValue.length != 6) {
         ss(() => err = 'Enter the 6-digit OTP');
         return;
       }
-      ss(() { loading = true; err = null; });
+      ss(() { saving = true; err = null; });
       try {
-        final r = await ApiService.put('/users/profile', {
+        final r = await ApiService.putWithoutActiveMember('/users/profile', {
           'nominee_name': nc.text.trim(),
           'nominee_relationship': relationship,
-          'otp': otp,
+          'otp': otpValue,
         });
         if (r['success'] == true) {
           await _refresh();
@@ -376,11 +397,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         } else {
           ss(() {
             err = r['message']?.toString() ?? 'Update failed';
-            loading = false;
+            saving = false;
           });
         }
       } catch (_) {
-        ss(() { err = 'Network error'; loading = false; });
+        ss(() { err = 'Network error'; saving = false; });
       }
     }
 
@@ -391,146 +412,177 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, ss) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 24,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _handle(),
-              const SizedBox(height: 8),
-              Text(
-                isNewNominee ? 'Enter Nominee Details' : 'Change Nominee',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              _tf(nc, 'Nominee Name', Icons.person_add_outlined),
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                value: rel,
-                decoration: InputDecoration(
-                  labelText: 'Relationship',
-                  prefixIcon: const Icon(Icons.people_outline, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-                items: _kRelations
-                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                    .toList(),
-                onChanged: (v) => ss(() => rel = v),
-              ),
-              if (rel == 'Other') ...[
-                const SizedBox(height: 14),
-                _tf(otherRelCtrl, 'Specify relationship', Icons.edit_outlined),
-              ],
-              if (otpSent) ...[
-                const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.lightBlueBg,
-                    borderRadius: BorderRadius.circular(10),
+        builder: (ctx, ss) {
+          final busy = sendingOtp || saving;
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: SingleChildScrollView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(child: _handle()),
+                  const SizedBox(height: 8),
+                  Text(
+                    isNewNominee ? 'Enter Nominee Details' : 'Change Nominee',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                  child: const Text(
-                    'OTP sent to your registered mobile. Enter it below to save nominee details.',
-                    style: TextStyle(fontSize: 12, color: Colors.black87, height: 1.35),
+                  const SizedBox(height: 6),
+                  Text(
+                    otpSent
+                        ? 'Step 2 of 2 — enter OTP sent to your registered mobile'
+                        : 'Step 1 of 2 — enter details, then verify with OTP',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, height: 1.35),
                   ),
-                ),
-                const SizedBox(height: 12),
-                _tf(
-                  oc,
-                  '6-digit OTP',
-                  Icons.lock_outline,
-                  type: TextInputType.number,
-                  formatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(6),
+                  const SizedBox(height: 16),
+                  _tf(nc, 'Nominee Name', Icons.person_add_outlined),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<String>(
+                    value: rel,
+                    decoration: InputDecoration(
+                      labelText: 'Relationship',
+                      prefixIcon: const Icon(Icons.people_outline, size: 20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    items: _kRelations
+                        .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                        .toList(),
+                    onChanged: busy ? null : (v) => ss(() => rel = v),
+                  ),
+                  if (rel == 'Other') ...[
+                    const SizedBox(height: 14),
+                    _tf(otherRelCtrl, 'Specify relationship', Icons.edit_outlined),
                   ],
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: loading
-                        ? null
-                        : () async {
-                            ss(() { loading = true; err = null; });
-                            try {
-                              final r = await ApiService.post(
-                                  '/users/profile/nominee-otp/send', {});
-                              if (r['success'] == true) {
-                                ss(() { loading = false; });
-                                oc.clear();
-                                _snack('OTP resent to registered mobile');
-                              } else {
-                                ss(() {
-                                  err = r['message']?.toString() ?? 'Failed to resend OTP';
-                                  loading = false;
-                                });
+                  if (otpSent) ...[
+                    const SizedBox(height: 18),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.lightBlueBg,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'OTP sent to your registered mobile. Enter all 6 digits below.',
+                        style: TextStyle(fontSize: 12, color: Colors.black87, height: 1.35),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    OtpInputRow(
+                      onCompleted: (v) => ss(() {
+                        otpValue = v;
+                        err = null;
+                      }),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: busy
+                            ? null
+                            : () async {
+                                ss(() { sendingOtp = true; err = null; });
+                                try {
+                                  final r = await ApiService.postWithoutActiveMember(
+                                      '/users/profile/nominee-otp/send', {});
+                                  if (r['success'] == true) {
+                                    ss(() { sendingOtp = false; otpValue = ''; });
+                                    _snack('OTP resent to registered mobile');
+                                  } else {
+                                    ss(() {
+                                      err = r['message']?.toString() ?? 'Failed to resend OTP';
+                                      sendingOtp = false;
+                                    });
+                                  }
+                                } catch (_) {
+                                  ss(() { err = 'Network error'; sendingOtp = false; });
+                                }
+                              },
+                        child: const Text('Resend OTP'),
+                      ),
+                    ),
+                  ],
+                  if (err != null) ...[const SizedBox(height: 4), _errText(err!)],
+                  const SizedBox(height: 16),
+                  if (!otpSent)
+                    _btn(
+                      'Save Nominee',
+                      loading: sendingOtp,
+                      onTap: busy
+                          ? null
+                          : () async {
+                              if (nc.text.trim().length < 2) {
+                                ss(() => err = 'Enter nominee name');
+                                return;
                               }
-                            } catch (_) {
-                              ss(() { err = 'Network error'; loading = false; });
-                            }
-                          },
-                    child: const Text('Resend OTP'),
-                  ),
-                ),
-              ],
-              if (err != null) ...[const SizedBox(height: 4), _errText(err!)],
-              const SizedBox(height: 14),
-              _btn(
-                loading
-                    ? 'Please wait…'
-                    : (otpSent ? 'Verify & Save' : 'Save Nominee'),
-                loading: loading,
-                onTap: () async {
-                  if (nc.text.trim().length < 2) {
-                    ss(() => err = 'Enter nominee name');
-                    return;
-                  }
-                  if (rel == null) {
-                    ss(() => err = 'Select relationship');
-                    return;
-                  }
-                  if (rel == 'Other' && otherRelCtrl.text.trim().length < 2) {
-                    ss(() => err = 'Enter relationship type');
-                    return;
-                  }
-                  final relationship =
-                      rel == 'Other' ? otherRelCtrl.text.trim() : rel!;
-
-                  if (!otpSent) {
-                    ss(() { loading = true; err = null; });
-                    try {
-                      final r = await ApiService.post(
-                          '/users/profile/nominee-otp/send', {});
-                      if (r['success'] == true) {
-                        ss(() { otpSent = true; loading = false; });
-                        _snack('OTP sent to your registered mobile');
-                      } else {
-                        ss(() {
-                          err = r['message']?.toString() ?? 'Failed to send OTP';
-                          loading = false;
-                        });
-                      }
-                    } catch (_) {
-                      ss(() { err = 'Network error'; loading = false; });
-                    }
-                    return;
-                  }
-
-                  await submitNominee(ss, ctx, relationship: relationship);
-                },
+                              if (rel == null) {
+                                ss(() => err = 'Select relationship');
+                                return;
+                              }
+                              if (rel == 'Other' && otherRelCtrl.text.trim().length < 2) {
+                                ss(() => err = 'Enter relationship type');
+                                return;
+                              }
+                              ss(() { sendingOtp = true; err = null; });
+                              try {
+                                final r = await ApiService.postWithoutActiveMember(
+                                    '/users/profile/nominee-otp/send', {});
+                                if (r['success'] == true) {
+                                  ss(() { otpSent = true; sendingOtp = false; otpValue = ''; });
+                                  _snack('OTP sent to your registered mobile');
+                                  await Future<void>.delayed(const Duration(milliseconds: 120));
+                                  if (scrollCtrl.hasClients) {
+                                    await scrollCtrl.animateTo(
+                                      scrollCtrl.position.maxScrollExtent,
+                                      duration: const Duration(milliseconds: 250),
+                                      curve: Curves.easeOut,
+                                    );
+                                  }
+                                } else {
+                                  ss(() {
+                                    err = r['message']?.toString() ?? 'Failed to send OTP';
+                                    sendingOtp = false;
+                                  });
+                                }
+                              } catch (_) {
+                                ss(() { err = 'Network error'; sendingOtp = false; });
+                              }
+                            },
+                    )
+                  else
+                    _btn(
+                      'Verify & Save',
+                      loading: saving,
+                      onTap: busy
+                          ? null
+                          : () async {
+                              if (nc.text.trim().length < 2) {
+                                ss(() => err = 'Enter nominee name');
+                                return;
+                              }
+                              if (rel == null) {
+                                ss(() => err = 'Select relationship');
+                                return;
+                              }
+                              if (rel == 'Other' && otherRelCtrl.text.trim().length < 2) {
+                                ss(() => err = 'Enter relationship type');
+                                return;
+                              }
+                              final relationship =
+                                  rel == 'Other' ? otherRelCtrl.text.trim() : rel!;
+                              await submitNominee(ss, ctx, relationship: relationship);
+                            },
+                    ),
+                ],
               ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
+    scrollCtrl.dispose();
   }
 
   // ── BANK CHANGE ───────────────────────────────────────────────────────────
@@ -628,15 +680,32 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _errText(String msg) => Text(msg, style: const TextStyle(color: AppTheme.errorColor, fontSize: 12));
 
   Widget _btn(String label, {required VoidCallback? onTap, bool loading = false}) =>
-    SizedBox(width: double.infinity, height: 48,
+    SizedBox(
+      width: double.infinity,
+      height: 52,
       child: ElevatedButton(
         onPressed: loading ? null : onTap,
-        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor, foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppTheme.primaryColor,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: AppTheme.primaryColor.withAlpha(180),
+          disabledForegroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
         child: loading
-          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-          : Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-      ));
+          ? const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+            )
+          : Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+      ),
+    );
 
   Widget _tf(TextEditingController ctrl, String label, IconData icon,
       {TextInputType type = TextInputType.text, List<TextInputFormatter>? formatters, ValueChanged<String>? onChange}) =>
@@ -677,6 +746,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = _displayUser ?? context.watch<AuthProvider>().user;
+    final nomineeUser = _accountUser ?? user;
     final isProfilePending = (user?.profileEditStatus ?? '').toLowerCase() == 'pending';
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
@@ -769,16 +839,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _Card(
                   title: 'Nominee',
                   trailing: TextButton.icon(
-                    onPressed: () => _showNomineeSheet(user),
+                    onPressed: () => _showNomineeSheet(nomineeUser),
                     icon: Icon(
-                      _nomineeIsConfigured(user)
+                      _nomineeIsConfigured(nomineeUser)
                           ? Icons.edit_outlined
                           : Icons.person_add_outlined,
                       size: 16,
                     ),
                     label: Text(
-                      _nomineeIsConfigured(user)
-                          ? 'Change'
+                      _nomineeIsConfigured(nomineeUser)
+                          ? 'Change Nominee'
                           : 'Enter Nominee Details',
                       style: const TextStyle(fontSize: 12),
                     ),
@@ -786,13 +856,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     _Row(
                       'Nominee Name',
-                      _nomineeIsConfigured(user) ? user?.nomineeName : null,
+                      _nomineeIsConfigured(nomineeUser) ? nomineeUser?.nomineeName : null,
                     ),
                     _Row(
                       'Relationship',
-                      _nomineeIsConfigured(user) ? user?.nomineeRelationship : null,
+                      _nomineeIsConfigured(nomineeUser) ? nomineeUser?.nomineeRelationship : null,
                     ),
-                    if (!_nomineeIsConfigured(user))
+                    if (!_nomineeIsConfigured(nomineeUser))
                       const Padding(
                         padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
                         child: Text(

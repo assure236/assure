@@ -75,13 +75,14 @@ exports.updateProfile = async (req, res, next) => {
     if (!currentUser) return res.status(404).json({ success: false, message: 'User not found' });
 
     // Nominee updates are allowed with OTP even when profile is already approved.
+    const accountUserId = req.auth_user?._id || req.auth_user?.id || userId;
     const hasNomineeName = req.body.nominee_name !== undefined;
     const hasNomineeRelationship = req.body.nominee_relationship !== undefined;
     const hasOnlyNomineeFields = Object.keys(req.body || {}).every((k) =>
       ['nominee_name', 'nominee_relationship', 'otp'].includes(k)
     );
     if (hasOnlyNomineeFields && (hasNomineeName || hasNomineeRelationship)) {
-      if (!_checkOtp('nominee:' + userId, req.body.otp)) {
+      if (!_checkOtp('nominee:' + accountUserId, req.body.otp)) {
         return res.status(400).json({ success: false, message: 'Invalid or expired OTP.' });
       }
       const directUpdates = {};
@@ -96,7 +97,7 @@ exports.updateProfile = async (req, res, next) => {
       directUpdates.nominee_name = nomineeName;
       directUpdates.nominee_relationship = relation;
 
-      const user = await User.findByIdAndUpdate(userId, directUpdates, { new: true }).select('-password_hash');
+      const user = await User.findByIdAndUpdate(accountUserId, directUpdates, { new: true }).select('-password_hash');
       const userObj = toMemberProfileUser(user.toObject());
       userObj.id = userObj._id;
       return res.json({ success: true, message: 'Nominee updated successfully.', data: userObj });
@@ -1120,7 +1121,7 @@ exports.changeEmailVerifyOtp = async (req, res, next) => {
 
 exports.nomineeOtpSend = async (req, res, next) => {
   try {
-    const userId = req.user._id || req.user.id;
+    const userId = req.auth_user?._id || req.auth_user?.id || req.user._id || req.user.id;
     const user = await User.findById(userId).select('mobile');
     if (!user) return res.status(404).json({ success: false, message: 'User not found' });
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
