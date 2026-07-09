@@ -22,14 +22,20 @@ class PaymentProvider with ChangeNotifier {
       .toList();
 
   // Due payments from /due-payments (calculated schedule)
-  List<Map<String, dynamic>> get duePayments => _duePayments;
+  List<Map<String, dynamic>> get duePayments => _duePayments
+      .where((p) => p['is_enrolled'] != false)
+      .toList();
 
   // Upcoming = overdue + current (can_pay = true)
   List<Map<String, dynamic>> get upcomingPayments {
-    if (_duePayments.isNotEmpty) return _duePayments;
-    return _payments
-        .where((p) => p['payment_status'] == 'pending' || p['payment_status'] == 'overdue')
-        .toList();
+    final dues = _duePayments.isNotEmpty
+        ? _duePayments
+        : _payments
+            .where((p) =>
+                p['payment_status'] == 'pending' ||
+                p['payment_status'] == 'overdue')
+            .toList();
+    return dues.where((p) => p['is_enrolled'] != false).toList();
   }
 
   // Only payable (overdue + current month, not future)

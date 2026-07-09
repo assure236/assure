@@ -1,4 +1,4 @@
-const { ChitGroup, ChitMember, User, Auction, Payment, Referral } = require('../models');
+const { ChitGroup, ChitMember, User, Auction, Payment, Referral, Bid } = require('../models');
 const { audit, getIp } = require('../utils/audit');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
@@ -67,8 +67,15 @@ exports.getChitGroupById = async (req, res, next) => {
     ]);
     // Compute current_month from completed auctions for accurate months tracking
     const completedCount = await Auction.countDocuments({ chit_group_id: group._id, status: 'completed' });
+    const userId = req.user._id || req.user.id;
+    const isEnrolled = !!(await ChitMember.findOne({
+      chit_group_id: group._id,
+      user_id: userId,
+      is_active: true,
+    }));
     const groupObj = group.toObject();
     groupObj.current_month = completedCount;
+    groupObj.is_enrolled = isEnrolled;
     res.json({ success: true, data: { ...groupObj, members, auctions } });
   } catch (err) { next(err); }
 };
@@ -149,6 +156,16 @@ exports.getPaymentSchedule = async (req, res, next) => {
     const userId = req.user._id || req.user.id;
     const group = await ChitGroup.findById(req.params.id);
     if (!group) return res.status(404).json({ success: false, message: 'Chit group not found' });
+
+    const member = await ChitMember.findOne({
+      chit_group_id: group._id,
+      user_id: userId,
+      is_active: true,
+    });
+    if (!member) {
+      return res.json({ success: true, is_enrolled: false, data: [] });
+    }
+
     const payments = await Payment.find({ chit_group_id: group._id, user_id: userId, payment_type: 'installment', payment_status: 'success' }).select('month_number');
     const paidMonths = new Set(payments.map(p => p.month_number));
 
@@ -189,10 +206,11 @@ exports.getPaymentSchedule = async (req, res, next) => {
         dividend_reduction: dividend,
         amount,
         status,
-        can_pay,
+        can_pay: can_pay && !!member,
+        is_enrolled: true,
       });
     }
-    res.json({ success: true, data: schedule });
+    res.json({ success: true, is_enrolled: true, data: schedule });
   } catch (err) { next(err); }
 };
 
@@ -244,13 +262,58 @@ exports.suspendChitGroup = async (req, res, next) => {
 
 exports.getChitGroupAuctions = async (req, res, next) => {
   try {
+    const groupId = req.params.id;
     const auctions = await Auction.find({
-      chit_group_id: req.params.id,
+      chit_group_id: groupId,
       status: 'completed',
     })
       .populate('winner_id', 'full_name mobile')
-      .sort({ month_number: 1 });
-    res.json({ success: true, data: auctions });
+      .sort({ month_number: 1 })
+      .lean();
+
+    if (!auctions.length) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const auctionIds = auctions.map((a) => a._id);
+    const bids = await Bid.find({ auction_id: { $in: auctionIds } })
+      .sort({ bid_amount: -1, bid_time_ms: 1 })
+      .lean();
+    const topBidByAuction = {};
+    for (const bid of bids) {
+      const key = String(bid.auction_id);
+      if (!topBidByAuction[key]) topBidByAuction[key] = bid;
+    }
+
+    const winnerIds = auctions
+      .map((a) => a.winner_id?._id || a.winner_id)
+      .filter(Boolean);
+    const members = winnerIds.length
+      ? await ChitMember.find({ chit_group_id: groupId, user_id: { $in: winnerIds } })
+          .select('user_id ticket_number')
+          .lean()
+      : [];
+    const ticketByUser = Object.fromEntries(
+      members.map((m) => [String(m.user_id), m.ticket_number]),
+    );
+
+    const data = [];
+    for (const auction of auctions) {
+      let ticket = auction.winner_ticket_number;
+      if (!ticket) {
+        ticket = topBidByAuction[String(auction._id)]?.ticket_number;
+      }
+      if (!ticket && auction.winner_id) {
+        const wid = auction.winner_id._id || auction.winner_id;
+        ticket = ticketByUser[String(wid)];
+      }
+      if (ticket && !auction.winner_ticket_number) {
+        await Auction.findByIdAndUpdate(auction._id, { winner_ticket_number: ticket });
+      }
+      data.push({ ...auction, winner_ticket_number: ticket ?? null });
+    }
+
+    res.json({ success: true, data });
   } catch (err) { next(err); }
 };
 

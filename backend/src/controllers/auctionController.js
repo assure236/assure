@@ -527,6 +527,7 @@ const endAuctionById = async (auctionId, io) => {
 
     updateData.winner_id = winningBid.user_id;
     updateData.winning_bid_amount = winningBid.bid_amount;
+    updateData.winner_ticket_number = winningBid.ticket_number;
     updateData.commission_amount = commission;
     updateData.discount_amount = winningBid.bid_amount; // the sacrifice amount (bid)
     updateData.dividend_amount = winningBid.bid_amount; // total dividend pool = winning bid
@@ -599,6 +600,7 @@ const endAuctionById = async (auctionId, io) => {
       commission: updateData.commission_amount || 0,
       dividend_per_member: updateData.dividend_per_member || 0,
       disbursement_amount: updateData.disbursement_amount || 0,
+      winner_ticket_number: updateData.winner_ticket_number || winningBid?.ticket_number || null,
       status: 'completed',
       total_bids: auction.total_bid_count || 0,
     };

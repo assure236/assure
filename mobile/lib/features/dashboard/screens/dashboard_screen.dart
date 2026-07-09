@@ -255,7 +255,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ProfileScreen(switchTab: _switchTab),
                 ],
               ),
-              bottomNavigationBar: NavigationBar(
+              bottomNavigationBar: Theme(
+                data: Theme.of(context).copyWith(
+                  navigationBarTheme: NavigationBarThemeData(
+                    labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                      return const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                        height: 1.1,
+                        letterSpacing: -0.2,
+                      );
+                    }),
+                  ),
+                ),
+                child: NavigationBar(
                 key: _tourNavChitsKey,
                 selectedIndex: _currentIndex,
                 onDestinationSelected: _switchTab,
@@ -292,6 +305,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     label: 'More',
                   ),
                 ],
+                ),
               ),
             ),
             if (_showTour)

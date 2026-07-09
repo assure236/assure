@@ -392,6 +392,7 @@ exports.getUpcomingPayments = async (req, res, next) => {
           days_overdue: daysOverdue,
           can_pay: isDueNow,
           is_future: isFuture,
+          is_enrolled: true,
           payment_number: null,
         });
       }

@@ -668,7 +668,8 @@ class _UpcomingPaymentsTab extends StatelessWidget {
 
     // Split into payable (overdue/pending) only — future installments hidden from Upcoming tab
     final payable = payments.where((p) =>
-        p['payment_status'] == 'overdue' || p['payment_status'] == 'pending').toList();
+        (p['payment_status'] == 'overdue' || p['payment_status'] == 'pending') &&
+        p['is_enrolled'] != false).toList();
 
     return RefreshIndicator(
       onRefresh: onRefresh,

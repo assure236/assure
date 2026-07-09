@@ -203,15 +203,23 @@ class ChitGroupProvider with ChangeNotifier {
     return [];
   }
 
-  Future<List<Map<String, dynamic>>> fetchGroupPayments(String groupId) async {
+  Future<Map<String, dynamic>> fetchGroupPaymentSchedule(String groupId) async {
     try {
       final response = await ApiService.get('/chit-groups/$groupId/payment-schedule');
       if (response['success'] == true) {
-        return List<Map<String, dynamic>>.from(response['data'] ?? []);
+        return {
+          'is_enrolled': response['is_enrolled'] != false,
+          'schedule': List<Map<String, dynamic>>.from(response['data'] ?? []),
+        };
       }
     } catch (e) {
       debugPrint('Error fetching group payments: $e');
     }
-    return [];
+    return {'is_enrolled': false, 'schedule': <Map<String, dynamic>>[]};
+  }
+
+  Future<List<Map<String, dynamic>>> fetchGroupPayments(String groupId) async {
+    final result = await fetchGroupPaymentSchedule(groupId);
+    return List<Map<String, dynamic>>.from(result['schedule'] ?? const []);
   }
 }

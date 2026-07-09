@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/providers/chit_group_provider.dart';
+import '../../../core/providers/dashboard_provider.dart';
 import '../../../core/providers/payment_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/api_service.dart';
@@ -80,10 +81,15 @@ class _ChitGroupDetailsScreenState extends State<ChitGroupDetailsScreen>
                             children: [
                               _OverviewTab(group: group),
                               _PrizedTicketsTab(groupId: widget.groupId),
-                              _PaymentHistoryTab(groupId: widget.groupId),
+                              _PaymentHistoryTab(
+                                groupId: widget.groupId,
+                                isEnrolled: group.isEnrolled,
+                                groupName: group.groupName,
+                              ),
                             ],
                           ),
                         ),
+                        if (!group.isEnrolled) _InvestNowBar(groupId: widget.groupId, groupName: group.groupName),
                       ],
                     ),
         );
@@ -446,6 +452,20 @@ Future<void> _showBidHistory(BuildContext context, String auctionId, int month) 
 
 // ─── PRIZED TICKETS TAB ───────────────────────────────────────────────────────
 
+String? _resolveWinnerTicket(Map<String, dynamic> auction) {
+  final direct = auction['winner_ticket_number'];
+  if (direct != null) {
+    final text = direct.toString().trim();
+    if (text.isNotEmpty && text != 'null' && text != '-') return text;
+  }
+  final winner = auction['winner_id'];
+  if (winner is Map) {
+    final fromWinner = winner['ticket_number']?.toString().trim();
+    if (fromWinner != null && fromWinner.isNotEmpty) return fromWinner;
+  }
+  return null;
+}
+
 class _PrizedTicketsTab extends StatefulWidget {
   final String groupId;
   const _PrizedTicketsTab({required this.groupId});
@@ -501,8 +521,10 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
       itemBuilder: (context, i) {
         final a = _auctions[i];
         final monthNum = a['month_number'] ?? (i + 1);
-        final ticketNo = a['winner_ticket_number'] ?? '-';
+        final month = monthNum is int ? monthNum : int.tryParse('$monthNum') ?? (i + 1);
+        final ticketNo = _resolveWinnerTicket(a);
         final auctionId = (a['_id'] ?? a['id'] ?? '').toString();
+        final canOpenHistory = auctionId.isNotEmpty;
         final winnerObj = a['winner_id'];
         final winnerName = (winnerObj is Map)
             ? (winnerObj['full_name'] ?? 'Winner')
@@ -511,73 +533,121 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
         final fmtAmt = NumberFormat('#,##,###').format(
             double.tryParse(bidAmount.toString()) ?? 0);
 
+        void openHistory() {
+          if (!canOpenHistory) return;
+          _showBidHistory(context, auctionId, month);
+        }
+
         return Card(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  width: 44, height: 44,
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withAlpha(30),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: auctionId.isNotEmpty
-                        ? () => _showBidHistory(context, auctionId, monthNum is int ? monthNum : int.tryParse('$monthNum') ?? (i + 1))
-                        : null,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: canOpenHistory ? openHistory : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withAlpha(35),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.amber.withAlpha(80)),
+                    ),
                     child: Center(
-                      child: Text('$ticketNo',
-                          style: TextStyle(
-                              color: auctionId.isNotEmpty ? AppTheme.primaryColor : Colors.amber,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              decoration: auctionId.isNotEmpty ? TextDecoration.underline : null)),
+                      child: Text(
+                        ticketNo ?? '—',
+                        style: TextStyle(
+                          color: ticketNo != null ? AppTheme.primaryColor : Colors.grey,
+                          fontWeight: FontWeight.bold,
+                          fontSize: ticketNo != null && ticketNo.length > 2 ? 14 : 18,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Month $monthNum — $winnerName',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1),
-                      const SizedBox(height: 2),
-                      Text('Ticket #$ticketNo',
-                          style: TextStyle(
-                            color: auctionId.isNotEmpty ? AppTheme.primaryColor : Colors.grey[500],
-                            fontSize: 12,
-                            decoration: auctionId.isNotEmpty ? TextDecoration.underline : null,
-                          )),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text('₹$fmtAmt',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.successColor,
-                            fontSize: 14)),
-                    const SizedBox(height: 2),
-                    const Row(
-                      mainAxisSize: MainAxisSize.min,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(Icons.emoji_events, size: 12, color: Colors.amber),
-                        SizedBox(width: 4),
-                        Text('Winner', style: TextStyle(color: Colors.amber, fontSize: 10, fontWeight: FontWeight.bold)),
+                        Text(
+                          'Month $month',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          winnerName,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        if (ticketNo != null)
+                          GestureDetector(
+                            onTap: openHistory,
+                            child: Text(
+                              'Ticket #$ticketNo — View bid history',
+                              style: const TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontSize: 12,
+                                decoration: TextDecoration.underline,
+                                decorationColor: AppTheme.primaryColor,
+                              ),
+                            ),
+                          )
+                        else
+                          Text(
+                            'Ticket number unavailable',
+                            style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                          ),
                       ],
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '₹$fmtAmt',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.successColor,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Winning bid',
+                        style: TextStyle(color: Colors.grey[500], fontSize: 10),
+                      ),
+                      const SizedBox(height: 4),
+                      const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.emoji_events, size: 12, color: Colors.amber),
+                          SizedBox(width: 4),
+                          Text(
+                            'Winner',
+                            style: TextStyle(
+                              color: Colors.amber,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -590,7 +660,13 @@ class _PrizedTicketsTabState extends State<_PrizedTicketsTab> {
 
 class _PaymentHistoryTab extends StatefulWidget {
   final String groupId;
-  const _PaymentHistoryTab({required this.groupId});
+  final bool isEnrolled;
+  final String groupName;
+  const _PaymentHistoryTab({
+    required this.groupId,
+    required this.isEnrolled,
+    required this.groupName,
+  });
 
   @override
   State<_PaymentHistoryTab> createState() => _PaymentHistoryTabState();
@@ -598,20 +674,37 @@ class _PaymentHistoryTab extends StatefulWidget {
 
 class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
   bool _loading = true;
+  bool _isEnrolled = false;
   List<Map<String, dynamic>> _payments = [];
 
   @override
   void initState() {
     super.initState();
+    _isEnrolled = widget.isEnrolled;
     _load();
+  }
+
+  @override
+  void didUpdateWidget(covariant _PaymentHistoryTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isEnrolled && widget.isEnrolled) {
+      _isEnrolled = true;
+      _load();
+    }
   }
 
   Future<void> _load() async {
     try {
       final res = await context
           .read<ChitGroupProvider>()
-          .fetchGroupPayments(widget.groupId);
-      if (mounted) setState(() { _payments = res; _loading = false; });
+          .fetchGroupPaymentSchedule(widget.groupId);
+      if (mounted) {
+        setState(() {
+          _isEnrolled = res['is_enrolled'] == true;
+          _payments = List<Map<String, dynamic>>.from(res['schedule'] ?? const []);
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
@@ -620,6 +713,47 @@ class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
+
+    if (!_isEnrolled) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.trending_up_rounded, size: 64, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              const Text(
+                'Not enrolled yet',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Invest in ${widget.groupName} to view your payment schedule and pay installments.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _InvestNowBar.enroll(context, widget.groupId, widget.groupName),
+                  icon: const Icon(Icons.trending_up_rounded),
+                  label: const Text('Invest Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_payments.isEmpty) {
       return const Center(
           child: Text('No payment schedule available.',
@@ -691,7 +825,7 @@ class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
                         style: TextStyle(
                             color: AppTheme.successColor, fontSize: 10, fontWeight: FontWeight.w500),
                       ),
-                    if (p['can_pay'] == true)
+                    if (p['can_pay'] == true && _isEnrolled)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: SizedBox(
@@ -901,6 +1035,78 @@ class _PaymentHistoryTabState extends State<_PaymentHistoryTab> {
               ),
             ]),
           ]),
+        ),
+      ),
+    );
+  }
+}
+
+class _InvestNowBar extends StatelessWidget {
+  final String groupId;
+  final String groupName;
+
+  const _InvestNowBar({required this.groupId, required this.groupName});
+
+  static Future<void> enroll(BuildContext context, String groupId, String groupName) async {
+    final monthly = context.read<ChitGroupProvider>().selectedChitGroup?.monthlyInstallment ?? 0;
+    final decision = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Confirm Investment'),
+        content: Text(
+          'Do you want to invest in $groupName?\n\n'
+          'Monthly installment: ₹${NumberFormat('#,##,###').format(monthly)}',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryColor),
+            child: const Text('Invest Now'),
+          ),
+        ],
+      ),
+    );
+    if (decision != true || !context.mounted) return;
+
+    final result = await context.read<ChitGroupProvider>().enrollInChitGroup(groupId);
+    final ok = result['success'] == true;
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text((result['message'] ?? (ok ? 'Invested successfully' : 'Investment failed')).toString()),
+        backgroundColor: ok ? AppTheme.successColor : AppTheme.errorColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+
+    if (ok) {
+      await context.read<ChitGroupProvider>().fetchChitGroupDetails(groupId);
+      if (!context.mounted) return;
+      await context.read<DashboardProvider>().refresh();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => enroll(context, groupId, groupName),
+            icon: const Icon(Icons.trending_up_rounded),
+            label: const Text('Invest Now'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+            ),
+          ),
         ),
       ),
     );

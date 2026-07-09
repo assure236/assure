@@ -792,10 +792,39 @@ router.get('/auctions/next-month/:groupId', adminOnly, async (req, res, next) =>
 router.post('/auctions/:id/set-winner', adminOnly, async (req, res, next) => {
   try {
     const { winner_id, winning_bid_amount } = req.body;
-    const auction = await Auction.findByIdAndUpdate(req.params.id, { status: 'completed', winner_id, winning_bid_amount, dividend_amount: winning_bid_amount, actual_end_time: new Date() }, { new: true })
-      .populate('winner_id', 'full_name mobile').populate('chit_group_id', 'group_name');
-    if (!auction) return res.status(404).json({ success: false, message: 'Not found' });
-    await ChitMember.findOneAndUpdate({ chit_group_id: auction.chit_group_id, user_id: winner_id }, { has_won_auction: true });
+    const existing = await Auction.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: 'Not found' });
+
+    let winnerTicket = null;
+    const winningBid = await Bid.findOne({ auction_id: existing._id })
+      .sort({ bid_amount: -1, bid_time_ms: 1 });
+    if (winningBid?.ticket_number) winnerTicket = winningBid.ticket_number;
+    if (!winnerTicket && winner_id) {
+      const member = await ChitMember.findOne({
+        chit_group_id: existing.chit_group_id,
+        user_id: winner_id,
+      }).select('ticket_number');
+      winnerTicket = member?.ticket_number ?? null;
+    }
+
+    const auction = await Auction.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'completed',
+        winner_id,
+        winning_bid_amount,
+        winner_ticket_number: winnerTicket,
+        dividend_amount: winning_bid_amount,
+        actual_end_time: new Date(),
+      },
+      { new: true },
+    )
+      .populate('winner_id', 'full_name mobile')
+      .populate('chit_group_id', 'group_name');
+    await ChitMember.findOneAndUpdate(
+      { chit_group_id: auction.chit_group_id, user_id: winner_id },
+      { has_won_auction: true },
+    );
     res.json({ success: true, message: 'Winner set', data: auction });
   } catch (err) { next(err); }
 });

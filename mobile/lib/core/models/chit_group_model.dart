@@ -14,6 +14,7 @@ class ChitGroup {
   final String psoCertificateUrl;
   final String draftAgreementUrl;
   final String signedAgreementUrl;
+  final bool isEnrolled;
 
   ChitGroup({
     required this.id,
@@ -31,6 +32,7 @@ class ChitGroup {
     this.psoCertificateUrl = '',
     this.draftAgreementUrl = '',
     this.signedAgreementUrl = '',
+    this.isEnrolled = false,
   });
 
   factory ChitGroup.fromJson(Map<String, dynamic> json) {
@@ -52,6 +54,7 @@ class ChitGroup {
       psoCertificateUrl: json['pso_certificate_url']?.toString() ?? '',
       draftAgreementUrl: json['draft_agreement_url']?.toString() ?? '',
       signedAgreementUrl: json['signed_agreement_url']?.toString() ?? '',
+      isEnrolled: json['is_enrolled'] == true,
     );
   }
 
