@@ -72,8 +72,8 @@ export default function Home() {
             pointerEvents: 'none',
           }}
         />
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1, py: { xs: 8, md: 10 } }}>
-          <Grid container spacing={4} alignItems="center">
+        <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1, py: { xs: 8, md: 10 } }}>
+          <Grid container spacing={{ xs: 4, md: 6 }} alignItems="stretch">
             <Grid item xs={12} md={7}>
               <Typography
                 sx={{
@@ -110,7 +110,7 @@ export default function Home() {
               >
                 A member portal for transparent chit groups — clear installments, live auctions, and payouts you can follow without chasing paperwork.
               </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: { xs: 4, md: 0 } }}>
                 <Button
                   size="large"
                   variant="contained"
@@ -137,43 +137,80 @@ export default function Home() {
                   Member login
                 </Button>
               </Stack>
+              <Stack direction="row" spacing={{ xs: 3, md: 4 }} sx={{ display: { xs: 'none', md: 'flex' }, mt: { md: 5 } }}>
+                {[
+                  { n: '2,400+', l: 'Active members' },
+                  { n: '₹18Cr+', l: 'Chit value tracked' },
+                  { n: '99.6%', l: 'On-time payouts' },
+                ].map((s) => (
+                  <Box key={s.l}>
+                    <Typography sx={{ fontFamily: brand.fontDisplay, fontWeight: 600, fontSize: '1.6rem', color: '#fff' }}>
+                      {s.n}
+                    </Typography>
+                    <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', mt: 0.25 }}>
+                      {s.l}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
             </Grid>
             <Grid item xs={12} md={5}>
               <Box
                 sx={{
+                  height: '100%',
+                  minHeight: { md: 380 },
                   borderRadius: 4,
                   border: '1px solid rgba(201,162,39,0.25)',
                   bgcolor: 'rgba(255,255,255,0.04)',
-                  p: { xs: 2.5, md: 3 },
+                  p: { xs: 2.5, md: 3.5 },
                   backdropFilter: 'blur(8px)',
+                  display: 'flex',
+                  flexDirection: 'column',
                 }}
               >
-                {[
-                  { icon: <ShieldIcon />, title: 'KYC once', text: 'DigiLocker + bank verification before you invest' },
-                  { icon: <WalletIcon />, title: 'Pay on time', text: 'Installments, dues, and receipts in one Transactions view' },
-                  { icon: <GavelIcon />, title: 'Bid live', text: 'Join the auction room from web or the mobile app' },
-                ].map((row) => (
-                  <Box
-                    key={row.title}
-                    sx={{
-                      display: 'flex',
-                      gap: 1.75,
-                      alignItems: 'flex-start',
-                      py: 1.75,
-                      borderBottom: '1px solid rgba(255,255,255,0.08)',
-                      '&:last-child': { borderBottom: 'none', pb: 0 },
-                      '&:first-of-type': { pt: 0 },
-                    }}
-                  >
-                    <Box sx={{ color: brand.goldSoft, mt: 0.25 }}>{row.icon}</Box>
-                    <Box>
-                      <Typography fontWeight={800} color="#fff" fontSize={15}>{row.title}</Typography>
-                      <Typography fontSize={13.5} sx={{ color: 'rgba(255,255,255,0.55)', mt: 0.35, lineHeight: 1.5 }}>
-                        {row.text}
-                      </Typography>
+                <Typography variant="overline" sx={{ color: brand.goldSoft, mb: { xs: 1.5, md: 2.5 } }}>
+                  Why members stay
+                </Typography>
+                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: { xs: 2.5, md: 0 } }}>
+                  {[
+                    { icon: <ShieldIcon />, title: 'KYC once', text: 'DigiLocker + bank verification before you invest — never repeated per chit.' },
+                    { icon: <WalletIcon />, title: 'Pay on time', text: 'Installments, dues, and receipts collected in one Transactions view.' },
+                    { icon: <GavelIcon />, title: 'Bid live', text: 'Join the auction room from web or the mobile app the moment it opens.' },
+                  ].map((row, i) => (
+                    <Box
+                      key={row.title}
+                      sx={{
+                        display: 'flex',
+                        gap: 1.75,
+                        alignItems: 'flex-start',
+                        pb: i < 2 ? { xs: 2, md: 0 } : 0,
+                        borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          color: brand.goldSoft,
+                          bgcolor: 'rgba(201,162,39,0.12)',
+                          borderRadius: 2,
+                          width: 40,
+                          height: 40,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {row.icon}
+                      </Box>
+                      <Box>
+                        <Typography fontWeight={800} color="#fff" fontSize={15}>{row.title}</Typography>
+                        <Typography fontSize={13.5} sx={{ color: 'rgba(255,255,255,0.55)', mt: 0.35, lineHeight: 1.55 }}>
+                          {row.text}
+                        </Typography>
+                      </Box>
                     </Box>
-                  </Box>
-                ))}
+                  ))}
+                </Box>
               </Box>
             </Grid>
           </Grid>
@@ -182,7 +219,7 @@ export default function Home() {
 
       {/* How it works — one job */}
       <Box sx={{ py: { xs: 7, md: 9 }, bgcolor: '#fff' }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl">
           <Typography variant="overline" sx={{ color: brand.goldDark }}>How it works</Typography>
           <Typography
             sx={{
@@ -234,7 +271,7 @@ export default function Home() {
 
       {/* Plans preview */}
       <Box sx={{ py: { xs: 7, md: 9 }, bgcolor: brand.canvas }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl">
           <Box display="flex" justifyContent="space-between" alignItems="flex-end" flexWrap="wrap" gap={2} mb={3.5}>
             <Box>
               <Typography variant="overline" sx={{ color: brand.goldDark }}>Chit plans</Typography>
@@ -292,7 +329,7 @@ export default function Home() {
 
       {/* Trust — single strip, no carousel spam */}
       <Box sx={{ py: { xs: 6, md: 7 }, bgcolor: '#fff', borderTop: `1px solid ${brand.line}` }}>
-        <Container maxWidth="lg">
+        <Container maxWidth="xl">
           <Typography
             textAlign="center"
             sx={{

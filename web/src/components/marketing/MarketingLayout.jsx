@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppBar, Box, Button, Collapse, Container, Divider, Drawer, IconButton,
   List, ListItemButton, ListItemText, Stack, Toolbar, Typography,
@@ -12,6 +12,8 @@ import {
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { brand } from '../../theme/brand';
 import { footerColumns, marketingNav } from './navConfig';
+
+const CLOSE_DELAY = 220;
 
 function Logo({ onClick, light = true }) {
   return (
@@ -64,97 +66,118 @@ function Logo({ onClick, light = true }) {
   );
 }
 
-function DesktopDropdown({ item, active }) {
+/**
+ * Hover/click dropdown with NO dead zone between trigger and panel — the panel
+ * sits flush against the trigger (top: 100%, zero gap) so the pointer never
+ * leaves a hoverable element while moving down into it. Visibility is driven by
+ * React state (not bare CSS :hover) so a short close-delay survives the diagonal
+ * mouse move, and clicking the label always navigates immediately.
+ */
+function DesktopDropdown({ item, active, isOpen, onOpen, onScheduleClose, onCancelClose }) {
   return (
     <Box
       className="mkt-nav-item"
-      sx={{
-        position: 'relative',
-        '&:hover .mkt-dropdown, &:focus-within .mkt-dropdown': {
-          opacity: 1,
-          visibility: 'visible',
-          transform: 'translateY(0)',
-          pointerEvents: 'auto',
-        },
-      }}
+      onMouseEnter={onOpen}
+      onMouseLeave={onScheduleClose}
+      sx={{ position: 'relative' }}
     >
       <Button
         component={RouterLink}
         to={item.path}
-        endIcon={<ExpandMore sx={{ fontSize: 16 }} />}
+        onClick={onOpen}
+        endIcon={
+          <ExpandMore
+            sx={{
+              fontSize: 16,
+              transition: 'transform 0.18s ease',
+              transform: isOpen ? 'rotate(180deg)' : 'none',
+            }}
+          />
+        }
         sx={{
-          color: active ? brand.goldSoft : 'rgba(255,255,255,0.82)',
+          color: active || isOpen ? brand.goldSoft : 'rgba(255,255,255,0.82)',
           fontWeight: 700,
-          fontSize: 13.5,
-          px: 1.5,
+          fontSize: 13,
+          px: 1.15,
           py: 1,
           textTransform: 'none',
           borderRadius: 2,
+          minWidth: 0,
           '&:hover': { bgcolor: 'rgba(255,255,255,0.06)', color: '#fff' },
         }}
       >
         {item.label}
       </Button>
+
+      {/* Flush-fit panel: top starts exactly at 100%, no gap, so hover never breaks. */}
       <Box
         className="mkt-dropdown"
+        onMouseEnter={onCancelClose}
         sx={{
           position: 'absolute',
-          top: 'calc(100% + 10px)',
+          top: '100%',
           left: 0,
-          minWidth: item.columns.length > 1 ? 480 : 300,
-          p: 1.25,
-          borderRadius: 2.5,
-          bgcolor: 'rgba(7, 20, 40, 0.98)',
-          border: '1px solid rgba(201,162,39,0.22)',
-          boxShadow: '0 20px 48px rgba(0,0,0,0.45)',
-          opacity: 0,
-          visibility: 'hidden',
-          transform: 'translateY(8px)',
-          transition: 'opacity 0.18s ease, transform 0.18s ease, visibility 0.18s',
-          pointerEvents: 'none',
+          pt: 1,
+          opacity: isOpen ? 1 : 0,
+          visibility: isOpen ? 'visible' : 'hidden',
+          transform: isOpen ? 'translateY(0)' : 'translateY(6px)',
+          transition: 'opacity 0.16s ease, transform 0.16s ease, visibility 0.16s',
+          pointerEvents: isOpen ? 'auto' : 'none',
           zIndex: 40,
-          display: 'grid',
-          gridTemplateColumns: item.columns.length > 1 ? '1fr 1fr' : '1fr',
-          gap: 1,
         }}
       >
-        {item.columns.map((col) => (
-          <Box key={col.heading}>
-            <Typography
-              variant="overline"
-              sx={{ px: 1.25, color: brand.gold, display: 'block', mb: 0.5 }}
-            >
-              {col.heading}
-            </Typography>
-            {col.links.map((link) => (
-              <Box
-                key={link.path}
-                component={RouterLink}
-                to={link.path}
-                sx={{
-                  display: 'block',
-                  px: 1.25,
-                  py: 1,
-                  borderRadius: 1.5,
-                  textDecoration: 'none',
-                  color: 'rgba(255,255,255,0.78)',
-                  transition: 'background 0.15s ease, color 0.15s ease',
-                  '&:hover': {
-                    bgcolor: 'rgba(201,162,39,0.12)',
-                    color: brand.goldSoft,
-                  },
-                }}
+        <Box
+          sx={{
+            minWidth: item.columns.length > 1 ? 480 : 300,
+            p: 1.25,
+            borderRadius: 2.5,
+            bgcolor: 'rgba(7, 20, 40, 0.98)',
+            border: '1px solid rgba(201,162,39,0.22)',
+            boxShadow: '0 20px 48px rgba(0,0,0,0.45)',
+            display: 'grid',
+            gridTemplateColumns: item.columns.length > 1 ? '1fr 1fr' : '1fr',
+            gap: 1,
+          }}
+        >
+          {item.columns.map((col) => (
+            <Box key={col.heading}>
+              <Typography
+                variant="overline"
+                sx={{ px: 1.25, color: brand.gold, display: 'block', mb: 0.5 }}
               >
-                <Typography fontWeight={700} fontSize={13.5} color="inherit">
-                  {link.label}
-                </Typography>
-                <Typography fontSize={11.5} sx={{ color: 'rgba(255,255,255,0.45)', mt: 0.25 }}>
-                  {link.desc}
-                </Typography>
-              </Box>
-            ))}
-          </Box>
-        ))}
+                {col.heading}
+              </Typography>
+              {col.links.map((link) => (
+                <Box
+                  key={link.path}
+                  component={RouterLink}
+                  to={link.path}
+                  onClick={onCancelClose}
+                  sx={{
+                    display: 'block',
+                    px: 1.25,
+                    py: 1,
+                    borderRadius: 1.5,
+                    textDecoration: 'none',
+                    color: 'rgba(255,255,255,0.78)',
+                    transition: 'background 0.15s ease, color 0.15s ease',
+                    '&:hover': {
+                      bgcolor: 'rgba(201,162,39,0.12)',
+                      color: brand.goldSoft,
+                    },
+                  }}
+                >
+                  <Typography fontWeight={700} fontSize={13.5} color="inherit">
+                    {link.label}
+                  </Typography>
+                  <Typography fontSize={11.5} sx={{ color: 'rgba(255,255,255,0.45)', mt: 0.25 }}>
+                    {link.desc}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          ))}
+        </Box>
       </Box>
     </Box>
   );
@@ -174,7 +197,7 @@ function MarketingFooter() {
         pb: 3,
       }}
     >
-      <Container maxWidth="lg">
+      <Container maxWidth="xl">
         <Box
           sx={{
             display: 'grid',
@@ -240,6 +263,32 @@ export default function MarketingLayout() {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState('');
+  const [openNavId, setOpenNavId] = useState('');
+  const closeTimer = useRef(null);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimer.current) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  }, []);
+
+  const openNav = useCallback((id) => {
+    clearCloseTimer();
+    setOpenNavId(id);
+  }, [clearCloseTimer]);
+
+  const scheduleCloseNav = useCallback(() => {
+    clearCloseTimer();
+    closeTimer.current = setTimeout(() => setOpenNavId(''), CLOSE_DELAY);
+  }, [clearCloseTimer]);
+
+  // Close the open dropdown whenever the route changes (after a click navigation).
+  useEffect(() => {
+    setOpenNavId('');
+  }, [location.pathname]);
+
+  useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
   const isActiveGroup = (item) =>
     location.pathname === item.path ||
@@ -266,7 +315,7 @@ export default function MarketingLayout() {
       >
         <Toolbar
           sx={{
-            maxWidth: 1200,
+            maxWidth: 1280,
             width: '100%',
             mx: 'auto',
             px: { xs: 2, md: 3 },
@@ -277,27 +326,21 @@ export default function MarketingLayout() {
           <Logo onClick={() => navigate('/')} />
           <Box sx={{ flexGrow: 1 }} />
 
-          <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.15 }}>
-            <Button
-              component={RouterLink}
-              to="/"
-              sx={{
-                color: location.pathname === '/' ? brand.goldSoft : 'rgba(255,255,255,0.82)',
-                fontWeight: 700,
-                fontSize: 13,
-                textTransform: 'none',
-                px: 1.15,
-                minWidth: 0,
-              }}
-            >
-              Home
-            </Button>
+          <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.1 }}>
             {marketingNav.map((item) => (
-              <DesktopDropdown key={item.id} item={item} active={isActiveGroup(item)} />
+              <DesktopDropdown
+                key={item.id}
+                item={item}
+                active={isActiveGroup(item)}
+                isOpen={openNavId === item.id}
+                onOpen={() => openNav(item.id)}
+                onScheduleClose={scheduleCloseNav}
+                onCancelClose={clearCloseTimer}
+              />
             ))}
           </Box>
 
-          {/* Tablet: compact nav trigger into same drawer */}
+          {/* Tablet / mobile: single trigger into the same drawer */}
           <IconButton
             sx={{ display: { xs: 'inline-flex', lg: 'none' }, color: '#fff', ml: 0.5 }}
             onClick={() => setMobileOpen(true)}
@@ -348,23 +391,25 @@ export default function MarketingLayout() {
           </IconButton>
         </Box>
         <List sx={{ px: 1 }}>
-          <ListItemButton
-            onClick={() => { setMobileOpen(false); navigate('/'); }}
-            sx={{ borderRadius: 2 }}
-          >
-            <ListItemText primary="Home" primaryTypographyProps={{ fontWeight: 700 }} />
-          </ListItemButton>
           {marketingNav.map((item) => {
             const open = openGroup === item.id;
             return (
               <Box key={item.id}>
-                <ListItemButton
-                  onClick={() => setOpenGroup(open ? '' : item.id)}
-                  sx={{ borderRadius: 2 }}
-                >
-                  <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 700 }} />
-                  {open ? <ExpandLess /> : <ExpandMore />}
-                </ListItemButton>
+                <Box sx={{ display: 'flex', alignItems: 'stretch' }}>
+                  <ListItemButton
+                    onClick={() => { setMobileOpen(false); navigate(item.path); }}
+                    sx={{ borderRadius: 2, flex: 1 }}
+                  >
+                    <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 700 }} />
+                  </ListItemButton>
+                  <IconButton
+                    onClick={() => setOpenGroup(open ? '' : item.id)}
+                    sx={{ color: '#fff' }}
+                    aria-label={`Toggle ${item.label} submenu`}
+                  >
+                    {open ? <ExpandLess /> : <ExpandMore />}
+                  </IconButton>
+                </Box>
                 <Collapse in={open}>
                   <List disablePadding sx={{ pl: 1.5, pb: 1 }}>
                     {item.columns.flatMap((c) => c.links).map((link) => (
