@@ -61,8 +61,11 @@ class _QrScanScreenState extends State<QrScanScreen> {
 
   Future<void> _startScan() async {
     if (_isProcessing) return;
+    final auth = context.read<AuthProvider>();
+    auth.beginExternalActivity();
     try {
       final raw = await _channel.invokeMethod<String>('scanQR');
+      auth.endExternalActivity();
       if (raw == null || !mounted) {
         if (mounted) Navigator.of(context).pop();
         return;
@@ -84,6 +87,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
       setState(() => _isProcessing = true);
       if (mounted) _showConfirmDialog(sessionId);
     } on PlatformException catch (e) {
+      auth.endExternalActivity();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

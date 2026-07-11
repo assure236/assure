@@ -23,7 +23,12 @@ const refreshSessionFromCookie = () => {
   if (!sessionBootstrapPromise) {
     sessionBootstrapPromise = axios
       .post('/auth/refresh-token', {}, { withCredentials: true })
-      .then((res) => res?.data?.data?.token || null)
+      .then((res) => {
+        if (res?.data?.success && res?.data?.data?.token) {
+          return res.data.data.token;
+        }
+        return null;
+      })
       .catch(() => null);
   }
   return sessionBootstrapPromise;

@@ -336,15 +336,24 @@ exports.loginWithOtp = async (req, res, next) => {
 exports.refreshToken = async (req, res, next) => {
   try {
     const providedRefreshToken = req.body?.refreshToken || req.cookies?.[REFRESH_COOKIE];
-    if (!providedRefreshToken) return res.status(400).json({ success: false, message: 'Refresh token required' });
+    // Soft no-session response (avoids noisy 400 on login page bootstrap).
+    if (!providedRefreshToken) {
+      return res.status(200).json({ success: false, message: 'No session', data: null });
+    }
     const decoded = jwt.verify(providedRefreshToken, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(decoded.userId).select('-password_hash');
     if (!user || !user.is_active) return res.status(401).json({ success: false, message: 'Invalid refresh token' });
-    // Check token_version — if bumped, all old tokens are invalid
+
+    const isWeb = decoded.ch === 'web';
+
+    // Check token_version — mobile (and shared) sessions
     if (decoded.tv !== undefined && decoded.tv !== (user.token_version || 0)) {
-      // SECURITY FIX: treat token-version mismatch as refresh replay and invalidate all sessions.
+      if (isWeb) {
+        // Stale web refresh must NOT kill the mobile session.
+        clearAuthCookies(res);
+        return res.status(401).json({ success: false, message: 'Web session invalidated. Please login again.' });
+      }
       user.token_version = (user.token_version || 0) + 1;
-      user.web_token_version = (user.web_token_version || 0) + 1;
       await user.save();
       clearAuthCookies(res);
       logger.warn('Refresh token replay detected (token version mismatch)', {
@@ -354,13 +363,10 @@ exports.refreshToken = async (req, res, next) => {
       });
       return res.status(401).json({ success: false, message: 'Session invalidated. Please login again.' });
     }
-    // For web sessions, also validate web_token_version so only one web session stays active.
-    if (decoded.ch === 'web') {
+
+    // Web-only single-session check
+    if (isWeb) {
       if (decoded.wv !== undefined && decoded.wv !== (user.web_token_version || 0)) {
-        // SECURITY FIX: web refresh replay/mismatch invalidates all sessions.
-        user.token_version = (user.token_version || 0) + 1;
-        user.web_token_version = (user.web_token_version || 0) + 1;
-        await user.save();
         clearAuthCookies(res);
         logger.warn('Refresh token replay detected (web token version mismatch)', {
           user_id: String(user._id),
@@ -371,19 +377,20 @@ exports.refreshToken = async (req, res, next) => {
       }
     }
 
-    // SECURITY FIX: rotate refresh token on every use and invalidate previously issued refresh token.
-    user.token_version = (user.token_version || 0) + 1;
-    if (decoded.ch === 'web') {
+    // Rotate ONLY the channel being refreshed so web refresh cannot log out mobile.
+    if (isWeb) {
       user.web_token_version = (user.web_token_version || 0) + 1;
+    } else {
+      user.token_version = (user.token_version || 0) + 1;
     }
     await user.save();
     const { invalidateUserCache } = require('../middleware/auth');
     invalidateUserCache(String(user._id));
 
-    const token = decoded.ch === 'web'
+    const token = isWeb
       ? generateToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
       : generateToken(user._id, user.token_version || 0);
-    const newRefreshToken = decoded.ch === 'web'
+    const newRefreshToken = isWeb
       ? generateRefreshToken(user._id, user.token_version || 0, { ch: 'web', wv: user.web_token_version || 0 })
       : generateRefreshToken(user._id, user.token_version || 0);
     setAuthCookies(res, token, newRefreshToken);

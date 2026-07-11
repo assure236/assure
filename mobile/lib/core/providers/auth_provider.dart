@@ -29,6 +29,8 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   VoidCallback? onSessionLocked;
   bool _unlockInProgress = false;
   DateTime? _unlockGraceUntil;
+  /// Suppress lock while native QR scanner / camera activity is open.
+  DateTime? _externalActivityUntil;
   Future<void>? _bootstrapFuture;
   bool _bootstrapDone = false;
 
@@ -108,7 +110,20 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     if (_unlockInProgress) return true;
     final grace = _unlockGraceUntil;
     if (grace != null && DateTime.now().isBefore(grace)) return true;
+    final external = _externalActivityUntil;
+    if (external != null && DateTime.now().isBefore(external)) return true;
     return false;
+  }
+
+  /// Call before opening a native activity (QR scanner) so returning to the
+  /// app does not look like a logout / fingerprint prompt mid-flow.
+  void beginExternalActivity({Duration duration = const Duration(minutes: 3)}) {
+    _externalActivityUntil = DateTime.now().add(duration);
+  }
+
+  void endExternalActivity() {
+    _externalActivityUntil = null;
+    _recordActivity(forcePersist: true);
   }
 
   Future<void> _touchOtpAuthTime() async {
@@ -135,6 +150,7 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _lockSession({required bool requireOtp}) async {
     if (!_isAuthenticated) return;
+    if (_shouldSuppressUnauthorizedLock()) return;
     _isAuthenticated = false;
     _otpRequiredForUnlock = requireOtp;
     _stopInactivityTimer();
@@ -253,7 +269,10 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     // Lock when app goes to background — fingerprint required on next open
     // only if this device already has a logged-in local account.
     if (state == AppLifecycleState.paused) {
-      if (_isAuthenticated && _hasLocalAccount && !_unlockInProgress) {
+      if (_isAuthenticated &&
+          _hasLocalAccount &&
+          !_unlockInProgress &&
+          !_shouldSuppressUnauthorizedLock()) {
         _lockSession(requireOtp: _isPeriodicOtpDue());
       }
       return;
