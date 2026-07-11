@@ -1,4 +1,5 @@
 const { User, Referral, Notification } = require('../models');
+const QrLoginSession = require('../models/QrLoginSession');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const logger = require('../utils/logger');
@@ -10,7 +11,6 @@ const crypto = require('crypto');
 const otpStore = new Map();
 const OTP_TTL_MS = 10 * 60 * 1000;
 
-const qrSessionStore = new Map();
 const QR_SESSION_TTL_MS = 2 * 60 * 1000; // 2 minutes
 const ACCESS_COOKIE = '__Host-access_token';
 const REFRESH_COOKIE = '__Host-refresh_token';
@@ -474,31 +474,52 @@ exports.logoutAllDevices = async (req, res, next) => {
 };
 
 // ── QR Login ──────────────────────────────────────────────────────────────────
+// Sessions are stored in MongoDB so all PM2 cluster workers see the same state.
+// (In-memory Map caused: mobile confirms on worker A, web polls worker B → never logs in.)
 
 exports.qrGenerate = async (req, res, next) => {
   try {
     const { randomUUID } = require('crypto');
     const sessionId = randomUUID();
-    const expiresAt = Date.now() + QR_SESSION_TTL_MS;
-    qrSessionStore.set(sessionId, { status: 'pending', expires: expiresAt });
-    setTimeout(() => qrSessionStore.delete(sessionId), QR_SESSION_TTL_MS + 5000);
-    res.json({ success: true, data: { sessionId, expiresAt } });
+    const expiresAt = new Date(Date.now() + QR_SESSION_TTL_MS);
+    await QrLoginSession.create({
+      session_id: sessionId,
+      status: 'pending',
+      expires_at: expiresAt,
+    });
+    res.json({ success: true, data: { sessionId, expiresAt: expiresAt.getTime() } });
   } catch (error) { next(error); }
 };
 
 exports.qrStatus = async (req, res, next) => {
   try {
     const { sessionId } = req.params;
-    const session = qrSessionStore.get(sessionId);
-    if (!session || Date.now() > session.expires) {
-      qrSessionStore.delete(sessionId);
+    // Atomically claim a confirmed session so concurrent polls don't double-issue tokens.
+    const confirmed = await QrLoginSession.findOneAndUpdate(
+      {
+        session_id: sessionId,
+        status: 'confirmed',
+        expires_at: { $gt: new Date() },
+      },
+      { $set: { status: 'consumed' } },
+      { new: false }
+    );
+    if (confirmed) {
+      const token = confirmed.token;
+      const refreshToken = confirmed.refresh_token;
+      const user = confirmed.user;
+      setAuthCookies(res, token, refreshToken);
+      await QrLoginSession.deleteOne({ _id: confirmed._id });
+      return res.json({ success: true, data: { status: 'confirmed', token, refreshToken, user } });
+    }
+
+    const session = await QrLoginSession.findOne({ session_id: sessionId });
+    if (!session || Date.now() > new Date(session.expires_at).getTime()) {
+      if (session) await QrLoginSession.deleteOne({ _id: session._id });
       return res.json({ success: true, data: { status: 'expired' } });
     }
-    if (session.status === 'confirmed') {
-      const { token, refreshToken, user } = session;
-      setAuthCookies(res, token, refreshToken);
-      qrSessionStore.delete(sessionId);
-      return res.json({ success: true, data: { status: 'confirmed', token, refreshToken, user } });
+    if (session.status === 'consumed') {
+      return res.json({ success: true, data: { status: 'expired' } });
     }
     res.json({ success: true, data: { status: session.status } });
   } catch (error) { next(error); }
@@ -508,9 +529,9 @@ exports.qrConfirm = async (req, res, next) => {
   try {
     const { sessionId } = req.body;
     if (!sessionId) return res.status(400).json({ success: false, message: 'sessionId required' });
-    const session = qrSessionStore.get(sessionId);
-    if (!session || Date.now() > session.expires) {
-      qrSessionStore.delete(sessionId);
+    const session = await QrLoginSession.findOne({ session_id: sessionId });
+    if (!session || Date.now() > new Date(session.expires_at).getTime()) {
+      if (session) await QrLoginSession.deleteOne({ _id: session._id });
       return res.status(404).json({ success: false, message: 'QR session not found or expired' });
     }
     if (session.status !== 'pending') {
@@ -573,8 +594,9 @@ exports.qrConfirm = async (req, res, next) => {
     };
     session.status = 'confirmed';
     session.token = token;
-    session.refreshToken = refreshToken;
+    session.refresh_token = refreshToken;
     session.user = userObj;
+    await session.save();
     res.json({ success: true, message: 'QR login confirmed. Web session activated.' });
   } catch (error) { next(error); }
 };

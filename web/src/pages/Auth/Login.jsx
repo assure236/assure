@@ -67,14 +67,14 @@ function QrPanel({ onLoginSuccess }) {
     }, 2000);
     return () => clearInterval(pollRef.current);
   }, [qrStatus, sessionId, onLoginSuccess]);
-  const qrValue = sessionId ? `assure://qr-login?session=${sessionId}` : '';
+  const qrValue = sessionId ? `assurechitfunds://qr-login?session=${sessionId}` : '';
   const mins = Math.floor(timeLeft / 60); const secs = String(timeLeft % 60).padStart(2, '0');
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', px: 3, py: 4, height: '100%', justifyContent: 'center' }}>
       <QrCode2 sx={{ fontSize: 44, color: 'primary.main', mb: 1 }} />
       <Typography variant="h6" fontWeight={700} gutterBottom>Quick Login with App</Typography>
       <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-        Open <strong>Assure ChitFunds</strong> on your phone and scan to login instantly
+        Open <strong>Assure ChitFunds</strong> on your phone and scan to login on this website
       </Typography>
       <Box sx={{ p: 1.5, border: '2px solid', borderColor: qrStatus === 'pending' ? 'primary.main' : 'grey.300', borderRadius: 2, bgcolor: 'white' }}>
         {qrStatus === 'loading' && <Box sx={{ width: 200, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>}
@@ -83,7 +83,7 @@ function QrPanel({ onLoginSuccess }) {
           <Box sx={{ width: 200, height: 200, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
             <Typography color="success.main" variant="h4">✓</Typography>
             <Typography variant="body2" color="success.main" fontWeight={700}>Confirmed!</Typography>
-            <Typography variant="caption">Logging you in...</Typography>
+            <Typography variant="caption">Logging you in on this browser...</Typography>
           </Box>
         )}
         {qrStatus === 'expired' && (
@@ -101,7 +101,11 @@ function QrPanel({ onLoginSuccess }) {
       )}
       <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.50', borderRadius: 2, width: '100%' }}>
         <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" sx={{ mb: 0.5 }}>How to scan:</Typography>
-        {['Open Assure ChitFunds app on your phone', 'Tap the QR scanner icon (top of screen)', 'Point camera at this code — login is instant'].map((s, i) => (
+        {[
+          'Keep this browser tab open on the computer',
+          'Open Assure ChitFunds app → tap the QR icon on home',
+          'Scan this code → Confirm → this website logs in (not the phone)',
+        ].map((s, i) => (
           <Typography key={i} variant="caption" color="text.secondary" display="block">{i + 1}. {s}</Typography>
         ))}
       </Box>

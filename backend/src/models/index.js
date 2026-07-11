@@ -22,6 +22,7 @@ const Loan = require('./Loan');
 const FamilyMember = require('./FamilyMember');
 const Goal = require('./Goal');
 const AuditLog = require('./AuditLog');
+const QrLoginSession = require('./QrLoginSession');
 
 module.exports = {
   mongoose,
@@ -29,5 +30,5 @@ module.exports = {
   Document, Referral, Notification, AppSetting, Branch,
   CommunicationLog, SupportTicket, Wallet, WalletTransaction,
   Account, JournalEntry, FiscalYear, DefaulterAction, Loan,
-  FamilyMember, Goal, AuditLog,
+  FamilyMember, Goal, AuditLog, QrLoginSession,
 };

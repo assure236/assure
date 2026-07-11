@@ -107,6 +107,14 @@ class AppRouter {
         if (uri.scheme == 'assurechitfunds') {
           final host = uri.host;
           if (host.isEmpty) return null;
+          // Camera / system QR open: assurechitfunds://qr-login?session=...
+          if (host == 'qr-login') {
+            final session = uri.queryParameters['session'];
+            if (session != null && session.isNotEmpty) {
+              return '/qr-scan?session=${Uri.encodeComponent(session)}';
+            }
+            return '/qr-scan';
+          }
           final fullPath = '/$host${uri.path}';
           return uri.query.isNotEmpty ? '$fullPath?${uri.query}' : fullPath;
         }
@@ -295,7 +303,9 @@ class AppRouter {
         ),
         GoRoute(
           path: '/qr-scan',
-          builder: (context, state) => const QrScanScreen(),
+          builder: (context, state) => QrScanScreen(
+            initialSessionId: state.uri.queryParameters['session'],
+          ),
         ),
         GoRoute(
           path: '/chatbot',

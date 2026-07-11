@@ -324,10 +324,11 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithToken = (newToken, newUser) => {
     sessionBootstrapPromise = null;
-    profileLoadedRef.current = false;
+    profileLoadedRef.current = true;
     applyToken(newToken);
     setUser(newUser);
     setLoading(false);
+    setBootstrapDone(true);
     localStorage.removeItem('active_member_id');
   };
 

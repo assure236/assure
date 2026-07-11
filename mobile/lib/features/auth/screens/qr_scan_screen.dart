@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/providers/active_member_provider.dart';
@@ -7,7 +8,10 @@ import '../../../core/providers/auth_provider.dart';
 import '../../../core/theme/app_theme.dart';
 
 class QrScanScreen extends StatefulWidget {
-  const QrScanScreen({super.key});
+  /// When opened via deep link `assurechitfunds://qr-login?session=...`
+  final String? initialSessionId;
+
+  const QrScanScreen({super.key, this.initialSessionId});
 
   @override
   State<QrScanScreen> createState() => _QrScanScreenState();
@@ -20,7 +24,39 @@ class _QrScanScreenState extends State<QrScanScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startScan());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final preset = widget.initialSessionId?.trim();
+      if (preset != null && preset.isNotEmpty) {
+        setState(() => _isProcessing = true);
+        _showConfirmDialog(preset);
+      } else {
+        _startScan();
+      }
+    });
+  }
+
+  String? _parseSessionId(String raw) {
+    final value = raw.trim();
+    // Support both legacy assure:// and registered assurechitfunds:// schemes.
+    final patterns = [
+      RegExp(r'^(?:assurechitfunds|assure)://qr-login\?session=([^&\s]+)', caseSensitive: false),
+      RegExp(r'[?&]session=([^&\s]+)', caseSensitive: false),
+    ];
+    for (final re in patterns) {
+      final m = re.firstMatch(value);
+      if (m != null && (m.group(1)?.isNotEmpty ?? false)) {
+        return Uri.decodeComponent(m.group(1)!);
+      }
+    }
+    try {
+      final normalized = value
+          .replaceFirst('assurechitfunds://', 'https://')
+          .replaceFirst('assure://', 'https://');
+      final uri = Uri.parse(normalized);
+      final session = uri.queryParameters['session'];
+      if (session != null && session.isNotEmpty) return session;
+    } catch (_) {}
+    return null;
   }
 
   Future<void> _startScan() async {
@@ -31,7 +67,8 @@ class _QrScanScreenState extends State<QrScanScreen> {
         if (mounted) Navigator.of(context).pop();
         return;
       }
-      if (!raw.startsWith('assure://qr-login?session=')) {
+      final sessionId = _parseSessionId(raw);
+      if (sessionId == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -41,13 +78,6 @@ class _QrScanScreenState extends State<QrScanScreen> {
           );
           Navigator.of(context).pop();
         }
-        return;
-      }
-
-      final uri = Uri.parse(raw.replaceFirst('assure://', 'https://'));
-      final sessionId = uri.queryParameters['session'];
-      if (sessionId == null || sessionId.isEmpty) {
-        if (mounted) Navigator.of(context).pop();
         return;
       }
 
@@ -84,13 +114,14 @@ class _QrScanScreenState extends State<QrScanScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'You are about to log in to the Assure Chit Funds web portal as '
-              '$loginLabel — the same account currently selected on your home screen.',
+              'This will log in the website on your computer as '
+              '$loginLabel.\n\n'
+              'Your phone stays on the same account — only the browser logs in.',
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
-            SizedBox(height: 12),
-            Row(
+            const SizedBox(height: 12),
+            const Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.shield, color: AppTheme.successColor, size: 16),
@@ -105,7 +136,11 @@ class _QrScanScreenState extends State<QrScanScreen> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pop();
+              if (context.canPop()) {
+                Navigator.of(context).pop();
+              } else {
+                context.go('/dashboard');
+              }
             },
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
@@ -118,7 +153,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
               _showResult(res['success'] == true, res['message'] ?? 'Unknown error');
             },
             icon: const Icon(Icons.check_circle, size: 18),
-            label: const Text('Confirm Login'),
+            label: const Text('Confirm Web Login'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
@@ -140,10 +175,10 @@ class _QrScanScreenState extends State<QrScanScreen> {
           color: success ? AppTheme.successColor : AppTheme.errorColor,
           size: 52,
         ),
-        title: Text(success ? 'Web Login Confirmed' : 'Login Failed'),
+        title: Text(success ? 'Website Login Confirmed' : 'Login Failed'),
         content: Text(
           success
-              ? 'Your web browser is now logged in. You can switch back to the browser.'
+              ? 'Switch back to your computer browser — it should now be logged in. Your phone is unchanged.'
               : message,
         ),
         actions: [
@@ -151,10 +186,18 @@ class _QrScanScreenState extends State<QrScanScreen> {
             onPressed: () {
               Navigator.of(context).pop();
               if (success) {
-                Navigator.of(context).pop();
+                if (context.canPop()) {
+                  Navigator.of(context).pop();
+                } else {
+                  context.go('/dashboard');
+                }
               } else {
                 setState(() => _isProcessing = false);
-                _startScan();
+                if (widget.initialSessionId != null) {
+                  context.go('/dashboard');
+                } else {
+                  _startScan();
+                }
               }
             },
             child: Text(success ? 'Done' : 'Try Again'),
@@ -180,7 +223,7 @@ class _QrScanScreenState extends State<QrScanScreen> {
                 children: [
                   CircularProgressIndicator(color: Colors.white),
                   SizedBox(height: 16),
-                  Text('Confirming login...',
+                  Text('Confirming website login...',
                       style: TextStyle(color: Colors.white, fontSize: 16)),
                 ],
               )
