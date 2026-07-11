@@ -18,11 +18,12 @@ export const brand = {
   danger: '#C62828',
   warning: '#C47F0A',
   info: '#1E3A8A',
-  fontDisplay: "'Fraunces', Georgia, serif",
-  fontBody: "'Manrope', 'Segoe UI', sans-serif",
+  // Institutional finance pair — Source Serif for trust headlines, Source Sans for UI
+  fontDisplay: "'Source Serif 4', 'Georgia', 'Times New Roman', serif",
+  fontBody: "'Source Sans 3', 'Segoe UI', 'Helvetica Neue', sans-serif",
   shadowSoft: '0 1px 0 rgba(11,31,59,0.04), 0 12px 32px rgba(11,31,59,0.06)',
   shadowLift: '0 8px 28px rgba(11,31,59,0.10)',
-  radius: 14,
+  radius: 12,
   drawerWidth: 268,
 };
 

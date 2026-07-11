@@ -9,8 +9,8 @@
   --assure-gold: #C9A227;
   --assure-canvas: #F3F5F8;
   --assure-mist: #E8EEF5;
-  --assure-font-display: 'Fraunces', Georgia, serif;
-  --assure-font-body: 'Manrope', 'Segoe UI', sans-serif;
+  --assure-font-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --assure-font-body: 'Source Sans 3', 'Segoe UI', 'Helvetica Neue', sans-serif;
 }
 
 html {

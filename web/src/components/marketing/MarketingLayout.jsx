@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  AppBar, Box, Button, Collapse, Container, Divider, Drawer, IconButton,
+  AppBar, Box, Button, Collapse, Divider, Drawer, IconButton,
   List, ListItemButton, ListItemText, Stack, Toolbar, Typography,
 } from '@mui/material';
 import {
@@ -12,6 +12,7 @@ import {
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { brand } from '../../theme/brand';
 import { footerColumns, marketingNav } from './navConfig';
+import { MARKETING_MAX, marketingShellSx } from './marketingShell';
 
 const CLOSE_DELAY = 220;
 
@@ -22,9 +23,10 @@ function Logo({ onClick, light = true }) {
       sx={{
         display: 'flex',
         alignItems: 'center',
-        gap: 1.25,
+        gap: 1.15,
         cursor: 'pointer',
         minWidth: 0,
+        flexShrink: 0,
       }}
     >
       <Box
@@ -35,17 +37,17 @@ function Logo({ onClick, light = true }) {
           e.currentTarget.onerror = null;
           e.currentTarget.src = '/build/logo.png';
         }}
-        sx={{ width: 40, height: 40, objectFit: 'contain' }}
+        sx={{ width: 38, height: 38, objectFit: 'contain' }}
       />
       <Box minWidth={0}>
         <Typography
           sx={{
             fontFamily: brand.fontDisplay,
             fontWeight: 600,
-            fontSize: { xs: 17, sm: 19 },
+            fontSize: { xs: 17, sm: 18 },
             color: light ? '#fff' : brand.navy,
             lineHeight: 1.1,
-            letterSpacing: '-0.02em',
+            letterSpacing: '-0.01em',
           }}
         >
           Assure
@@ -54,9 +56,10 @@ function Logo({ onClick, light = true }) {
           sx={{
             color: light ? brand.goldSoft : brand.goldDark,
             fontSize: 10,
-            fontWeight: 700,
-            letterSpacing: '0.14em',
+            fontWeight: 600,
+            letterSpacing: '0.16em',
             textTransform: 'uppercase',
+            fontFamily: brand.fontBody,
           }}
         >
           ChitFunds
@@ -66,13 +69,6 @@ function Logo({ onClick, light = true }) {
   );
 }
 
-/**
- * Hover/click dropdown with NO dead zone between trigger and panel — the panel
- * sits flush against the trigger (top: 100%, zero gap) so the pointer never
- * leaves a hoverable element while moving down into it. Visibility is driven by
- * React state (not bare CSS :hover) so a short close-delay survives the diagonal
- * mouse move, and clicking the label always navigates immediately.
- */
 function DesktopDropdown({ item, active, isOpen, onOpen, onScheduleClose, onCancelClose }) {
   return (
     <Box
@@ -88,39 +84,39 @@ function DesktopDropdown({ item, active, isOpen, onOpen, onScheduleClose, onCanc
         endIcon={
           <ExpandMore
             sx={{
-              fontSize: 16,
+              fontSize: 15,
               transition: 'transform 0.18s ease',
               transform: isOpen ? 'rotate(180deg)' : 'none',
             }}
           />
         }
         sx={{
-          color: active || isOpen ? brand.goldSoft : 'rgba(255,255,255,0.82)',
-          fontWeight: 700,
-          fontSize: 13,
-          px: 1.15,
+          color: active || isOpen ? brand.goldSoft : 'rgba(255,255,255,0.78)',
+          fontWeight: 600,
+          fontSize: 13.5,
+          px: 1.25,
           py: 1,
           textTransform: 'none',
-          borderRadius: 2,
+          borderRadius: 1.5,
           minWidth: 0,
+          letterSpacing: '0.01em',
           '&:hover': { bgcolor: 'rgba(255,255,255,0.06)', color: '#fff' },
         }}
       >
         {item.label}
       </Button>
 
-      {/* Flush-fit panel: top starts exactly at 100%, no gap, so hover never breaks. */}
       <Box
         className="mkt-dropdown"
         onMouseEnter={onCancelClose}
         sx={{
           position: 'absolute',
           top: '100%',
-          left: 0,
+          left: '50%',
+          transform: isOpen ? 'translateX(-50%) translateY(0)' : 'translateX(-50%) translateY(6px)',
           pt: 1,
           opacity: isOpen ? 1 : 0,
           visibility: isOpen ? 'visible' : 'hidden',
-          transform: isOpen ? 'translateY(0)' : 'translateY(6px)',
           transition: 'opacity 0.16s ease, transform 0.16s ease, visibility 0.16s',
           pointerEvents: isOpen ? 'auto' : 'none',
           zIndex: 40,
@@ -128,15 +124,15 @@ function DesktopDropdown({ item, active, isOpen, onOpen, onScheduleClose, onCanc
       >
         <Box
           sx={{
-            minWidth: item.columns.length > 1 ? 480 : 300,
-            p: 1.25,
-            borderRadius: 2.5,
-            bgcolor: 'rgba(7, 20, 40, 0.98)',
-            border: '1px solid rgba(201,162,39,0.22)',
-            boxShadow: '0 20px 48px rgba(0,0,0,0.45)',
+            minWidth: item.columns.length > 1 ? 460 : 280,
+            p: 1.5,
+            borderRadius: 2,
+            bgcolor: '#0A1628',
+            border: '1px solid rgba(201,162,39,0.2)',
+            boxShadow: '0 18px 40px rgba(0,0,0,0.4)',
             display: 'grid',
             gridTemplateColumns: item.columns.length > 1 ? '1fr 1fr' : '1fr',
-            gap: 1,
+            gap: 0.75,
           }}
         >
           {item.columns.map((col) => (
@@ -157,20 +153,20 @@ function DesktopDropdown({ item, active, isOpen, onOpen, onScheduleClose, onCanc
                     display: 'block',
                     px: 1.25,
                     py: 1,
-                    borderRadius: 1.5,
+                    borderRadius: 1.25,
                     textDecoration: 'none',
                     color: 'rgba(255,255,255,0.78)',
                     transition: 'background 0.15s ease, color 0.15s ease',
                     '&:hover': {
-                      bgcolor: 'rgba(201,162,39,0.12)',
+                      bgcolor: 'rgba(201,162,39,0.1)',
                       color: brand.goldSoft,
                     },
                   }}
                 >
-                  <Typography fontWeight={700} fontSize={13.5} color="inherit">
+                  <Typography fontWeight={600} fontSize={13.5} color="inherit">
                     {link.label}
                   </Typography>
-                  <Typography fontSize={11.5} sx={{ color: 'rgba(255,255,255,0.45)', mt: 0.25 }}>
+                  <Typography fontSize={12} sx={{ color: 'rgba(255,255,255,0.42)', mt: 0.2, lineHeight: 1.4 }}>
                     {link.desc}
                   </Typography>
                 </Box>
@@ -197,7 +193,7 @@ function MarketingFooter() {
         pb: 3,
       }}
     >
-      <Container maxWidth="xl">
+      <Box sx={marketingShellSx}>
         <Box
           sx={{
             display: 'grid',
@@ -227,7 +223,7 @@ function MarketingFooter() {
                       color: 'rgba(255,255,255,0.65)',
                       textDecoration: 'none',
                       fontSize: 13.5,
-                      fontWeight: 600,
+                      fontWeight: 500,
                       '&:hover': { color: brand.goldSoft },
                     }}
                   >
@@ -253,7 +249,7 @@ function MarketingFooter() {
             support@assure.fund
           </Typography>
         </Box>
-      </Container>
+      </Box>
     </Box>
   );
 }
@@ -283,7 +279,6 @@ export default function MarketingLayout() {
     closeTimer.current = setTimeout(() => setOpenNavId(''), CLOSE_DELAY);
   }, [clearCloseTimer]);
 
-  // Close the open dropdown whenever the route changes (after a click navigation).
   useEffect(() => {
     setOpenNavId('');
   }, [location.pathname]);
@@ -308,25 +303,36 @@ export default function MarketingLayout() {
         position="sticky"
         elevation={0}
         sx={{
-          bgcolor: 'rgba(7, 20, 40, 0.94)',
-          backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(201,162,39,0.16)',
+          bgcolor: 'rgba(7, 20, 40, 0.96)',
+          backdropFilter: 'blur(14px)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
         }}
       >
+        {/* Same rail as hero content — logo left edge = content left, CTAs right = content right */}
         <Toolbar
+          disableGutters
           sx={{
-            maxWidth: 1280,
-            width: '100%',
-            mx: 'auto',
-            px: { xs: 2, md: 3 },
-            minHeight: { xs: 64, md: 72 },
-            gap: 1,
+            ...marketingShellSx,
+            position: 'relative',
+            minHeight: { xs: 64, md: 70 },
+            display: 'flex',
+            alignItems: 'center',
           }}
         >
+          {/* LEFT — logo */}
           <Logo onClick={() => navigate('/')} />
-          <Box sx={{ flexGrow: 1 }} />
 
-          <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 0.1 }}>
+          {/* CENTER — tabs absolutely centered in the rail */}
+          <Box
+            sx={{
+              display: { xs: 'none', lg: 'flex' },
+              alignItems: 'center',
+              gap: 0.25,
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+            }}
+          >
             {marketingNav.map((item) => (
               <DesktopDropdown
                 key={item.id}
@@ -340,24 +346,25 @@ export default function MarketingLayout() {
             ))}
           </Box>
 
-          {/* Tablet / mobile: single trigger into the same drawer */}
-          <IconButton
-            sx={{ display: { xs: 'inline-flex', lg: 'none' }, color: '#fff', ml: 0.5 }}
-            onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
-          >
-            <MenuIcon />
-          </IconButton>
-
-          <Stack direction="row" spacing={1} sx={{ ml: 1, display: { xs: 'none', sm: 'flex' } }}>
+          {/* RIGHT — auth + mobile menu */}
+          <Stack direction="row" spacing={1} sx={{ ml: 'auto', alignItems: 'center' }}>
+            <IconButton
+              sx={{ display: { xs: 'inline-flex', lg: 'none' }, color: '#fff' }}
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+            >
+              <MenuIcon />
+            </IconButton>
             <Button
               variant="outlined"
               size="small"
               onClick={() => navigate('/login')}
               sx={{
+                display: { xs: 'none', sm: 'inline-flex' },
                 borderColor: 'rgba(255,255,255,0.28)',
                 color: '#fff',
-                fontWeight: 700,
+                fontWeight: 600,
+                px: 2,
                 '&:hover': { borderColor: brand.gold, color: brand.goldSoft },
               }}
             >
@@ -368,7 +375,11 @@ export default function MarketingLayout() {
               size="small"
               color="secondary"
               onClick={() => navigate('/register')}
-              sx={{ fontWeight: 800 }}
+              sx={{
+                display: { xs: 'none', sm: 'inline-flex' },
+                fontWeight: 700,
+                px: 2.25,
+              }}
             >
               Join Free
             </Button>
@@ -400,7 +411,7 @@ export default function MarketingLayout() {
                     onClick={() => { setMobileOpen(false); navigate(item.path); }}
                     sx={{ borderRadius: 2, flex: 1 }}
                   >
-                    <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 700 }} />
+                    <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 600 }} />
                   </ListItemButton>
                   <IconButton
                     onClick={() => setOpenGroup(open ? '' : item.id)}
@@ -421,7 +432,7 @@ export default function MarketingLayout() {
                         <ListItemText
                           primary={link.label}
                           secondary={link.desc}
-                          primaryTypographyProps={{ fontSize: 14, fontWeight: 700, color: '#fff' }}
+                          primaryTypographyProps={{ fontSize: 14, fontWeight: 600, color: '#fff' }}
                           secondaryTypographyProps={{ fontSize: 11.5, color: 'rgba(255,255,255,0.45)' }}
                         />
                       </ListItemButton>
@@ -465,15 +476,15 @@ export function MarketingPage({
       <Box
         sx={{
           background: `
-            radial-gradient(ellipse 70% 60% at 10% 0%, rgba(201,162,39,0.18), transparent 50%),
+            radial-gradient(ellipse 70% 60% at 10% 0%, rgba(201,162,39,0.14), transparent 50%),
             linear-gradient(165deg, ${brand.navyDeep} 0%, ${brand.navy} 55%, ${brand.navyMid} 100%)
           `,
           color: '#fff',
-          pt: { xs: 5, md: 7 },
-          pb: { xs: 5, md: 6 },
+          pt: { xs: 5, md: 6.5 },
+          pb: { xs: 5, md: 5.5 },
         }}
       >
-        <Container maxWidth={narrow ? 'md' : 'lg'}>
+        <Box sx={{ ...marketingShellSx, maxWidth: narrow ? 720 : MARKETING_MAX }}>
           {eyebrow && (
             <Typography variant="overline" sx={{ color: brand.goldSoft, display: 'block', mb: 1 }}>
               {eyebrow}
@@ -483,26 +494,26 @@ export function MarketingPage({
             sx={{
               fontFamily: brand.fontDisplay,
               fontWeight: 600,
-              fontSize: { xs: '2rem', md: '2.6rem' },
-              letterSpacing: '-0.03em',
-              lineHeight: 1.15,
+              fontSize: { xs: '2rem', md: '2.45rem' },
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
               mb: subtitle ? 1.5 : 0,
-              maxWidth: 720,
+              maxWidth: 680,
             }}
           >
             {title}
           </Typography>
           {subtitle && (
-            <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: 16.5, lineHeight: 1.7, maxWidth: 620 }}>
+            <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 16.5, lineHeight: 1.7, maxWidth: 580 }}>
               {subtitle}
             </Typography>
           )}
           {actions && <Box mt={3}>{actions}</Box>}
-        </Container>
+        </Box>
       </Box>
-      <Container maxWidth={narrow ? 'md' : 'lg'} sx={{ py: { xs: 4, md: 6 } }}>
+      <Box sx={{ ...marketingShellSx, maxWidth: narrow ? 720 : MARKETING_MAX, py: { xs: 4, md: 5.5 } }}>
         {children}
-      </Container>
+      </Box>
     </Box>
   );
 }

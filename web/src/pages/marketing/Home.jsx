@@ -1,6 +1,6 @@
 import React from 'react';
 import {
-  Box, Button, Container, Grid, Stack, Typography,
+  Box, Button, Grid, Stack, Typography,
 } from '@mui/material';
 import {
   Gavel as GavelIcon,
@@ -10,6 +10,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { brand } from '../../theme/brand';
+import { marketingShellSx } from '../../components/marketing/marketingShell';
 
 const STEPS = [
   {
@@ -41,49 +42,43 @@ const TRUST = [
   { src: '/assets/images/trusted_data_secured.png', label: 'Data secured' },
 ];
 
+const FEATURES = [
+  { icon: <ShieldIcon fontSize="small" />, title: 'KYC once', text: 'DigiLocker and bank verification before you invest — completed once for every group.' },
+  { icon: <WalletIcon fontSize="small" />, title: 'Pay on time', text: 'Installments, dues, and receipts stay in one Transactions view you can open anytime.' },
+  { icon: <GavelIcon fontSize="small" />, title: 'Bid live', text: 'Join the auction room from web or the mobile app the moment bidding opens.' },
+];
+
 export default function Home() {
   const navigate = useNavigate();
 
   return (
     <Box>
-      {/* Hero — one composition, brand first */}
+      {/* Hero — same left/right rail as the header (logo ↔ Join Free) */}
       <Box
         sx={{
           position: 'relative',
-          minHeight: { xs: '88vh', md: '92vh' },
+          minHeight: { xs: 'auto', md: 'calc(100vh - 70px)' },
           display: 'flex',
           alignItems: 'center',
           overflow: 'hidden',
           background: `
-            radial-gradient(ellipse 55% 50% at 85% 20%, rgba(201,162,39,0.22), transparent 55%),
-            radial-gradient(ellipse 45% 40% at 5% 80%, rgba(30,58,138,0.28), transparent 50%),
-            linear-gradient(155deg, #040b18 0%, ${brand.navyDeep} 35%, ${brand.navy} 70%, #0a1830 100%)
+            radial-gradient(ellipse 50% 45% at 90% 10%, rgba(201,162,39,0.12), transparent 55%),
+            linear-gradient(160deg, ${brand.navyDeep} 0%, ${brand.navy} 55%, #0E2444 100%)
           `,
         }}
       >
-        <Box
-          sx={{
-            position: 'absolute',
-            inset: 0,
-            opacity: 0.18,
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)',
-            backgroundSize: '56px 56px',
-            pointerEvents: 'none',
-          }}
-        />
-        <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1, py: { xs: 8, md: 10 } }}>
-          <Grid container spacing={{ xs: 4, md: 6 }} alignItems="stretch">
+        <Box sx={{ ...marketingShellSx, position: 'relative', zIndex: 1, py: { xs: 6, md: 8 } }}>
+          <Grid container spacing={{ xs: 4, md: 5 }} alignItems="center">
             <Grid item xs={12} md={7}>
               <Typography
                 sx={{
                   fontFamily: brand.fontDisplay,
                   color: '#fff',
                   fontWeight: 600,
-                  fontSize: { xs: '2.6rem', sm: '3.4rem', md: '3.85rem' },
-                  letterSpacing: '-0.035em',
-                  lineHeight: 1.05,
-                  mb: 2,
+                  fontSize: { xs: '2.35rem', sm: '2.85rem', md: '3.15rem' },
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.12,
+                  mb: 1.75,
                 }}
               >
                 Assure ChitFunds
@@ -91,33 +86,34 @@ export default function Home() {
               <Typography
                 sx={{
                   color: brand.goldSoft,
-                  fontWeight: 700,
-                  fontSize: { xs: 18, md: 20 },
-                  letterSpacing: '-0.01em',
+                  fontWeight: 600,
+                  fontSize: { xs: 17, md: 18 },
+                  letterSpacing: '0.01em',
                   mb: 1.5,
+                  lineHeight: 1.45,
                 }}
               >
                 Save every month. Bid when you need funds. Track everything online.
               </Typography>
               <Typography
                 sx={{
-                  color: 'rgba(255,255,255,0.68)',
-                  fontSize: 16,
+                  color: 'rgba(255,255,255,0.62)',
+                  fontSize: 15.5,
                   lineHeight: 1.7,
-                  maxWidth: 480,
-                  mb: 3.5,
+                  maxWidth: 460,
+                  mb: 3.25,
                 }}
               >
                 A member portal for transparent chit groups — clear installments, live auctions, and payouts you can follow without chasing paperwork.
               </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: { xs: 4, md: 0 } }}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
                 <Button
                   size="large"
                   variant="contained"
                   color="secondary"
                   endIcon={<ArrowIcon />}
                   onClick={() => navigate('/register')}
-                  sx={{ px: 3, py: 1.35, fontWeight: 800 }}
+                  sx={{ px: 2.75, py: 1.2, fontWeight: 700 }}
                 >
                   Create free account
                 </Button>
@@ -126,114 +122,144 @@ export default function Home() {
                   variant="outlined"
                   onClick={() => navigate('/login')}
                   sx={{
-                    px: 3,
-                    py: 1.35,
-                    borderColor: 'rgba(255,255,255,0.35)',
+                    px: 2.75,
+                    py: 1.2,
+                    borderColor: 'rgba(255,255,255,0.3)',
                     color: '#fff',
-                    fontWeight: 700,
+                    fontWeight: 600,
                     '&:hover': { borderColor: brand.gold, color: brand.goldSoft },
                   }}
                 >
                   Member login
                 </Button>
               </Stack>
-              <Stack direction="row" spacing={{ xs: 3, md: 4 }} sx={{ display: { xs: 'none', md: 'flex' }, mt: { md: 5 } }}>
+
+              <Box
+                sx={{
+                  display: { xs: 'none', md: 'grid' },
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: 2.5,
+                  mt: 5,
+                  pt: 3.5,
+                  borderTop: '1px solid rgba(255,255,255,0.1)',
+                  maxWidth: 480,
+                }}
+              >
                 {[
                   { n: '2,400+', l: 'Active members' },
                   { n: '₹18Cr+', l: 'Chit value tracked' },
                   { n: '99.6%', l: 'On-time payouts' },
                 ].map((s) => (
                   <Box key={s.l}>
-                    <Typography sx={{ fontFamily: brand.fontDisplay, fontWeight: 600, fontSize: '1.6rem', color: '#fff' }}>
+                    <Typography
+                      sx={{
+                        fontFamily: brand.fontDisplay,
+                        fontWeight: 600,
+                        fontSize: '1.35rem',
+                        color: '#fff',
+                        letterSpacing: '-0.01em',
+                      }}
+                    >
                       {s.n}
                     </Typography>
-                    <Typography sx={{ fontSize: 12.5, color: 'rgba(255,255,255,0.5)', mt: 0.25 }}>
+                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.48)', mt: 0.35, fontWeight: 500 }}>
                       {s.l}
                     </Typography>
                   </Box>
                 ))}
-              </Stack>
+              </Box>
             </Grid>
+
             <Grid item xs={12} md={5}>
               <Box
                 sx={{
-                  height: '100%',
-                  minHeight: { md: 380 },
-                  borderRadius: 4,
-                  border: '1px solid rgba(201,162,39,0.25)',
-                  bgcolor: 'rgba(255,255,255,0.04)',
-                  p: { xs: 2.5, md: 3.5 },
-                  backdropFilter: 'blur(8px)',
-                  display: 'flex',
-                  flexDirection: 'column',
+                  borderRadius: 2.5,
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  bgcolor: 'rgba(255,255,255,0.03)',
+                  overflow: 'hidden',
                 }}
               >
-                <Typography variant="overline" sx={{ color: brand.goldSoft, mb: { xs: 1.5, md: 2.5 } }}>
-                  Why members stay
-                </Typography>
-                <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', gap: { xs: 2.5, md: 0 } }}>
-                  {[
-                    { icon: <ShieldIcon />, title: 'KYC once', text: 'DigiLocker + bank verification before you invest — never repeated per chit.' },
-                    { icon: <WalletIcon />, title: 'Pay on time', text: 'Installments, dues, and receipts collected in one Transactions view.' },
-                    { icon: <GavelIcon />, title: 'Bid live', text: 'Join the auction room from web or the mobile app the moment it opens.' },
-                  ].map((row, i) => (
+                <Box
+                  sx={{
+                    px: { xs: 2.5, md: 3 },
+                    py: 1.75,
+                    borderBottom: '1px solid rgba(255,255,255,0.08)',
+                    bgcolor: 'rgba(0,0,0,0.18)',
+                  }}
+                >
+                  <Typography
+                    sx={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: '0.14em',
+                      textTransform: 'uppercase',
+                      color: brand.goldSoft,
+                    }}
+                  >
+                    Why members stay
+                  </Typography>
+                </Box>
+                {FEATURES.map((row, i) => (
+                  <Box
+                    key={row.title}
+                    sx={{
+                      display: 'flex',
+                      gap: 1.75,
+                      alignItems: 'flex-start',
+                      px: { xs: 2.5, md: 3 },
+                      py: 2.25,
+                      borderBottom: i < FEATURES.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+                    }}
+                  >
                     <Box
-                      key={row.title}
                       sx={{
+                        color: brand.goldSoft,
+                        width: 36,
+                        height: 36,
+                        borderRadius: 1.25,
+                        border: '1px solid rgba(201,162,39,0.28)',
+                        bgcolor: 'rgba(201,162,39,0.08)',
                         display: 'flex',
-                        gap: 1.75,
-                        alignItems: 'flex-start',
-                        pb: i < 2 ? { xs: 2, md: 0 } : 0,
-                        borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
                       }}
                     >
-                      <Box
-                        sx={{
-                          color: brand.goldSoft,
-                          bgcolor: 'rgba(201,162,39,0.12)',
-                          borderRadius: 2,
-                          width: 40,
-                          height: 40,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {row.icon}
-                      </Box>
-                      <Box>
-                        <Typography fontWeight={800} color="#fff" fontSize={15}>{row.title}</Typography>
-                        <Typography fontSize={13.5} sx={{ color: 'rgba(255,255,255,0.55)', mt: 0.35, lineHeight: 1.55 }}>
-                          {row.text}
-                        </Typography>
-                      </Box>
+                      {row.icon}
                     </Box>
-                  ))}
-                </Box>
+                    <Box>
+                      <Typography fontWeight={700} color="#fff" fontSize={14.5} letterSpacing="-0.01em">
+                        {row.title}
+                      </Typography>
+                      <Typography fontSize={13.25} sx={{ color: 'rgba(255,255,255,0.52)', mt: 0.4, lineHeight: 1.55 }}>
+                        {row.text}
+                      </Typography>
+                    </Box>
+                  </Box>
+                ))}
               </Box>
             </Grid>
           </Grid>
-        </Container>
+        </Box>
       </Box>
 
-      {/* How it works — one job */}
-      <Box sx={{ py: { xs: 7, md: 9 }, bgcolor: '#fff' }}>
-        <Container maxWidth="xl">
+      {/* How it works */}
+      <Box sx={{ py: { xs: 6.5, md: 8 }, bgcolor: '#fff' }}>
+        <Box sx={marketingShellSx}>
           <Typography variant="overline" sx={{ color: brand.goldDark }}>How it works</Typography>
           <Typography
             sx={{
               fontFamily: brand.fontDisplay,
               fontWeight: 600,
-              fontSize: { xs: '1.75rem', md: '2.15rem' },
+              fontSize: { xs: '1.65rem', md: '2rem' },
               color: brand.navy,
-              letterSpacing: '-0.02em',
+              letterSpacing: '-0.015em',
               mb: 1,
             }}
           >
             Three steps to your first chit
           </Typography>
-          <Typography color="text.secondary" sx={{ mb: 4, maxWidth: 520 }}>
+          <Typography color="text.secondary" sx={{ mb: 4, maxWidth: 500, fontSize: 15.5, lineHeight: 1.65 }}>
             No long scroll of features — just the path members actually take.
           </Typography>
           <Grid container spacing={2.5}>
@@ -243,15 +269,15 @@ export default function Home() {
                   sx={{
                     height: '100%',
                     p: 3,
-                    borderRadius: 3,
+                    borderRadius: 2,
                     border: `1px solid ${brand.line}`,
                     bgcolor: brand.canvas,
                   }}
                 >
-                  <Typography sx={{ color: brand.goldDark, fontWeight: 800, fontSize: 13, mb: 1.5 }}>
+                  <Typography sx={{ color: brand.goldDark, fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', mb: 1.5 }}>
                     {s.n}
                   </Typography>
-                  <Typography variant="h6" sx={{ mb: 1 }}>{s.title}</Typography>
+                  <Typography sx={{ fontWeight: 700, fontSize: 16.5, mb: 1, color: brand.navy }}>{s.title}</Typography>
                   <Typography variant="body2" color="text.secondary" lineHeight={1.7}>
                     {s.body}
                   </Typography>
@@ -266,12 +292,12 @@ export default function Home() {
           >
             Read the full walkthrough
           </Button>
-        </Container>
+        </Box>
       </Box>
 
       {/* Plans preview */}
-      <Box sx={{ py: { xs: 7, md: 9 }, bgcolor: brand.canvas }}>
-        <Container maxWidth="xl">
+      <Box sx={{ py: { xs: 6.5, md: 8 }, bgcolor: brand.canvas }}>
+        <Box sx={marketingShellSx}>
           <Box display="flex" justifyContent="space-between" alignItems="flex-end" flexWrap="wrap" gap={2} mb={3.5}>
             <Box>
               <Typography variant="overline" sx={{ color: brand.goldDark }}>Chit plans</Typography>
@@ -279,9 +305,9 @@ export default function Home() {
                 sx={{
                   fontFamily: brand.fontDisplay,
                   fontWeight: 600,
-                  fontSize: { xs: '1.75rem', md: '2.15rem' },
+                  fontSize: { xs: '1.65rem', md: '2rem' },
                   color: brand.navy,
-                  letterSpacing: '-0.02em',
+                  letterSpacing: '-0.015em',
                 }}
               >
                 Choose by what you can save monthly
@@ -299,12 +325,15 @@ export default function Home() {
                   sx={{
                     p: 3,
                     height: '100%',
-                    borderRadius: 3,
+                    borderRadius: 2,
                     bgcolor: '#fff',
                     border: `1px solid ${brand.line}`,
                     cursor: 'pointer',
-                    transition: 'transform 0.2s ease, border-color 0.2s ease',
-                    '&:hover': { transform: 'translateY(-3px)', borderColor: 'rgba(201,162,39,0.5)' },
+                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                    '&:hover': {
+                      borderColor: 'rgba(201,162,39,0.45)',
+                      boxShadow: brand.shadowSoft,
+                    },
                   }}
                 >
                   <Typography variant="overline" sx={{ color: brand.muted }}>{p.name}</Typography>
@@ -312,30 +341,31 @@ export default function Home() {
                     sx={{
                       fontFamily: brand.fontDisplay,
                       fontWeight: 600,
-                      fontSize: '1.55rem',
+                      fontSize: '1.45rem',
                       color: brand.navy,
                       my: 0.75,
+                      letterSpacing: '-0.01em',
                     }}
                   >
                     {p.value}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">{p.hint}</Typography>
+                  <Typography variant="body2" color="text.secondary" lineHeight={1.6}>{p.hint}</Typography>
                 </Box>
               </Grid>
             ))}
           </Grid>
-        </Container>
+        </Box>
       </Box>
 
-      {/* Trust — single strip, no carousel spam */}
-      <Box sx={{ py: { xs: 6, md: 7 }, bgcolor: '#fff', borderTop: `1px solid ${brand.line}` }}>
-        <Container maxWidth="xl">
+      {/* Trust */}
+      <Box sx={{ py: { xs: 5.5, md: 6.5 }, bgcolor: '#fff', borderTop: `1px solid ${brand.line}` }}>
+        <Box sx={marketingShellSx}>
           <Typography
             textAlign="center"
             sx={{
               fontFamily: brand.fontDisplay,
               fontWeight: 600,
-              fontSize: '1.5rem',
+              fontSize: '1.4rem',
               color: brand.navy,
               mb: 3,
             }}
@@ -347,7 +377,7 @@ export default function Home() {
               <Grid item xs={4} sm={3} key={t.label}>
                 <Box textAlign="center">
                   <Box component="img" src={t.src} alt={t.label} sx={{ height: 48, objectFit: 'contain', mb: 1 }} />
-                  <Typography variant="caption" fontWeight={700} display="block">{t.label}</Typography>
+                  <Typography variant="caption" fontWeight={600} display="block">{t.label}</Typography>
                 </Box>
               </Grid>
             ))}
@@ -355,31 +385,31 @@ export default function Home() {
           <Box textAlign="center" mt={3}>
             <Button onClick={() => navigate('/company/trust')}>See trust & compliance</Button>
           </Box>
-        </Container>
+        </Box>
       </Box>
 
       {/* Closing CTA */}
       <Box
         sx={{
-          py: { xs: 6, md: 8 },
+          py: { xs: 6, md: 7.5 },
           background: `linear-gradient(135deg, ${brand.navyDeep}, ${brand.navy})`,
           textAlign: 'center',
         }}
       >
-        <Container maxWidth="sm">
+        <Box sx={{ ...marketingShellSx, maxWidth: 560 }}>
           <Typography
             sx={{
               fontFamily: brand.fontDisplay,
               color: '#fff',
               fontWeight: 600,
-              fontSize: { xs: '1.75rem', md: '2.1rem' },
-              letterSpacing: '-0.02em',
+              fontSize: { xs: '1.65rem', md: '1.95rem' },
+              letterSpacing: '-0.015em',
               mb: 1.5,
             }}
           >
             Ready when you are
           </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.65)', mb: 3, lineHeight: 1.7 }}>
+          <Typography sx={{ color: 'rgba(255,255,255,0.62)', mb: 3, lineHeight: 1.7, fontSize: 15.5 }}>
             Open your member account, finish KYC, and enroll in a group from the same portal you will use every month.
           </Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">
@@ -390,12 +420,12 @@ export default function Home() {
               size="large"
               variant="outlined"
               onClick={() => navigate('/support-center/faq')}
-              sx={{ borderColor: 'rgba(255,255,255,0.35)', color: '#fff' }}
+              sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}
             >
               Read FAQs
             </Button>
           </Stack>
-        </Container>
+        </Box>
       </Box>
     </Box>
   );
