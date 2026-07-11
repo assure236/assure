@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container, Typography, Box, Card, CardContent, Button, Chip, CircularProgress,
+  Typography, Box, Button, Chip, CircularProgress,
   Grid, Alert
 } from '@mui/material';
 import {
@@ -11,6 +11,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { PageShell, PageHeader, Surface } from '../../components/ui/PageKit';
+import { brand } from '../../theme/brand';
 
 const statusChip = (status) => {
   const s = (status || 'not_started').toLowerCase();
@@ -72,82 +74,71 @@ const KYC = () => {
   const digilockerDone = !!kycData?.digilocker_id;
 
   return (
-    <Container maxWidth="md">
-      <Typography variant="h4" fontWeight={700} gutterBottom>KYC Verification</Typography>
-      <Typography variant="body2" color="text.secondary" mb={3}>
-        Complete identity verification to unlock payouts and disbursements
-      </Typography>
+    <PageShell maxWidth={760}>
+      <PageHeader
+        eyebrow="Identity"
+        title="KYC Verification"
+        subtitle="Complete identity verification to unlock payouts and disbursements"
+      />
 
       <Alert severity={chip.color === 'success' ? 'success' : 'info'} sx={{ mb: 3 }}>
         Status: <Chip label={chip.label} color={chip.color} size="small" sx={{ ml: 1 }} />
       </Alert>
 
       <Grid container spacing={2} mb={3}>
-        <Grid item xs={4}>
-          <Card><CardContent sx={{ textAlign: 'center' }}>
-            <VerifiedIcon color={panDone ? 'success' : 'disabled'} />
-            <Typography variant="caption" display="block" mt={1}>PAN</Typography>
-          </CardContent></Card>
-        </Grid>
-        <Grid item xs={4}>
-          <Card><CardContent sx={{ textAlign: 'center' }}>
-            <FaceIcon color={aadhaarDone ? 'success' : 'disabled'} />
-            <Typography variant="caption" display="block" mt={1}>Aadhaar</Typography>
-          </CardContent></Card>
-        </Grid>
-        <Grid item xs={4}>
-          <Card><CardContent sx={{ textAlign: 'center' }}>
-            <BankIcon color={digilockerDone ? 'success' : 'disabled'} />
-            <Typography variant="caption" display="block" mt={1}>DigiLocker</Typography>
-          </CardContent></Card>
-        </Grid>
+        {[
+          { icon: <VerifiedIcon />, label: 'PAN', done: panDone },
+          { icon: <FaceIcon />, label: 'Aadhaar', done: aadhaarDone },
+          { icon: <BankIcon />, label: 'DigiLocker', done: digilockerDone },
+        ].map(({ icon, label, done }) => (
+          <Grid item xs={4} key={label}>
+            <Surface sx={{ textAlign: 'center' }}>
+              <Box sx={{ color: done ? brand.success : brand.muted }}>{icon}</Box>
+              <Typography variant="caption" display="block" mt={1}>{label}</Typography>
+            </Surface>
+          </Grid>
+        ))}
       </Grid>
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <VerifiedIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography fontWeight={700} gutterBottom>DigiLocker</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Link Aadhaar and PAN via government DigiLocker
-              </Typography>
-              <Button variant="contained" fullWidth onClick={openDigilocker}>
-                Connect DigiLocker
-              </Button>
-            </CardContent>
-          </Card>
+          <Surface sx={{ height: '100%' }}>
+            <VerifiedIcon sx={{ fontSize: 40, mb: 1, color: brand.navy }} />
+            <Typography fontWeight={700} gutterBottom sx={{ color: brand.navy }}>DigiLocker</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Link Aadhaar and PAN via government DigiLocker
+            </Typography>
+            <Button variant="contained" fullWidth onClick={openDigilocker}>
+              Connect DigiLocker
+            </Button>
+          </Surface>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <DocIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography fontWeight={700} gutterBottom>Onboarding KYC</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Complete PAN, Aadhaar OTP, face match and bank steps
-              </Typography>
-              <Button variant="outlined" fullWidth onClick={() => navigate('/onboarding/digilocker')}>
-                Open Onboarding
-              </Button>
-            </CardContent>
-          </Card>
+          <Surface sx={{ height: '100%' }}>
+            <DocIcon sx={{ fontSize: 40, mb: 1, color: brand.navy }} />
+            <Typography fontWeight={700} gutterBottom sx={{ color: brand.navy }}>Onboarding KYC</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Complete PAN, Aadhaar OTP, face match and bank steps
+            </Typography>
+            <Button variant="outlined" fullWidth onClick={() => navigate('/onboarding/digilocker')}>
+              Open Onboarding
+            </Button>
+          </Surface>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Card sx={{ height: '100%' }}>
-            <CardContent>
-              <DocIcon color="primary" sx={{ fontSize: 40, mb: 1 }} />
-              <Typography fontWeight={700} gutterBottom>Manual Upload</Typography>
-              <Typography variant="body2" color="text.secondary" mb={2}>
-                Upload PAN, Aadhaar and supporting documents
-              </Typography>
-              <Button variant="outlined" fullWidth onClick={() => navigate('/documents')}>
-                Go to Documents
-              </Button>
-            </CardContent>
-          </Card>
+          <Surface sx={{ height: '100%' }}>
+            <DocIcon sx={{ fontSize: 40, mb: 1, color: brand.navy }} />
+            <Typography fontWeight={700} gutterBottom sx={{ color: brand.navy }}>Manual Upload</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Upload PAN, Aadhaar and supporting documents
+            </Typography>
+            <Button variant="outlined" fullWidth onClick={() => navigate('/documents')}>
+              Go to Documents
+            </Button>
+          </Surface>
         </Grid>
       </Grid>
-    </Container>
+    </PageShell>
   );
 };
 

@@ -9,6 +9,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { brand } from '../../theme/brand';
 
 const ChatbotAvatar = ({ size = 28 }) => (
   <Box
@@ -90,8 +91,10 @@ const Chatbot = () => {
         onClick={() => setOpen(true)}
         sx={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 1200,
-          background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)',
-          '&:hover': { background: 'linear-gradient(135deg, #1E3A8A, #0d47a1)' }
+          background: `linear-gradient(160deg, ${brand.navyMid}, ${brand.navyDeep})`,
+          border: `1px solid rgba(201,162,39,0.45)`,
+          boxShadow: brand.shadowLift,
+          '&:hover': { background: brand.navy },
         }}
       >
         <ChatbotAvatar size={32} />
@@ -103,26 +106,38 @@ const Chatbot = () => {
         maxWidth="sm" fullWidth
         TransitionComponent={Slide}
         TransitionProps={{ direction: 'up' }}
-        PaperProps={{ sx: { borderRadius: 3, height: '70vh', maxHeight: 600, display: 'flex', flexDirection: 'column' } }}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            height: '70vh',
+            maxHeight: 600,
+            display: 'flex',
+            flexDirection: 'column',
+            border: `1px solid ${brand.line}`,
+            overflow: 'hidden',
+          },
+        }}
       >
         <DialogTitle sx={{
-          background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)',
-          color: 'white', display: 'flex', alignItems: 'center', gap: 1, py: 1.5
+          background: `linear-gradient(160deg, ${brand.navyDeep}, ${brand.navy})`,
+          color: 'white', display: 'flex', alignItems: 'center', gap: 1, py: 1.5,
+          fontFamily: brand.fontDisplay,
         }}>
           <ChatbotAvatar size={28} /> Assure Bot
           <Box flex={1} />
           <IconButton onClick={handleClose} sx={{ color: 'white' }}><CloseIcon /></IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#f5f5f5' }}>
+        <DialogContent sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: brand.canvas }}>
           {messages.map((msg, i) => (
             <Box key={i} sx={{ display: 'flex', justifyContent: msg.from === 'user' ? 'flex-end' : 'flex-start', mb: 1.5 }}>
               <Paper
                 elevation={0}
                 sx={{
                   p: 1.5, maxWidth: '85%', borderRadius: 2,
-                  bgcolor: msg.from === 'user' ? '#0B1F3B' : 'white',
+                  bgcolor: msg.from === 'user' ? brand.navy : '#fff',
                   color: msg.from === 'user' ? 'white' : 'text.primary',
+                  border: msg.from === 'user' ? 'none' : `1px solid ${brand.line}`,
                 }}
               >
                 <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>{msg.text}</Typography>

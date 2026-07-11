@@ -113,7 +113,7 @@ const Contact = () => {
             {[
               { icon: <PhoneIcon />, title: 'Call Us', value: '+91 98765 43210', sub: 'Mon-Sat, 9 AM - 7 PM' },
               { icon: <WhatsAppIcon />, title: 'WhatsApp', value: '+91 98765 43210', sub: 'Quick responses, anytime' },
-              { icon: <EmailIcon />, title: 'Email', value: 'support@assurechitfunds.com', sub: 'We reply within 24 hours' },
+              { icon: <EmailIcon />, title: 'Email', value: 'support@assure.fund', sub: 'We reply within 24 hours' },
               { icon: <LocationIcon />, title: 'Office', value: 'Hyderabad, Telangana, India', sub: 'Visit by appointment only' },
             ].map((c, i) => (
               <Paper key={i} sx={{ p: 2.5, mb: 2, borderRadius: 3, display: 'flex', gap: 2, alignItems: 'center', border: '1px solid #E2E8F0' }}>

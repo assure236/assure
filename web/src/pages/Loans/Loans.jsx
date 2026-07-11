@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Container, Grid, Typography, Box, Card, CardContent, Button, TextField,
-  MenuItem, CircularProgress, Chip, Tabs, Tab, Paper, Divider, Alert,
+  Grid, Typography, Box, Button, TextField,
+  MenuItem, CircularProgress, Chip, Tabs, Tab, Divider, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress,
   InputAdornment, Checkbox, FormControlLabel
 } from '@mui/material';
@@ -21,9 +21,8 @@ import axios from 'axios';
 import { securityLogger } from '../../utils/securityLogger';
 import { toast } from 'react-toastify';
 import { useActiveMember } from '../../context/ActiveMemberContext';
-
-const NAVY = '#0B1F3B';
-const GOLD = '#D4AF37';
+import { PageShell, PageHeader, Surface, EmptyState, SectionTitle } from '../../components/ui/PageKit';
+import { brand } from '../../theme/brand';
 
 const STATUS_CONFIG = {
   requested: { label: 'Requested', color: 'info', icon: <PendingIcon fontSize="small" /> },
@@ -146,13 +145,12 @@ const Loans = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ pb: 4 }}>
-      <Box mb={3}>
-        <Typography variant="h4" fontWeight={800} sx={{ color: NAVY }}>
-          Loans
-        </Typography>
-        <Typography color="text.secondary">Apply for a loan or track your existing applications</Typography>
-      </Box>
+    <PageShell>
+      <PageHeader
+        eyebrow="Credit"
+        title="Loans"
+        subtitle="Apply for a loan or track your existing applications"
+      />
 
       <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 3, '& .MuiTab-root': { fontWeight: 600 } }}>
         <Tab icon={<ApplyIcon />} iconPosition="start" label="Apply for Loan" />
@@ -163,9 +161,8 @@ const Loans = () => {
       {tab === 0 && (
         <Grid container spacing={3}>
           <Grid item xs={12} md={7}>
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent sx={{ p: 3.5 }}>
-                <Typography variant="h6" fontWeight={700} sx={{ color: NAVY, mb: 3 }}>
+            <Surface>
+                <Typography variant="h6" fontWeight={700} sx={{ color: brand.navy, mb: 3 }}>
                   Loan Application
                 </Typography>
 
@@ -222,20 +219,18 @@ const Loans = () => {
                 <Button
                   variant="contained" fullWidth size="large" disabled={hasActiveLoan || applying || !acceptedTerms}
                   onClick={handleApply}
-                  sx={{ mt: 3, bgcolor: GOLD, color: NAVY, fontWeight: 700, py: 1.5, '&:hover': { bgcolor: '#E3C668' } }}
+                  sx={{ mt: 3, fontWeight: 700, py: 1.5 }}
                 >
                   {applying ? <CircularProgress size={24} /> : 'Submit Loan Application'}
                 </Button>
-              </CardContent>
-            </Card>
+            </Surface>
           </Grid>
 
           <Grid item xs={12} md={5}>
             {/* EMI Estimate Card */}
-            <Card sx={{ borderRadius: 3, mb: 2, background: `linear-gradient(135deg, ${NAVY}, #1E3A8A)`, color: 'white' }}>
-              <CardContent sx={{ p: 3 }}>
-                <Typography variant="h6" fontWeight={700} sx={{ color: GOLD, mb: 2 }}>
-                  💰 EMI Estimate
+            <Surface sx={{ mb: 2, background: `linear-gradient(135deg, ${brand.navy}, ${brand.royal})`, color: 'white', border: 'none' }}>
+                <Typography variant="h6" fontWeight={700} sx={{ color: brand.gold, mb: 2 }}>
+                  EMI Estimate
                 </Typography>
                 {estimatedEMI ? (
                   <>
@@ -257,7 +252,7 @@ const Loans = () => {
                     </Box>
                     <Box display="flex" justifyContent="space-between">
                       <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>Total Payable</Typography>
-                      <Typography fontWeight={600} sx={{ color: GOLD }}>
+                      <Typography fontWeight={600} sx={{ color: brand.gold }}>
                         {formatCurrency(estimatedEMI * Number(form.tenure_months))}
                       </Typography>
                     </Box>
@@ -267,21 +262,17 @@ const Loans = () => {
                     Enter loan amount and tenure to see EMI estimate
                   </Typography>
                 )}
-              </CardContent>
-            </Card>
+            </Surface>
 
-            {/* Info Card — brief eligibility note (About Loans / How It Works removed) */}
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent sx={{ p: 3 }}>
+            <Surface>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <InfoIcon sx={{ color: GOLD }} />
-                  <Typography variant="h6" fontWeight={700} sx={{ color: NAVY }}>Before you apply</Typography>
+                  <InfoIcon sx={{ color: brand.goldDark }} />
+                  <Typography variant="h6" fontWeight={700} sx={{ color: brand.navy }}>Before you apply</Typography>
                 </Box>
                 <Typography variant="body2" color="text.secondary">
                   Fill amount and tenure, accept Terms & Conditions, then submit. Our team reviews applications and contacts you with the next steps.
                 </Typography>
-              </CardContent>
-            </Card>
+            </Surface>
           </Grid>
         </Grid>
       )}
@@ -290,22 +281,20 @@ const Loans = () => {
       {tab === 1 && (
         <Box>
           {loans.length === 0 ? (
-            <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3 }}>
-              <LoanIcon sx={{ fontSize: 64, color: '#CBD5E1', mb: 2 }} />
-              <Typography variant="h6" fontWeight={600} sx={{ color: NAVY, mb: 1 }}>No Loans Yet</Typography>
-              <Typography color="text.secondary" sx={{ mb: 3 }}>
-                You haven't applied for any loans yet. Switch to the "Apply for Loan" tab to get started.
-              </Typography>
-              <Button variant="contained" onClick={() => setTab(0)}
-                sx={{ bgcolor: GOLD, color: NAVY, fontWeight: 700, '&:hover': { bgcolor: '#E3C668' } }}>
-                Apply Now
-              </Button>
-            </Paper>
+            <Surface>
+              <EmptyState
+                icon={<LoanIcon sx={{ fontSize: 32 }} />}
+                title="No loans yet"
+                description={'You haven\'t applied for any loans yet. Switch to the Apply for Loan tab to get started.'}
+                actionLabel="Apply Now"
+                onAction={() => setTab(0)}
+              />
+            </Surface>
           ) : (
             <>
               {activeLoans.length > 0 && (
                 <Box mb={3}>
-                  <Typography variant="h6" fontWeight={700} sx={{ color: NAVY, mb: 2 }}>Active / Pending</Typography>
+                  <SectionTitle title="Active / Pending" />
                   <Grid container spacing={2}>
                     {activeLoans.map(loan => (
                       <Grid item xs={12} md={6} key={loan._id}>
@@ -318,7 +307,7 @@ const Loans = () => {
 
               {pastLoans.length > 0 && (
                 <Box>
-                  <Typography variant="h6" fontWeight={700} sx={{ color: NAVY, mb: 2 }}>History</Typography>
+                  <SectionTitle title="History" />
                   <Grid container spacing={2}>
                     {pastLoans.map(loan => (
                       <Grid item xs={12} md={6} key={loan._id}>
@@ -337,7 +326,7 @@ const Loans = () => {
       <Dialog open={!!detailLoan} onClose={() => setDetailLoan(null)} maxWidth="sm" fullWidth>
         {detailLoan && (
           <>
-            <DialogTitle sx={{ fontWeight: 700, color: NAVY }}>
+            <DialogTitle sx={{ fontWeight: 700, color: brand.navy }}>
               Loan Details
               <Chip
                 label={STATUS_CONFIG[detailLoan.status]?.label || detailLoan.status}
@@ -363,7 +352,7 @@ const Loans = () => {
                 ].map((item, i) => (
                   <Grid item xs={6} key={i}>
                     <Typography variant="caption" color="text.secondary">{item.label}</Typography>
-                    <Typography fontWeight={600} sx={{ color: NAVY }}>{item.value}</Typography>
+                    <Typography fontWeight={600} sx={{ color: brand.navy }}>{item.value}</Typography>
                   </Grid>
                 ))}
                 {detailLoan.purpose && (
@@ -391,11 +380,11 @@ const Loans = () => {
                 {detailLoan.approved_amount && detailLoan.outstanding_amount !== undefined && ['active', 'disbursed'].includes(detailLoan.status) && (
                   <Grid item xs={12}>
                     <Divider sx={{ my: 1 }} />
-                    <Typography variant="body2" fontWeight={600} sx={{ color: NAVY, mb: 1 }}>Repayment Progress</Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: brand.navy, mb: 1 }}>Repayment Progress</Typography>
                     <LinearProgress
                       variant="determinate"
                       value={Math.max(0, ((detailLoan.approved_amount - detailLoan.outstanding_amount) / detailLoan.approved_amount) * 100)}
-                      sx={{ height: 10, borderRadius: 5, bgcolor: '#E2E8F0', '& .MuiLinearProgress-bar': { bgcolor: '#16A34A', borderRadius: 5 } }}
+                      sx={{ height: 10, borderRadius: 2, bgcolor: brand.mist, '& .MuiLinearProgress-bar': { bgcolor: brand.success, borderRadius: 2 } }}
                     />
                     <Box display="flex" justifyContent="space-between" mt={0.5}>
                       <Typography variant="caption" color="text.secondary">
@@ -415,7 +404,7 @@ const Loans = () => {
           </>
         )}
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 
@@ -423,16 +412,15 @@ const Loans = () => {
 const LoanCard = ({ loan, onViewDetails }) => {
   const cfg = STATUS_CONFIG[loan.status] || STATUS_CONFIG.requested;
   return (
-    <Card sx={{ borderRadius: 3, border: '1px solid #E2E8F0', '&:hover': { borderColor: GOLD, boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }, transition: 'all 0.3s', cursor: 'pointer' }} onClick={onViewDetails}>
-      <CardContent sx={{ p: 2.5 }}>
+    <Surface onClick={onViewDetails}>
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
-          <Typography variant="body2" fontWeight={700} sx={{ color: NAVY, textTransform: 'capitalize' }}>
+          <Typography variant="body2" fontWeight={700} sx={{ color: brand.navy, textTransform: 'capitalize' }}>
             {loan.loan_type?.replace(/_/g, ' ')}
           </Typography>
           <Chip label={cfg.label} color={cfg.color} size="small" icon={cfg.icon} />
         </Box>
 
-        <Typography variant="h5" fontWeight={800} sx={{ color: NAVY, mb: 0.5 }}>
+        <Typography variant="h5" fontWeight={800} sx={{ color: brand.navy, mb: 0.5 }}>
           {formatCurrency(loan.approved_amount || loan.requested_amount)}
         </Typography>
 
@@ -453,11 +441,10 @@ const LoanCard = ({ loan, onViewDetails }) => {
           )}
         </Grid>
 
-        <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mt: 1.5 }}>
+        <Typography variant="caption" sx={{ color: brand.muted, display: 'block', mt: 1.5 }}>
           Applied: {formatDate(loan.created_at)}
         </Typography>
-      </CardContent>
-    </Card>
+    </Surface>
   );
 };
 

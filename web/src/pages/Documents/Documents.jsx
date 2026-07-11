@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Container, Grid, Card, CardContent, CardActions, Typography, Box, Chip,
+  Grid, Typography, Box, Chip,
   CircularProgress, Button, Alert, IconButton, Tooltip, Dialog,
   DialogTitle, DialogContent, DialogActions, Divider
 } from '@mui/material';
@@ -15,6 +15,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useSearchParams } from 'react-router-dom';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { PageShell, PageHeader, Surface, SectionTitle } from '../../components/ui/PageKit';
+import { brand } from '../../theme/brand';
 
 const DOC_TYPES = [
   { key: 'aadhaar_card', label: 'Aadhaar Card (Front & Back)', required: true, maxSizeKB: 500 },
@@ -265,7 +267,7 @@ const Documents = () => {
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
+    <PageShell>
       {/* Hidden file input for gallery upload */}
       <input type="file" ref={fileInputRef} style={{ display: 'none' }}
         accept=".jpg,.jpeg,.png" onChange={handleFileChange} />
@@ -273,14 +275,18 @@ const Documents = () => {
       <input type="file" ref={cameraInputRef} style={{ display: 'none' }}
         accept="image/jpeg,image/png" capture="environment" onChange={handleFileChange} />
 
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h4">My Documents</Typography>
-        <Chip
-          label={`${approvedRequired}/${required.length} Required KYC Docs`}
-          color={approvedRequired === required.length ? 'success' : 'warning'}
-          icon={approvedRequired === required.length ? <ApprovedIcon /> : <PendingIcon />}
-        />
-      </Box>
+      <PageHeader
+        eyebrow="KYC"
+        title="My Documents"
+        subtitle="Upload required identity documents for verification"
+        actions={
+          <Chip
+            label={`${approvedRequired}/${required.length} Required KYC Docs`}
+            color={approvedRequired === required.length ? 'success' : 'warning'}
+            icon={approvedRequired === required.length ? <ApprovedIcon /> : <PendingIcon />}
+          />
+        }
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -291,12 +297,11 @@ const Documents = () => {
       )}
 
       {/* DigiLocker Integration */}
-      <Card sx={{ mb: 3, borderRadius: 3, border: dlStatus?.connected ? '1px solid #4caf50' : '1px solid #0B1F3B' }}>
-        <CardContent>
+      <Surface sx={{ mb: 3, borderColor: dlStatus?.connected ? brand.success : brand.lineStrong }}>
           <Box display="flex" alignItems="center" gap={2}>
-            <DigiLockerIcon sx={{ fontSize: 40, color: dlStatus?.connected ? '#4caf50' : '#0B1F3B' }} />
+            <DigiLockerIcon sx={{ fontSize: 40, color: dlStatus?.connected ? brand.success : brand.navy }} />
             <Box flex={1}>
-              <Typography variant="h6">DigiLocker eKYC</Typography>
+              <Typography variant="h6" sx={{ color: brand.navy }}>DigiLocker eKYC</Typography>
               <Typography variant="body2" color="text.secondary">
                 {dlStatus?.connected
                   ? `Connected — DigiLocker ID: ${dlStatus.digilocker_id}`
@@ -313,10 +318,9 @@ const Documents = () => {
               {dlStatus?.connected ? 'Connected' : 'Connect DigiLocker'}
             </Button>
           </Box>
-        </CardContent>
-      </Card>
+      </Surface>
 
-      <Typography variant="h6" sx={{ mb: 2, color: 'text.secondary' }}>Required Documents (JPG/JPEG/PNG only)</Typography>
+      <SectionTitle title="Required Documents (JPG/JPEG/PNG only)" />
       <Grid container spacing={2} mb={4}>
         {required.map(docType => {
           const doc = getDoc(docType.key);
@@ -325,10 +329,9 @@ const Documents = () => {
           const isUploading = uploading === docType.key;
           return (
             <Grid item xs={12} sm={6} md={6} key={docType.key}>
-              <Card sx={{ borderRadius: 3, border: isDocApproved(doc) ? '1px solid #4caf50' : '1px solid #e0e0e0', height: '100%' }}>
-                <CardContent>
+              <Surface sx={{ height: '100%', borderColor: isDocApproved(doc) ? brand.success : brand.line }}>
                   <Box display="flex" alignItems="center" gap={1} mb={1}>
-                    <DocIcon color={doc ? 'primary' : 'disabled'} />
+                    <DocIcon sx={{ color: doc ? brand.navy : brand.muted }} />
                     <Typography variant="body1" fontWeight={600}>{docType.label}</Typography>
                   </Box>
                   <Typography variant="caption" color="text.secondary" display="block" mb={1}>
@@ -347,11 +350,10 @@ const Documents = () => {
                     <Box
                       component="img" src={localPreviews[docType.key] || doc.file_url} alt={docType.label}
                       onClick={() => setPreviewDoc({ ...doc, _previewUrl: localPreviews[docType.key] || doc?.file_url })}
-                      sx={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 1, mt: 1, cursor: 'pointer', border: '1px solid #e0e0e0' }}
+                      sx={{ width: '100%', maxHeight: 140, objectFit: 'cover', borderRadius: 1, mt: 1, cursor: 'pointer', border: `1px solid ${brand.line}` }}
                     />
                   )}
-                </CardContent>
-                <CardActions>
+                  <Box display="flex" flexWrap="wrap" gap={0.5} mt={1.5}>
                   {(doc || localPreviews[docType.key]) && (
                     <Tooltip title="Preview"><IconButton size="small" onClick={() => setPreviewDoc({ ...doc, _previewUrl: localPreviews[docType.key] || doc?.file_url })}><ViewIcon /></IconButton></Tooltip>
                   )}
@@ -372,8 +374,8 @@ const Documents = () => {
                       </Button>
                     </>
                   )}
-                </CardActions>
-              </Card>
+                  </Box>
+              </Surface>
             </Grid>
           );
         })}
@@ -411,7 +413,7 @@ const Documents = () => {
           <Button onClick={closeWebcam} color="inherit" disabled={webcamStatus === 'checking'}>Cancel</Button>
           <Button onClick={capturePhoto} variant="contained" startIcon={<CameraIcon />}
             disabled={webcamStatus === 'checking' || webcamStatus === 'done'}
-            sx={{ borderRadius: 8, px: 4 }}>
+            sx={{ px: 4 }}>
             {webcamStatus === 'error' ? 'Retry' : 'Capture'}
           </Button>
         </DialogActions>
@@ -436,7 +438,7 @@ const Documents = () => {
           <Button onClick={() => setPreviewDoc(null)}>Close</Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 

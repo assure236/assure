@@ -1,26 +1,35 @@
 import React, { useState } from 'react';
 import {
-  Container, Grid, Card, CardContent, Typography, Box, Button, TextField,
-  Accordion, AccordionSummary, AccordionDetails, Divider, Alert, Paper,
+  Grid, Typography, Box, Button, TextField,
+  Accordion, AccordionSummary, AccordionDetails, Divider,
   List, ListItem, ListItemIcon, ListItemText, CircularProgress, Chip
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon, Phone as PhoneIcon, Email as EmailIcon,
-  WhatsApp as WhatsAppIcon, Help as HelpIcon, Send as SendIcon,
+  WhatsApp as WhatsAppIcon, Send as SendIcon,
   PlayCircle as PlayIcon, AccessTime as ClockIcon, School as SchoolIcon
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { PageShell, PageHeader, Surface, SectionTitle } from '../../components/ui/PageKit';
+import { brand } from '../../theme/brand';
+
+const TUTORIAL_COLORS = [brand.navy, brand.success, brand.goldDark, brand.royal, brand.navyMid, brand.goldDark];
 
 const TUTORIALS = [
-  { title: 'Getting Started with Assure ChitFunds', duration: '3:45', color: '#0B1F3B', description: 'An introduction to the platform — registration, login, and navigating your dashboard.', category: 'Beginner' },
-  { title: 'How to Join a Chit Group', duration: '4:20', color: '#388e3c', description: 'Step-by-step guide to browsing available chit groups and enrolling in one.', category: 'Beginner' },
-  { title: 'How to Bid in Live Auctions', duration: '5:10', color: '#B8960F', description: 'Learn how live auctions work, how to place bids, and what happens after winning.', category: 'Intermediate' },
-  { title: 'Understanding Your Dividend', duration: '4:55', color: '#7b1fa2', description: 'Explains dividend calculation, winning bid deductions, and expected returns.', category: 'Intermediate' },
-  { title: 'KYC Verification Guide', duration: '3:15', color: '#0288d1', description: 'How to upload Aadhaar and PAN documents for KYC verification.', category: 'Beginner' },
-  { title: 'Reading Your Account Statement', duration: '3:30', color: '#c62828', description: 'Download and interpret your payment history, receipts, and late fees from the Payments page.', category: 'Advanced' },
+  { title: 'Getting Started with Assure ChitFunds', duration: '5 min', description: 'Learn how to create your account, complete KYC, and enroll in your first chit.', category: 'Beginner', url: 'https://www.youtube.com/watch?v=demo_getting_started' },
+  { title: 'How Chit Funds Work', duration: '7 min', description: 'Understand the chit fund mechanism — monthly auctions, dividends, and payouts.', category: 'Beginner', url: 'https://www.youtube.com/watch?v=demo_how_chits_work' },
+  { title: 'How to Bid in an Auction', duration: '4 min', description: 'Step-by-step guide on entering a live auction room and placing your bid.', category: 'Intermediate', url: 'https://www.youtube.com/watch?v=demo_auction_bidding' },
+  { title: 'Making Payments', duration: '3 min', description: 'Learn how to make monthly installment payments and view payment history.', category: 'Beginner', url: 'https://www.youtube.com/watch?v=demo_payments' },
+  { title: 'Understanding Dividends', duration: '4 min', description: 'How dividends are calculated and distributed to members each month.', category: 'Intermediate', url: 'https://www.youtube.com/watch?v=demo_dividends' },
+  { title: 'Refer & Earn Program', duration: '3 min', description: 'How to refer friends and earn rewards through your referral code.', category: 'Beginner', url: 'https://www.youtube.com/watch?v=demo_referrals' },
 ];
+
+const openTutorial = (url) => {
+  if (!url) return;
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
 
 const FAQS = [
   {
@@ -82,27 +91,39 @@ const Help = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={2}>
-        <Typography variant="h4">Help & Support</Typography>
-        <Button variant="contained" onClick={() => navigate('/support?new=1')}>
-          Open Support Tickets
-        </Button>
-      </Box>
+    <PageShell>
+      <PageHeader
+        eyebrow="Resources"
+        title="Help & Support"
+        subtitle="Tutorials, FAQs, and ways to reach our team"
+        actions={
+          <Button variant="contained" onClick={() => navigate('/support?new=1')}>
+            Open Support Tickets
+          </Button>
+        }
+      />
 
-      {/* Tutorial Videos Section */}
       <Box mb={4}>
-        <Box display="flex" alignItems="center" gap={1} mb={2}>
-          <SchoolIcon color="primary" />
-          <Typography variant="h6">Tutorial Videos</Typography>
-        </Box>
+        <SectionTitle
+          title="Tutorial Videos"
+          action={<SchoolIcon sx={{ color: brand.goldDark }} />}
+        />
         <Grid container spacing={2}>
           {TUTORIALS.map((t, i) => (
             <Grid item xs={12} sm={6} md={4} key={i}>
-              <Card sx={{ borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', transition: 'transform 0.2s', '&:hover': { transform: 'translateY(-2px)' } }}>
-                {/* Thumbnail */}
-                <Box sx={{ bgcolor: t.color, height: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px 12px 0 0', position: 'relative', cursor: 'pointer' }}
-                  onClick={() => toast.info('Tutorial video coming soon!')}>
+              <Surface padded={false} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <Box
+                  sx={{
+                    bgcolor: TUTORIAL_COLORS[i % TUTORIAL_COLORS.length],
+                    height: 110,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => openTutorial(t.url)}
+                >
                   <PlayIcon sx={{ fontSize: 54, color: 'rgba(255,255,255,0.9)' }} />
                   <Box sx={{ position: 'absolute', bottom: 8, right: 8, bgcolor: 'rgba(0,0,0,0.65)', px: 1, py: 0.25, borderRadius: 1 }}>
                     <Typography variant="caption" color="white" display="flex" alignItems="center" gap={0.5}>
@@ -110,18 +131,18 @@ const Help = () => {
                     </Typography>
                   </Box>
                 </Box>
-                <CardContent sx={{ flexGrow: 1 }}>
+                <Box sx={{ p: 2, flexGrow: 1 }}>
                   <Chip label={t.category} size="small" variant="outlined" sx={{ mb: 1, fontSize: 10 }} />
-                  <Typography variant="subtitle2" fontWeight={700} gutterBottom>{t.title}</Typography>
+                  <Typography variant="subtitle2" fontWeight={700} gutterBottom sx={{ color: brand.navy }}>{t.title}</Typography>
                   <Typography variant="caption" color="text.secondary">{t.description}</Typography>
-                </CardContent>
+                </Box>
                 <Box px={2} pb={2}>
                   <Button fullWidth variant="outlined" size="small" startIcon={<PlayIcon />}
-                    onClick={() => toast.info('Tutorial video coming soon!')} sx={{ borderRadius: 2 }}>
+                    onClick={() => openTutorial(t.url)}>
                     Watch
                   </Button>
                 </Box>
-              </Card>
+              </Surface>
             </Grid>
           ))}
         </Grid>
@@ -130,15 +151,20 @@ const Help = () => {
       <Divider sx={{ mb: 3 }} />
 
       <Grid container spacing={3}>
-        {/* Left: FAQ */}
         <Grid item xs={12} md={7}>
-          <Typography variant="h6" sx={{ mb: 2 }}>Frequently Asked Questions</Typography>
+          <SectionTitle title="Frequently Asked Questions" />
           {FAQS.map((faq, i) => (
             <Accordion
               key={i}
               expanded={expanded === i}
               onChange={(_, isEx) => setExpanded(isEx ? i : false)}
-              sx={{ mb: 1, borderRadius: '8px !important', '&:before': { display: 'none' }, boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}
+              sx={{
+                mb: 1,
+                borderRadius: `${brand.radius}px !important`,
+                '&:before': { display: 'none' },
+                border: `1px solid ${brand.line}`,
+                boxShadow: 'none',
+              }}
             >
               <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                 <Typography fontWeight={600}>{faq.q}</Typography>
@@ -150,72 +176,63 @@ const Help = () => {
           ))}
         </Grid>
 
-        {/* Right: Contact + Submit */}
         <Grid item xs={12} md={5}>
-          {/* Contact Options */}
-          <Card sx={{ borderRadius: 3, mb: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>Contact Us</Typography>
-              <Divider sx={{ mb: 2 }} />
-              <List dense>
-                {[
-                  {
-                    icon: <PhoneIcon color="primary" />,
-                    label: '+91 98765 43210',
-                    sub: 'Mon–Sat, 9am–6pm',
-                    onClick: () => window.open('tel:+919876543210'),
-                  },
-                  {
-                    icon: <WhatsAppIcon sx={{ color: '#25D366' }} />,
-                    label: 'WhatsApp Support',
-                    sub: 'Chat with us anytime',
-                    onClick: () => window.open('https://wa.me/919876543210'),
-                  },
-                  {
-                    icon: <EmailIcon color="info" />,
-                    label: 'support@assurchitfunds.com',
-                    sub: 'Response within 24 hours',
-                    onClick: () => window.open('mailto:support@assurchitfunds.com'),
-                  },
-                ].map(({ icon, label, sub, onClick }) => (
-                  <ListItem key={label} button onClick={onClick} sx={{ borderRadius: 2, mb: 0.5, '&:hover': { bgcolor: 'action.hover' } }}>
-                    <ListItemIcon>{icon}</ListItemIcon>
-                    <ListItemText primary={label} secondary={sub} />
-                  </ListItem>
-                ))}
-              </List>
-            </CardContent>
-          </Card>
+          <Surface sx={{ mb: 3 }}>
+            <Typography variant="h6" gutterBottom sx={{ color: brand.navy }}>Contact Us</Typography>
+            <Divider sx={{ mb: 2 }} />
+            <List dense>
+              {[
+                {
+                  icon: <PhoneIcon sx={{ color: brand.navy }} />,
+                  label: '+91 98765 43210',
+                  sub: 'Mon–Sat, 9am–6pm',
+                  onClick: () => window.open('tel:+919876543210'),
+                },
+                {
+                  icon: <WhatsAppIcon sx={{ color: brand.success }} />,
+                  label: 'WhatsApp Support',
+                  sub: 'Chat with us anytime',
+                  onClick: () => window.open('https://wa.me/919876543210'),
+                },
+                {
+                  icon: <EmailIcon sx={{ color: brand.royal }} />,
+                  label: 'support@assure.fund',
+                  sub: 'Response within 24 hours',
+                  onClick: () => window.open('mailto:support@assure.fund'),
+                },
+              ].map(({ icon, label, sub, onClick }) => (
+                <ListItem key={label} button onClick={onClick} sx={{ borderRadius: 2, mb: 0.5, '&:hover': { bgcolor: brand.mist } }}>
+                  <ListItemIcon>{icon}</ListItemIcon>
+                  <ListItemText primary={label} secondary={sub} />
+                </ListItem>
+              ))}
+            </List>
+          </Surface>
 
-          {/* Support Form */}
-          <Card sx={{ borderRadius: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>Send a Message</Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Box component="form" onSubmit={handleSubmit}>
-                <TextField
-                  fullWidth label="Subject" size="small" sx={{ mb: 2 }}
-                  value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })}
-                  inputProps={{ maxLength: 100 }}
-                />
-                <TextField
-                  fullWidth label="Message" multiline rows={4} sx={{ mb: 2 }}
-                  value={form.message} onChange={e => setForm({ ...form, message: e.target.value })}
-                  inputProps={{ maxLength: 1000 }}
-                />
-                <Button fullWidth type="submit" variant="contained" disabled={sending}
-                  startIcon={sending ? <CircularProgress size={16} /> : <SendIcon />}
-                  sx={{ borderRadius: 2 }}>
-                  {sending ? 'Sending…' : 'Send Message'}
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
+          <Surface>
+            <Typography variant="h6" gutterBottom sx={{ color: brand.navy }}>Send a Message</Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Box component="form" onSubmit={handleSubmit}>
+              <TextField
+                fullWidth label="Subject" size="small" sx={{ mb: 2 }}
+                value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })}
+                inputProps={{ maxLength: 100 }}
+              />
+              <TextField
+                fullWidth label="Message" multiline rows={4} sx={{ mb: 2 }}
+                value={form.message} onChange={e => setForm({ ...form, message: e.target.value })}
+                inputProps={{ maxLength: 1000 }}
+              />
+              <Button fullWidth type="submit" variant="contained" disabled={sending}
+                startIcon={sending ? <CircularProgress size={16} /> : <SendIcon />}>
+                {sending ? 'Sending…' : 'Send Message'}
+              </Button>
+            </Box>
+          </Surface>
         </Grid>
       </Grid>
-    </Container>
+    </PageShell>
   );
 };
 
 export default Help;
-

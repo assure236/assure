@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Grid, Card, CardContent, Typography, Box, Avatar,
+  Grid, Typography, Box, Avatar,
   Button, Divider, TextField, Alert, CircularProgress, Chip, Paper,
   Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress, Tooltip,
   MenuItem, List, ListItemButton, ListItemText
@@ -19,6 +19,10 @@ import { useActiveMember } from '../../context/ActiveMemberContext';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+
+import ProfileSecureEdits from './ProfileSecureEdits';
+import { brand } from '../../theme/brand';
+import { PageShell, PageHeader, Surface } from '../../components/ui/PageKit';
 
 const NOMINEE_RELATIONS = ['Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Other'];
 
@@ -315,19 +319,21 @@ const Profile = () => {
 
   if (profileLoading || (isSwitched && !user)) {
     return (
-      <Container maxWidth="lg" sx={{ py: 2 }}>
+      <PageShell>
         <Box display="flex" justifyContent="center" py={6}>
           <CircularProgress />
         </Box>
-      </Container>
+      </PageShell>
     );
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Typography variant="h4" gutterBottom>
-        {isSwitched ? `Profile — ${user?.member_id || 'Family Member'}` : 'My Profile'}
-      </Typography>
+    <PageShell>
+      <PageHeader
+        eyebrow="Account"
+        title={isSwitched ? `Profile — ${user?.member_id || 'Family Member'}` : 'My Profile'}
+        subtitle={isSwitched ? 'Viewing and editing profile for the selected family member account.' : 'Manage your personal details, security, and membership tools.'}
+      />
       {isSwitched && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Viewing and editing profile for the selected family member account.
@@ -337,8 +343,8 @@ const Profile = () => {
       <Grid container spacing={3}>
         {/* Left: Avatar + KYC + Credit Score */}
         <Grid item xs={12} md={4}>
-          <Card sx={{ borderRadius: 3, textAlign: 'center' }}>
-            <Box sx={{ background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)', pt: 4, pb: 2, borderRadius: '12px 12px 0 0' }}>
+          <Surface padded={false} sx={{ textAlign: 'center', overflow: 'hidden' }}>
+            <Box sx={{ background: `linear-gradient(135deg, ${brand.navy}, ${brand.royal})`, pt: 4, pb: 2 }}>
               <Box sx={{ position: 'relative', display: 'inline-block' }}>
                 {user?.profile_image_url ? (
                   <Avatar src={user.profile_image_url} sx={{ width: 90, height: 90, border: '3px solid white', mx: 'auto', mb: 1.5 }} />
@@ -357,7 +363,7 @@ const Profile = () => {
                 </Typography>
               </Box>
             </Box>
-            <CardContent>
+            <Box sx={{ p: 2.5 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <KycIcon color={kycStatus === 'verified' ? 'success' : 'disabled'} />
@@ -402,16 +408,29 @@ const Profile = () => {
               <Button fullWidth variant="outlined" sx={{ mt: 2, borderRadius: 2 }} onClick={() => setPwDialog(true)}>
                 Change Password
               </Button>
-            </CardContent>
-          </Card>
+              {!isSwitched && (
+                <ProfileSecureEdits
+                  user={user}
+                  onUpdated={async () => {
+                    if (isSwitched) await reloadEffectiveProfile();
+                    else {
+                      try {
+                        const res = await axios.get('/users/profile', { skipActiveMember: true });
+                        if (res.data.success) setFullProfile(res.data.data);
+                      } catch { /* ignore */ }
+                    }
+                  }}
+                />
+              )}
+            </Box>
+          </Surface>
         </Grid>
 
         {/* Right: Personal Info */}
         <Grid item xs={12} md={8}>
-          <Card sx={{ borderRadius: 3 }}>
-            <CardContent>
+          <Surface>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">Personal Information</Typography>
+                <Typography variant="h6" sx={{ color: brand.navy }}>Personal Information</Typography>
                 {!editing
                   ? <Button startIcon={<EditIcon />} onClick={() => setEditing(true)}>Edit</Button>
                   : <Box display="flex" gap={1}>
@@ -463,19 +482,18 @@ const Profile = () => {
                   </Grid>
                 ))}
               </Grid>
-            </CardContent>
-          </Card>
+          </Surface>
         </Grid>
       </Grid>
 
       <Grid container spacing={3} sx={{ mt: 1 }}>
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" fontWeight={700} gutterBottom>Account & Tools</Typography>
+          <Surface>
+              <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: brand.navy }}>Account & Tools</Typography>
               <List dense>
                 {[
                   { label: 'KYC Verification', path: '/kyc' },
+                  { label: 'Documents', path: '/documents' },
                   { label: 'Savings Goals', path: '/goals' },
                   { label: 'Analytics', path: '/analytics' },
                   { label: 'Referrals', path: '/referrals' },
@@ -508,11 +526,9 @@ const Profile = () => {
                   </ListItemButton>
                 )}
               </List>
-            </CardContent>
-          </Card>
+          </Surface>
 
-          <Card sx={{ mt: 2 }}>
-            <CardContent>
+          <Surface sx={{ mt: 2 }}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>Active Sessions</Typography>
               {sessions.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">No session data available.</Typography>
@@ -542,13 +558,11 @@ const Profile = () => {
                   );
                 })
               )}
-            </CardContent>
-          </Card>
+          </Surface>
         </Grid>
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" fontWeight={700} gutterBottom>Chit Actions & Support</Typography>
+          <Surface>
+              <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: brand.navy }}>Chit Actions & Support</Typography>
               <List dense>
                 {[
                   { label: 'Transfer Chit', path: '/chit-groups/transfer' },
@@ -569,8 +583,7 @@ const Profile = () => {
                 onClick={logoutAllDevices}>
                 Logout All Devices
               </Button>
-            </CardContent>
-          </Card>
+          </Surface>
         </Grid>
       </Grid>
 
@@ -669,7 +682,7 @@ const Profile = () => {
           )}
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 

@@ -3,11 +3,34 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-// Pages this guard does NOT redirect away from.
-const ALLOWED_PATHS = ['/onboarding', '/login', '/register', '/forgot-password', '/about', '/contact', '/chit-education'];
+// Pages this guard does NOT redirect away from (public marketing + auth).
+const ALLOWED_PATHS = [
+  '/onboarding',
+  '/login',
+  '/register',
+  '/',
+  '/company',
+  '/plans',
+  '/auctions-info',
+  '/tools',
+  '/members',
+  '/learn',
+  '/support-center',
+  '/terms',
+  '/privacy-policy',
+  '/about',
+  '/contact',
+  '/chit-education',
+  '/faq',
+  '/schemes',
+  '/calculator',
+  '/auction',
+  '/refer',
+];
 
 function pathAllowed(pathname) {
-  return ALLOWED_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  if (pathname === '/') return true;
+  return ALLOWED_PATHS.some((p) => p !== '/' && (pathname === p || pathname.startsWith(`${p}/`)));
 }
 
 const StepToPath = {

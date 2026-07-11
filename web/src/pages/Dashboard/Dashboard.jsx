@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Grid, Paper, Typography, Box, Card, CardContent,
-  CircularProgress, LinearProgress, Chip, List, ListItem,
-  ListItemText, ListItemAvatar, Avatar, Button, Divider, Alert
+  Grid, Typography, Box, CircularProgress, LinearProgress, Chip, Button, Alert, Stack,
 } from '@mui/material';
 import {
   AccountBalance as AccountBalanceIcon,
@@ -18,7 +16,7 @@ import {
 } from '@mui/icons-material';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  PieChart, Pie, Cell, Legend,
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -28,40 +26,10 @@ import { useDisplayUser } from '../../hooks/useDisplayUser';
 import SimpleTour from '../../components/Onboarding/SimpleTour';
 import ReferralShareModal from '../../components/Onboarding/ReferralShareModal';
 import { CHART_TOOLTIP_PROPS } from '../../theme/uiOverrides';
-
-const StatCard = ({ title, value, icon, color, subtitle, onClick }) => (
-  <Card
-    onClick={onClick}
-    sx={{
-      height: '100%',
-      cursor: onClick ? 'pointer' : 'default',
-      transition: onClick ? 'transform 0.15s ease, box-shadow 0.15s ease' : 'none',
-      '&:hover': onClick ? { transform: 'translateY(-2px)', boxShadow: 5 } : undefined,
-    }}
-  >
-    <CardContent>
-      <Box display="flex" alignItems="flex-start" justifyContent="space-between">
-        <Box>
-          <Typography color="text.secondary" variant="body2" gutterBottom>
-            {title}
-          </Typography>
-          <Typography variant="h5" fontWeight={700}>
-            {value}
-          </Typography>
-          {subtitle && (
-            <Typography variant="caption" color="text.secondary">{subtitle}</Typography>
-          )}
-        </Box>
-        <Box sx={{
-          backgroundColor: `${color}15`, borderRadius: 2,
-          p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-        }}>
-          <Box sx={{ color }}>{icon}</Box>
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
-);
+import { brand, fmtINR } from '../../theme/brand';
+import {
+  PageShell, PageHeader, Surface, MetricTile, EmptyState, SectionTitle,
+} from '../../components/ui/PageKit';
 
 const Dashboard = () => {
   const { refreshKey, isSwitched, activeMemberId } = useActiveMember();
@@ -80,11 +48,9 @@ const Dashboard = () => {
 
   useEffect(() => { fetchDashboardData(); }, [refreshKey]);
 
-  // Post-onboarding: take a tour + share popup
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     if (sp.get('onboarding') === 'just_completed') {
-      // Clean URL but keep on dashboard
       window.history.replaceState({}, '', '/dashboard');
       setTimeout(() => setShowTour(true), 500);
     }
@@ -127,7 +93,6 @@ const Dashboard = () => {
       }
     } catch (err) {
       setError('Could not load dashboard data. Please refresh.');
-      // SECURITY FIX: sanitize dashboard error logging.
       securityLogger.error('Dashboard load failed', { status: err?.response?.status });
     } finally {
       setLoading(false);
@@ -142,32 +107,12 @@ const Dashboard = () => {
     );
   }
 
-  const stats = [
-    {
-      title: 'Active Chit Groups', color: '#0B1F3B',
-      value: dashboardData?.activeGroups || 0,
-      icon: <GroupIcon />, subtitle: 'enrolled groups'
-    },
-    {
-      title: 'Total Invested', color: '#2e7d32',
-      value: `₹${(dashboardData?.totalInvested || 0).toLocaleString('en-IN')}`,
-      icon: <AccountBalanceIcon />, subtitle: 'lifetime contribution'
-      , onClick: () => navigate('/dashboard/total-investment')
-    },
-    {
-      title: 'Dividend Earned', color: '#ed6c02',
-      value: `₹${((dividendData?.groups || []).reduce((s, g) => s + (g.avg_dividend_per_member * g.completed_auctions || 0), 0)).toLocaleString('en-IN')}`,
-      icon: <TrendingUpIcon />, subtitle: 'total dividends'
-    },
-    {
-      title: 'Loan Status', color: '#9c27b0',
-      value: loanData.find(l => ['active', 'disbursed'].includes(l.status))
-        ? `₹${(loanData.find(l => ['active', 'disbursed'].includes(l.status))?.outstanding_amount || 0).toLocaleString('en-IN')}`
-        : loanData.find(l => ['requested', 'under_review', 'approved'].includes(l.status)) ? 'Pending' : 'None',
-      icon: <AccountBalanceIcon />,
-      subtitle: loanData.find(l => ['active', 'disbursed'].includes(l.status)) ? 'outstanding' : 'active loans'
-    }
-  ];
+  const dividendTotal = (dividendData?.groups || []).reduce(
+    (s, g) => s + (g.avg_dividend_per_member * g.completed_auctions || 0),
+    0
+  );
+  const activeLoan = loanData.find((l) => ['active', 'disbursed'].includes(l.status));
+  const pendingLoan = loanData.find((l) => ['requested', 'under_review', 'approved'].includes(l.status));
 
   const kycStatus = dashboardData?.user?.kyc_status || displayUser?.kyc_status || 'pending';
   const memberships = dashboardData?.memberships || [];
@@ -177,48 +122,68 @@ const Dashboard = () => {
   const dueNowAmount = dueNowPayments.reduce((sum, p) => sum + Number(p.total_amount || p.amount || 0), 0);
   const upcomingAuctionCount = upcomingAuctions.length;
   const pendingPaymentCount = analytics?.payment_status?.pending || 0;
+  const firstName = (displayUser?.full_name || (isSwitched ? activeMemberId : 'Member') || 'Member')
+    .toString()
+    .split(' ')[0];
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
-      {/* Header */}
-      <Box mb={3} display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={2}>
-        <Box>
-          <Typography variant="h4">
-            Welcome back, {displayUser?.full_name || (isSwitched ? activeMemberId : 'Member')}! 👋
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Member ID: {displayUser?.member_id || (isSwitched ? activeMemberId : '—')} &nbsp;|&nbsp; Last login today
-          </Typography>
-        </Box>
-      </Box>
+    <PageShell>
+      <PageHeader
+        eyebrow="Member dashboard"
+        title={`Welcome back, ${firstName}`}
+        subtitle={`Member ID ${displayUser?.member_id || (isSwitched ? activeMemberId : '—')} · Your chits, auctions, and payments in one place.`}
+        actions={
+          <>
+            <Button variant="outlined" startIcon={<GavelIcon />} onClick={() => navigate('/auctions')}>
+              Auctions
+            </Button>
+            <Button variant="contained" startIcon={<PaymentIcon />} onClick={() => navigate('/payments')}>
+              Pay now
+            </Button>
+          </>
+        }
+      />
 
-      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
-
-      {/* Profile Completion Tracker */}
-      {profileCompletion && !profileCompletion.isComplete && (
-        <Paper sx={{ p: 3, borderRadius: 3, mb: 4, border: '1px solid #0B1F3B' }}>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-            <Typography variant="h6">Complete Your Profile</Typography>
-            <Chip label={`${profileCompletion.percentage}%`} color="primary" size="small" />
-          </Box>
-          <LinearProgress variant="determinate" value={profileCompletion.percentage} sx={{ height: 8, borderRadius: 4, mb: 2 }} />
-          <Box display="flex" flexWrap="wrap" gap={1}>
-            {profileCompletion.fields.filter(f => !f.filled).map(f => (
-              <Chip key={f.key} label={f.label} size="small" variant="outlined" color="warning"
-                onClick={() => navigate('/profile')} sx={{ cursor: 'pointer' }} />
-            ))}
-          </Box>
-          <Button size="small" sx={{ mt: 1 }} onClick={() => navigate('/profile')}>
-            Complete Profile →
-          </Button>
-        </Paper>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
       )}
 
-      {/* KYC Banner */}
+      {profileCompletion && !profileCompletion.isComplete && (
+        <Surface accent sx={{ mb: 2.5 }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={1} gap={1} flexWrap="wrap">
+            <Typography variant="h6">Complete your profile</Typography>
+            <Chip label={`${profileCompletion.percentage}%`} size="small" color="primary" />
+          </Box>
+          <LinearProgress
+            variant="determinate"
+            value={profileCompletion.percentage}
+            sx={{ height: 8, mb: 1.5 }}
+          />
+          <Stack direction="row" flexWrap="wrap" useFlexGap spacing={1} mb={1}>
+            {profileCompletion.fields.filter((f) => !f.filled).map((f) => (
+              <Chip
+                key={f.key}
+                label={f.label}
+                size="small"
+                variant="outlined"
+                color="warning"
+                onClick={() => navigate('/profile')}
+                sx={{ cursor: 'pointer' }}
+              />
+            ))}
+          </Stack>
+          <Button size="small" onClick={() => navigate('/profile')}>
+            Finish profile
+          </Button>
+        </Surface>
+      )}
+
       {kycStatus !== 'verified' && (
         <Alert
           severity={kycStatus === 'rejected' ? 'error' : 'warning'}
-          sx={{ mb: 3 }}
+          sx={{ mb: 2.5 }}
           action={
             <Button color="inherit" size="small" onClick={() => navigate('/documents')}>
               Complete KYC
@@ -227,36 +192,75 @@ const Dashboard = () => {
         >
           {kycStatus === 'rejected'
             ? 'Your KYC was rejected. Please re-upload your documents.'
-            : 'Complete your KYC verification to access all features.'}
+            : 'Complete KYC verification to unlock auctions and payouts.'}
         </Alert>
       )}
 
       {dueNowPayments.length > 0 && (
         <Alert
           severity={dueNowPayments.some((p) => p.payment_status === 'overdue') ? 'warning' : 'info'}
-          sx={{ mb: 3 }}
+          sx={{ mb: 2.5 }}
           action={
             <Button color="inherit" size="small" onClick={() => navigate('/payments')}>
               Pay Now
             </Button>
           }
         >
-          You have {dueNowPayments.length} due payment{dueNowPayments.length > 1 ? 's' : ''} totaling ₹{dueNowAmount.toLocaleString('en-IN')}.
+          {dueNowPayments.length} due payment{dueNowPayments.length > 1 ? 's' : ''} totaling {fmtINR(dueNowAmount)}.
         </Alert>
       )}
 
-      {/* Stats */}
-      <Grid container spacing={3} mb={4}>
-        {stats.map((stat, i) => (
-          <Grid item xs={12} sm={6} md={3} key={i}>
-            <StatCard {...stat} />
-          </Grid>
-        ))}
+      <Grid container spacing={2} mb={3}>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricTile
+            label="Active chits"
+            value={dashboardData?.activeGroups || 0}
+            hint="Enrolled groups"
+            icon={<GroupIcon />}
+            tone="navy"
+            onClick={() => navigate('/chit-groups')}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricTile
+            label="Total invested"
+            value={fmtINR(dashboardData?.totalInvested || 0)}
+            hint="Lifetime contribution"
+            icon={<AccountBalanceIcon />}
+            tone="green"
+            onClick={() => navigate('/dashboard/total-investment')}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricTile
+            label="Dividends earned"
+            value={fmtINR(dividendTotal)}
+            hint="Across all groups"
+            icon={<TrendingUpIcon />}
+            tone="gold"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MetricTile
+            label="Loan status"
+            value={
+              activeLoan
+                ? fmtINR(activeLoan.outstanding_amount || 0)
+                : pendingLoan
+                  ? 'Pending'
+                  : 'None'
+            }
+            hint={activeLoan ? 'Outstanding' : 'Active loans'}
+            icon={<WalletIcon />}
+            tone="blue"
+            onClick={() => navigate('/loans')}
+          />
+        </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2, borderRadius: 3, mb: 4, border: '1px solid #E2E8F0' }} id="tour-quick-access">
-        <Typography variant="h6" sx={{ mb: 1.5 }}>Quick Access</Typography>
-        <Box display="flex" gap={1.5} flexWrap="wrap">
+      <Surface sx={{ mb: 3 }} id="tour-quick-access">
+        <SectionTitle title="Quick access" />
+        <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
           <Button
             id="tour-auctions"
             variant="outlined"
@@ -276,125 +280,148 @@ const Dashboard = () => {
           <Button
             id="tour-documents"
             variant="outlined"
-            color="inherit"
             startIcon={<DescriptionIcon />}
             onClick={() => navigate('/documents')}
           >
             Documents
           </Button>
-        </Box>
-      </Paper>
+        </Stack>
+      </Surface>
 
-      {/* Consolidated Financial Summary */}
       {(memberships.length > 0 || loanData.length > 0) && (
-        <Paper sx={{ p: 3, borderRadius: 3, mb: 4, border: '1px solid #E2E8F0' }}>
-          <Box display="flex" alignItems="center" gap={1.5} mb={2}>
-            <WalletIcon sx={{ color: '#D4AF37' }} />
-            <Typography variant="h6" fontWeight={700}>My Financial Summary</Typography>
+        <Surface sx={{ mb: 3 }}>
+          <Box display="flex" alignItems="center" gap={1.25} mb={2}>
+            <WalletIcon sx={{ color: brand.gold }} />
+            <Typography variant="h6">Financial summary</Typography>
           </Box>
-          <Grid container spacing={2}>
-            {/* Chit Groups breakdown */}
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ p: 2, bgcolor: '#F0FDF4', borderRadius: 2, textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary">Total Chit Value</Typography>
-                <Typography variant="h6" fontWeight={700} sx={{ color: '#16A34A' }}>
-                  ₹{memberships.reduce((s, m) => s + Number((m.chit_group_id || m)?.chit_value || 0), 0).toLocaleString('en-IN')}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ p: 2, bgcolor: '#FFF8E1', borderRadius: 2, textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary">Total Dividends</Typography>
-                <Typography variant="h6" fontWeight={700} sx={{ color: '#D4AF37' }}>
-                  ₹{((dividendData?.groups || []).reduce((s, g) => s + (g.avg_dividend_per_member * g.completed_auctions || 0), 0)).toLocaleString('en-IN')}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ p: 2, bgcolor: '#EFF6FF', borderRadius: 2, textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary">Pending Payments</Typography>
-                <Typography variant="h6" fontWeight={700} sx={{ color: '#1E3A8A' }}>
-                  {analytics?.payment_status?.pending || 0}
-                </Typography>
-              </Box>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Box sx={{ p: 2, bgcolor: '#FAF5FF', borderRadius: 2, textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary">Active Loans</Typography>
-                <Typography variant="h6" fontWeight={700} sx={{ color: '#9c27b0' }}>
-                  {loanData.filter(l => ['active', 'disbursed', 'requested', 'under_review', 'approved'].includes(l.status)).length}
-                </Typography>
-              </Box>
-            </Grid>
+          <Grid container spacing={1.5}>
+            {[
+              {
+                label: 'Total chit value',
+                value: fmtINR(memberships.reduce((s, m) => s + Number((m.chit_group_id || m)?.chit_value || 0), 0)),
+                wash: 'rgba(21,128,61,0.08)',
+                ink: brand.success,
+              },
+              {
+                label: 'Total dividends',
+                value: fmtINR(dividendTotal),
+                wash: 'rgba(201,162,39,0.14)',
+                ink: brand.goldDark,
+              },
+              {
+                label: 'Pending payments',
+                value: analytics?.payment_status?.pending || 0,
+                wash: 'rgba(30,58,138,0.08)',
+                ink: brand.royal,
+              },
+              {
+                label: 'Active loans',
+                value: loanData.filter((l) =>
+                  ['active', 'disbursed', 'requested', 'under_review', 'approved'].includes(l.status)
+                ).length,
+                wash: brand.mist,
+                ink: brand.navy,
+              },
+            ].map((cell) => (
+              <Grid item xs={6} md={3} key={cell.label}>
+                <Box sx={{ p: 2, borderRadius: 2, bgcolor: cell.wash, textAlign: 'center', height: '100%' }}>
+                  <Typography variant="caption" color="text.secondary">{cell.label}</Typography>
+                  <Typography sx={{ fontFamily: brand.fontDisplay, fontWeight: 600, fontSize: '1.25rem', color: cell.ink, mt: 0.5 }}>
+                    {cell.value}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
           </Grid>
 
-          {/* Per-group status */}
           {memberships.length > 0 && (
-            <Box mt={2}>
-              <Divider sx={{ mb: 2 }} />
-              <Typography variant="body2" fontWeight={600} sx={{ color: '#0B1F3B', mb: 1 }}>Chit-wise Status</Typography>
+            <Box mt={2.5}>
+              <Typography variant="subtitle2" sx={{ mb: 1.25, color: brand.muted }}>
+                Chit-wise status
+              </Typography>
               {memberships.slice(0, 5).map((m, i) => {
                 const g = m.chit_group_id || m;
                 const progress = g.duration_months > 0 ? ((g.current_month || 0) / g.duration_months) * 100 : 0;
-                const dGroup = (dividendData?.groups || []).find(dg => dg.group_id === (g._id || g.id));
+                const dGroup = (dividendData?.groups || []).find((dg) => dg.group_id === (g._id || g.id));
                 return (
-                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5, p: 1.5, bgcolor: 'grey.50', borderRadius: 2, cursor: 'pointer' }}
-                    onClick={() => navigate(`/chit-groups/${g._id || g.id}`)}>
-                    <Box flex={1}>
-                      <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Typography variant="body2" fontWeight={600}>{g.group_name}</Typography>
-                        <Chip label={g.status?.toUpperCase()} size="small" color={g.status === 'active' ? 'success' : 'default'} />
+                  <Box
+                    key={i}
+                    onClick={() => navigate(`/chit-groups/${g._id || g.id}`)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 2,
+                      mb: 1,
+                      p: 1.75,
+                      borderRadius: 2,
+                      border: `1px solid ${brand.line}`,
+                      bgcolor: 'rgba(255,255,255,0.55)',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.15s ease, transform 0.15s ease',
+                      '&:hover': { borderColor: 'rgba(201,162,39,0.45)', transform: 'translateY(-1px)' },
+                    }}
+                  >
+                    <Box flex={1} minWidth={0}>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" gap={1}>
+                        <Typography fontWeight={700} noWrap>{g.group_name}</Typography>
+                        <Chip
+                          label={(g.status || '').toUpperCase()}
+                          size="small"
+                          color={g.status === 'active' ? 'success' : 'default'}
+                        />
                       </Box>
-                      <Box display="flex" gap={2} mt={0.5}>
+                      <Box display="flex" gap={2} mt={0.5} flexWrap="wrap">
                         <Typography variant="caption" color="text.secondary">
-                          ₹{Number(g.monthly_installment || 0).toLocaleString('en-IN')}/mo
+                          {fmtINR(g.monthly_installment)}/mo
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
                           Month {g.current_month || 0}/{g.duration_months}
                         </Typography>
                         {dGroup && (
-                          <Typography variant="caption" sx={{ color: '#16A34A' }}>
-                            Dividend: ₹{Math.round(dGroup.avg_dividend_per_member * dGroup.completed_auctions).toLocaleString('en-IN')}
+                          <Typography variant="caption" sx={{ color: brand.success }}>
+                            Dividend {fmtINR(Math.round(dGroup.avg_dividend_per_member * dGroup.completed_auctions))}
                           </Typography>
                         )}
                       </Box>
-                      <LinearProgress variant="determinate" value={progress} sx={{ mt: 0.5, height: 4, borderRadius: 2 }} />
+                      <LinearProgress variant="determinate" value={progress} sx={{ mt: 1, height: 5 }} />
                     </Box>
                   </Box>
                 );
               })}
             </Box>
           )}
-        </Paper>
+        </Surface>
       )}
 
-      {/* Analytics Charts */}
       {analytics && (
-        <Grid container spacing={3} mb={4}>
+        <Grid container spacing={2} mb={3}>
           <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
-              <Typography variant="h6" mb={2}>Monthly Collections (Last 6 Months)</Typography>
-              <ResponsiveContainer width="100%" height={200}>
-                <AreaChart data={analytics.monthly_collections} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+            <Surface>
+              <SectionTitle title="Monthly collections" />
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={analytics.monthly_collections} margin={{ top: 5, right: 12, left: 0, bottom: 5 }}>
                   <defs>
                     <linearGradient id="collGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0B1F3B" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#0B1F3B" stopOpacity={0} />
+                      <stop offset="5%" stopColor={brand.navy} stopOpacity={0.28} />
+                      <stop offset="95%" stopColor={brand.navy} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} tickFormatter={v => v > 0 ? `₹${(v/1000).toFixed(0)}k` : '0'} />
-                  <Tooltip {...CHART_TOOLTIP_PROPS} formatter={(v) => [`₹${Number(v).toLocaleString('en-IN')}`, 'Amount']} />
-                  <Area type="monotone" dataKey="amount" stroke="#0B1F3B" fill="url(#collGrad)" strokeWidth={2} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(11,31,59,0.06)" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: brand.muted }} />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: brand.muted }}
+                    tickFormatter={(v) => (v > 0 ? `₹${(v / 1000).toFixed(0)}k` : '0')}
+                  />
+                  <Tooltip {...CHART_TOOLTIP_PROPS} formatter={(v) => [fmtINR(v), 'Amount']} />
+                  <Area type="monotone" dataKey="amount" stroke={brand.navy} fill="url(#collGrad)" strokeWidth={2.25} />
                 </AreaChart>
               </ResponsiveContainer>
-            </Paper>
+            </Surface>
           </Grid>
           <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3, borderRadius: 3, height: '100%' }}>
-              <Typography variant="h6" mb={2}>Payment Status</Typography>
-              <ResponsiveContainer width="100%" height={160}>
+            <Surface sx={{ height: '100%' }}>
+              <SectionTitle title="Payment status" />
+              <ResponsiveContainer width="100%" height={170}>
                 <PieChart>
                   <Pie
                     data={[
@@ -402,50 +429,48 @@ const Dashboard = () => {
                       { name: 'Pending', value: analytics.payment_status?.pending || 0 },
                       { name: 'Failed', value: analytics.payment_status?.failed || 0 },
                     ]}
-                    cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={48}
+                    outerRadius={72}
+                    paddingAngle={3}
+                    dataKey="value"
                   >
-                    {['#4caf50', '#D4AF37', '#f44336'].map((color, i) => <Cell key={i} fill={color} />)}
+                    {[brand.success, brand.gold, brand.danger].map((color, i) => (
+                      <Cell key={i} fill={color} />
+                    ))}
                   </Pie>
                   <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
                   <Tooltip {...CHART_TOOLTIP_PROPS} />
                 </PieChart>
               </ResponsiveContainer>
-              <Box textAlign="center" mt={1}>
-                <Typography variant="body2" color="text.secondary">
-                  Total invested: <strong>₹{Number(analytics.total_invested || 0).toLocaleString('en-IN')}</strong>
-                </Typography>
-              </Box>
-            </Paper>
+              <Typography variant="body2" color="text.secondary" textAlign="center" mt={1}>
+                Invested <strong>{fmtINR(analytics.total_invested || 0)}</strong>
+              </Typography>
+            </Surface>
           </Grid>
         </Grid>
       )}
 
-      <Grid container spacing={3}>
-        {/* Active Chit Groups */}
+      <Grid container spacing={2}>
         <Grid item xs={12} md={7}>
-          <Paper sx={{ p: 3, borderRadius: 3 }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">My Chit Groups</Typography>
-              <Button
-                size="small" endIcon={<ArrowForwardIcon />}
-                onClick={() => navigate('/chit-groups')}
-              >
-                View All
-              </Button>
-            </Box>
-            {memberships.length === 0 ? (
-              <Box textAlign="center" py={4}>
-                <GroupIcon sx={{ fontSize: 48, color: 'grey.300' }} />
-                <Typography color="text.secondary" mt={1}>
-                  You haven't enrolled in any chit group yet.
-                </Typography>
-                <Button
-                  variant="contained" sx={{ mt: 2 }}
-                  onClick={() => navigate('/chit-groups')}
-                >
-                  Browse Groups
+          <Surface>
+            <SectionTitle
+              title="My chit groups"
+              action={
+                <Button size="small" endIcon={<ArrowForwardIcon />} onClick={() => navigate('/chit-groups')}>
+                  View all
                 </Button>
-              </Box>
+              }
+            />
+            {memberships.length === 0 ? (
+              <EmptyState
+                icon={<GroupIcon />}
+                title="No chit groups yet"
+                description="Browse open groups and invest when a slot fits your plan."
+                actionLabel="Browse groups"
+                onAction={() => navigate('/chit-groups')}
+              />
             ) : (
               memberships.slice(0, 3).map((m, i) => {
                 const group = m.chit_group_id || m;
@@ -455,128 +480,182 @@ const Dashboard = () => {
                 return (
                   <Box
                     key={i}
-                    sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 2, cursor: 'pointer' }}
                     onClick={() => navigate(`/chit-groups/${group._id || group.id}`)}
+                    sx={{
+                      mb: 1.25,
+                      p: 2,
+                      borderRadius: 2,
+                      border: `1px solid ${brand.line}`,
+                      bgcolor: brand.mist,
+                      cursor: 'pointer',
+                      '&:hover': { borderColor: 'rgba(201,162,39,0.4)' },
+                    }}
                   >
-                    <Box display="flex" justifyContent="space-between" mb={1}>
-                      <Typography fontWeight={600}>{group.group_name}</Typography>
+                    <Box display="flex" justifyContent="space-between" mb={1} gap={1}>
+                      <Typography fontWeight={700}>{group.group_name}</Typography>
                       <Chip
-                        label={group.status?.toUpperCase()}
+                        label={(group.status || '').toUpperCase()}
                         size="small"
                         color={group.status === 'active' ? 'success' : 'default'}
                       />
                     </Box>
                     <Typography variant="body2" color="text.secondary" mb={1}>
-                      ₹{Number(group.chit_value).toLocaleString('en-IN')} &nbsp;•&nbsp;
-                      ₹{Number(group.monthly_installment).toLocaleString('en-IN')}/month
+                      {fmtINR(group.chit_value)} · {fmtINR(group.monthly_installment)}/month
                     </Typography>
-                    <LinearProgress
-                      variant="determinate" value={progress}
-                      sx={{ borderRadius: 2, height: 6 }}
-                    />
-                    <Typography variant="caption" color="text.secondary">
+                    <LinearProgress variant="determinate" value={progress} sx={{ height: 6 }} />
+                    <Typography variant="caption" color="text.secondary" mt={0.75} display="block">
                       Month {group.current_month || 0} of {group.duration_months}
                     </Typography>
                   </Box>
                 );
               })
             )}
-          </Paper>
+          </Surface>
         </Grid>
 
-        {/* Right Column */}
         <Grid item xs={12} md={5}>
-          {/* Upcoming Auctions */}
-          <Paper sx={{ p: 3, borderRadius: 3, mb: 3 }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Upcoming Auctions</Typography>
-              <Button size="small" endIcon={<ArrowForwardIcon />} onClick={() => navigate('/auctions')}>
-                View All
-              </Button>
-            </Box>
+          <Surface sx={{ mb: 2 }}>
+            <SectionTitle
+              title="Upcoming auctions"
+              action={
+                <Button size="small" endIcon={<ArrowForwardIcon />} onClick={() => navigate('/auctions')}>
+                  View all
+                </Button>
+              }
+            />
             {upcomingAuctions.length === 0 ? (
               <Typography color="text.secondary" variant="body2" textAlign="center" py={2}>
                 No upcoming auctions scheduled.
               </Typography>
             ) : (
               upcomingAuctions.slice(0, 3).map((auction, i) => (
-                <Box key={i} sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-                  <Avatar sx={{ bgcolor: auction.status === 'active' ? 'error.main' : 'primary.main' }}>
+                <Box
+                  key={i}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    mb: 1.5,
+                    gap: 1.5,
+                    p: 1.25,
+                    borderRadius: 2,
+                    bgcolor: auction.status === 'active' ? 'rgba(220,38,38,0.06)' : 'transparent',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 40,
+                      height: 40,
+                      borderRadius: 2,
+                      display: 'grid',
+                      placeItems: 'center',
+                      bgcolor: auction.status === 'active' ? 'rgba(220,38,38,0.12)' : brand.mist,
+                      color: auction.status === 'active' ? brand.danger : brand.navy,
+                    }}
+                  >
                     <GavelIcon fontSize="small" />
-                  </Avatar>
-                  <Box flex={1}>
-                    <Typography variant="body2" fontWeight={600}>
+                  </Box>
+                  <Box flex={1} minWidth={0}>
+                    <Typography variant="body2" fontWeight={700} noWrap>
                       {auction.chit_group_id?.group_name || auction.chitGroup?.group_name || 'Chit Group'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Month {auction.month_number} — {auction.status === 'active' ? '🔴 LIVE' : 'Scheduled'}
+                    <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.75}>
+                      Month {auction.month_number} —
+                      {auction.status === 'active' ? (
+                        <>
+                          <span className="assure-live-dot" /> LIVE
+                        </>
+                      ) : (
+                        ' Scheduled'
+                      )}
                     </Typography>
                   </Box>
                 </Box>
               ))
             )}
-          </Paper>
+          </Surface>
 
-          {/* Recent Transactions */}
-          <Paper sx={{ p: 3, borderRadius: 3 }}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Recent Transactions</Typography>
-              <Button size="small" endIcon={<ArrowForwardIcon />} onClick={() => navigate('/payments')}>
-                View All
-              </Button>
-            </Box>
+          <Surface>
+            <SectionTitle
+              title="Recent transactions"
+              action={
+                <Button size="small" endIcon={<ArrowForwardIcon />} onClick={() => navigate('/payments')}>
+                  View all
+                </Button>
+              }
+            />
             {recentPayments.length === 0 ? (
               <Typography color="text.secondary" variant="body2" textAlign="center" py={2}>
                 No transactions recorded yet.
               </Typography>
             ) : (
-              <List disablePadding>
-                {recentPayments.slice(0, 4).map((payment, i) => (
-                  <React.Fragment key={i}>
-                    <ListItem disablePadding sx={{ py: 1 }}>
-                      <ListItemAvatar>
-                        <Avatar sx={{ bgcolor: payment.payment_status === 'success' ? 'success.light' : 'warning.light', width: 36, height: 36 }}>
-                          {payment.payment_status === 'success'
-                            ? <CheckCircleIcon fontSize="small" />
-                            : <WarningIcon fontSize="small" />}
-                        </Avatar>
-                      </ListItemAvatar>
-                      <ListItemText
-                        primary={payment.chit_group_id?.group_name || payment.chitGroup?.group_name || 'Chit Group'}
-                        secondary={payment.payment_date
-                          ? new Date(payment.payment_date).toLocaleDateString('en-IN')
-                          : 'Pending'}
-                        primaryTypographyProps={{ variant: 'body2', fontWeight: 600 }}
-                        secondaryTypographyProps={{ variant: 'caption' }}
-                      />
-                      <Typography variant="body2" fontWeight={700} color="primary">
-                        ₹{Number(payment.amount || 0).toLocaleString('en-IN')}
-                      </Typography>
-                    </ListItem>
-                    {i < recentPayments.slice(0, 4).length - 1 && <Divider variant="inset" />}
-                  </React.Fragment>
-                ))}
-              </List>
+              recentPayments.slice(0, 4).map((payment, i) => (
+                <Box
+                  key={i}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    py: 1.25,
+                    borderBottom: i < Math.min(3, recentPayments.length - 1) ? `1px solid ${brand.line}` : 'none',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 2,
+                      display: 'grid',
+                      placeItems: 'center',
+                      bgcolor:
+                        payment.payment_status === 'success'
+                          ? 'rgba(21,128,61,0.1)'
+                          : 'rgba(196,127,10,0.12)',
+                      color: payment.payment_status === 'success' ? brand.success : brand.warning,
+                    }}
+                  >
+                    {payment.payment_status === 'success' ? (
+                      <CheckCircleIcon fontSize="small" />
+                    ) : (
+                      <WarningIcon fontSize="small" />
+                    )}
+                  </Box>
+                  <Box flex={1} minWidth={0}>
+                    <Typography variant="body2" fontWeight={700} noWrap>
+                      {payment.chit_group_id?.group_name || payment.chitGroup?.group_name || 'Chit Group'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {payment.payment_date
+                        ? new Date(payment.payment_date).toLocaleDateString('en-IN')
+                        : 'Pending'}
+                    </Typography>
+                  </Box>
+                  <Typography fontWeight={800} color="primary">
+                    {fmtINR(payment.amount || 0)}
+                  </Typography>
+                </Box>
+              ))
             )}
-          </Paper>
+          </Surface>
         </Grid>
       </Grid>
 
-      <Box sx={{ mt: 4, mb: 2 }}>
-        <Typography variant="h6" fontWeight={700} gutterBottom>Trusted & Certified</Typography>
-        <Grid container spacing={2}>
+      <Box sx={{ mt: 3.5 }}>
+        <Typography variant="h6" gutterBottom>
+          Trusted & certified
+        </Typography>
+        <Grid container spacing={1.5}>
           {[
             { src: '/assets/images/trusted_dpiit.png', label: 'DPIIT Registered' },
             { src: '/assets/images/trusted_telangana.png', label: 'Telangana Govt. Registered' },
             { src: '/assets/images/trusted_data_secured.png', label: 'Data Secured' },
           ].map((b) => (
             <Grid item xs={4} key={b.label}>
-              <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 2, height: '100%' }}>
-                <Box component="img" src={b.src} alt={b.label} sx={{ height: 48, objectFit: 'contain', mb: 1 }} />
-                <Typography variant="caption" display="block" fontWeight={600} sx={{ whiteSpace: 'pre-line' }}>
+              <Surface sx={{ textAlign: 'center', py: 2 }}>
+                <Box component="img" src={b.src} alt={b.label} sx={{ height: 44, objectFit: 'contain', mb: 1 }} />
+                <Typography variant="caption" display="block" fontWeight={700}>
                   {b.label}
                 </Typography>
-              </Paper>
+              </Surface>
             </Grid>
           ))}
         </Grid>
@@ -599,7 +678,7 @@ const Dashboard = () => {
         onClose={() => setShowShare(false)}
         referralCode={displayUser?.referral_code}
       />
-    </Container>
+    </PageShell>
   );
 };
 

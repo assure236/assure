@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  Container, Grid, Card, CardContent, Typography, Box, Chip,
+  Grid, Typography, Box, Chip,
   Button, TextField, CircularProgress, Alert, Paper, Avatar,
   List, ListItem, ListItemAvatar, ListItemText, Divider,
   Dialog, DialogTitle, DialogContent, DialogActions, Tabs, Tab
@@ -10,7 +10,8 @@ import {
   Wifi as LiveIcon, People as PeopleIcon, AccountBalanceWallet as WalletIcon,
   Shield as ShieldIcon, AutoAwesome as AiIcon,
   ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon,
-  TrendingUp as TrendIcon,
+  TrendingUp as TrendIcon, PauseCircleOutline as PauseIcon,
+  EmojiEvents as TrophyIcon, Bolt as BoltIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -21,6 +22,8 @@ import { useActiveMember } from '../../context/ActiveMemberContext';
 import { getAccessToken } from '../../context/AuthContext';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import { CHART_TOOLTIP_PROPS } from '../../theme/uiOverrides';
+import { brand, fmtINR } from '../../theme/brand';
+import { PageShell, PageHeader, Surface, EmptyState } from '../../components/ui/PageKit';
 import {
   ResponsiveContainer,
   LineChart,
@@ -328,10 +331,10 @@ const AuctionRoom = () => {
 
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
   if (error || !auction) return (
-    <Container sx={{ py: 4 }}>
+    <PageShell>
       <Alert severity="error">{error || 'Auction not found.'}</Alert>
       <Button startIcon={<BackIcon />} onClick={() => navigate('/auctions')} sx={{ mt: 2 }}>Back to Auctions</Button>
-    </Container>
+    </PageShell>
   );
 
   const isLive = auction.status === 'active' || auction.status === 'in_progress';
@@ -360,10 +363,17 @@ const AuctionRoom = () => {
   const isUrgent = serverTimeRemaining > 0 && serverTimeRemaining <= 60;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Button startIcon={<BackIcon />} onClick={() => navigate('/auctions')} sx={{ mb: 2 }}>
-        Back to Auctions
-      </Button>
+    <PageShell>
+      <PageHeader
+        eyebrow="Auction room"
+        title={chitGroup?.group_name || 'Live Auction'}
+        subtitle={`Month ${auction.month_number} · ${chitGroup?.group_number || ''}`}
+        actions={(
+          <Button startIcon={<BackIcon />} onClick={() => navigate('/auctions')} variant="outlined">
+            Back to Auctions
+          </Button>
+        )}
+      />
 
       {/* Anti-snipe Alert */}
       {antiSnipeAlert && (
@@ -375,15 +385,15 @@ const AuctionRoom = () => {
       {/* Time Warning */}
       {timeWarning && (
         <Alert severity={serverTimeRemaining <= 30 ? 'error' : 'warning'} sx={{ mb: 2, fontWeight: 'bold', animation: 'pulse 1s ease-in-out infinite' }}>
-          ⏰ {timeWarning}
+          {timeWarning}
         </Alert>
       )}
 
       {/* Header */}
-      <Card sx={{ mb: 3, borderRadius: 3 }}>
+      <Surface padded={false} sx={{ mb: 3, overflow: 'hidden' }}>
         <Box sx={{
-          background: isPaused ? 'linear-gradient(135deg, #ff8f00, #e65100)' : isLive ? 'linear-gradient(135deg, #d32f2f, #b71c1c)' : 'linear-gradient(135deg, #616161, #424242)',
-          p: 3, color: 'white', borderRadius: '12px 12px 0 0'
+          background: isPaused ? `linear-gradient(135deg, ${brand.warning}, #9A5B00)` : isLive ? `linear-gradient(135deg, ${brand.danger}, #8B1A1A)` : `linear-gradient(135deg, ${brand.muted}, ${brand.navyMid})`,
+          p: 3, color: 'white',
         }}>
           <Box display="flex" justifyContent="space-between" alignItems="flex-start">
             <Box>
@@ -395,14 +405,21 @@ const AuctionRoom = () => {
             </Box>
             {isPaused && (
               <Box textAlign="center">
-                <Chip label="⏸️ PAUSED" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, fontSize: 14 }} />
+                <Chip
+                  icon={<PauseIcon sx={{ color: 'white !important' }} />}
+                  label="PAUSED"
+                  sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, fontSize: 14 }}
+                />
                 <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>Auction is paused by admin</Typography>
               </Box>
             )}
             {isLive && (
               <Box textAlign="center">
-                <Box display="flex" gap={1} mb={1}>
-                  <Chip label="🔴 LIVE" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700 }} />
+                <Box display="flex" gap={1} mb={1} justifyContent="center" alignItems="center">
+                  <Chip
+                    label={<Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}><span className="assure-live-dot" /> LIVE</Box>}
+                    sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700 }}
+                  />
                   {socketConnected && <Chip icon={<LiveIcon style={{ color: '#69f0ae' }} />} label="Real-time" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.1)', color: 'white', fontSize: 11 }} />}
                 </Box>
                 {/* Server-Controlled Timer */}
@@ -427,18 +444,18 @@ const AuctionRoom = () => {
             )}
           </Box>
         </Box>
-        <CardContent>
+        <Box sx={{ p: 2.5 }}>
           <Grid container spacing={2}>
             {[
-              { label: 'Chit Value', value: `₹${chitValue.toLocaleString('en-IN')}` },
-              { label: 'Current Highest Bid', value: currentHighest > 0 ? `₹${currentHighest.toLocaleString('en-IN')}` : 'No bids yet' },
-              { label: 'Dividend / Member', value: dividend > 0 ? `₹${dividend.toLocaleString('en-IN')}` : '—' },
+              { label: 'Chit Value', value: fmtINR(chitValue) },
+              { label: 'Current Highest Bid', value: currentHighest > 0 ? fmtINR(currentHighest) : 'No bids yet' },
+              { label: 'Dividend / Member', value: dividend > 0 ? fmtINR(dividend) : '—' },
               { label: 'Total Bids', value: auction.total_bid_count || bids.length },
             ].map(({ label, value }) => (
               <Grid item xs={6} sm={3} key={label}>
-                <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
+                <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2, borderColor: brand.line }}>
                   <Typography variant="caption" color="text.secondary">{label}</Typography>
-                  <Typography fontWeight={700}>{value}</Typography>
+                  <Typography fontWeight={700} sx={{ color: brand.navy }}>{value}</Typography>
                 </Paper>
               </Grid>
             ))}
@@ -452,19 +469,18 @@ const AuctionRoom = () => {
               <Chip label="Highest bid wins" size="small" variant="outlined" color="info" />
             </Box>
           )}
-        </CardContent>
-      </Card>
+        </Box>
+      </Surface>
 
       {analyticsLoading ? (
-        <Card sx={{ mb: 3, borderRadius: 3 }}>
-          <CardContent sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+        <Surface sx={{ mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
             <CircularProgress size={22} />
-          </CardContent>
-        </Card>
+          </Box>
+        </Surface>
       ) : bidAnalytics ? (
-        <Card sx={{ mb: 3, borderRadius: 3, border: '1px solid #C7D2FE', bgcolor: '#EEF2FF' }}>
-          <CardContent>
-            <Box
+        <Surface sx={{ mb: 3, borderColor: 'rgba(201,162,39,0.35)', bgcolor: 'rgba(201,162,39,0.06)' }}>
+          <Box
               display="flex"
               alignItems="center"
               justifyContent="space-between"
@@ -472,7 +488,7 @@ const AuctionRoom = () => {
               onClick={() => setAnalyticsExpanded((prev) => !prev)}
             >
               <Box display="flex" alignItems="center" gap={1.5}>
-                <Avatar sx={{ bgcolor: '#C7D2FE', color: '#3730A3' }}>
+                <Avatar sx={{ bgcolor: 'rgba(201,162,39,0.2)', color: brand.goldDark }}>
                   <AiIcon fontSize="small" />
                 </Avatar>
                 <Box>
@@ -515,31 +531,29 @@ const AuctionRoom = () => {
                         <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                         <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${Math.round(Number(v || 0) / 1000)}k`} />
                         <ChartTooltip {...CHART_TOOLTIP_PROPS} formatter={(value) => [formatCompactCurrency(value), 'Winning Bid']} />
-                        <Line type="monotone" dataKey="winningBid" stroke="#4F46E5" strokeWidth={2.5} dot={{ r: 3 }} />
+                        <Line type="monotone" dataKey="winningBid" stroke={brand.navy} strokeWidth={2.5} dot={{ r: 3 }} />
                       </LineChart>
                     </ResponsiveContainer>
                   </Box>
                 ) : null}
               </Box>
             ) : null}
-          </CardContent>
-        </Card>
+        </Surface>
       ) : null}
 
       <Grid container spacing={3}>
         {/* Bid Panel */}
         <Grid item xs={12} md={4}>
-          <Card sx={{ borderRadius: 3 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                {isLive ? 'Place Your Bid' : isPaused ? '⏸️ Auction Paused' : auction.status === 'completed' ? 'Auction Ended' : 'Auction Not Started'}
+          <Surface>
+              <Typography variant="h6" gutterBottom sx={{ color: brand.navy }}>
+                {isLive ? 'Place Your Bid' : isPaused ? 'Auction Paused' : auction.status === 'completed' ? 'Auction Ended' : 'Auction Not Started'}
               </Typography>
               <Divider sx={{ mb: 2 }} />
               {isLive ? (
                 <>
                   {/* Min / Max bid limits bar */}
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} p={1.5}
-                    sx={{ borderRadius: 2, background: 'linear-gradient(90deg, #E8EDF5, #FDF8E8)' }}>
+                    sx={{ borderRadius: 2, background: `linear-gradient(90deg, ${brand.mist}, rgba(201,162,39,0.12))` }}>
                     <Box>
                       <Typography variant="caption" color="text.secondary">Min Bid</Typography>
                       <Typography fontWeight={700} color="primary.main">
@@ -583,7 +597,7 @@ const AuctionRoom = () => {
                     onClick={() => setBidAmount(String(maxBidAmount))}
                     disabled={submitting || serverTimeRemaining <= 0}
                     sx={{ borderRadius: 2, py: 1, fontSize: 14 }}
-                    startIcon={<span style={{ fontSize: 16 }}>⚡</span>}
+                    startIcon={<BoltIcon fontSize="small" />}
                   >
                     Place Max Bid — ₹{maxBidAmount.toLocaleString('en-IN')}
                   </Button>
@@ -599,57 +613,55 @@ const AuctionRoom = () => {
                   )}
                 </>
               ) : (
-                <Box textAlign="center" py={3}>
-                  <GavelIcon sx={{ fontSize: 48, color: 'grey.400' }} />
-                  <Typography color="text.secondary" mt={1}>
-                    {auction.status === 'completed'
+                <EmptyState
+                  icon={<GavelIcon />}
+                  title={auction.status === 'completed' ? 'Auction completed' : 'Not started yet'}
+                  description={
+                    auction.status === 'completed'
                       ? `Winner: Ticket #${auction.winner_id?.ticket_number || '?'}`
-                      : 'Auction has not started yet.'}
+                      : 'Auction has not started yet.'
+                  }
+                />
+              )}
+              {auction.status === 'completed' && auction.winning_bid_amount && !isLive && (
+                <Box mt={2}>
+                  <Typography variant="h6" sx={{ color: brand.navy, textAlign: 'center' }} mt={1}>
+                    Winning Bid: {fmtINR(auction.winning_bid_amount)}
                   </Typography>
-                  {auction.status === 'completed' && auction.winning_bid_amount && (
-                    <>
-                      <Typography variant="h6" color="primary" mt={1}>
-                        Winning Bid: ₹{Number(auction.winning_bid_amount).toLocaleString('en-IN')}
-                      </Typography>
-                      <Divider sx={{ my: 2 }} />
-                      <Box textAlign="left">
-                        <Typography variant="subtitle2" gutterBottom>Settlement Breakdown</Typography>
-                        {[
-                          { label: 'Chit Value', val: `₹${chitValue.toLocaleString('en-IN')}` },
-                          { label: 'Commission (5%)', val: `- ₹${commission.toLocaleString('en-IN')}`, color: 'error.main' },
-                          { label: 'Winning Bid (sacrifice)', val: `- ₹${Number(auction.winning_bid_amount).toLocaleString('en-IN')}`, color: 'error.main' },
-                          { label: 'Winner Receives', val: `₹${Math.max(0, chitValue - commission - Number(auction.winning_bid_amount)).toLocaleString('en-IN')}`, bold: true, color: 'success.main' },
-                          { label: 'Dividend/Member', val: `₹${(auction.dividend_per_member || dividend).toLocaleString('en-IN')}`, color: 'info.main' },
-                        ].map(({ label, val, bold, color }) => (
-                          <Box key={label} display="flex" justifyContent="space-between" py={0.5}>
-                            <Typography variant="body2" color="text.secondary">{label}</Typography>
-                            <Typography variant="body2" fontWeight={bold ? 700 : 500} color={color || 'text.primary'}>{val}</Typography>
-                          </Box>
-                        ))}
+                  <Divider sx={{ my: 2 }} />
+                  <Box textAlign="left">
+                    <Typography variant="subtitle2" gutterBottom>Settlement Breakdown</Typography>
+                    {[
+                      { label: 'Chit Value', val: fmtINR(chitValue) },
+                      { label: 'Commission (5%)', val: `- ${fmtINR(commission)}`, color: 'error.main' },
+                      { label: 'Winning Bid (sacrifice)', val: `- ${fmtINR(auction.winning_bid_amount)}`, color: 'error.main' },
+                      { label: 'Winner Receives', val: fmtINR(Math.max(0, chitValue - commission - Number(auction.winning_bid_amount))), bold: true, color: 'success.main' },
+                      { label: 'Dividend/Member', val: fmtINR(auction.dividend_per_member || dividend), color: 'info.main' },
+                    ].map(({ label, val, bold, color }) => (
+                      <Box key={label} display="flex" justifyContent="space-between" py={0.5}>
+                        <Typography variant="body2" color="text.secondary">{label}</Typography>
+                        <Typography variant="body2" fontWeight={bold ? 700 : 500} color={color || 'text.primary'}>{val}</Typography>
                       </Box>
-                    </>
-                  )}
+                    ))}
+                  </Box>
                 </Box>
               )}
-            </CardContent>
-          </Card>
+          </Surface>
         </Grid>
 
         {/* Bid History & Participants */}
         <Grid item xs={12} md={8}>
-          <Card sx={{ borderRadius: 3 }}>
-            <CardContent sx={{ pb: 0 }}>
+          <Surface padded={false}>
+            <Box sx={{ px: 2.5, pt: 2.5 }}>
               <Tabs value={rightTab} onChange={(_, v) => setRightTab(v)} sx={{ mb: 1 }}>
                 <Tab label={`Bid History (${bids.length})`} />
                 <Tab label={`Participants (${[...new Map(bids.map(b => [String(b.user_id?._id || b.user_id || b.bidder_name || 'unknown'), b])).values()].length})`} />
               </Tabs>
-            </CardContent>
+            </Box>
             {rightTab === 0 ? (
               /* Bid History Tab — Chat-style bubbles */
               bids.length === 0 ? (
-              <Box textAlign="center" py={4}>
-                <Typography color="text.secondary">No bids placed yet.</Typography>
-              </Box>
+              <EmptyState title="No bids yet" description="Be the first to place a bid when the auction is live." />
             ) : (
               <Box sx={{ maxHeight: 500, overflow: 'auto', px: 2, py: 1 }}>
                 {sortedBids.map((bid, i) => {
@@ -716,17 +728,15 @@ const AuctionRoom = () => {
                   .sort((a, b) => b.highestBid - a.highestBid);
 
                 return participants.length === 0 ? (
-                  <Box textAlign="center" py={4}>
-                    <Typography color="text.secondary">No participants yet.</Typography>
-                  </Box>
+                  <EmptyState title="No participants yet" description="Participants appear once bids are placed." />
                 ) : (
                   <List disablePadding>
                     {participants.map((p, i) => (
                       <React.Fragment key={p.uid}>
                         <ListItem>
                           <ListItemAvatar>
-                            <Avatar sx={{ bgcolor: i === 0 ? 'warning.main' : 'primary.main', fontSize: 14 }}>
-                              {i === 0 ? '🏆' : 'T'}
+                            <Avatar sx={{ bgcolor: i === 0 ? brand.gold : brand.navy, fontSize: 14 }}>
+                              {i === 0 ? <TrophyIcon sx={{ fontSize: 16 }} /> : 'T'}
                             </Avatar>
                           </ListItemAvatar>
                           <ListItemText
@@ -747,7 +757,7 @@ const AuctionRoom = () => {
                 );
               })()
             )}
-          </Card>
+          </Surface>
         </Grid>
       </Grid>
 
@@ -773,7 +783,7 @@ const AuctionRoom = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 

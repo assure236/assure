@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Grid, Paper, Typography, Box, Card, CardContent,
+  Grid, Typography, Box,
   CircularProgress, Alert, Tabs, Tab, Chip, Divider, Button,
   Table, TableBody, TableCell, TableHead, TableRow, LinearProgress,
   TextField, MenuItem
@@ -23,9 +23,10 @@ import {
 import axios from 'axios';
 import { useActiveMember } from '../../context/ActiveMemberContext';
 import { CHART_TOOLTIP_PROPS } from '../../theme/uiOverrides';
+import { PageShell, PageHeader, Surface, MetricTile, EmptyState } from '../../components/ui/PageKit';
+import { brand, fmtINR } from '../../theme/brand';
 
-const fmt = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const COLORS = ['#0B1F3B', '#4caf50', '#D4AF37', '#e91e63', '#9c27b0', '#00bcd4'];
+const fmt = (n) => fmtINR(n);
 
 // ─── Dividend Calculator (standalone) ────────────────────────────────────────
 const DividendCalculator = () => {
@@ -70,7 +71,7 @@ const DividendCalculator = () => {
       <Grid container spacing={3}>
         {/* Inputs */}
         <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 3, borderRadius: 3 }}>
+          <Surface>
             <Typography variant="subtitle1" fontWeight={700} gutterBottom>Chit Fund Parameters</Typography>
             <Grid container spacing={2} mt={0.5}>
               {[
@@ -91,48 +92,45 @@ const DividendCalculator = () => {
                 </Grid>
               ))}
             </Grid>
-          </Paper>
+          </Surface>
         </Grid>
 
         {/* Results */}
         <Grid item xs={12} md={7}>
           <Grid container spacing={2} mb={2}>
             {[
-              { label: 'Monthly Installment', value: fmt(monthlyInstallment), color: '#0B1F3B' },
-              { label: 'Avg Dividend / Month', value: fmt(dividendPerMember), color: '#4caf50' },
-              { label: 'Total Dividends (Lifetime)', value: fmt(totalDividends), color: '#9c27b0' },
-              { label: 'Win Probability / Month', value: `${winProbability.toFixed(1)}%`, color: '#D4AF37' },
-              { label: 'Effective Return Rate', value: `${effectiveReturn}%`, color: '#e91e63' },
-              { label: 'Commission (Foreman)', value: fmt(commissionAmt), color: '#607d8b' },
-            ].map(({ label, value, color }) => (
+              { label: 'Monthly Installment', value: fmt(monthlyInstallment), tone: 'navy' },
+              { label: 'Avg Dividend / Month', value: fmt(dividendPerMember), tone: 'green' },
+              { label: 'Total Dividends (Lifetime)', value: fmt(totalDividends), tone: 'gold' },
+              { label: 'Win Probability / Month', value: `${winProbability.toFixed(1)}%`, tone: 'gold' },
+              { label: 'Effective Return Rate', value: `${effectiveReturn}%`, tone: 'green' },
+              { label: 'Commission (Foreman)', value: fmt(commissionAmt), tone: 'navy' },
+            ].map(({ label, value, tone }) => (
               <Grid item xs={6} key={label}>
-                <Paper sx={{ p: 2, borderRadius: 2, borderLeft: `4px solid ${color}` }}>
-                  <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
-                  <Typography variant="h6" fontWeight={700} color={color}>{value}</Typography>
-                </Paper>
+                <MetricTile label={label} value={value} tone={tone} />
               </Grid>
             ))}
           </Grid>
 
           {/* Cumulative Chart */}
-          <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+          <Surface>
             <Typography variant="subtitle2" mb={1}>Cumulative Dividend Projection</Typography>
             <ResponsiveContainer width="100%" height={160}>
               <AreaChart data={projectionData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <defs>
                   <linearGradient id="divGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4caf50" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#4caf50" stopOpacity={0} />
+                    <stop offset="5%" stopColor={brand.success} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={brand.success} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} label={{ value: 'Month', position: 'insideBottom', offset: -2, fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
                 <Tooltip {...CHART_TOOLTIP_PROPS} formatter={v => [fmt(v), 'Cumulative Dividends']} />
-                <Area type="monotone" dataKey="cumulative" stroke="#4caf50" fill="url(#divGrad)" strokeWidth={2} />
+                <Area type="monotone" dataKey="cumulative" stroke={brand.success} fill="url(#divGrad)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
-          </Paper>
+          </Surface>
         </Grid>
       </Grid>
     </Box>
@@ -174,7 +172,7 @@ const SavingsGoalCalculator = () => {
       </Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} md={5}>
-          <Paper sx={{ p: 3, borderRadius: 3 }}>
+          <Surface>
             <Typography variant="subtitle1" fontWeight={700} gutterBottom>Your Goal</Typography>
             <Grid container spacing={2} mt={0.5}>
               <Grid item xs={12}>
@@ -190,43 +188,40 @@ const SavingsGoalCalculator = () => {
                   value={goal.has_savings} onChange={set('has_savings')} />
               </Grid>
             </Grid>
-          </Paper>
+          </Surface>
         </Grid>
         <Grid item xs={12} md={7}>
           <Grid container spacing={2} mb={2}>
             {[
-              { label: 'Remaining Amount', value: fmt(remaining), color: '#0B1F3B' },
-              { label: 'Monthly Savings Needed', value: fmt(monthlyNeeded), color: '#4caf50' },
-              { label: 'Recommended Plan', value: multiplePlans ? 'Multiple Plans' : bestPlan.name, color: '#D4AF37' },
-              { label: 'Plan Monthly', value: multiplePlans ? `${Math.ceil(monthlyNeeded / 25000)} × ₹25K` : fmt(bestPlan.monthly), color: '#9c27b0' },
-            ].map(({ label, value, color }) => (
+              { label: 'Remaining Amount', value: fmt(remaining), tone: 'navy' },
+              { label: 'Monthly Savings Needed', value: fmt(monthlyNeeded), tone: 'green' },
+              { label: 'Recommended Plan', value: multiplePlans ? 'Multiple Plans' : bestPlan.name, tone: 'gold' },
+              { label: 'Plan Monthly', value: multiplePlans ? `${Math.ceil(monthlyNeeded / 25000)} × ₹25K` : fmt(bestPlan.monthly), tone: 'navy' },
+            ].map(({ label, value, tone }) => (
               <Grid item xs={6} key={label}>
-                <Paper sx={{ p: 2, borderRadius: 2, borderLeft: `4px solid ${color}` }}>
-                  <Typography variant="caption" color="text.secondary" display="block">{label}</Typography>
-                  <Typography variant="h6" fontWeight={700} color={color}>{value}</Typography>
-                </Paper>
+                <MetricTile label={label} value={value} tone={tone} />
               </Grid>
             ))}
           </Grid>
-          <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+          <Surface>
             <Typography variant="subtitle2" mb={1}>Savings Progress Projection</Typography>
             <ResponsiveContainer width="100%" height={160}>
               <AreaChart data={savingsData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <defs>
                   <linearGradient id="savGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0B1F3B" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#0B1F3B" stopOpacity={0} />
+                    <stop offset="5%" stopColor={brand.navy} stopOpacity={0.3} />
+                    <stop offset="95%" stopColor={brand.navy} stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="month" tick={{ fontSize: 11 }} />
                 <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `₹${(v / 1000).toFixed(0)}k`} />
                 <Tooltip {...CHART_TOOLTIP_PROPS} formatter={v => [fmt(v)]} />
-                <Area type="monotone" dataKey="saved" stroke="#0B1F3B" fill="url(#savGrad)" strokeWidth={2} name="Savings" />
-                <Line type="monotone" dataKey="target" stroke="#f44336" strokeWidth={1} strokeDasharray="5 5" dot={false} name="Target" />
+                <Area type="monotone" dataKey="saved" stroke={brand.navy} fill="url(#savGrad)" strokeWidth={2} name="Savings" />
+                <Line type="monotone" dataKey="target" stroke={brand.danger} strokeWidth={1} strokeDasharray="5 5" dot={false} name="Target" />
               </AreaChart>
             </ResponsiveContainer>
-          </Paper>
+          </Surface>
         </Grid>
       </Grid>
     </Box>
@@ -252,7 +247,7 @@ const ChitComparisonCalculator = () => {
   const b = calc(planB);
 
   const PlanInput = ({ plan, setPlan, label }) => (
-    <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+    <Surface>
       <Typography variant="subtitle1" fontWeight={700} gutterBottom>{label}</Typography>
       <Grid container spacing={1.5}>
         {[
@@ -269,7 +264,7 @@ const ChitComparisonCalculator = () => {
           </Grid>
         ))}
       </Grid>
-    </Paper>
+    </Surface>
   );
 
   const metrics = [
@@ -297,14 +292,14 @@ const ChitComparisonCalculator = () => {
           <PlanInput plan={planB} setPlan={setPlanB} label="Plan B" />
         </Grid>
       </Grid>
-      <Paper sx={{ p: 3, borderRadius: 3 }}>
+      <Surface>
         <Typography variant="subtitle1" fontWeight={700} mb={2}>Comparison Results</Typography>
         <Table size="small">
           <TableHead>
             <TableRow>
               <TableCell sx={{ fontWeight: 700 }}>Metric</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: '#0B1F3B' }}>Plan A</TableCell>
-              <TableCell align="center" sx={{ fontWeight: 700, color: '#1E3A8A' }}>Plan B</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: brand.navy }}>Plan A</TableCell>
+              <TableCell align="center" sx={{ fontWeight: 700, color: brand.royal }}>Plan B</TableCell>
               <TableCell align="center" sx={{ fontWeight: 700 }}>Better</TableCell>
             </TableRow>
           </TableHead>
@@ -316,17 +311,17 @@ const ChitComparisonCalculator = () => {
               return (
                 <TableRow key={m.label}>
                   <TableCell>{m.label}</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: aWins ? 700 : 400, color: aWins ? '#4caf50' : 'inherit' }}>{m.a}</TableCell>
-                  <TableCell align="center" sx={{ fontWeight: bWins ? 700 : 400, color: bWins ? '#4caf50' : 'inherit' }}>{m.b}</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: aWins ? 700 : 400, color: aWins ? brand.success : 'inherit' }}>{m.a}</TableCell>
+                  <TableCell align="center" sx={{ fontWeight: bWins ? 700 : 400, color: bWins ? brand.success : 'inherit' }}>{m.b}</TableCell>
                   <TableCell align="center">
-                    {tie ? <Chip size="small" label="Tie" /> : <Chip size="small" label={aWins ? 'Plan A' : 'Plan B'} color={aWins ? 'primary' : 'secondary'} />}
+                    {tie ? <Chip size="small" label="Tie" /> : <Chip size="small" label={aWins ? 'Plan A' : 'Plan B'} color={aWins ? 'primary' : 'default'} />}
                   </TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
-      </Paper>
+      </Surface>
     </Box>
   );
 };
@@ -408,18 +403,17 @@ const Analytics = () => {
   const paymentStatus = analytics?.payment_status || {};
 
   return (
-    <Container maxWidth="xl" sx={{ py: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-        <Box>
-          <Typography variant="h4">Analytics</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Track dividends earned, bidding patterns, payment health, and estimated returns.
-          </Typography>
-        </Box>
-        <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportStatement}>
-          Download Statement
-        </Button>
-      </Box>
+    <PageShell maxWidth={1280}>
+      <PageHeader
+        eyebrow="Insights"
+        title="Analytics"
+        subtitle="Track dividends earned, bidding patterns, payment health, and estimated returns."
+        actions={
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportStatement}>
+            Download Statement
+          </Button>
+        }
+      />
 
       {error && <Alert severity="warning" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -437,12 +431,12 @@ const Analytics = () => {
         <Grid container spacing={3}>
           {/* Payment Status Summary */}
           <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3, borderRadius: 3, height: '100%' }}>
+            <Surface sx={{ height: '100%' }}>
               <Typography variant="h6" mb={2}>Payment Health</Typography>
               {[
-                { label: 'Paid', value: paymentStatus.paid || 0, color: '#4caf50' },
-                { label: 'Pending', value: paymentStatus.pending || 0, color: '#D4AF37' },
-                { label: 'Failed', value: paymentStatus.failed || 0, color: '#f44336' },
+                { label: 'Paid', value: paymentStatus.paid || 0, color: brand.success },
+                { label: 'Pending', value: paymentStatus.pending || 0, color: brand.gold },
+                { label: 'Failed', value: paymentStatus.failed || 0, color: brand.danger },
               ].map(({ label, value, color }) => {
                 const total = (paymentStatus.paid || 0) + (paymentStatus.pending || 0) + (paymentStatus.failed || 0) || 1;
                 return (
@@ -463,12 +457,12 @@ const Analytics = () => {
               <Typography variant="body2" color="text.secondary" mt={0.5}>
                 Active chit groups: <strong>{analytics?.active_chits || 0}</strong>
               </Typography>
-            </Paper>
+            </Surface>
           </Grid>
 
           {/* Monthly Chart */}
           <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3, borderRadius: 3 }}>
+            <Surface>
               <Typography variant="h6" mb={2}>Monthly Payment History (6 Months)</Typography>
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={monthly} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
@@ -476,16 +470,16 @@ const Analytics = () => {
                   <XAxis dataKey="month" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={v => v > 0 ? `₹${(v / 1000).toFixed(0)}k` : '0'} />
                   <Tooltip {...CHART_TOOLTIP_PROPS} formatter={v => [fmt(v), 'Amount Paid']} />
-                  <Bar dataKey="amount" fill="#0B1F3B" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="amount" fill={brand.navy} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            </Paper>
+            </Surface>
           </Grid>
 
           {/* Chit Group Details */}
           {analytics?.chit_details?.length > 0 && (
             <Grid item xs={12}>
-              <Paper sx={{ p: 3, borderRadius: 3 }}>
+              <Surface>
                 <Typography variant="h6" mb={2}>My Chit Groups — Payment Breakdown</Typography>
                 <Table size="small">
                   <TableHead>
@@ -507,7 +501,7 @@ const Analytics = () => {
                     ))}
                   </TableBody>
                 </Table>
-              </Paper>
+              </Surface>
             </Grid>
           )}
         </Grid>
@@ -517,12 +511,13 @@ const Analytics = () => {
       {tab === 1 && (
         <Box>
           {!dividend?.groups?.length ? (
-            <Paper sx={{ p: 6, borderRadius: 3, textAlign: 'center' }}>
-              <WalletIcon sx={{ fontSize: 64, color: 'grey.300' }} />
-              <Typography color="text.secondary" mt={2}>
-                Enroll in a chit group to see dividend analytics.
-              </Typography>
-            </Paper>
+            <Surface>
+              <EmptyState
+                icon={<WalletIcon sx={{ fontSize: 32 }} />}
+                title="No dividend data yet"
+                description="Enroll in a chit group to see dividend analytics."
+              />
+            </Surface>
           ) : (
             <>
               {(() => {
@@ -535,18 +530,10 @@ const Analytics = () => {
                 return (
                   <Grid container spacing={2} mb={3}>
                     <Grid item xs={12} sm={6}>
-                      <Paper sx={{ p: 2.5, borderRadius: 3 }}>
-                        <Typography variant="caption" color="text.secondary">Dividends Earned</Typography>
-                        <Typography variant="h5" fontWeight={800} color="success.main">{fmt(totalDiv)}</Typography>
-                      </Paper>
+                      <MetricTile label="Dividends Earned" value={fmt(totalDiv)} tone="green" />
                     </Grid>
                     <Grid item xs={12} sm={6}>
-                      <Paper sx={{ p: 2.5, borderRadius: 3 }}>
-                        <Typography variant="caption" color="text.secondary">Avg Bid Ratio</Typography>
-                        <Typography variant="h5" fontWeight={800} color="warning.main">
-                          {(avgBidRatio * 100).toFixed(1)}%
-                        </Typography>
-                      </Paper>
+                      <MetricTile label="Avg Bid Ratio" value={`${(avgBidRatio * 100).toFixed(1)}%`} tone="gold" />
                     </Grid>
                     <Grid item xs={12}>
                       <Typography variant="caption" color="text.secondary">
@@ -558,7 +545,7 @@ const Analytics = () => {
                 );
               })()}
             {dividend.groups.map((g, i) => (
-              <Paper key={g.group_id} sx={{ p: 3, borderRadius: 3, mb: 3 }}>
+              <Surface key={g.group_id} sx={{ mb: 3 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1} mb={3}>
                   <Box>
                     <Typography variant="h6" fontWeight={700}>{g.group_name}</Typography>
@@ -575,12 +562,12 @@ const Analytics = () => {
 
                 <Grid container spacing={2} mb={3}>
                   {[
-                    { label: 'Avg Dividend / Month', value: fmt(g.avg_dividend_per_member), color: '#4caf50' },
-                    { label: 'Net Return (Lifetime)', value: fmt(g.net_return), color: '#0B1F3B' },
-                    { label: 'Avg Winning Bid', value: fmt(g.avg_winning_bid), color: '#D4AF37' },
-                    { label: 'Effective Return', value: `${g.effective_return_pct}%`, color: '#9c27b0' },
-                    { label: 'Subscription', value: fmt(g.monthly_installment), color: '#607d8b' },
-                    { label: 'Completed Auctions', value: g.completed_auctions, color: '#e91e63' },
+                    { label: 'Avg Dividend / Month', value: fmt(g.avg_dividend_per_member), color: brand.success },
+                    { label: 'Net Return (Lifetime)', value: fmt(g.net_return), color: brand.navy },
+                    { label: 'Avg Winning Bid', value: fmt(g.avg_winning_bid), color: brand.gold },
+                    { label: 'Effective Return', value: `${g.effective_return_pct}%`, color: brand.royal },
+                    { label: 'Subscription', value: fmt(g.monthly_installment), color: brand.navyMid },
+                    { label: 'Completed Auctions', value: g.completed_auctions, color: brand.goldDark },
                   ].map(({ label, value, color }) => (
                     <Grid item xs={6} sm={4} md={2} key={label}>
                       <Box sx={{ p: 1.5, bgcolor: `${color}10`, borderRadius: 2, borderLeft: `3px solid ${color}`, height: '100%' }}>
@@ -599,8 +586,8 @@ const Analytics = () => {
                     <XAxis dataKey="month" tick={{ fontSize: 11 }} label={{ value: 'Month', position: 'insideBottom', offset: -2, fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v)} />
                     <Tooltip {...CHART_TOOLTIP_PROPS} formatter={v => [fmt(v)]} />
-                    <Line type="monotone" dataKey="estimated_dividend" stroke="#4caf50" strokeWidth={2} dot={false} name="Est. Dividend" />
-                    <Line type="monotone" dataKey="cumulative" stroke="#0B1F3B" strokeWidth={2} strokeDasharray="5 5" dot={false} name="Cumulative" />
+                    <Line type="monotone" dataKey="estimated_dividend" stroke={brand.success} strokeWidth={2} dot={false} name="Est. Dividend" />
+                    <Line type="monotone" dataKey="cumulative" stroke={brand.navy} strokeWidth={2} strokeDasharray="5 5" dot={false} name="Cumulative" />
                     <Legend />
                   </LineChart>
                 </ResponsiveContainer>
@@ -611,7 +598,7 @@ const Analytics = () => {
                   ({g.avg_winning_bid > 0 && g.chit_value > 0 ? Math.round((g.avg_winning_bid / g.chit_value) * 100) : 25}% of chit value).
                   If bidding trends continue, estimated lifetime dividend: <strong>{fmt(g.net_return)}</strong>.
                 </Alert>
-              </Paper>
+              </Surface>
             ))}
             </>
           )}
@@ -620,28 +607,25 @@ const Analytics = () => {
 
       {/* ── Tab 2: Dividend Calculator ───────────────────────────────── */}
       {tab === 2 && (
-        <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Surface>
           <DividendCalculator />
-        </Paper>
+        </Surface>
       )}
 
-      {/* ── Tab 3: Savings Goal Planner ──────────────────────────────── */}
       {tab === 3 && (
-        <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Surface>
           <SavingsGoalCalculator />
-        </Paper>
+        </Surface>
       )}
 
-      {/* ── Tab 4: Compare Plans ─────────────────────────────────────── */}
       {tab === 4 && (
-        <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Surface>
           <ChitComparisonCalculator />
-        </Paper>
+        </Surface>
       )}
 
-      {/* ── Tab 5: Account Statement ─────────────────────────────────── */}
       {tab === 5 && (
-        <Paper sx={{ p: 3, borderRadius: 3 }}>
+        <Surface>
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Typography variant="h6">Account Statement</Typography>
             <Button variant="contained" size="small" startIcon={<DownloadIcon />}
@@ -662,16 +646,13 @@ const Analytics = () => {
                   const success = statement.filter(p => p.payment_status === 'success');
                   const pending = statement.filter(p => p.payment_status === 'pending' || p.payment_status === 'overdue');
                   return [
-                    { label: 'Total Transactions', value: statement.length, color: '#0B1F3B' },
-                    { label: 'Total Amount', value: fmt(total), color: '#4caf50' },
-                    { label: 'Successful', value: success.length, color: '#388e3c' },
-                    { label: 'Pending/Overdue', value: pending.length, color: '#B8960F' },
+                    { label: 'Total Transactions', value: statement.length, tone: 'navy' },
+                    { label: 'Total Amount', value: fmt(total), tone: 'green' },
+                    { label: 'Successful', value: success.length, tone: 'green' },
+                    { label: 'Pending/Overdue', value: pending.length, tone: 'gold' },
                   ].map(c => (
                     <Grid item xs={6} sm={3} key={c.label}>
-                      <Paper sx={{ p: 2, borderLeft: `4px solid ${c.color}`, borderRadius: 2 }}>
-                        <Typography variant="caption" color="text.secondary">{c.label}</Typography>
-                        <Typography variant="h6" fontWeight={700}>{c.value}</Typography>
-                      </Paper>
+                      <MetricTile label={c.label} value={c.value} tone={c.tone} />
                     </Grid>
                   ));
                 })()}
@@ -705,9 +686,9 @@ const Analytics = () => {
               </Box>
             </>
           )}
-        </Paper>
+        </Surface>
       )}
-    </Container>
+    </PageShell>
   );
 };
 

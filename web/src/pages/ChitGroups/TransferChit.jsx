@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container, Typography, Box, TextField, Button, MenuItem, Card, CardContent,
+  Typography, Box, TextField, Button, MenuItem,
   CircularProgress, Alert
 } from '@mui/material';
 import { SwapHoriz as TransferIcon } from '@mui/icons-material';
@@ -8,6 +8,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { PageShell, PageHeader, Surface, EmptyState } from '../../components/ui/PageKit';
 
 const TransferChit = () => {
   const navigate = useNavigate();
@@ -68,18 +69,26 @@ const TransferChit = () => {
   }
 
   return (
-    <Container maxWidth="sm">
-      <TransferIcon color="primary" sx={{ fontSize: 48, mb: 1 }} />
-      <Typography variant="h4" fontWeight={700} gutterBottom>Transfer Chit</Typography>
-      <Typography color="text.secondary" mb={3}>
-        Submit a request to transfer your chit membership to another member
-      </Typography>
+    <PageShell maxWidth={560}>
+      <PageHeader
+        eyebrow="Membership"
+        title="Transfer Chit"
+        subtitle="Submit a request to transfer your chit membership to another member"
+      />
 
       {groups.length === 0 ? (
-        <Alert severity="info">You have no active chit groups to transfer.</Alert>
+        <Surface>
+          <EmptyState
+            icon={<TransferIcon />}
+            title="No active chit groups"
+            description="You need an active chit group membership to submit a transfer request."
+            actionLabel="View Chit Groups"
+            onAction={() => navigate('/chit-groups')}
+          />
+        </Surface>
       ) : (
-        <Card>
-          <CardContent component="form" onSubmit={handleSubmit}>
+        <Surface>
+          <Box component="form" onSubmit={handleSubmit}>
             <TextField select fullWidth label="Select Chit Group" margin="normal" required
               value={form.chit_group_id}
               onChange={(e) => setForm({ ...form, chit_group_id: e.target.value })}>
@@ -101,10 +110,10 @@ const TransferChit = () => {
                 {submitting ? 'Submitting...' : 'Submit Request'}
               </Button>
             </Box>
-          </CardContent>
-        </Card>
+          </Box>
+        </Surface>
       )}
-    </Container>
+    </PageShell>
   );
 };
 

@@ -177,7 +177,7 @@ const ChitEducation = () => {
     <h2>${content.whyTitle}</h2><ul>${content.whyPoints.map(p => `<li>${p}</li>`).join('')}</ul>
     <div class="highlight">${content.cta}</div>
     <div class="footer"><p>Assure Chit Funds Pvt. Ltd. | Registered under Chit Funds Act, 1982</p>
-    <p>📞 +91 98765 43210 | 🌐 assure.fund | 📧 support@assurechitfunds.com</p></div></body></html>`;
+    <p>📞 +91 98765 43210 | 🌐 assure.fund | 📧 support@assure.fund</p></div></body></html>`;
     const blob = new Blob([html], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

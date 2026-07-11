@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Typography, Box, Card, CardContent, Button, CircularProgress,
+  Typography, Box, Button, CircularProgress,
   Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Avatar, Paper
+  TextField, Avatar
 } from '@mui/material';
 import {
   PersonAdd as AddIcon, Delete as DeleteIcon,
@@ -13,6 +13,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { PageShell, PageHeader, Surface, EmptyState } from '../../components/ui/PageKit';
+import { brand } from '../../theme/brand';
 
 const FamilyMembers = () => {
   const navigate = useNavigate();
@@ -115,57 +117,63 @@ const FamilyMembers = () => {
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={1}>
-        <Box>
-          <Typography variant="h4">Family Members</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Link an existing Assure member with Member ID + PAN. OTP goes to their registered mobile.
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Link Member</Button>
-      </Box>
+    <PageShell>
+      <PageHeader
+        eyebrow="Household"
+        title="Family Members"
+        subtitle="Link an existing Assure member with Member ID + PAN. OTP goes to their registered mobile."
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Link Member</Button>
+        }
+      />
 
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
 
       {members.length === 0 ? (
-        <Paper sx={{ p: 6, textAlign: 'center' }}>
-          <FamilyIcon sx={{ fontSize: 64, color: 'grey.300' }} />
-          <Typography color="text.secondary" mt={1}>No family members linked yet</Typography>
-        </Paper>
+        <Surface>
+          <EmptyState
+            icon={<FamilyIcon sx={{ fontSize: 32 }} />}
+            title="No family members linked yet"
+            description="Link an existing Assure member to manage their account from your portal."
+            actionLabel="Link Member"
+            onAction={openAdd}
+          />
+        </Surface>
       ) : (
-        <TableContainer component={Card}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Member ID</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {members.map((m) => (
-                <TableRow key={m._id || m.id}>
-                  <TableCell>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Avatar sx={{ width: 32, height: 32 }}>{(m.full_name || '?')[0]}</Avatar>
-                      {m.full_name}
-                    </Box>
-                  </TableCell>
-                  <TableCell>{m.member_id || '—'}</TableCell>
-                  <TableCell>
-                    <Chip size="small" label={m.status || 'pending'} color={m.status === 'linked' || m.status === 'approved' ? 'success' : 'warning'} />
-                  </TableCell>
-                  <TableCell align="right">
-                    <Button size="small" onClick={() => handleViewAs(m)} sx={{ mr: 1 }}>View As</Button>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(m)}><DeleteIcon fontSize="small" /></IconButton>
-                  </TableCell>
+        <Surface padded={false}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Member ID</TableCell>
+                  <TableCell>Status</TableCell>
+                  <TableCell align="right">Actions</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {members.map((m) => (
+                  <TableRow key={m._id || m.id}>
+                    <TableCell>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: brand.mist, color: brand.navy }}>{(m.full_name || '?')[0]}</Avatar>
+                        {m.full_name}
+                      </Box>
+                    </TableCell>
+                    <TableCell>{m.member_id || '—'}</TableCell>
+                    <TableCell>
+                      <Chip size="small" label={m.status || 'pending'} color={m.status === 'linked' || m.status === 'approved' ? 'success' : 'warning'} />
+                    </TableCell>
+                    <TableCell align="right">
+                      <Button size="small" onClick={() => handleViewAs(m)} sx={{ mr: 1 }}>View As</Button>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(m)}><DeleteIcon fontSize="small" /></IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Surface>
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
@@ -182,13 +190,13 @@ const FamilyMembers = () => {
                 fullWidth label="PAN" margin="normal"
                 value={panNumber} onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
                 placeholder="ABCDE1234F"
-                helperText="Must match the family member’s registered PAN"
+                helperText="Must match the family member's registered PAN"
               />
             </>
           ) : (
             <>
               <Alert severity="info" sx={{ mb: 2 }}>
-                OTP sent to family member’s mobile{maskedMobile ? ` (${maskedMobile})` : ''}.
+                OTP sent to family member's mobile{maskedMobile ? ` (${maskedMobile})` : ''}.
               </Alert>
               <TextField
                 fullWidth label="Enter OTP" margin="normal"
@@ -204,7 +212,7 @@ const FamilyMembers = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 

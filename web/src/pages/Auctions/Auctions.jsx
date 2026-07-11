@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  Container, Grid, Card, CardContent, Typography, Box, Chip,
+  Grid, Typography, Box, Chip,
   CircularProgress, Button, Tabs, Tab, Avatar, Alert
 } from '@mui/material';
-import { Gavel as GavelIcon } from '@mui/icons-material';
+import { Gavel as GavelIcon, EmojiEvents as TrophyIcon, PauseCircleOutline as PauseIcon } from '@mui/icons-material';
+import { brand, fmtINR } from '../../theme/brand';
+import { PageShell, PageHeader, Surface, EmptyState } from '../../components/ui/PageKit';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
@@ -77,8 +79,12 @@ const Auctions = () => {
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Typography variant="h4" gutterBottom>Auctions</Typography>
+    <PageShell>
+      <PageHeader
+        eyebrow="Live bidding"
+        title="Auctions"
+        subtitle="Join live auctions, track upcoming sessions, and review past results."
+      />
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
@@ -86,12 +92,13 @@ const Auctions = () => {
       </Tabs>
 
       {tabData[tab].auctions.length === 0 ? (
-        <Box textAlign="center" py={8}>
-          <GavelIcon sx={{ fontSize: 64, color: 'grey.300' }} />
-          <Typography color="text.secondary" mt={2}>
-            No {['live', 'upcoming', 'past'][tab]} auctions found.
-          </Typography>
-        </Box>
+        <Surface>
+          <EmptyState
+            icon={<GavelIcon />}
+            title={`No ${['live', 'upcoming', 'past'][tab]} auctions`}
+            description="Auctions for your chit groups will appear here when scheduled."
+          />
+        </Surface>
       ) : (
         <Grid container spacing={3}>
           {tabData[tab].auctions.map((auction, i) => {
@@ -109,29 +116,34 @@ const Auctions = () => {
 
             return (
               <Grid item xs={12} md={6} key={i}>
-                <Card sx={{
-                  borderRadius: 3,
-                  border: isPaused ? '2px solid #ff8f00' : isLive ? '2px solid #d32f2f' : 'none',
+                <Surface padded={false} sx={{
+                  border: isPaused ? `2px solid ${brand.warning}` : isLive ? `2px solid ${brand.danger}` : undefined,
                   position: 'relative',
-                  overflow: 'visible'
+                  overflow: 'visible',
+                  height: '100%',
                 }}>
                   {(isLive || isPaused) && (
                     <Box sx={{
                       position: 'absolute', top: -10, right: 16,
-                      bgcolor: isPaused ? 'warning.main' : 'error.main', color: 'white',
-                      px: 2, py: 0.5, borderRadius: 10, fontSize: 11, fontWeight: 700
+                      bgcolor: isPaused ? brand.warning : brand.danger, color: 'white',
+                      px: 2, py: 0.5, borderRadius: 10, fontSize: 11, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', gap: 0.75,
                     }}>
-                      {isPaused ? '⏸️ PAUSED' : '🔴 LIVE'}
+                      {isPaused ? (
+                        <> <PauseIcon sx={{ fontSize: 14 }} /> PAUSED </>
+                      ) : (
+                        <> <span className="assure-live-dot" /> LIVE </>
+                      )}
                     </Box>
                   )}
                   <Box sx={{
                     background: isPaused
-                      ? 'linear-gradient(135deg, #ff8f00, #e65100)'
+                      ? `linear-gradient(135deg, ${brand.warning}, #9A5B00)`
                       : isLive
-                        ? 'linear-gradient(135deg, #d32f2f, #b71c1c)'
-                        : isPast ? 'linear-gradient(135deg, #616161, #424242)'
-                        : 'linear-gradient(135deg, #6a1b9a, #4a148c)',
-                    p: 2, color: 'white', borderRadius: '12px 12px 0 0'
+                        ? `linear-gradient(135deg, ${brand.danger}, #8B1A1A)`
+                        : isPast ? `linear-gradient(135deg, ${brand.muted}, ${brand.navyMid})`
+                        : `linear-gradient(135deg, ${brand.navy}, ${brand.royal})`,
+                    p: 2, color: 'white', borderRadius: `${brand.radius}px ${brand.radius}px 0 0`
                   }}>
                     <Typography variant="subtitle2" sx={{ opacity: 0.8 }}>
                       Month {auction.month_number} Auction
@@ -157,31 +169,33 @@ const Auctions = () => {
                     )}
                   </Box>
 
-                  <CardContent>
+                  <Box sx={{ p: 2.5 }}>
                     <Grid container spacing={2} mb={2}>
                       <Grid item xs={4}>
                         <Typography variant="caption" color="text.secondary">Chit Value</Typography>
-                        <Typography fontWeight={700}>₹{chitValue.toLocaleString('en-IN')}</Typography>
+                        <Typography fontWeight={700}>{fmtINR(chitValue)}</Typography>
                       </Grid>
                       <Grid item xs={4}>
                         <Typography variant="caption" color="text.secondary">
                           {isPast ? 'Winning Bid' : 'Highest Bid'}
                         </Typography>
-                        <Typography fontWeight={700} color={isLive ? 'warning.main' : 'text.primary'}>
-                          {highestBid > 0 ? `₹${highestBid.toLocaleString('en-IN')}` : '—'}
+                        <Typography fontWeight={700} sx={{ color: isLive ? brand.goldDark : brand.navy }}>
+                          {highestBid > 0 ? fmtINR(highestBid) : '—'}
                         </Typography>
                       </Grid>
                       <Grid item xs={4}>
                         <Typography variant="caption" color="text.secondary">Dividend/Member</Typography>
-                        <Typography fontWeight={700} color="success.main">
-                          {dividend > 0 ? `₹${dividend.toLocaleString('en-IN')}` : '—'}
+                        <Typography fontWeight={700} sx={{ color: brand.success }}>
+                          {dividend > 0 ? fmtINR(dividend) : '—'}
                         </Typography>
                       </Grid>
                     </Grid>
 
                     {isPast && auction.winner_id && (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                        <Avatar sx={{ width: 28, height: 28, bgcolor: 'warning.light', fontSize: 14 }}>🏆</Avatar>
+                        <Avatar sx={{ width: 28, height: 28, bgcolor: 'rgba(201,162,39,0.15)', color: brand.goldDark }}>
+                          <TrophyIcon sx={{ fontSize: 16 }} />
+                        </Avatar>
                         <Typography variant="body2">
                           Winner: <strong>{auction.winner_id?.full_name || auction.winner?.full_name || 'Declared'}</strong>
                         </Typography>
@@ -200,7 +214,7 @@ const Auctions = () => {
                         }}
                         startIcon={isPaused ? <GavelIcon /> : <GavelIcon />}
                       >
-                        {isPaused ? '⏸️ Auction Paused - View Room' : isLive ? 'Enter Auction Room' : `Starts ${auction.auction_date
+                        {isPaused ? 'Auction Paused — View Room' : isLive ? 'Enter Auction Room' : `Starts ${auction.auction_date
                           ? new Date(auction.auction_date).toLocaleDateString('en-IN')
                           : 'soon'}`}
                       </Button>
@@ -216,8 +230,8 @@ const Auctions = () => {
                         View Auction Details
                       </Button>
                     )}
-                  </CardContent>
-                </Card>
+                  </Box>
+                </Surface>
               </Grid>
             );
           })}
@@ -225,7 +239,7 @@ const Auctions = () => {
       )}
 
 
-    </Container>
+    </PageShell>
   );
 };
 

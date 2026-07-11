@@ -1,12 +1,13 @@
 ﻿import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import {
-  Box, Paper, Typography, Button, TextField,
-  Grid, Stepper, Step, StepLabel, CircularProgress, Link
+  Box, Typography, Button, TextField,
+  Grid, Stepper, Step, StepLabel, CircularProgress, Link, Divider
 } from '@mui/material';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from 'react-toastify';
+import { brand } from '../../theme/brand';
 
 function PinInput({ pinKey, length = 6, onComplete, autoFocus }) {
   const [values, setValues] = useState(Array(length).fill(''));
@@ -43,19 +44,17 @@ export default function Register() {
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Step 0: send mobile OTP
   const sendMobileOtp = async () => {
     if (!form.full_name.trim()) return toast.error('Enter your full name');
     if (!/^\d{10}$/.test(form.mobile)) return toast.error('Enter a valid 10-digit mobile number');
     setLoading(true);
     try {
-      const res = await axios.post('/auth/resend-otp', { mobile: form.mobile });
+      await axios.post('/auth/resend-otp', { mobile: form.mobile });
       setStep(1); toast.success('OTP sent to +91 ' + form.mobile);
     } catch (e) { toast.error(e.response?.data?.message || 'Failed to send OTP'); }
     finally { setLoading(false); }
   };
 
-  // Step 1: verify mobile OTP
   const verifyMobileOtp = async (otp) => {
     setLoading(true);
     try {
@@ -66,7 +65,6 @@ export default function Register() {
     finally { setLoading(false); }
   };
 
-  // Step 2: send email OTP
   const sendEmailOtp = async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) return toast.error('Enter a valid email address');
     setLoading(true);
@@ -77,7 +75,6 @@ export default function Register() {
     finally { setLoading(false); }
   };
 
-  // Step 3: verify email OTP — then auto-register (no MPIN)
   const verifyEmailOtp = async (otp) => {
     setLoading(true);
     try {
@@ -93,8 +90,6 @@ export default function Register() {
   };
 
   const handleRegister = async () => {
-    // Auto-generate a random 6-digit value to satisfy the backend MPIN field.
-    // The user no longer enters or uses an MPIN.
     const autoPin = String(Math.floor(100000 + Math.random() * 900000));
     const result = await register({
       full_name: form.full_name.trim(),
@@ -104,7 +99,6 @@ export default function Register() {
       referral_code: form.referral_code.trim() || undefined,
     });
     if (result?.success) {
-      // New users must complete the onboarding wizard before the dashboard.
       try {
         const s = await axios.get('/onboarding/status');
         const next = s.data?.data?.next_step;
@@ -123,95 +117,158 @@ export default function Register() {
     }
   };
 
-  // Stepper display: steps 0,1 = "Mobile Verification", 2,3 = "Email Verification"
   const activeStep = step <= 1 ? 0 : 1;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f0f4f8', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
-      <Paper elevation={6} sx={{ width: '100%', maxWidth: 560, borderRadius: 3, overflow: 'hidden' }}>
-        <Box sx={{ bgcolor: 'primary.main', color: 'white', py: 2.5, px: 3, textAlign: 'center' }}>
-          <Typography variant="h4" fontWeight={800}>Assure Chit Funds</Typography>
-          <Typography variant="body2" sx={{ opacity: 0.85, mt: 0.5 }}>Create your account</Typography>
+    <Box
+      sx={{
+        minHeight: '100vh',
+        display: 'grid',
+        placeItems: 'center',
+        p: { xs: 2, sm: 3 },
+        position: 'relative',
+        overflow: 'hidden',
+        background: `
+          radial-gradient(ellipse 70% 50% at 10% 0%, rgba(201,162,39,0.22), transparent 55%),
+          radial-gradient(ellipse 60% 45% at 95% 15%, rgba(30,58,138,0.2), transparent 50%),
+          linear-gradient(165deg, ${brand.navyDeep} 0%, ${brand.navy} 42%, #143156 100%)
+        `,
+      }}
+    >
+      <Box
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          opacity: 0.2,
+          backgroundImage:
+            'linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)',
+          backgroundSize: '56px 56px',
+          pointerEvents: 'none',
+        }}
+      />
+
+      <Box sx={{ width: '100%', maxWidth: 560, position: 'relative', zIndex: 1 }}>
+        <Box textAlign="center" mb={3}>
+          <Box
+            component="img"
+            src="/logo.png"
+            alt="Assure ChitFunds"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = '/build/logo.png';
+            }}
+            sx={{ width: 64, height: 64, mb: 1.5, objectFit: 'contain' }}
+          />
+          <Typography
+            sx={{
+              fontFamily: brand.fontDisplay,
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: { xs: '2rem', sm: '2.5rem' },
+              letterSpacing: '-0.03em',
+              lineHeight: 1.1,
+            }}
+          >
+            Assure ChitFunds
+          </Typography>
+          <Typography sx={{ color: brand.goldSoft, mt: 1, fontWeight: 600, letterSpacing: '0.04em' }}>
+            Create your member account
+          </Typography>
         </Box>
 
-        <Box sx={{ p: 4 }}>
-          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-            {STEPS.map(label => (
-              <Step key={label}><StepLabel>{label}</StepLabel></Step>
-            ))}
-          </Stepper>
+        <Box
+          sx={{
+            borderRadius: 4,
+            overflow: 'hidden',
+            border: '1px solid rgba(255,255,255,0.14)',
+            bgcolor: 'rgba(255,255,255,0.96)',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.28)',
+          }}
+        >
+          <Box sx={{ p: { xs: 3, sm: 4 } }}>
+            <Typography variant="overline" sx={{ color: brand.goldDark }}>
+              Registration
+            </Typography>
+            <Typography variant="h5" sx={{ mb: 0.75, color: brand.navy }}>
+              {step <= 1 ? 'Verify your mobile' : 'Verify your email'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Complete both steps to activate your account
+            </Typography>
 
-          {/* Step 0: Name + Mobile */}
-          {step === 0 && (
-            <>
-              <Typography variant="h6" fontWeight={700} gutterBottom>Enter your details</Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12}>
-                  <TextField fullWidth required label="Full Name" value={form.full_name}
-                    onChange={e => update('full_name', e.target.value)} autoFocus />
+            <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+              {STEPS.map(label => (
+                <Step key={label}><StepLabel>{label}</StepLabel></Step>
+              ))}
+            </Stepper>
+
+            {step === 0 && (
+              <>
+                <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: brand.navy }}>Enter your details</Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={12}>
+                    <TextField fullWidth required label="Full Name" value={form.full_name}
+                      onChange={e => update('full_name', e.target.value)} autoFocus />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField fullWidth required label="Mobile Number" value={form.mobile}
+                      onChange={e => update('mobile', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary', fontWeight: 700 }}>+91</Typography> }}
+                      inputProps={{ maxLength: 10 }} placeholder="10-digit mobile" />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField fullWidth label="Referral Code (optional)" value={form.referral_code}
+                      onChange={e => update('referral_code', e.target.value)} />
+                  </Grid>
                 </Grid>
-                <Grid item xs={12}>
-                  <TextField fullWidth required label="Mobile Number" value={form.mobile}
-                    onChange={e => update('mobile', e.target.value.replace(/\D/g, '').slice(0, 10))}
-                    InputProps={{ startAdornment: <Typography sx={{ mr: 1, color: 'text.secondary' }}>+91</Typography> }}
-                    inputProps={{ maxLength: 10 }} placeholder="10-digit mobile" />
-                </Grid>
-                <Grid item xs={12}>
-                  <TextField fullWidth label="Referral Code (optional)" value={form.referral_code}
-                    onChange={e => update('referral_code', e.target.value)} />
-                </Grid>
-              </Grid>
-              <Button fullWidth variant="contained" size="large" sx={{ mt: 3, py: 1.5, fontWeight: 700 }}
-                onClick={sendMobileOtp} disabled={loading}>
-                {loading ? <CircularProgress size={22} color="inherit" /> : 'Send Mobile OTP'}
-              </Button>
-            </>
-          )}
+                <Button fullWidth variant="contained" size="large" sx={{ mt: 3, py: 1.4 }}
+                  onClick={sendMobileOtp} disabled={loading}>
+                  {loading ? <CircularProgress size={22} color="inherit" /> : 'Send Mobile OTP'}
+                </Button>
+              </>
+            )}
 
-          {/* Step 1: Mobile OTP */}
-          {step === 1 && (
-            <>
-              <Typography variant="h6" fontWeight={700} gutterBottom>Verify Mobile</Typography>
-              <Typography variant="body2" color="text.secondary">OTP sent to +91 {form.mobile}</Typography>
-              <PinInput pinKey="motp" length={6} onComplete={verifyMobileOtp} autoFocus />
-              {loading && <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>}
-              <Button variant="text" size="small" onClick={() => setStep(0)}>← Back</Button>
-            </>
-          )}
+            {step === 1 && (
+              <>
+                <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: brand.navy }}>Verify Mobile</Typography>
+                <Typography variant="body2" color="text.secondary">OTP sent to +91 {form.mobile}</Typography>
+                <PinInput pinKey="motp" length={6} onComplete={verifyMobileOtp} autoFocus />
+                {loading && <Box sx={{ display: 'flex', justifyContent: 'center' }}><CircularProgress size={24} /></Box>}
+                <Button variant="text" size="small" onClick={() => setStep(0)}>Change number</Button>
+              </>
+            )}
 
-          {/* Step 2: Email */}
-          {step === 2 && (
-            <>
-              <Typography variant="h6" fontWeight={700} gutterBottom>Enter your email</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>We'll send an OTP to verify your email</Typography>
-              <TextField fullWidth required label="Email Address" type="email" value={form.email}
-                onChange={e => update('email', e.target.value)} autoFocus />
-              <Button fullWidth variant="contained" size="large" sx={{ mt: 3, py: 1.5, fontWeight: 700 }}
-                onClick={sendEmailOtp} disabled={loading}>
-                {loading ? <CircularProgress size={22} color="inherit" /> : 'Send Email OTP'}
-              </Button>
-            </>
-          )}
+            {step === 2 && (
+              <>
+                <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: brand.navy }}>Enter your email</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>We'll send an OTP to verify your email</Typography>
+                <TextField fullWidth required label="Email Address" type="email" value={form.email}
+                  onChange={e => update('email', e.target.value)} autoFocus />
+                <Button fullWidth variant="contained" size="large" sx={{ mt: 3, py: 1.4 }}
+                  onClick={sendEmailOtp} disabled={loading}>
+                  {loading ? <CircularProgress size={22} color="inherit" /> : 'Send Email OTP'}
+                </Button>
+              </>
+            )}
 
-          {/* Step 3: Email OTP */}
-          {step === 3 && (
-            <>
-              <Typography variant="h6" fontWeight={700} gutterBottom>Verify Email</Typography>
-              <Typography variant="body2" color="text.secondary">OTP sent to {form.email}</Typography>
-              <PinInput pinKey="eotp" length={6} onComplete={verifyEmailOtp} autoFocus />
-              {loading && <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}><CircularProgress size={24} /></Box>}
-              <Button variant="text" size="small" onClick={() => setStep(2)}>← Back</Button>
-            </>
-          )}
+            {step === 3 && (
+              <>
+                <Typography variant="h6" fontWeight={700} gutterBottom sx={{ color: brand.navy }}>Verify Email</Typography>
+                <Typography variant="body2" color="text.secondary">OTP sent to {form.email}</Typography>
+                <PinInput pinKey="eotp" length={6} onComplete={verifyEmailOtp} autoFocus />
+                {loading && <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}><CircularProgress size={24} /></Box>}
+                <Button variant="text" size="small" onClick={() => setStep(2)}>Change email</Button>
+              </>
+            )}
 
-          <Box sx={{ mt: 3, textAlign: 'center' }}>
-            <Typography variant="body2">
+            <Divider sx={{ my: 3 }} />
+            <Typography variant="body2" textAlign="center">
               Already have an account?{' '}
-              <Link component={RouterLink} to="/login" fontWeight={600}>Login here</Link>
+              <Link component={RouterLink} to="/login" fontWeight={700}>Sign in</Link>
             </Typography>
           </Box>
         </Box>
-      </Paper>
+      </Box>
     </Box>
   );
 }

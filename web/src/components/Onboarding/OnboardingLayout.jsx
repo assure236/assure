@@ -3,6 +3,7 @@ import { Box, Container, Paper, Stack, LinearProgress, Typography, IconButton } 
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { brand } from '../../theme/brand';
 
 const STEP_ORDER = [
   { key: 'digilocker', label: 'Identity' },
@@ -26,12 +27,14 @@ function StepDots({ active }) {
               sx={{
                 width: here ? 30 : 24, height: here ? 30 : 24, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                bgcolor: done ? 'success.main' : here ? 'primary.main' : 'grey.300',
-                color: '#fff', fontSize: 12, fontWeight: 700, transition: 'all 0.2s',
+                bgcolor: done ? brand.success : here ? brand.navy : brand.mist,
+                color: done || here ? '#fff' : brand.muted,
+                fontSize: 12, fontWeight: 700, transition: 'all 0.2s',
+                border: here ? `2px solid ${brand.gold}` : 'none',
               }}
             >{done ? '\u2713' : i + 1}</Box>
             {i < STEP_ORDER.length - 1 && (
-              <Box sx={{ width: 18, height: 2, bgcolor: done ? 'success.main' : 'grey.300' }} />
+              <Box sx={{ width: 18, height: 2, bgcolor: done ? brand.success : brand.mist }} />
             )}
           </Box>
         );
@@ -53,7 +56,11 @@ export default function OnboardingLayout({
   return (
     <Box sx={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #0B1F3B 0%, #1E3A8A 60%, #0B1F3B 100%)',
+      background: `
+        radial-gradient(ellipse 70% 45% at 15% 0%, rgba(201,162,39,0.22), transparent 50%),
+        radial-gradient(ellipse 55% 40% at 90% 10%, rgba(30,58,138,0.25), transparent 45%),
+        linear-gradient(165deg, ${brand.navyDeep} 0%, ${brand.navy} 50%, ${brand.navyMid} 100%)
+      `,
       display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4, px: 2,
     }}>
       <Container maxWidth="sm" sx={{ px: 0 }}>
@@ -65,17 +72,24 @@ export default function OnboardingLayout({
               onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = '/build/logo.png'; }}
               style={{ height: 36, width: 36, borderRadius: 8, objectFit: 'cover' }}
             />
-            <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700 }}>Assure ChitFunds</Typography>
+            <Typography sx={{ color: '#fff', fontFamily: brand.fontDisplay, fontWeight: 600, fontSize: 20 }}>
+              Assure ChitFunds
+            </Typography>
           </Box>
           <IconButton onClick={handleLogout} sx={{ color: '#fff' }} title="Logout">
             <LogoutIcon />
           </IconButton>
         </Stack>
 
-        <Paper elevation={6} sx={{ p: { xs: 3, sm: 4 }, borderRadius: 3 }}>
+        <Paper elevation={0} sx={{
+          p: { xs: 3, sm: 4 },
+          borderRadius: 3,
+          border: `1px solid ${brand.line}`,
+          boxShadow: brand.shadowLift,
+        }}>
           <StepDots active={step} />
 
-          <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5, color: 'primary.main' }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, mb: 0.5, color: brand.navy }}>
             {title}
           </Typography>
           {subtitle && (

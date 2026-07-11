@@ -2,19 +2,34 @@ import { useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, registerInactivityRedirect } from '../context/AuthContext';
 
-const PUBLIC_PATHS = new Set([
+const PUBLIC_PREFIXES = [
   '/',
   '/login',
   '/register',
-  '/forgot-password',
+  '/company',
+  '/plans',
+  '/auctions-info',
+  '/tools',
+  '/members',
+  '/learn',
+  '/support-center',
+  '/terms',
+  '/privacy-policy',
   '/about',
   '/contact',
   '/chit-education',
-]);
+  '/faq',
+  '/schemes',
+  '/calculator',
+  '/auction',
+  '/refer',
+];
 
 const isPublicPath = (pathname) => {
-  if (PUBLIC_PATHS.has(pathname)) return true;
-  return false;
+  if (pathname === '/') return true;
+  return PUBLIC_PREFIXES.some(
+    (p) => p !== '/' && (pathname === p || pathname.startsWith(`${p}/`))
+  );
 };
 
 /** Keeps URL in sync when session ends (inactivity logout must land on /login immediately). */

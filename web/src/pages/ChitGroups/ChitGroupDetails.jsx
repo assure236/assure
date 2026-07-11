@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container, Grid, Card, CardContent, Typography, Box, Chip,
+  Grid, Typography, Box, Chip,
   CircularProgress, Button, Tabs, Tab, LinearProgress, Alert,
   Avatar, List, ListItem, ListItemAvatar, ListItemText, Divider,
   Paper, Dialog, DialogTitle, DialogContent, DialogActions,
@@ -13,6 +13,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { PageShell, PageHeader, Surface, EmptyState, SectionTitle } from '../../components/ui/PageKit';
+import { brand, fmtINR } from '../../theme/brand';
 import { ensureCashfreeSdk } from '../../utils/cashfreeSdk';
 
 const formatCurrency = (value) => `₹${Number(value || 0).toLocaleString('en-IN')}`;
@@ -278,30 +280,37 @@ const ChitGroupDetails = () => {
 
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
   if (error || !group) return (
-    <Container sx={{ py: 4 }}>
+    <PageShell>
       <Alert severity="error">{error || 'Group not found.'}</Alert>
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/chit-groups')} sx={{ mt: 2 }}>Back</Button>
-    </Container>
+    </PageShell>
   );
 
   const progress = group.duration_months > 0
     ? Math.round(((group.current_month || 0) / group.duration_months) * 100) : 0;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
+    <PageShell>
       {banner ? (
         <Alert severity={banner.type} sx={{ mb: 2 }} onClose={() => setBanner(null)}>
           {banner.message}
         </Alert>
       ) : null}
 
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/chit-groups')} sx={{ mb: 2 }}>
-        Back to Chit Groups
-      </Button>
+      <PageHeader
+        eyebrow="Chit group"
+        title={group.group_name}
+        subtitle={group.group_number}
+        actions={(
+          <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/chit-groups')} variant="outlined">
+            Back to Chit Groups
+          </Button>
+        )}
+      />
 
       {/* Header Card */}
-      <Card sx={{ mb: 3, borderRadius: 3 }}>
-        <Box sx={{ background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)', p: 3, color: 'white', borderRadius: '12px 12px 0 0' }}>
+      <Surface padded={false} sx={{ mb: 3, overflow: 'hidden' }}>
+        <Box sx={{ background: `linear-gradient(135deg, ${brand.navy}, ${brand.royal})`, p: 3, color: 'white' }}>
           <Box display="flex" justifyContent="space-between" alignItems="flex-start">
             <Box>
               <Typography variant="h5" fontWeight={700}>{group.group_name}</Typography>
@@ -326,7 +335,7 @@ const ChitGroupDetails = () => {
                 </Button>
               )}
               {enrolled && (
-                <Chip label="✓ Enrolled" sx={{ bgcolor: 'success.main', color: 'white', fontWeight: 600 }} />
+                <Chip icon={<CheckIcon sx={{ color: 'white !important' }} />} label="Enrolled" sx={{ bgcolor: brand.success, color: 'white', fontWeight: 600 }} />
               )}
             </Box>
           </Box>
@@ -346,24 +355,24 @@ const ChitGroupDetails = () => {
               sx={{ height: 8, borderRadius: 4, bgcolor: 'rgba(255,255,255,0.3)', '& .MuiLinearProgress-bar': { bgcolor: '#fff' } }} />
           </Box>
         </Box>
-        <CardContent>
+        <Box sx={{ p: 2.5 }}>
           <Grid container spacing={2}>
             {[
-              { label: 'Chit Value', value: `₹${Number(group.chit_value || 0).toLocaleString('en-IN')}` },
-              { label: 'Subscription', value: `₹${Number(group.monthly_installment || 0).toLocaleString('en-IN')}` },
+              { label: 'Chit Value', value: fmtINR(group.chit_value) },
+              { label: 'Subscription', value: fmtINR(group.monthly_installment) },
               { label: 'Members', value: group.total_members || group.max_members || '—' },
               { label: 'Start Date', value: group.commencement_date ? new Date(group.commencement_date).toLocaleDateString('en-IN') : '—' },
             ].map(({ label, value }) => (
               <Grid item xs={6} sm={3} key={label}>
-                <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2 }}>
+                <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', borderRadius: 2, borderColor: brand.line }}>
                   <Typography variant="caption" color="text.secondary">{label}</Typography>
-                  <Typography fontWeight={700}>{value}</Typography>
+                  <Typography fontWeight={700} sx={{ color: brand.navy }}>{value}</Typography>
                 </Paper>
               </Grid>
             ))}
           </Grid>
-        </CardContent>
-      </Card>
+        </Box>
+      </Surface>
 
       {/* Tabs */}
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
@@ -377,9 +386,8 @@ const ChitGroupDetails = () => {
       {tab === 0 && (
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Group Information</Typography>
+            <Surface>
+                <SectionTitle title="Group Information" />
                 <Divider sx={{ mb: 2 }} />
                 {[
                   { label: 'Duration', value: `${group.duration_months} months` },
@@ -395,19 +403,17 @@ const ChitGroupDetails = () => {
                     <Typography variant="body2" fontWeight={600}>{value}</Typography>
                   </Box>
                 ))}
-              </CardContent>
-            </Card>
+            </Surface>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Card sx={{ borderRadius: 3 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>Your Position</Typography>
+            <Surface>
+                <SectionTitle title="Your Position" />
                 <Divider sx={{ mb: 2 }} />
                 {[
                   { label: 'Status', value: group.member_status?.replace('_', ' ') || 'Active' },
                   { label: 'Total Paid', value: formatCurrency(group.total_paid || 0) },
                   { label: 'Outstanding', value: formatCurrency(group.outstanding || 0) },
-                  { label: 'Chit Received', value: group.chit_received ? 'Yes ✅' : 'No' },
+                  { label: 'Chit Received', value: group.chit_received ? 'Yes' : 'No' },
                 ].map(({ label, value }) => (
                   <Box key={label} display="flex" justifyContent="space-between" py={0.8}
                     sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -415,14 +421,12 @@ const ChitGroupDetails = () => {
                     <Typography variant="body2" fontWeight={600} sx={{ textTransform: 'capitalize' }}>{value}</Typography>
                   </Box>
                 ))}
-              </CardContent>
-            </Card>
+            </Surface>
           </Grid>
           {enrolled ? (
             <Grid item xs={12}>
-              <Card sx={{ borderRadius: 3 }}>
-                <CardContent>
-                  <Typography variant="h6" gutterBottom>Membership Actions</Typography>
+              <Surface>
+                  <SectionTitle title="Membership Actions" />
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                     Submit transfer or cancellation requests for admin approval, similar to mobile flow.
                   </Typography>
@@ -434,8 +438,7 @@ const ChitGroupDetails = () => {
                       Cancel Chit
                     </Button>
                   </Box>
-                </CardContent>
-              </Card>
+              </Surface>
             </Grid>
           ) : null}
         </Grid>
@@ -444,8 +447,15 @@ const ChitGroupDetails = () => {
       {/* Prized Tickets Tab */}
       {tab === 1 && (
         auctions.length === 0
-          ? <Alert severity="info">No prized tickets yet. Winners will appear here after auctions.</Alert>
-          : <Card sx={{ borderRadius: 3 }}>
+          ? (
+            <Surface>
+              <EmptyState
+                title="No prized tickets yet"
+                description="Winners will appear here after auctions are completed."
+              />
+            </Surface>
+          )
+          : <Surface padded={false}>
             <List>
               {auctions.map((auction, i) => {
                 const month = auction.month_number || i + 1;
@@ -476,14 +486,21 @@ const ChitGroupDetails = () => {
                 );
               })}
             </List>
-          </Card>
+          </Surface>
       )}
 
       {/* Schedule Tab */}
       {tab === 2 && (
         payments.length === 0
-          ? <Alert severity="info">Payment schedule not available yet.</Alert>
-          : <Card sx={{ borderRadius: 3 }}>
+          ? (
+            <Surface>
+              <EmptyState
+                title="Payment schedule unavailable"
+                description="Your installment schedule will appear here once available."
+              />
+            </Surface>
+          )
+          : <Surface padded={false}>
             <List>
               {payments.map((s, i) => {
                 const isPaid = s.status === 'paid';
@@ -536,14 +553,13 @@ const ChitGroupDetails = () => {
                 );
               })}
             </List>
-          </Card>
+          </Surface>
       )}
 
       {/* More Info Tab */}
       {tab === 3 && (
-        <Card sx={{ borderRadius: 3 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom>Documents & Certificates</Typography>
+        <Surface>
+            <SectionTitle title="Documents & Certificates" />
             <Divider sx={{ mb: 2 }} />
             {[
               { label: 'FDR Certificate', url: group.fdr_certificate_url },
@@ -570,8 +586,7 @@ const ChitGroupDetails = () => {
                 </Button>
               </Box>
             ) : null}
-          </CardContent>
-        </Card>
+        </Surface>
       )}
 
       <Dialog open={bidHistory.open} onClose={() => setBidHistory({ open: false, loading: false, auction: null, bids: [] })} maxWidth="sm" fullWidth>
@@ -763,7 +778,7 @@ const ChitGroupDetails = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 

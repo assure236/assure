@@ -1,6 +1,6 @@
-﻿import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Container, Grid, Card, CardContent, Typography, Box, Chip,
+  Grid, Typography, Box, Chip,
   CircularProgress, Alert, Tabs, Tab, List, ListItem, ListItemText,
   ListItemAvatar, Avatar, Divider, Button, Dialog, DialogTitle,
   DialogContent, DialogActions, Paper, Tooltip, IconButton, TextField,
@@ -20,6 +20,7 @@ import { useActiveMember } from '../../context/ActiveMemberContext';
 import { toast } from 'react-toastify';
 import { securityLogger } from '../../utils/securityLogger';
 import { ensureCashfreeSdk } from '../../utils/cashfreeSdk';
+import { PageShell, PageHeader, Surface, EmptyState, MetricTile } from '../../components/ui/PageKit';
 
 const statusConfig = {
   success: { color: 'success', icon: <PaidIcon />, bg: 'success.main' },
@@ -236,27 +237,31 @@ const Payments = () => {
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-        <Typography variant="h4" fontWeight={700}>Transactions</Typography>
-        <Box display="flex" gap={1}>
-          <Tooltip title="Refresh">
-            <IconButton onClick={fetchPayments}><RefreshIcon /></IconButton>
-          </Tooltip>
-          <Button
-            variant="outlined" startIcon={downloadingStatement ? <CircularProgress size={16} /> : <StatementIcon />}
-            onClick={handleDownloadStatement} disabled={downloadingStatement}
-          >
-            PDF
-          </Button>
-          <Button
-            variant="contained" startIcon={<StatementIcon />}
-            onClick={handleOpenStatement}
-          >
-            Statement
-          </Button>
-        </Box>
-      </Box>
+    <PageShell>
+      <PageHeader
+        eyebrow="Payments"
+        title="Transactions"
+        subtitle="Pay installments, download receipts, and view your payment history."
+        actions={(
+          <>
+            <Tooltip title="Refresh">
+              <IconButton onClick={fetchPayments}><RefreshIcon /></IconButton>
+            </Tooltip>
+            <Button
+              variant="outlined" startIcon={downloadingStatement ? <CircularProgress size={16} /> : <StatementIcon />}
+              onClick={handleDownloadStatement} disabled={downloadingStatement}
+            >
+              PDF
+            </Button>
+            <Button
+              variant="contained" startIcon={<StatementIcon />}
+              onClick={handleOpenStatement}
+            >
+              Statement
+            </Button>
+          </>
+        )}
+      />
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -279,22 +284,23 @@ const Payments = () => {
 
       {/* Summary Cards */}
       <Grid container spacing={2} mb={3}>
-        {[
-          { label: 'Total Paid', value: formatCurrency(totalPaid), color: '#0B1F3B', icon: <PaidIcon /> },
-          { label: 'Upcoming Due', value: formatCurrency(totalDue), color: '#D4AF37', icon: <PendingIcon /> },
-          { label: 'Overdue Amount', value: formatCurrency(overdueList.reduce((s, p) => s + Number(p.amount || 0), 0)), color: '#f44336', icon: <OverdueIcon /> },
-          { label: 'Late Fees Paid', value: formatCurrency(totalPaidLateFees), color: '#9c27b0', icon: <WarnIcon /> },
-        ].map(({ label, value, color, icon }) => (
-          <Grid item xs={6} sm={3} key={label}>
-            <Paper sx={{ p: 2, borderRadius: 3, borderLeft: `4px solid ${color}` }}>
-              <Box display="flex" alignItems="center" gap={1} mb={0.5}>
-                <Box sx={{ color }}>{icon}</Box>
-                <Typography variant="caption" color="text.secondary">{label}</Typography>
-              </Box>
-              <Typography variant="h6" fontWeight={700} color={color}>{value}</Typography>
-            </Paper>
-          </Grid>
-        ))}
+        <Grid item xs={6} sm={3}>
+          <MetricTile label="Total Paid" value={formatCurrency(totalPaid)} icon={<PaidIcon />} tone="navy" />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <MetricTile label="Upcoming Due" value={formatCurrency(totalDue)} icon={<PendingIcon />} tone="gold" />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <MetricTile
+            label="Overdue Amount"
+            value={formatCurrency(overdueList.reduce((s, p) => s + Number(p.amount || 0), 0))}
+            icon={<OverdueIcon />}
+            tone="green"
+          />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <MetricTile label="Late Fees Paid" value={formatCurrency(totalPaidLateFees)} icon={<WarnIcon />} tone="blue" />
+        </Grid>
       </Grid>
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
@@ -302,14 +308,15 @@ const Payments = () => {
       </Tabs>
 
       {tabList[tab].data.length === 0 ? (
-        <Box textAlign="center" py={8}>
-          <BankIcon sx={{ fontSize: 64, color: 'grey.300' }} />
-          <Typography color="text.secondary" mt={1}>
-            {tab === 0 ? 'No upcoming payments.' : 'No payment history yet.'}
-          </Typography>
-        </Box>
+        <Surface>
+          <EmptyState
+            icon={<BankIcon />}
+            title={tab === 0 ? 'No upcoming payments' : 'No payment history yet'}
+            description={tab === 0 ? 'Your due installments will appear here.' : 'Completed payments will show up here with receipts.'}
+          />
+        </Surface>
       ) : (
-        <Card sx={{ borderRadius: 3 }}>
+        <Surface padded={false}>
           <List disablePadding>
             {tabList[tab].data.map((p, i) => {
               const status = p.payment_status || 'pending';
@@ -406,7 +413,7 @@ const Payments = () => {
               );
             })}
           </List>
-        </Card>
+        </Surface>
       )}
 
       {/* Pay Now Dialog */}
@@ -516,7 +523,7 @@ const Payments = () => {
           )}
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 

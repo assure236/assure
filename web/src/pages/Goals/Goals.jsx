@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container, Typography, Box, Button, Card, CardContent, CircularProgress,
+  Typography, Box, Button, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   Grid, LinearProgress, IconButton, Checkbox, FormControlLabel, FormGroup, Chip
 } from '@mui/material';
@@ -11,6 +11,8 @@ import {
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { PageShell, PageHeader, Surface, EmptyState } from '../../components/ui/PageKit';
+import { brand, fmtINR } from '../../theme/brand';
 
 const CATEGORIES = ['Savings', 'Home', 'Education', 'Marriage', 'Business', 'Vehicle', 'Emergency', 'Other'];
 
@@ -118,7 +120,7 @@ const Goals = () => {
   };
 
   const handleDelete = async (g) => {
-    if (!window.confirm(`Delete goal “${g.name}”?`)) return;
+    if (!window.confirm(`Delete goal "${g.name}"?`)) return;
     try {
       await axios.delete(`/users/goals/${g._id || g.id}`);
       toast.success('Goal deleted');
@@ -129,29 +131,30 @@ const Goals = () => {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" fontWeight={700}>Set a Goal</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Track savings goals and link your chit schemes
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
-          Set a Goal
-        </Button>
-      </Box>
+    <PageShell>
+      <PageHeader
+        eyebrow="Savings"
+        title="Set a Goal"
+        subtitle="Track savings goals and link your chit schemes"
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+            Set a Goal
+          </Button>
+        }
+      />
 
       {loading ? (
         <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
       ) : goals.length === 0 ? (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <FlagIcon sx={{ fontSize: 56, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">No goals set yet</Typography>
-            <Button variant="outlined" sx={{ mt: 2 }} onClick={openCreate}>Create a goal</Button>
-          </CardContent>
-        </Card>
+        <Surface>
+          <EmptyState
+            icon={<FlagIcon sx={{ fontSize: 32 }} />}
+            title="No goals set yet"
+            description="Create a savings goal and link your chit groups to track progress."
+            actionLabel="Create a goal"
+            onAction={openCreate}
+          />
+        </Surface>
       ) : (
         <Grid container spacing={2}>
           {goals.map((g) => {
@@ -161,26 +164,34 @@ const Goals = () => {
             const investedFromChits = Number(g.invested_amount || g.linked_invested || 0);
             return (
               <Grid item xs={12} md={6} key={g._id || g.id}>
-                <Card>
-                  <CardContent>
-                    <Box display="flex" justifyContent="space-between" mb={1}>
-                      <Typography fontWeight={700}>{g.name}</Typography>
-                      <Box>
-                        <IconButton size="small" onClick={() => openEdit(g)}><EditIcon fontSize="small" /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDelete(g)}><DeleteIcon fontSize="small" /></IconButton>
-                      </Box>
+                <Surface accent>
+                  <Box display="flex" justifyContent="space-between" mb={1}>
+                    <Typography fontWeight={700} sx={{ color: brand.navy }}>{g.name}</Typography>
+                    <Box>
+                      <IconButton size="small" onClick={() => openEdit(g)}><EditIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(g)}><DeleteIcon fontSize="small" /></IconButton>
                     </Box>
-                    <Typography variant="caption" color="text.secondary">{g.category}</Typography>
-                    <Typography variant="body2" color="text.secondary" mb={1} mt={1}>
-                      ₹{current.toLocaleString('en-IN')} / ₹{target.toLocaleString('en-IN')}
-                    </Typography>
-                    {investedFromChits > 0 ? (
-                      <Chip size="small" label={`Invested (linked chits): ₹${investedFromChits.toLocaleString('en-IN')}`} sx={{ mb: 1 }} />
-                    ) : null}
-                    <LinearProgress variant="determinate" value={pct} sx={{ height: 8, borderRadius: 4, mb: 1 }} />
-                    <Typography variant="caption" color="text.secondary">{pct.toFixed(0)}% complete</Typography>
-                  </CardContent>
-                </Card>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary">{g.category}</Typography>
+                  <Typography variant="body2" color="text.secondary" mb={1} mt={1}>
+                    {fmtINR(current)} / {fmtINR(target)}
+                  </Typography>
+                  {investedFromChits > 0 ? (
+                    <Chip size="small" label={`Invested (linked chits): ${fmtINR(investedFromChits)}`} sx={{ mb: 1 }} />
+                  ) : null}
+                  <LinearProgress
+                    variant="determinate"
+                    value={pct}
+                    sx={{
+                      height: 8,
+                      borderRadius: 2,
+                      mb: 1,
+                      bgcolor: brand.mist,
+                      '& .MuiLinearProgress-bar': { bgcolor: brand.gold, borderRadius: 2 },
+                    }}
+                  />
+                  <Typography variant="caption" color="text.secondary">{pct.toFixed(0)}% complete</Typography>
+                </Surface>
               </Grid>
             );
           })}
@@ -218,7 +229,7 @@ const Goals = () => {
                       onChange={() => toggleChit(c.id)}
                     />
                   }
-                  label={`${c.name} — Invested: ₹${Number(c.invested || 0).toLocaleString('en-IN')}`}
+                  label={`${c.name} — Invested: ${fmtINR(c.invested || 0)}`}
                 />
               ))}
             </FormGroup>
@@ -231,7 +242,7 @@ const Goals = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 

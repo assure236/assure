@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container, Typography, Box, TextField, Button, MenuItem, Card, CardContent,
+  Box, TextField, Button, MenuItem,
   CircularProgress, Alert, FormControlLabel, Checkbox
 } from '@mui/material';
 import { Cancel as CancelIcon } from '@mui/icons-material';
@@ -8,6 +8,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { PageShell, PageHeader, Surface, EmptyState } from '../../components/ui/PageKit';
 
 const CancelChit = () => {
   const navigate = useNavigate();
@@ -72,22 +73,30 @@ const CancelChit = () => {
   }
 
   return (
-    <Container maxWidth="sm">
-      <CancelIcon color="error" sx={{ fontSize: 48, mb: 1 }} />
-      <Typography variant="h4" fontWeight={700} gutterBottom>Cancel Chit</Typography>
-      <Typography color="text.secondary" mb={3}>
-        Request cancellation of your chit group membership
-      </Typography>
+    <PageShell maxWidth={560}>
+      <PageHeader
+        eyebrow="Membership"
+        title="Cancel Chit"
+        subtitle="Request cancellation of your chit group membership"
+      />
 
       <Alert severity="warning" sx={{ mb: 2 }}>
         Cancellation may forfeit dividends and is subject to admin approval and group terms.
       </Alert>
 
       {groups.length === 0 ? (
-        <Alert severity="info">You have no active chit groups to cancel.</Alert>
+        <Surface>
+          <EmptyState
+            icon={<CancelIcon />}
+            title="No active chit groups"
+            description="You have no active chit groups eligible for cancellation."
+            actionLabel="View Chit Groups"
+            onAction={() => navigate('/chit-groups')}
+          />
+        </Surface>
       ) : (
-        <Card>
-          <CardContent component="form" onSubmit={handleSubmit}>
+        <Surface>
+          <Box component="form" onSubmit={handleSubmit}>
             <TextField select fullWidth label="Select Chit Group" margin="normal" required
               value={form.chit_group_id}
               onChange={(e) => setForm({ ...form, chit_group_id: e.target.value })}>
@@ -110,10 +119,10 @@ const CancelChit = () => {
                 {submitting ? 'Submitting...' : 'Submit Cancellation Request'}
               </Button>
             </Box>
-          </CardContent>
-        </Card>
+          </Box>
+        </Surface>
       )}
-    </Container>
+    </PageShell>
   );
 };
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Container, Typography, Box, Button, Card, CardContent, Chip, CircularProgress,
+  Typography, Box, Button, Chip, CircularProgress,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   Grid, Divider, Alert, IconButton
 } from '@mui/material';
@@ -11,6 +11,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useSearchParams } from 'react-router-dom';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { PageShell, PageHeader, Surface, EmptyState } from '../../components/ui/PageKit';
+import { brand } from '../../theme/brand';
 
 const CATEGORIES = [
   'General', 'Payment Issue', 'Auction Related', 'KYC / Documents',
@@ -135,50 +137,48 @@ const Support = () => {
   };
 
   return (
-    <Container maxWidth="lg">
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h4" fontWeight={700}>Support</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Raise and track support tickets for the selected account
-          </Typography>
-        </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-          Raise Ticket
-        </Button>
-      </Box>
+    <PageShell>
+      <PageHeader
+        eyebrow="Help desk"
+        title="Support"
+        subtitle="Raise and track support tickets for the selected account"
+        actions={
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+            Raise Ticket
+          </Button>
+        }
+      />
 
       {loading ? (
         <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
       ) : tickets.length === 0 ? (
-        <Card>
-          <CardContent sx={{ textAlign: 'center', py: 6 }}>
-            <SupportIcon sx={{ fontSize: 56, color: 'text.secondary', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">No support tickets yet</Typography>
-            <Typography color="text.secondary" mb={2}>Our team typically responds within 24 hours</Typography>
-            <Button variant="outlined" onClick={() => setCreateOpen(true)}>Create your first ticket</Button>
-          </CardContent>
-        </Card>
+        <Surface>
+          <EmptyState
+            icon={<SupportIcon sx={{ fontSize: 32 }} />}
+            title="No support tickets yet"
+            description="Our team typically responds within 24 hours."
+            actionLabel="Create your first ticket"
+            onAction={() => setCreateOpen(true)}
+          />
+        </Surface>
       ) : (
         <Grid container spacing={2}>
           {tickets.map((t) => (
             <Grid item xs={12} md={6} key={t._id || t.id}>
-              <Card sx={{ cursor: 'pointer' }} onClick={() => openDetail(t)}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" mb={1}>
-                    <Typography variant="caption" color="text.secondary">
-                      #{t.ticket_number || (t._id || '').slice(-6).toUpperCase()}
-                    </Typography>
-                    <Chip label={t.status || 'open'} size="small" color={statusColor(t.status)} />
-                  </Box>
-                  <Typography fontWeight={700} gutterBottom>{t.subject}</Typography>
-                  <Typography variant="body2" color="text.secondary" noWrap>{t.description}</Typography>
-                  <Box display="flex" gap={1} mt={1.5}>
-                    <Chip label={t.category || 'General'} size="small" variant="outlined" />
-                    <Chip label={`Priority: ${priorityLabel(t.priority)}`} size="small" color={priorityColor(t.priority)} />
-                  </Box>
-                </CardContent>
-              </Card>
+              <Surface onClick={() => openDetail(t)}>
+                <Box display="flex" justifyContent="space-between" mb={1}>
+                  <Typography variant="caption" color="text.secondary">
+                    #{t.ticket_number || (t._id || '').slice(-6).toUpperCase()}
+                  </Typography>
+                  <Chip label={t.status || 'open'} size="small" color={statusColor(t.status)} />
+                </Box>
+                <Typography fontWeight={700} gutterBottom sx={{ color: brand.navy }}>{t.subject}</Typography>
+                <Typography variant="body2" color="text.secondary" noWrap>{t.description}</Typography>
+                <Box display="flex" gap={1} mt={1.5}>
+                  <Chip label={t.category || 'General'} size="small" variant="outlined" />
+                  <Chip label={`Priority: ${priorityLabel(t.priority)}`} size="small" color={priorityColor(t.priority)} />
+                </Box>
+              </Surface>
             </Grid>
           ))}
         </Grid>
@@ -252,12 +252,10 @@ const Support = () => {
                 </Button>
               )}
               {detail.resolution && (
-                <>
-                  <Alert severity="success" sx={{ mt: 2 }}>
-                    <Typography variant="subtitle2">Resolution</Typography>
-                    <Typography variant="body2">{detail.resolution}</Typography>
-                  </Alert>
-                </>
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  <Typography variant="subtitle2">Resolution</Typography>
+                  <Typography variant="body2">{detail.resolution}</Typography>
+                </Alert>
               )}
             </DialogContent>
             <DialogActions>
@@ -266,7 +264,7 @@ const Support = () => {
           </>
         )}
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 

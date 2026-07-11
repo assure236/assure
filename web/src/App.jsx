@@ -1,7 +1,7 @@
 import React, { lazy, Suspense } from 'react';
 import axios from 'axios';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ToastContainer } from 'react-toastify';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -9,22 +9,20 @@ import Box from '@mui/material/Box';
 import 'react-toastify/dist/ReactToastify.css';
 import { getApiBaseUrl } from './config/env';
 import { setupAxiosInterceptors } from './utils/setupAxios';
-import { solidTooltipMenuOverrides } from './theme/uiOverrides';
+import { createAppTheme } from './theme/createAppTheme';
+import { brand } from './theme/brand';
 
-// Context Providers
 import { AuthProvider } from './context/AuthContext';
 import { ActiveMemberProvider } from './context/ActiveMemberContext';
 
-// Eagerly loaded (always needed on first paint)
 import Login from './pages/Auth/Login';
 import PrivateRoute from './components/PrivateRoute';
 import Layout from './components/Layout/Layout';
 import OnboardingGuard from './components/OnboardingGuard';
 import AuthSessionWatcher from './components/AuthSessionWatcher';
+import MarketingLayout from './components/marketing/MarketingLayout';
 
-// Lazy-loaded pages (code-split for smaller initial bundle)
 const Register = lazy(() => import('./pages/Auth/Register'));
-const ForgotPassword = lazy(() => import('./pages/Auth/ForgotPassword'));
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
 const TotalInvestment = lazy(() => import('./pages/Dashboard/TotalInvestment'));
 const ChitGroups = lazy(() => import('./pages/ChitGroups/ChitGroups'));
@@ -49,7 +47,6 @@ const CancelChit = lazy(() => import('./pages/ChitGroups/CancelChit'));
 const Terms = lazy(() => import('./pages/Legal/Legal').then((m) => ({ default: m.Terms })));
 const PrivacyPolicy = lazy(() => import('./pages/Legal/Legal').then((m) => ({ default: m.PrivacyPolicy })));
 
-// Onboarding wizard (full-screen, one container per step)
 const DigiLockerStep = lazy(() => import('./pages/Onboarding/DigiLockerStep'));
 const FaceStep = lazy(() => import('./pages/Onboarding/FaceStep'));
 const BankStep = lazy(() => import('./pages/Onboarding/BankStep'));
@@ -57,71 +54,60 @@ const ChequeStep = lazy(() => import('./pages/Onboarding/ChequeStep'));
 const AddressStep = lazy(() => import('./pages/Onboarding/AddressStep'));
 const DoneStep = lazy(() => import('./pages/Onboarding/DoneStep'));
 
-// Public pages
-const About = lazy(() => import('./pages/About/About'));
-const Contact = lazy(() => import('./pages/Contact/Contact'));
-const ChitEducation = lazy(() => import('./pages/ChitEducation/ChitEducation'));
+const Home = lazy(() => import('./pages/marketing/Home'));
+const CompanyIndex = lazy(() => import('./pages/marketing/CompanyIndex'));
+const OurStory = lazy(() => import('./pages/marketing/OurStory'));
+const WhyAssure = lazy(() => import('./pages/marketing/WhyAssure'));
+const TrustCompliance = lazy(() => import('./pages/marketing/TrustCompliance'));
+const ChitPlans = lazy(() => import('./pages/marketing/ChitPlans'));
+const HowChitsWork = lazy(() => import('./pages/marketing/HowChitsWork'));
+const AuctionGuide = lazy(() => import('./pages/marketing/AuctionGuide'));
+const Calculator = lazy(() => import('./pages/marketing/Calculator'));
+const LearnHub = lazy(() => import('./pages/marketing/LearnHub'));
+const MemberJourney = lazy(() => import('./pages/marketing/MemberJourney'));
+const ReferEarn = lazy(() => import('./pages/marketing/ReferEarn'));
+const SupportIndex = lazy(() => import('./pages/marketing/SupportIndex'));
+const FaqPage = lazy(() => import('./pages/marketing/FaqPage'));
+const ContactPage = lazy(() => import('./pages/marketing/ContactPage'));
+const AuctionsInfo = lazy(() => import('./pages/marketing/AuctionsInfo'));
+const SchemeTier = lazy(() => import('./pages/marketing/SchemeTier'));
+const GroupStatus = lazy(() => import('./pages/marketing/GroupStatus'));
+const Dividends = lazy(() => import('./pages/marketing/Dividends'));
+const BidTips = lazy(() => import('./pages/marketing/BidTips'));
+const ToolsHub = lazy(() => import('./pages/marketing/ToolsHub'));
+const MembersHub = lazy(() => import('./pages/marketing/MembersHub'));
+const FamilyMarketing = lazy(() => import('./pages/marketing/FamilyMarketing'));
 
 const PageLoader = () => (
-  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-    <CircularProgress />
+  <Box
+    sx={{
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: 1.5,
+      minHeight: '60vh',
+    }}
+  >
+    <CircularProgress sx={{ color: brand.navy }} />
+    <Box
+      component="span"
+      sx={{
+        fontFamily: brand.fontDisplay,
+        fontSize: 14,
+        color: brand.muted,
+        letterSpacing: '0.04em',
+      }}
+    >
+      Loading Assure…
+    </Box>
   </Box>
 );
 
-// Ensure API base URL is always set (fallback for when .env is not loaded)
 axios.defaults.baseURL = getApiBaseUrl();
 setupAxiosInterceptors();
 
-// Theme configuration
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#0B1F3B',
-      light: '#1E3A8A',
-      dark: '#071428',
-      contrastText: '#ffffff',
-    },
-    secondary: {
-      main: '#D4AF37',
-      light: '#E3C668',
-      dark: '#B8960F',
-      contrastText: '#0B1F3B',
-    },
-    success: { main: '#16A34A' },
-    error: { main: '#DC2626' },
-    warning: { main: '#F59E0B' },
-    info: { main: '#1E3A8A' },
-    background: {
-      default: '#F8F9FB',
-      paper: '#ffffff'
-    },
-    text: {
-      primary: '#0B1F3B',
-      secondary: '#475569',
-    },
-  },
-  typography: {
-    fontFamily: "'Inter', 'Roboto', sans-serif",
-    h4: { fontWeight: 700 },
-    h5: { fontWeight: 700 },
-    h6: { fontWeight: 600 }
-  },
-  shape: { borderRadius: 10 },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: { textTransform: 'none', fontWeight: 600, borderRadius: 8 },
-        containedPrimary: { '&:hover': { backgroundColor: '#1E3A8A' } },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: { borderRadius: 12, boxShadow: '0 1px 3px rgba(11,31,59,0.08), 0 1px 2px rgba(11,31,59,0.06)' },
-      },
-    },
-    ...solidTooltipMenuOverrides,
-  },
-});
+const theme = createAppTheme();
 
 function App() {
   return (
@@ -134,16 +120,53 @@ function App() {
           <OnboardingGuard>
           <Suspense fallback={<PageLoader />}>
           <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/chit-education" element={<ChitEducation />} />
+            {/* Marketing site — multi-page with hover nav dropdowns */}
+            <Route element={<MarketingLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/company" element={<CompanyIndex />} />
+              <Route path="/company/our-story" element={<OurStory />} />
+              <Route path="/company/why-assure" element={<WhyAssure />} />
+              <Route path="/company/trust" element={<TrustCompliance />} />
+              <Route path="/plans" element={<ChitPlans />} />
+              <Route path="/plans/starter" element={<SchemeTier />} />
+              <Route path="/plans/growth" element={<SchemeTier />} />
+              <Route path="/plans/prime" element={<SchemeTier />} />
+              <Route path="/plans/group-status" element={<GroupStatus />} />
+              <Route path="/plans/how-chits-work" element={<HowChitsWork />} />
+              <Route path="/plans/auction-guide" element={<AuctionGuide />} />
+              <Route path="/plans/dividends" element={<Dividends />} />
+              <Route path="/plans/bid-tips" element={<BidTips />} />
+              <Route path="/plans/calculator" element={<Calculator />} />
+              <Route path="/auctions-info" element={<AuctionsInfo />} />
+              <Route path="/tools" element={<ToolsHub />} />
+              <Route path="/members" element={<MembersHub />} />
+              <Route path="/members/family" element={<FamilyMarketing />} />
+              <Route path="/learn" element={<LearnHub />} />
+              <Route path="/learn/member-journey" element={<MemberJourney />} />
+              <Route path="/learn/refer" element={<ReferEarn />} />
+              <Route path="/support-center" element={<SupportIndex />} />
+              <Route path="/support-center/faq" element={<FaqPage />} />
+              <Route path="/support-center/contact" element={<ContactPage />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            </Route>
+
+            {/* Legacy public URLs → new pages */}
+            <Route path="/about" element={<Navigate to="/company/our-story" replace />} />
+            <Route path="/contact" element={<Navigate to="/support-center/contact" replace />} />
+            <Route path="/chit-education" element={<Navigate to="/learn" replace />} />
+            <Route path="/faq" element={<Navigate to="/support-center/faq" replace />} />
+            <Route path="/schemes" element={<Navigate to="/plans" replace />} />
+            <Route path="/schemes/*" element={<Navigate to="/plans" replace />} />
+            <Route path="/calculator" element={<Navigate to="/plans/calculator" replace />} />
+            <Route path="/auction" element={<Navigate to="/auctions-info" replace />} />
+            <Route path="/auction/*" element={<Navigate to="/auctions-info" replace />} />
+            <Route path="/refer" element={<Navigate to="/learn/refer" replace />} />
+            <Route path="/refer/*" element={<Navigate to="/learn/refer" replace />} />
+
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
 
-            {/* Onboarding wizard — full-screen, no app shell */}
             <Route path="/onboarding" element={<PrivateRoute><Navigate to="/onboarding/digilocker" replace /></PrivateRoute>} />
             <Route path="/onboarding/digilocker" element={<PrivateRoute><DigiLockerStep /></PrivateRoute>} />
             <Route path="/onboarding/face" element={<PrivateRoute><FaceStep /></PrivateRoute>} />
@@ -152,7 +175,6 @@ function App() {
             <Route path="/onboarding/address" element={<PrivateRoute><AddressStep /></PrivateRoute>} />
             <Route path="/onboarding/done" element={<PrivateRoute><DoneStep /></PrivateRoute>} />
 
-            {/* Protected Routes */}
             <Route element={<PrivateRoute><Layout /></PrivateRoute>}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/dashboard/total-investment" element={<TotalInvestment />} />
@@ -175,11 +197,8 @@ function App() {
               <Route path="/kyc" element={<KYC />} />
               <Route path="/chit-groups/transfer" element={<TransferChit />} />
               <Route path="/chit-groups/cancel" element={<CancelChit />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             </Route>
 
-            {/* Redirect /dashboard root if not authenticated handled by PrivateRoute */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </Suspense>

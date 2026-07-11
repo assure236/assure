@@ -3,11 +3,8 @@ import {
   Alert,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
-  Container,
   Dialog,
   DialogActions,
   DialogContent,
@@ -24,6 +21,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useActiveMember } from '../../context/ActiveMemberContext';
+import { brand } from '../../theme/brand';
+import { PageShell, PageHeader, Surface, EmptyState } from '../../components/ui/PageKit';
 
 const formatDate = (value) => {
   if (!value) return '';
@@ -74,22 +73,22 @@ const ChitGroupCard = ({ group, onViewDetails, onEnroll }) => {
   const dateLabel = formatDate(group.commencement_date);
 
   return (
-    <Card sx={{ borderRadius: 3, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-      <Box sx={{ height: 4, bgcolor: 'primary.main' }} />
-      <CardContent>
+    <Surface padded={false} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ height: 3, background: `linear-gradient(90deg, ${brand.navy}, ${brand.gold})` }} />
+      <Box sx={{ p: 2.25, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
           <Box>
-            <Typography sx={{ fontSize: 22, fontWeight: 800, color: 'text.primary', lineHeight: 1.2 }}>
-              ₹ {formatAmount(group.chit_value)}
+            <Typography sx={{ fontFamily: brand.fontDisplay, fontSize: 24, fontWeight: 600, color: brand.navy, lineHeight: 1.15 }}>
+              ₹{formatAmount(group.chit_value)}
             </Typography>
-            <Typography variant="body2" color="text.secondary" fontWeight={600}>
+            <Typography variant="body2" color="text.secondary" fontWeight={700} sx={{ mt: 0.5 }}>
               {group.group_name || 'Chit Group'}
             </Typography>
           </Box>
           <Chip
             label={statusLabel(group.status)}
             size="small"
-            sx={{ bgcolor: 'rgba(11,31,59,0.08)', color: 'primary.main', fontWeight: 600, border: '1px solid rgba(11,31,59,0.25)' }}
+            sx={{ bgcolor: 'rgba(201,162,39,0.14)', color: brand.navy, fontWeight: 700, border: '1px solid rgba(201,162,39,0.35)' }}
           />
         </Box>
 
@@ -128,7 +127,7 @@ const ChitGroupCard = ({ group, onViewDetails, onEnroll }) => {
           ) : null}
         </Grid>
 
-        <Box display="flex" gap={1}>
+        <Box display="flex" gap={1} mt="auto" pt={1}>
           <Button variant="outlined" fullWidth onClick={onViewDetails}>View Details</Button>
           <Button
             variant="contained"
@@ -139,8 +138,8 @@ const ChitGroupCard = ({ group, onViewDetails, onEnroll }) => {
             {isNotStarted ? 'Enrollment Closed' : enrollDisabled ? 'Group Full' : 'Invest Now'}
           </Button>
         </Box>
-      </CardContent>
-    </Card>
+      </Box>
+    </Surface>
   );
 };
 
@@ -286,24 +285,23 @@ const ChitGroups = () => {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2} gap={1} flexWrap="wrap">
-        <Box>
-          <Typography variant="h4">New Chits</Typography>
-          <Typography variant="body2" color="text.secondary">
-            New, active, and vacant chits available to invest — in one list.
-          </Typography>
-        </Box>
-        <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
-          <Button size="small" variant="outlined" onClick={() => navigate('/chit-groups/history/completed')}>
-            Completed
-          </Button>
-          <Button size="small" variant="outlined" color="inherit" onClick={() => navigate('/chit-groups/history/cancelled')}>
-            Cancelled
-          </Button>
-          <Chip label={`${filteredList.length} groups`} size="small" />
-        </Box>
-      </Box>
+    <PageShell>
+      <PageHeader
+        eyebrow="Invest"
+        title="New Chits"
+        subtitle="New, active, and vacant groups available to invest — in one list."
+        actions={
+          <>
+            <Button size="small" variant="outlined" onClick={() => navigate('/chit-groups/history/completed')}>
+              Completed
+            </Button>
+            <Button size="small" variant="outlined" onClick={() => navigate('/chit-groups/history/cancelled')}>
+              Cancelled
+            </Button>
+            <Chip label={`${filteredList.length} groups`} size="small" />
+          </>
+        }
+      />
 
       {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
       {banner ? (
@@ -312,7 +310,7 @@ const ChitGroups = () => {
         </Alert>
       ) : null}
 
-      <Box display="flex" alignItems="center" gap={2} flexWrap="wrap" mb={2}>
+      <Surface sx={{ mb: 2.5 }}>
         <TextField
           size="small"
           placeholder="Search chit groups..."
@@ -327,13 +325,16 @@ const ChitGroups = () => {
           }}
           sx={{ minWidth: { xs: '100%', sm: 320 } }}
         />
-      </Box>
+      </Surface>
 
       {filteredList.length === 0 ? (
-        <Box textAlign="center" py={10}>
-          <GroupIcon sx={{ fontSize: 72, color: 'grey.300' }} />
-          <Typography color="text.secondary" mt={2}>No groups available.</Typography>
-        </Box>
+        <Surface>
+          <EmptyState
+            icon={<GroupIcon />}
+            title="No groups available"
+            description="Check back soon for new chit openings, or review completed groups."
+          />
+        </Surface>
       ) : (
         <Grid container spacing={2}>
           {filteredList.map((group) => {
@@ -400,7 +401,7 @@ const ChitGroups = () => {
           ) : null}
         </DialogActions>
       </Dialog>
-    </Container>
+    </PageShell>
   );
 };
 
