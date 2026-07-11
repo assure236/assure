@@ -104,8 +104,14 @@ exports.getMemberAnalytics = async (req, res, next) => {
     for (let i = 5; i >= 0; i--) {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
-      months.push({ label: d.toLocaleString('en-IN', { month: 'short', year: '2-digit' }), start: new Date(d.getFullYear(), d.getMonth(), 1), end: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59) });
+      months.push({
+        label: d.toLocaleString('en-IN', { month: 'short', year: '2-digit' }),
+        start: new Date(d.getFullYear(), d.getMonth(), 1),
+        end: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59),
+      });
     }
+
+    const amountExpr = { $ifNull: ['$total_amount', '$amount'] };
 
     const [paid, pending, failed, memberships] = await Promise.all([
       Payment.countDocuments({ user_id: userId, payment_status: 'success' }),
@@ -114,17 +120,23 @@ exports.getMemberAnalytics = async (req, res, next) => {
       ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id', 'group_name chit_value status'),
     ]);
 
-    const monthlyPayments = await Promise.all(months.map(async m => {
+    const monthlyPayments = await Promise.all(months.map(async (m) => {
       const r = await Payment.aggregate([
-        { $match: { user_id: userId, payment_status: 'success', payment_date: { $gte: m.start, $lte: m.end } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } }
+        {
+          $match: {
+            user_id: userId,
+            payment_status: 'success',
+            payment_date: { $gte: m.start, $lte: m.end },
+          },
+        },
+        { $group: { _id: null, total: { $sum: amountExpr } } },
       ]);
       return r[0]?.total || 0;
     }));
 
     const totalInvestedAgg = await Payment.aggregate([
       { $match: { user_id: userId, payment_status: 'success' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
+      { $group: { _id: null, total: { $sum: amountExpr } } },
     ]);
 
     res.json({
@@ -133,9 +145,13 @@ exports.getMemberAnalytics = async (req, res, next) => {
         monthly_collections: months.map((m, i) => ({ month: m.label, amount: monthlyPayments[i] })),
         payment_status: { paid, pending, failed },
         active_chits: memberships.length,
-        chit_details: memberships.map(m => ({ group_name: m.chit_group_id?.group_name, chit_value: m.chit_group_id?.chit_value, status: m.chit_group_id?.status })),
+        chit_details: memberships.map((m) => ({
+          group_name: m.chit_group_id?.group_name,
+          chit_value: m.chit_group_id?.chit_value,
+          status: m.chit_group_id?.status,
+        })),
         total_invested: totalInvestedAgg[0]?.total || 0,
-      }
+      },
     });
   } catch (err) { next(err); }
 };
@@ -144,29 +160,43 @@ exports.getDividendAnalytics = async (req, res, next) => {
   try {
     const userId = req.user._id || req.user.id;
     const memberships = await ChitMember.find({ user_id: userId, is_active: true }).populate('chit_group_id');
-    const groupIds = memberships.map(m => m.chit_group_id?._id).filter(Boolean);
+    const groupIds = memberships.map((m) => m.chit_group_id?._id).filter(Boolean);
     const completedAuctions = groupIds.length > 0
       ? await Auction.find({ chit_group_id: { $in: groupIds }, status: 'completed' }).populate('chit_group_id')
       : [];
 
-    // Build per-group analytics the frontend expects
-    const groups = memberships.map(m => {
+    // Per-group analytics — dividend = (chit value − winning bid) / members
+    const groups = memberships.map((m) => {
       const g = m.chit_group_id;
       if (!g) return null;
-      const groupAuctions = completedAuctions.filter(a => a.chit_group_id?._id?.toString() === g._id.toString());
+      const groupAuctions = completedAuctions.filter(
+        (a) => a.chit_group_id?._id?.toString() === g._id.toString(),
+      );
       const totalMembers = g.total_members || 1;
       const chitValue = g.chit_value || 0;
-      const commission = chitValue * 0.05;
+      const commission = chitValue * ((g.foreman_commission_percentage || 5) / 100);
+
+      let totalDividendEarned = 0;
+      let sumWinningBids = 0;
+      for (const a of groupAuctions) {
+        const winBid = Number(a.winning_bid_amount) || 0;
+        sumWinningBids += winBid;
+        // Same rule as in-app calculator: (chit value − winning bid) / members
+        totalDividendEarned += Math.max(0, chitValue - winBid) / totalMembers;
+      }
+
       const avgWinBid = groupAuctions.length > 0
-        ? groupAuctions.reduce((s, a) => s + (a.winning_bid_amount || 0), 0) / groupAuctions.length
-        : chitValue * 0.25;
-      const avgDividend = avgWinBid / totalMembers;
+        ? sumWinningBids / groupAuctions.length
+        : 0;
+      const avgDividend = groupAuctions.length > 0
+        ? totalDividendEarned / groupAuctions.length
+        : 0;
+      const remainingMonths = Math.max(0, (g.duration_months || 0) - groupAuctions.length);
       const netReturn = avgDividend * (g.duration_months || 0);
       const effectiveReturnPct = chitValue > 0 ? ((netReturn / chitValue) * 100).toFixed(1) : '0.0';
       const winProbability = totalMembers > 0 ? ((1 / totalMembers) * 100).toFixed(1) : '0.0';
+      const bidRatio = chitValue > 0 && groupAuctions.length > 0 ? avgWinBid / chitValue : 0;
 
-      // Projected monthly dividends for remaining duration
-      const remainingMonths = Math.max(0, (g.duration_months || 0) - groupAuctions.length);
       const projected_dividends = Array.from({ length: remainingMonths }, (_, i) => ({
         month: groupAuctions.length + i + 1,
         estimated_dividend: Math.round(avgDividend),
@@ -181,16 +211,19 @@ exports.getDividendAnalytics = async (req, res, next) => {
         chit_value: chitValue,
         monthly_installment: g.monthly_installment || chitValue / totalMembers,
         avg_dividend_per_member: Math.round(avgDividend),
+        total_dividend_earned: Math.round(totalDividendEarned),
         net_return: Math.round(netReturn),
         avg_winning_bid: Math.round(avgWinBid),
+        bid_ratio: bidRatio,
         effective_return_pct: parseFloat(effectiveReturnPct),
         completed_auctions: groupAuctions.length,
         win_probability_pct: parseFloat(winProbability),
+        foreman_commission: Math.round(commission),
         projected_dividends,
       };
     }).filter(Boolean);
 
-    res.json({ success: true, data: { groups, memberships, completedAuctions } });
+    res.json({ success: true, data: { groups } });
   } catch (err) { next(err); }
 };
 

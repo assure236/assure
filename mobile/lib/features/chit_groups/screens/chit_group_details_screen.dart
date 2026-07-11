@@ -248,7 +248,7 @@ class _OverviewTab extends StatelessWidget {
             ),
             _DetailRow('Auction', 'Monthly'),
             _DetailRow('Chit Value', '₹${_fmt(group.chitValue)}'),
-            _DetailRow('Monthly Installment', '₹${_fmt(group.monthlyInstallment)}'),
+            _DetailRow('Subscription', '₹${_fmt(group.monthlyInstallment)}'),
             _DetailRow('Total Members', '${group.totalMembers}'),
             _DetailRow('Months Completed', '${group.currentMonth}/${group.durationMonths}'),
             _DetailRow('Commenced from', commencedIn),
@@ -1341,7 +1341,7 @@ class _InvestNowBar extends StatelessWidget {
         title: const Text('Confirm Investment'),
         content: Text(
           'Do you want to invest in $groupName?\n\n'
-          'Monthly installment: ₹${NumberFormat('#,##,###').format(monthly)}',
+          'Subscription: ₹${NumberFormat('#,##,###').format(monthly)}',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),

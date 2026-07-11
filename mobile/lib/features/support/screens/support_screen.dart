@@ -326,11 +326,30 @@ class _SupportScreenState extends State<SupportScreen> {
   Color _priorityColor(String p) {
     switch (p) {
       case 'high':
+      case 'urgent':
         return AppTheme.warningColor;
       case 'normal':
+      case 'medium':
+      case 'low':
         return AppTheme.primaryColor;
       default:
         return Colors.grey;
+    }
+  }
+
+  String _priorityLabel(String p) {
+    switch (p.toLowerCase()) {
+      case 'medium':
+      case 'normal':
+        return 'Priority: Normal';
+      case 'high':
+        return 'Priority: High';
+      case 'low':
+        return 'Priority: Low';
+      case 'urgent':
+        return 'Priority: Urgent';
+      default:
+        return 'Priority: $p';
     }
   }
 
@@ -728,7 +747,7 @@ class _SupportScreenState extends State<SupportScreen> {
                       color: _priorityColor(priority).withAlpha(26),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(priority.toString().toUpperCase(),
+                    child: Text(_priorityLabel(priority),
                         style: TextStyle(
                             color: _priorityColor(priority),
                             fontSize: 10, fontWeight: FontWeight.w600)),
@@ -842,7 +861,7 @@ class _SupportScreenState extends State<SupportScreen> {
                       color: _priorityColor(priority).withAlpha(26),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Text(priority.toString().toUpperCase(),
+                    child: Text(_priorityLabel(priority),
                         style: TextStyle(color: _priorityColor(priority),
                             fontWeight: FontWeight.w600, fontSize: 11)),
                   ),

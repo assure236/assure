@@ -152,7 +152,7 @@ exports.register = async (req, res, next) => {
     await user.save();
 
     if (referred_by) {
-      const bonusAmount = parseInt(process.env.REFERRAL_BONUS_AMOUNT) || 100;
+      const bonusAmount = parseInt(process.env.REFERRAL_BONUS_AMOUNT, 10) || 500;
       await Referral.create({
         referrer_id: referred_by,
         referred_id: user._id,
@@ -168,7 +168,7 @@ exports.register = async (req, res, next) => {
           user_id: referred_by,
           type: 'referral_bonus',
           title: 'Referral Registered 🎉',
-          message: `${user.full_name} joined using your referral code. ₹${bonusAmount} will be applied to your next installment after their first chit enrollment.`,
+          message: `${user.full_name} joined using your referral code. ₹${bonusAmount} will be credited to your wallet after their first subscription payment.`,
         });
       } catch (_) { /* ignore notification errors */ }
     }

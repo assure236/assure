@@ -323,7 +323,7 @@ List<Map<String, dynamic>> _quickLinksFromUserQuery(String text) {
     actions.add({'label': '👤 My Profile', 'route': '/edit-profile'});
   }
   if (lower.contains('document') || lower.contains('vault') || lower.contains('proof')) {
-    actions.add({'label': '📁 Documents', 'route': '/documents'});
+    // Documents Vault removed — use KYC flows for document upload.
   }
   if (lower.contains('referral') || lower.contains('refer') || lower.contains('reward')) {
     actions.add({'label': '🎁 Referrals', 'route': '/referrals'});

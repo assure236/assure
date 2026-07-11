@@ -315,12 +315,9 @@ class _DocumentsScreenState extends State<DocumentsScreen> with WidgetsBindingOb
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: const Text('Documents Vault'),
+        title: const Text('Upload Documents'),
         backgroundColor: AppTheme.primaryColor,
         foregroundColor: Colors.white,
-        actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _fetchDocuments),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

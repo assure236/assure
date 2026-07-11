@@ -950,7 +950,7 @@ class _KycProfileBanner extends StatelessWidget {
       action = () => context.push('/kyc');
     } else if (!hasSelfie) {
       actionLabel = 'Complete Face ID';
-      action = () => context.push('/documents');
+      action = () => context.push('/onboarding/face');
     } else if (!hasBankDetails) {
       actionLabel = 'Add Bank IFSC Details';
       action = () => context.push('/edit-profile');
@@ -1727,7 +1727,7 @@ class _ChitCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Monthly: ${_inr.format(monthly)}',
+                'Subscription: ${_inr.format(monthly)}',
                 style: const TextStyle(color: Colors.white70, fontSize: 11),
               ),
               Text(

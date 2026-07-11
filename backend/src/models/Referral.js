@@ -4,7 +4,7 @@ const referralSchema = new mongoose.Schema({
   referrer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   referred_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   referral_code_used: { type: String, required: true },
-  bonus_amount: { type: Number, default: 100 },
+  bonus_amount: { type: Number, default: 500 },
   bonus_credited: { type: Boolean, default: false },
   credited_at: Date,
   qualified_at: Date,

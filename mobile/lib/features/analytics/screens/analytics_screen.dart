@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/services/api_service.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/amount_format.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -56,22 +57,29 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
             // Map backend fields to what the UI expects
             final mappedGroups = rawGroups.map((g) {
               final mapped = Map<String, dynamic>.from(g);
-              mapped['dividend_earned'] = g['avg_dividend_per_member'] ?? 0;
+              // Total dividends earned so far in this group (from completed auctions)
+              mapped['dividend_earned'] = g['total_dividend_earned'] ??
+                  ((g['avg_dividend_per_member'] ?? 0) * (g['current_month'] ?? 0));
               mapped['months_paid'] = g['current_month'] ?? 0;
+              mapped['bid_ratio'] = g['bid_ratio'] ?? 0;
               return mapped;
             }).toList();
 
-            // Compute totals for summary cards
             double totalDiv = 0;
             double totalBidRatio = 0;
-            for (final g in rawGroups) {
-              totalDiv += ((g['avg_dividend_per_member'] ?? 0) * (g['current_month'] ?? 0)).toDouble();
-              final cv = (g['chit_value'] ?? 1).toDouble();
-              totalBidRatio += ((g['avg_winning_bid'] ?? 0) / cv);
+            var groupsWithBids = 0;
+            for (final g in mappedGroups) {
+              totalDiv += (g['dividend_earned'] ?? 0).toDouble();
+              final ratio = (g['bid_ratio'] ?? 0).toDouble();
+              if ((g['months_paid'] ?? 0) > 0) {
+                totalBidRatio += ratio;
+                groupsWithBids++;
+              }
             }
             data['chit_group_performance'] = mappedGroups;
             data['total_dividends_earned'] = totalDiv;
-            data['avg_bid_ratio'] = rawGroups.isNotEmpty ? totalBidRatio / rawGroups.length : 0;
+            data['avg_bid_ratio'] =
+                groupsWithBids > 0 ? totalBidRatio / groupsWithBids : 0;
           }
         } catch (_) { /* dividend analytics optional */ }
 
@@ -119,8 +127,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen>
                       analytics: _analytics,
                       onTouched: (i) => setState(() => _touchedIndex = i),
                       touchedIndex: _touchedIndex,
+                      onRefresh: _fetchAnalytics,
                     ),
-                    _DividendAnalyticsTab(analytics: _analytics),
+                    _DividendAnalyticsTab(
+                      analytics: _analytics,
+                      onRefresh: _fetchAnalytics,
+                    ),
                   ],
                 ),
     );
@@ -147,8 +159,14 @@ class _PaymentOverviewTab extends StatelessWidget {
   final Map<String, dynamic>? analytics;
   final int touchedIndex;
   final void Function(int) onTouched;
+  final Future<void> Function() onRefresh;
 
-  const _PaymentOverviewTab({required this.analytics, required this.touchedIndex, required this.onTouched});
+  const _PaymentOverviewTab({
+    required this.analytics,
+    required this.touchedIndex,
+    required this.onTouched,
+    required this.onRefresh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -158,7 +176,7 @@ class _PaymentOverviewTab extends StatelessWidget {
     final monthly = List<Map<String, dynamic>>.from(analytics?['monthly_collections'] ?? []);
 
     return RefreshIndicator(
-      onRefresh: () async {},
+      onRefresh: onRefresh,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
@@ -169,27 +187,37 @@ class _PaymentOverviewTab extends StatelessWidget {
             Expanded(child: _SummaryCard(label: 'Active Chits', value: activeChits.toString(), icon: Icons.group, color: AppTheme.secondaryColor)),
           ]),
           const SizedBox(height: 20),
-          if (monthly.isNotEmpty) ...[
-            const Text('6-Month Collections', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(
-              'Your successful subscription payments over the last 6 months.',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 12),
+          const Text('6-Month Collections', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            'Month-wise total of your successful subscription payments for the last 6 months (live from your payment history).',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+          if (monthly.isEmpty || monthly.every((m) => ((m['amount'] ?? 0) as num) == 0))
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Center(
+                  child: Text(
+                    'No successful payments in the last 6 months yet.',
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+            )
+          else
             _buildLineChart(monthly),
-            const SizedBox(height: 20),
-          ],
-          if (paymentStatus.isNotEmpty) ...[
-            const Text('Payment Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(
-              'Breakdown of paid, pending, and failed subscription payments.',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 12),
-            _buildPieSection(paymentStatus),
-          ],
+          const SizedBox(height: 20),
+          const Text('Payment Status', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            'Count of your payments by status — Paid (success), Pending, and Failed. Helps you track dues and collection health.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 12),
+          _buildPieSection(paymentStatus),
         ]),
       ),
     );
@@ -265,17 +293,14 @@ class _PaymentOverviewTab extends StatelessWidget {
     ])));
   }
 
-  String _fmt(double v) {
-    if (v >= 100000) return '${(v/100000).toStringAsFixed(1)}L';
-    if (v >= 1000) return '${(v/1000).toStringAsFixed(1)}K';
-    return v.toStringAsFixed(0);
-  }
+  String _fmt(double v) => formatCompactInr(v);
 }
 
 // TAB 2: DIVIDEND ANALYTICS
 class _DividendAnalyticsTab extends StatelessWidget {
   final Map<String, dynamic>? analytics;
-  const _DividendAnalyticsTab({required this.analytics});
+  final Future<void> Function() onRefresh;
+  const _DividendAnalyticsTab({required this.analytics, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -283,58 +308,59 @@ class _DividendAnalyticsTab extends StatelessWidget {
     final totalDividends = (analytics?['total_dividends_earned'] ?? 0.0).toDouble();
     final avgBidRatio = (analytics?['avg_bid_ratio'] ?? 0.0).toDouble();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Expanded(child: _SummaryCard(label: 'Dividends Earned', value: _fmt(totalDividends), icon: Icons.savings_outlined, color: AppTheme.successColor)),
-          const SizedBox(width: 12),
-          Expanded(child: _SummaryCard(label: 'Avg Bid Ratio', value: '${(avgBidRatio*100).toStringAsFixed(1)}%', icon: Icons.trending_up, color: AppTheme.secondaryColor)),
-        ]),
-        const SizedBox(height: 6),
-        Text(
-          'Avg Bid Ratio = average winning bid as a % of chit value. Lower bids mean higher dividends.',
-          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-        ),
-        const SizedBox(height: 16),
-        const Text('Per Group Performance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(
-          'Amount earned shows total dividend savings in that chit group so far.',
-          style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-        ),
-        const SizedBox(height: 12),
-        if (groups.isEmpty)
-          Card(child: Padding(padding: const EdgeInsets.all(32), child: Column(children: [
-            Icon(Icons.bar_chart_rounded, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 12),
-            const Text('No dividend data yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 4),
-            const Text('Enroll in a chit group to see dividend analytics', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
-          ])))
-        else
-          ...groups.map((g) => _GroupDividendCard(group: g)),
-        const SizedBox(height: 20),
-        Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Row(children: [
-            Icon(Icons.tips_and_updates, color: AppTheme.secondaryColor, size: 20),
-            SizedBox(width: 8),
-            Text('Dividend Insights', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+    return RefreshIndicator(
+      onRefresh: onRefresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Expanded(child: _SummaryCard(label: 'Dividends Earned', value: _fmt(totalDividends), icon: Icons.savings_outlined, color: AppTheme.successColor)),
+            const SizedBox(width: 12),
+            Expanded(child: _SummaryCard(label: 'Avg Bid Ratio', value: '${(avgBidRatio * 100).toStringAsFixed(1)}%', icon: Icons.trending_up, color: AppTheme.secondaryColor)),
           ]),
+          const SizedBox(height: 6),
+          Text(
+            'Dividends Earned = total dividend savings from completed auctions across your groups.\n'
+            'Avg Bid Ratio = average winning bid ÷ chit value. Lower % usually means higher dividends for members.',
+            style: TextStyle(fontSize: 11, color: Colors.grey[600], height: 1.35),
+          ),
+          const SizedBox(height: 16),
+          const Text('Per Group Performance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            '“₹X earned” is the total dividend amount credited for that chit group so far (from completed auctions), not a static number.',
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+          ),
           const SizedBox(height: 12),
-          _InsightRow(icon: Icons.info_outline, color: AppTheme.primaryColor, text: 'Lower bids = higher dividends for all non-winning members.'),
-          const SizedBox(height: 8),
-          _InsightRow(icon: Icons.schedule, color: AppTheme.secondaryColor, text: 'Taking the prize in later months yields higher accumulated dividends.'),
-        ]))),
-      ]),
+          if (groups.isEmpty)
+            Card(child: Padding(padding: const EdgeInsets.all(32), child: Column(children: [
+              Icon(Icons.bar_chart_rounded, size: 64, color: Colors.grey[300]),
+              const SizedBox(height: 12),
+              const Text('No dividend data yet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 4),
+              const Text('Join a chit group and complete auctions to see live dividend performance here.', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey, fontSize: 13)),
+            ])))
+          else
+            ...groups.map((g) => _GroupDividendCard(group: g)),
+          const SizedBox(height: 20),
+          Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Row(children: [
+              Icon(Icons.tips_and_updates, color: AppTheme.secondaryColor, size: 20),
+              SizedBox(width: 8),
+              Text('Dividend Insights', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ]),
+            const SizedBox(height: 12),
+            _InsightRow(icon: Icons.info_outline, color: AppTheme.primaryColor, text: 'Lower winning bids = higher dividends for non-winning members.'),
+            const SizedBox(height: 8),
+            _InsightRow(icon: Icons.schedule, color: AppTheme.secondaryColor, text: 'Taking the prize in later months usually means higher accumulated dividends.'),
+          ]))),
+        ]),
+      ),
     );
   }
 
-  String _fmt(double v) {
-    if (v >= 100000) return '${(v/100000).toStringAsFixed(1)}L';
-    if (v >= 1000) return '${(v/1000).toStringAsFixed(1)}K';
-    return v.toStringAsFixed(0);
-  }
+  String _fmt(double v) => formatCompactInr(v);
 }
 
 class _GroupDividendCard extends StatelessWidget {
@@ -359,7 +385,7 @@ class _GroupDividendCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(color: AppTheme.successColor.withAlpha(26), borderRadius: BorderRadius.circular(8)),
-            child: Text('${_fmt(dividend)} earned', style: const TextStyle(color: AppTheme.successColor, fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Text('₹${_fmt(dividend)} earned', style: const TextStyle(color: AppTheme.successColor, fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ]),
         const SizedBox(height: 8),
@@ -376,11 +402,7 @@ class _GroupDividendCard extends StatelessWidget {
     );
   }
 
-  String _fmt(double v) {
-    if (v >= 100000) return '${(v/100000).toStringAsFixed(1)}L';
-    if (v >= 1000) return '${(v/1000).toStringAsFixed(1)}K';
-    return v.toStringAsFixed(0);
-  }
+  String _fmt(double v) => formatCompactInr(v);
 }
 
 // TAB 3: DIVIDEND CALCULATOR

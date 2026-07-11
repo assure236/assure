@@ -830,9 +830,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       size: 16,
                     ),
                     label: Text(
-                      _nomineeIsConfigured(nomineeUser)
-                          ? 'Change Nominee'
-                          : 'Enter Nominee Details',
+                      'Enter Nominee Details',
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),

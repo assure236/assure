@@ -158,7 +158,7 @@ class _GroupInvestmentCard extends StatelessWidget {
             const SizedBox(height: 14),
             Row(
               children: [
-                _InfoChip(label: 'EMI', value: _inr.format(emi)),
+                _InfoChip(label: 'Subscription', value: _inr.format(emi)),
                 const SizedBox(width: 12),
                 _InfoChip(label: 'Paid', value: '$monthsPaid / $duration months'),
               ],

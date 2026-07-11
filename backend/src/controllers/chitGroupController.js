@@ -1,4 +1,4 @@
-const { ChitGroup, ChitMember, User, Auction, Payment, Referral, Bid } = require('../models');
+const { ChitGroup, ChitMember, User, Auction, Payment, Bid } = require('../models');
 const { audit, getIp } = require('../utils/audit');
 const { syncChitGroupStatuses } = require('../utils/chitGroupStatusSync');
 
@@ -113,10 +113,9 @@ exports.enrollInChitGroup = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Enrollment already exists for this group' });
     }
 
-    const [priorMembershipCount, lastTicket] = await Promise.all([
-      ChitMember.countDocuments({ user_id: userId }),
-      ChitMember.findOne({ chit_group_id: group._id }).sort({ ticket_number: -1 }).select('ticket_number'),
-    ]);
+    const lastTicket = await ChitMember.findOne({ chit_group_id: group._id })
+      .sort({ ticket_number: -1 })
+      .select('ticket_number');
 
     const nextTicketNumber = (lastTicket?.ticket_number || 0) + 1;
 
@@ -127,23 +126,8 @@ exports.enrollInChitGroup = async (req, res, next) => {
       is_active: true,
     });
 
-    // First enrollment of referred user qualifies one-time referral reward.
-    if (priorMembershipCount === 0) {
-      const referralBonusAmount = Number(process.env.REFERRAL_BONUS_AMOUNT) || 100;
-      await Referral.updateMany(
-        { referred_id: userId, status: 'pending' },
-        {
-          $set: {
-            status: 'credited',
-            bonus_credited: true,
-            bonus_amount: referralBonusAmount,
-            credited_at: new Date(),
-            qualified_at: new Date(),
-            qualified_chit_group_id: group._id,
-          },
-        }
-      );
-    }
+    // Referral reward is credited only after referred user's first successful subscription payment
+    // (see paymentController.creditReferralOnFirstSubscription). Enrollment alone does not pay out.
 
     await syncChitGroupStatuses({ groupIds: [group._id] });
 

@@ -1,4 +1,4 @@
-const { Payment, ChitGroup, ChitMember, User, Auction, Referral } = require('../models');
+const { Payment, ChitGroup, ChitMember, User, Auction, Referral, Wallet, WalletTransaction } = require('../models');
 const axios = require('axios');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
@@ -6,6 +6,8 @@ const notificationService = require('../services/notificationService');
 const { notifyUser } = require('../utils/notifyUser');
 const { audit, getIp } = require('../utils/audit');
 const { getBackendBaseUrl, getWebClientUrl, isLocalUrl } = require('../utils/runtimeUrls');
+
+const REFERRAL_BONUS = () => Number(process.env.REFERRAL_BONUS_AMOUNT) || 500;
 
 const getCashfree = () => {
   const isTest = process.env.CASHFREE_ENV !== 'PROD';
@@ -16,7 +18,78 @@ const getCashfree = () => {
   };
 };
 
+async function getOrCreateWallet(userId) {
+  let wallet = await Wallet.findOne({ user_id: userId });
+  if (!wallet) wallet = await Wallet.create({ user_id: userId, balance: 0 });
+  return wallet;
+}
+
+/** After referred member's first successful subscription, credit ₹500 to referrer wallet. */
+async function creditReferralOnFirstSubscription(payment) {
+  try {
+    const paymentType = String(payment.payment_type || 'installment');
+    if (!['installment', 'monthly', 'subscription'].includes(paymentType)) return;
+
+    const referredId = payment.user_id;
+    const priorSuccess = await Payment.countDocuments({
+      user_id: referredId,
+      payment_status: 'success',
+      payment_type: { $in: ['installment', 'monthly', 'subscription'] },
+      _id: { $ne: payment._id },
+    });
+    if (priorSuccess > 0) return;
+
+    const referral = await Referral.findOne({
+      referred_id: referredId,
+      status: 'pending',
+      bonus_credited: { $ne: true },
+    }).sort({ created_at: 1 });
+    if (!referral) return;
+
+    const bonusAmount = Number(referral.bonus_amount) || REFERRAL_BONUS();
+    const wallet = await getOrCreateWallet(referral.referrer_id);
+    const newBalance = (wallet.balance || 0) + bonusAmount;
+    await Wallet.findByIdAndUpdate(wallet._id, { balance: newBalance });
+    await WalletTransaction.create({
+      user_id: referral.referrer_id,
+      wallet_id: wallet._id,
+      type: 'reward',
+      amount: bonusAmount,
+      balance_after: newBalance,
+      description: 'Referral reward — referred member paid first subscription',
+      reference_id: String(referral._id),
+      status: 'completed',
+    });
+
+    await Referral.findByIdAndUpdate(referral._id, {
+      $set: {
+        status: 'credited',
+        bonus_credited: true,
+        bonus_amount: bonusAmount,
+        credited_at: new Date(),
+        qualified_at: new Date(),
+        qualified_chit_group_id: payment.chit_group_id,
+        // Prevent also applying as installment discount (wallet credit is the payout).
+        discount_applied: true,
+        discount_applied_at: new Date(),
+        discount_payment_id: payment._id,
+      },
+    });
+
+    notifyUser(
+      String(referral.referrer_id),
+      'Referral Reward Credited 🎉',
+      `₹${bonusAmount} has been credited to your Assure wallet. You can withdraw it to your registered bank account.`,
+      'referral_bonus',
+      { referral_id: String(referral._id), amount: bonusAmount },
+    ).catch(() => {});
+  } catch (err) {
+    logger.error('Referral wallet credit failed', err);
+  }
+}
+
 async function getEligibleReferralForDiscount(userId) {
+  // Legacy path: only if a credited referral was not already paid out via wallet.
   return Referral.findOne({
     referrer_id: userId,
     status: 'credited',
@@ -59,6 +132,9 @@ async function handlePaymentSuccess(payment) {
 
       await Payment.findByIdAndUpdate(payment._id, { referral_discount_consumed: true });
     }
+
+    // New path: credit referrer wallet when referred user pays first subscription.
+    await creditReferralOnFirstSubscription(payment);
 
     if (user) {
       const msg = 'Dear ' + user.full_name + ', your payment of ₹' + parseFloat(payment.total_amount || payment.amount).toFixed(2) + ' has been received. Ref: ' + payment.payment_number;
@@ -139,7 +215,7 @@ exports.createPaymentOrder = async (req, res, next) => {
     if (payment_type === 'installment' && serverAmount > 0) {
       const eligibleReferral = await getEligibleReferralForDiscount(userId);
       if (eligibleReferral) {
-        const discount = Number(eligibleReferral.bonus_amount || 100);
+        const discount = Number(eligibleReferral.bonus_amount || REFERRAL_BONUS());
         referralDiscountAmount = Math.min(serverAmount, discount);
         referralDiscountReferralIds = [eligibleReferral._id];
       }
@@ -410,7 +486,7 @@ exports.getUpcomingPayments = async (req, res, next) => {
     if (eligibleReferral) {
       const idx = schedule.findIndex((p) => p.can_pay === true && p.is_future !== true);
       if (idx >= 0) {
-        const benefit = Math.min(Number(eligibleReferral.bonus_amount || 100), Number(schedule[idx].amount || 0));
+        const benefit = Math.min(Number(eligibleReferral.bonus_amount || REFERRAL_BONUS()), Number(schedule[idx].amount || 0));
         if (benefit > 0) {
           schedule[idx].referral_discount_amount = benefit;
           schedule[idx].referral_discount_referral_id = String(eligibleReferral._id);
