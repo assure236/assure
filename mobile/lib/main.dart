@@ -70,6 +70,10 @@ class _AssureChitFundsAppState extends State<AssureChitFundsApp> {
     _authProvider = AuthProvider();
     _router = AppRouter.router(_authProvider);
     _authProvider.onSessionLocked = () {
+      if (!_authProvider.canUnlockWithBiometric) {
+        _router.go('/welcome');
+        return;
+      }
       final path = _router.routerDelegate.currentConfiguration.uri.path;
       const skip = ['/lock', '/splash', '/login', '/register', '/welcome'];
       if (!skip.contains(path)) {

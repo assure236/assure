@@ -69,6 +69,7 @@ class _ChitGroupsScreenState extends State<ChitGroupsScreen> {
                 const SizedBox(height: 12),
                 const Text(
                   'New Chits',
+                  textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 17,

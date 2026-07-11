@@ -30,8 +30,23 @@ class _LockScreenState extends State<LockScreen> {
   @override
   void initState() {
     super.initState();
-    _loadMobile();
-    _checkBiometrics();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapLock());
+  }
+
+  Future<void> _bootstrapLock() async {
+    final auth = context.read<AuthProvider>();
+    await auth.waitForBootstrap();
+    if (!mounted) return;
+
+    // Never prompt fingerprint before a successful login on this device.
+    if (!auth.canUnlockWithBiometric) {
+      context.go('/welcome');
+      return;
+    }
+
+    await _loadMobile();
+    if (!mounted) return;
+    await _checkBiometrics();
   }
 
   Future<void> _loadMobile() async {
@@ -47,6 +62,10 @@ class _LockScreenState extends State<LockScreen> {
 
   Future<void> _checkBiometrics() async {
     final auth = context.read<AuthProvider>();
+    if (!auth.canUnlockWithBiometric) {
+      if (mounted) context.go('/welcome');
+      return;
+    }
 
     // 10 min idle → fingerprint. OTP only when periodic 48h re-auth is due.
     if (auth.requiresOtpUnlock) {
@@ -72,7 +91,7 @@ class _LockScreenState extends State<LockScreen> {
         }
       }
     } catch (e) {
-      debugPrint('Biometric check error: \$e');
+      debugPrint('Biometric check error: $e');
       if (mounted) setState(() => _showOtpFallback = true);
     }
   }

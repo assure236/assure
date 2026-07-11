@@ -112,7 +112,6 @@ class AppRouter {
         }
 
         final isAuthenticated = authProvider.isAuthenticated;
-        final hasLocalAccount = authProvider.hasLocalAccount;
         final loc = state.matchedLocation;
 
         const publicRoutes = ['/splash', '/welcome', '/login', '/register', '/lock'];
@@ -120,6 +119,10 @@ class AppRouter {
 
         // Don't redirect while on auth screens — let user complete their flow
         if (isPublic) {
+          // Lock screen is only for returning logged-in devices.
+          if (loc == '/lock' && !authProvider.canUnlockWithBiometric) {
+            return '/welcome';
+          }
           // Authenticated users on auth screens should leave them — but if
           // onboarding is incomplete (or status unknown), route to the wizard
           // instead of briefly flashing the dashboard.

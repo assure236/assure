@@ -43,7 +43,12 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get hasLocalAccount => _hasLocalAccount;
 
   /// True only when user previously logged in AND credentials still exist on device.
-  bool get canUnlockWithBiometric => _hasLocalAccount && _token != null && _user != null;
+  bool get canUnlockWithBiometric =>
+      _hasLocalAccount && _token != null && _user != null;
+
+  /// True only when this device has completed at least one successful login
+  /// and still has a usable stored session for unlock.
+  bool get hasUnlockableSession => canUnlockWithBiometric;
   String? get sessionDevice => _sessionDevice;
   DateTime? get sessionLoginAt => _sessionLoginAt;
   bool get otpRequiredForUnlock => _otpRequiredForUnlock;
@@ -153,22 +158,31 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _loadFromStorage() async {
     final prefs = await SharedPreferences.getInstance();
-    // SECURITY FIX: read auth token only from secure storage.
+    // SECURITY FIX: read auth token only from encrypted secure storage.
     _token = await _secureStorage.read(key: 'access_token');
     final userJson = prefs.getString('user');
-    _hasLocalAccount = prefs.getBool('hasLocalAccount') ?? false;
+    final flaggedLocalAccount = prefs.getBool('hasLocalAccount') ?? false;
 
-    if (_token != null && userJson != null) {
-      _user = User.fromJson(jsonDecode(userJson));
-      // Don't auto-authenticate on cold start — require MPIN/biometric re-entry
-      // _isAuthenticated stays false so splash redirects to /lock
-    } else {
-      // Stale flag from partial logout — never show lock before a real login.
-      _hasLocalAccount = false;
-      if (prefs.getBool('hasLocalAccount') == true) {
-        await prefs.setBool('hasLocalAccount', false);
+    // Fingerprint/lock is allowed ONLY after a real login on this device.
+    // Incomplete leftovers (backup restore, partial logout, fresh install)
+    // must never open the lock screen.
+    final hasCompleteSession =
+        flaggedLocalAccount && _token != null && userJson != null;
+
+    if (hasCompleteSession) {
+      try {
+        _user = User.fromJson(jsonDecode(userJson));
+        _hasLocalAccount = true;
+      } catch (_) {
+        await _wipeLocalSessionArtifacts(prefs);
       }
+    } else {
+      await _wipeLocalSessionArtifacts(prefs);
     }
+
+    // Don't auto-authenticate on cold start — require biometric/OTP re-entry
+    // _isAuthenticated stays false so splash redirects to /lock or /welcome
+
     _loginMemberId = prefs.getString('login_member_id')?.trim();
     _loginMemberId ??= _user?.memberId;
     _sessionDevice = prefs.getString('session_device');
@@ -182,11 +196,30 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     _otpRequiredForUnlock = _isPeriodicOtpDue();
     notifyListeners();
 
-    if (_token != null) {
+    if (_token != null && _hasLocalAccount) {
       await _restoreSessionQuietly();
     }
     _bootstrapDone = true;
     notifyListeners();
+  }
+
+  /// Clears any partial auth state so first install / incomplete sessions
+  /// never trigger fingerprint unlock.
+  Future<void> _wipeLocalSessionArtifacts(SharedPreferences prefs) async {
+    _token = null;
+    _user = null;
+    _hasLocalAccount = false;
+    await prefs.setBool('hasLocalAccount', false);
+    await prefs.remove('user');
+    await prefs.remove('mobile');
+    await prefs.remove('login_member_id');
+    await prefs.remove('active_member_id');
+    await prefs.remove('session_login_at');
+    await prefs.remove('session_device');
+    await prefs.remove('last_activity_at');
+    await prefs.remove('last_otp_auth_time');
+    await _secureStorage.delete(key: 'access_token');
+    await _secureStorage.delete(key: 'refresh_token');
   }
 
   Future<void> _restoreSessionQuietly() async {
@@ -215,9 +248,10 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Lock when app goes to background — fingerprint required on next open.
+    // Lock when app goes to background — fingerprint required on next open
+    // only if this device already has a logged-in local account.
     if (state == AppLifecycleState.paused) {
-      if (_isAuthenticated && !_unlockInProgress) {
+      if (_isAuthenticated && _hasLocalAccount && !_unlockInProgress) {
         _lockSession(requireOtp: _isPeriodicOtpDue());
       }
       return;

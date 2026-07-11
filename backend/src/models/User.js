@@ -118,26 +118,42 @@ const ENCRYPTED_FIELDS = [
   'current_pincode',
 ];
 
+userSchema.statics.allocateMemberId = async function allocateMemberId(signupDate = new Date()) {
+  const signupYear = new Date(signupDate).getFullYear();
+  if (!Number.isFinite(signupYear) || signupYear < 2000) {
+    throw new Error('Invalid signup year for member ID');
+  }
+  const prefix = `VA${signupYear}`;
+  const yearPattern = new RegExp(`^${prefix}\\d{5}$`);
+  const last = await this.findOne({ member_id: yearPattern })
+    .select('member_id')
+    .sort({ member_id: -1 })
+    .lean();
+  let nextNum = 1;
+  if (last?.member_id) {
+    const parsed = parseInt(String(last.member_id).slice(prefix.length), 10);
+    if (Number.isFinite(parsed) && parsed > 0) nextNum = parsed + 1;
+  }
+  if (nextNum > 99999) {
+    throw new Error(`Member ID sequence exhausted for year ${signupYear}`);
+  }
+  return `${prefix}${String(nextNum).padStart(5, '0')}`;
+};
+
+userSchema.statics.isVaMemberId = function isVaMemberId(value) {
+  return /^VA\d{4}\d{5}$/.test(String(value || ''));
+};
+
 userSchema.pre('save', async function () {
   if (this.isModified('password_hash')) {
     // SECURITY FIX: enforce stronger bcrypt cost factor.
     const salt = await bcrypt.genSalt(Math.max(12, parseInt(process.env.BCRYPT_ROUNDS, 10) || 12));
     this.password_hash = await bcrypt.hash(this.password_hash, salt);
   }
+  // New members: VA{signupYear}{5-digit seq} e.g. VA202600001
   if (this.isNew && this.role === 'member' && !this.member_id) {
-    const signupYear = this.created_at
-      ? new Date(this.created_at).getFullYear()
-      : new Date().getFullYear();
-    const prefix = `VA${signupYear}`;
-    const yearPattern = new RegExp(`^VA${signupYear}(\\d{5})$`);
-    const last = await mongoose.model('User')
-      .findOne({ member_id: yearPattern }, 'member_id')
-      .sort({ member_id: -1 })
-      .lean();
-    const nextNum = last
-      ? parseInt(String(last.member_id).slice(prefix.length), 10) + 1
-      : 1;
-    this.member_id = `${prefix}${String(nextNum).padStart(5, '0')}`;
+    const signupDate = this.created_at || new Date();
+    this.member_id = await this.constructor.allocateMemberId(signupDate);
   }
   if (this.isNew && !this.referral_code) {
     // SECURITY FIX: use crypto-secure randomness for referral code suffix generation.
