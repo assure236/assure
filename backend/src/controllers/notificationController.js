@@ -147,10 +147,16 @@ exports.broadcastNotification = async (req, res, next) => {
 exports.registerFcmToken = async (req, res, next) => {
   try {
     const { fcm_token } = req.body;
-    if (!fcm_token) {
+    if (fcm_token === undefined || fcm_token === null) {
       return res.status(400).json({ success: false, message: 'fcm_token is required' });
     }
     const userId = req.user._id || req.user.id;
+
+    // Empty token = unregister this device (logout)
+    if (!String(fcm_token).trim()) {
+      await User.findByIdAndUpdate(userId, { $unset: { fcm_token: 1 } });
+      return res.json({ success: true, message: 'FCM token cleared' });
+    }
 
     // Check if this user already had a token (to decide if welcome push is needed)
     const existingUser = await User.findById(userId).select('fcm_token full_name kyc_status');

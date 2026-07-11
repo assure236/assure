@@ -525,7 +525,7 @@ exports.complete = async (req, res, next) => {
       String(userId),
       'Onboarding Submitted',
       'Your onboarding has been submitted. Admin approval will be completed within 24 hours.',
-      'onboarding_complete',
+      'account_update',
       {}
     ).catch(() => {});
 
@@ -535,7 +535,7 @@ exports.complete = async (req, res, next) => {
       if (admins.length) {
         await Notification.insertMany(admins.map((a) => ({
           user_id: a._id,
-          type: 'onboarding_complete',
+          type: 'account_update',
           title: 'New Onboarding Submission',
           message: `${user.full_name || 'A member'} completed onboarding. Review pending KYC/bank/cheque.`,
           metadata: { user_id: String(userId) },
@@ -606,7 +606,7 @@ exports.adminApproveStep = async (req, res, next) => {
 
     await User.updateOne({ _id: user_id }, update);
 
-    notifyUser(String(user_id), 'Onboarding Step Approved', `Your ${step.replace('_', ' ')} has been approved by admin.`, 'onboarding_step_approved', { step, reason }).catch(() => {});
+    notifyUser(String(user_id), 'Onboarding Step Approved', `Your ${step.replace('_', ' ')} has been approved by admin.`, 'kyc_update', { step, reason }).catch(() => {});
     res.json({ success: true });
   } catch (err) { next(err); }
 };
@@ -623,7 +623,7 @@ exports.adminRejectStep = async (req, res, next) => {
     update[`onboarding.${step}.reviewed_at`] = new Date();
     update[`onboarding.${step}.rejection_reason`] = reason || 'Rejected by admin';
     await User.updateOne({ _id: user_id }, update);
-    notifyUser(String(user_id), 'Onboarding Step Rejected', `Your ${step.replace('_', ' ')} was rejected. Reason: ${reason || 'See app for details.'}`, 'onboarding_step_rejected', { step, reason }).catch(() => {});
+    notifyUser(String(user_id), 'Onboarding Step Rejected', `Your ${step.replace('_', ' ')} was rejected. Reason: ${reason || 'See app for details.'}`, 'kyc_update', { step, reason }).catch(() => {});
     res.json({ success: true });
   } catch (err) { next(err); }
 };

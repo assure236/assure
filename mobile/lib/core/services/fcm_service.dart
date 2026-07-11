@@ -91,8 +91,11 @@ class FcmService {
     }
   }
 
-  /// Register the FCM token with the backend
-  Future<void> registerTokenWithBackend() async {
+  /// Register the FCM token with the backend.
+  /// Always POSTs when [force] is true, or when local cache is missing/mismatched,
+  /// or when the last successful sync was more than 12 hours ago (covers backend
+  /// wiping a stale token while the device still has the same FCM string).
+  Future<void> registerTokenWithBackend({bool force = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       // SECURITY FIX: read token from secure storage only.
@@ -102,9 +105,10 @@ class FcmService {
       final fcmToken = await getToken();
       if (fcmToken == null) return;
 
-      // Check if token already registered
       final savedToken = prefs.getString('fcm_token');
-      if (savedToken == fcmToken) return; // Already registered
+      final lastSyncMs = prefs.getInt('fcm_token_synced_at') ?? 0;
+      final staleSync = DateTime.now().millisecondsSinceEpoch - lastSyncMs > const Duration(hours: 12).inMilliseconds;
+      if (!force && savedToken == fcmToken && !staleSync) return;
 
       final res = await ApiService.post('/notifications/register-token', {
         'fcm_token': fcmToken,
@@ -112,6 +116,7 @@ class FcmService {
 
       if (res['success'] == true) {
         await prefs.setString('fcm_token', fcmToken);
+        await prefs.setInt('fcm_token_synced_at', DateTime.now().millisecondsSinceEpoch);
         debugPrint('FCM token registered with backend');
       }
     } catch (e) {
@@ -169,8 +174,12 @@ class FcmService {
   /// Clear stored FCM token on logout
   Future<void> clearToken() async {
     final prefs = await SharedPreferences.getInstance();
+    try {
+      // Best-effort: stop backend from pushing to this device after logout.
+      await ApiService.post('/notifications/register-token', {'fcm_token': ''});
+    } catch (_) {}
     await prefs.remove('fcm_token');
-    // Optionally delete the token from Firebase
+    await prefs.remove('fcm_token_synced_at');
     try {
       await _messaging.deleteToken();
     } catch (_) {}

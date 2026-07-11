@@ -138,7 +138,7 @@ async function handlePaymentSuccess(payment) {
 
     if (user) {
       const msg = 'Dear ' + user.full_name + ', your payment of ₹' + parseFloat(payment.total_amount || payment.amount).toFixed(2) + ' has been received. Ref: ' + payment.payment_number;
-      notifyUser(String(user._id), 'Payment Received', msg, 'payment', { payment_id: String(payment._id) }).catch(() => {});
+      notifyUser(String(user._id), 'Payment Received', msg, 'payment_received', { payment_id: String(payment._id) }).catch(() => {});
     }
   } catch (_) {}
 }

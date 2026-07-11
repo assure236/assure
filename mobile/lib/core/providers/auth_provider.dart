@@ -226,6 +226,8 @@ class AuthProvider with ChangeNotifier, WidgetsBindingObserver {
     await ApiService.tryRefreshAccessToken();
     _token = await _secureStorage.read(key: 'access_token');
     await _syncPrimaryProfile();
+    // Re-sync FCM after cold start — local prefs can hide a wiped backend token.
+    FcmService().registerTokenWithBackend(force: true);
   }
 
   Future<void> _syncPrimaryProfile() async {
