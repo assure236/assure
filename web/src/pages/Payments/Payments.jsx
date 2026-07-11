@@ -238,7 +238,7 @@ const Payments = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
-        <Typography variant="h4" fontWeight={700}>Payments</Typography>
+        <Typography variant="h4" fontWeight={700}>Transactions</Typography>
         <Box display="flex" gap={1}>
           <Tooltip title="Refresh">
             <IconButton onClick={fetchPayments}><RefreshIcon /></IconButton>

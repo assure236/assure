@@ -411,9 +411,9 @@ const Analytics = () => {
     <Container maxWidth="xl" sx={{ py: 2 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={2}>
         <Box>
-          <Typography variant="h4">Analytics & Insights</Typography>
+          <Typography variant="h4">Analytics</Typography>
           <Typography variant="body2" color="text.secondary">
-            Track your dividends, bidding patterns, payment health, and estimated returns.
+            Track dividends earned, bidding patterns, payment health, and estimated returns.
           </Typography>
         </Box>
         <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportStatement}>
@@ -524,7 +524,40 @@ const Analytics = () => {
               </Typography>
             </Paper>
           ) : (
-            dividend.groups.map((g, i) => (
+            <>
+              {(() => {
+                const groups = dividend.groups || [];
+                const totalDiv = groups.reduce((sum, g) => sum + Number(g.total_dividend_earned || 0), 0);
+                const withBids = groups.filter((g) => Number(g.current_month || 0) > 0);
+                const avgBidRatio = withBids.length
+                  ? withBids.reduce((s, g) => s + Number(g.bid_ratio || (g.avg_winning_bid && g.chit_value ? g.avg_winning_bid / g.chit_value : 0)), 0) / withBids.length
+                  : 0;
+                return (
+                  <Grid container spacing={2} mb={3}>
+                    <Grid item xs={12} sm={6}>
+                      <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                        <Typography variant="caption" color="text.secondary">Dividends Earned</Typography>
+                        <Typography variant="h5" fontWeight={800} color="success.main">{fmt(totalDiv)}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Paper sx={{ p: 2.5, borderRadius: 3 }}>
+                        <Typography variant="caption" color="text.secondary">Avg Bid Ratio</Typography>
+                        <Typography variant="h5" fontWeight={800} color="warning.main">
+                          {(avgBidRatio * 100).toFixed(1)}%
+                        </Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="text.secondary">
+                        Dividends Earned = total dividend savings from completed auctions across your groups.
+                        Avg Bid Ratio = average winning bid ÷ chit value. Lower % usually means higher dividends for members.
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                );
+              })()}
+            {dividend.groups.map((g, i) => (
               <Paper key={g.group_id} sx={{ p: 3, borderRadius: 3, mb: 3 }}>
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1} mb={3}>
                   <Box>
@@ -546,7 +579,7 @@ const Analytics = () => {
                     { label: 'Net Return (Lifetime)', value: fmt(g.net_return), color: '#0B1F3B' },
                     { label: 'Avg Winning Bid', value: fmt(g.avg_winning_bid), color: '#D4AF37' },
                     { label: 'Effective Return', value: `${g.effective_return_pct}%`, color: '#9c27b0' },
-                    { label: 'Monthly Installment', value: fmt(g.monthly_installment), color: '#607d8b' },
+                    { label: 'Subscription', value: fmt(g.monthly_installment), color: '#607d8b' },
                     { label: 'Completed Auctions', value: g.completed_auctions, color: '#e91e63' },
                   ].map(({ label, value, color }) => (
                     <Grid item xs={6} sm={4} md={2} key={label}>
@@ -579,7 +612,8 @@ const Analytics = () => {
                   If bidding trends continue, estimated lifetime dividend: <strong>{fmt(g.net_return)}</strong>.
                 </Alert>
               </Paper>
-            ))
+            ))}
+            </>
           )}
         </Box>
       )}

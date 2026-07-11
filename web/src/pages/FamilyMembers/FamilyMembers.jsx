@@ -3,23 +3,16 @@ import {
   Container, Typography, Box, Card, CardContent, Button, CircularProgress,
   Alert, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Chip, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, FormControlLabel, Switch, Avatar, Paper
+  TextField, Avatar, Paper
 } from '@mui/material';
 import {
-  PersonAdd as AddIcon, Edit as EditIcon, Delete as DeleteIcon,
+  PersonAdd as AddIcon, Delete as DeleteIcon,
   FamilyRestroom as FamilyIcon
 } from '@mui/icons-material';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import { useActiveMember } from '../../context/ActiveMemberContext';
-
-const RELATIONSHIPS = ['spouse', 'parent', 'child', 'sibling', 'grandparent', 'other'];
-
-const emptyForm = {
-  full_name: '', relationship: 'spouse', mobile: '', email: '',
-  date_of_birth: '', gender: '', aadhaar_number: '', pan_number: '', is_nominee: false
-};
 
 const FamilyMembers = () => {
   const navigate = useNavigate();
@@ -28,8 +21,11 @@ const FamilyMembers = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ ...emptyForm });
+  const [memberId, setMemberId] = useState('');
+  const [panNumber, setPanNumber] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpRequired, setOtpRequired] = useState(false);
+  const [maskedMobile, setMaskedMobile] = useState('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => { fetchMembers(); }, []);
@@ -48,43 +44,40 @@ const FamilyMembers = () => {
   };
 
   const openAdd = () => {
-    setEditId(null);
-    setForm({ ...emptyForm });
-    setDialogOpen(true);
-  };
-
-  const openEdit = (m) => {
-    setEditId(m._id || m.id);
-    setForm({
-      full_name: m.full_name || '',
-      relationship: m.relationship || 'spouse',
-      mobile: m.mobile || '',
-      email: m.email || '',
-      date_of_birth: m.date_of_birth || '',
-      gender: m.gender || '',
-      aadhaar_number: m.aadhaar_number || '',
-      pan_number: m.pan_number || '',
-      is_nominee: m.is_nominee || false,
-    });
+    setMemberId('');
+    setPanNumber('');
+    setOtp('');
+    setOtpRequired(false);
+    setMaskedMobile('');
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
-    if (!form.full_name.trim()) { toast.error('Name is required'); return; }
+    const mid = memberId.trim().toUpperCase();
+    const pan = panNumber.trim().toUpperCase();
+    if (!mid) { toast.error('Member ID is required'); return; }
+    if (!otpRequired && !pan) { toast.error('PAN is required'); return; }
+    if (otpRequired && otp.trim().length < 4) { toast.error('Enter the OTP sent to family member mobile'); return; }
+
     setSaving(true);
     try {
-      const payload = { ...form, pan_number: form.pan_number.toUpperCase() };
-      let res;
-      if (editId) {
-        res = await axios.put(`/users/family-members/${editId}`, payload);
-      } else {
-        res = await axios.post('/users/family-members', payload);
-      }
+      const payload = {
+        member_id: mid,
+        pan_number: pan,
+        ...(otpRequired ? { otp: otp.trim() } : {}),
+      };
+      const res = await axios.post('/users/family-members', payload);
       if (res.data.success) {
-        toast.success(editId ? 'Member updated' : 'Member added');
-        setDialogOpen(false);
-        fetchMembers();
-        refreshFamilyMembers();
+        if (res.data.requires_otp) {
+          setOtpRequired(true);
+          setMaskedMobile(res.data.data?.masked_mobile || res.data.masked_mobile || '');
+          toast.success(res.data.message || 'OTP sent to family member mobile');
+        } else {
+          toast.success(res.data.message || 'Family member linked');
+          setDialogOpen(false);
+          fetchMembers();
+          refreshFamilyMembers();
+        }
       } else {
         toast.error(res.data.message || 'Operation failed');
       }
@@ -98,122 +91,116 @@ const FamilyMembers = () => {
   const handleViewAs = (m) => {
     const id = (m.member_id || '').toString().trim().toUpperCase();
     if (!id || !['approved', 'linked'].includes(m.status)) {
-      toast.info('Member must be approved/linked before you can view their account');
+      toast.error('Member must be approved to switch');
       return;
     }
     setActiveMemberId(id);
-    toast.success(`Now viewing ${m.full_name || id}`);
     navigate('/dashboard');
   };
 
   const handleDelete = async (m) => {
-    if (!window.confirm(`Remove ${m.full_name} from your family list?`)) return;
+    if (!window.confirm(`Remove ${m.full_name || 'this member'}?`)) return;
     try {
       const res = await axios.delete(`/users/family-members/${m._id || m.id}`);
       if (res.data.success) {
-        toast.success('Family member removed');
+        toast.success('Removed');
         fetchMembers();
         refreshFamilyMembers();
       }
-    } catch {
-      toast.error('Failed to remove member');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove');
     }
   };
 
   if (loading) return <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>;
-  if (error) return <Container sx={{ py: 4 }}><Alert severity="error">{error}</Alert></Container>;
 
   return (
     <Container maxWidth="lg" sx={{ py: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4" fontWeight={700}>Family Members</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>
-          Add Member
-        </Button>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={1}>
+        <Box>
+          <Typography variant="h4">Family Members</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Link an existing Assure member with Member ID + PAN. OTP goes to their registered mobile.
+          </Typography>
+        </Box>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Link Member</Button>
       </Box>
 
+      {error ? <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert> : null}
+
       {members.length === 0 ? (
-        <Paper sx={{ textAlign: 'center', py: 8, borderRadius: 3 }}>
-          <FamilyIcon sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary">No family members added yet</Typography>
-          <Typography color="text.secondary" mb={2}>Link your family members for easy chit management</Typography>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={openAdd}>Add Your First Member</Button>
+        <Paper sx={{ p: 6, textAlign: 'center' }}>
+          <FamilyIcon sx={{ fontSize: 64, color: 'grey.300' }} />
+          <Typography color="text.secondary" mt={1}>No family members linked yet</Typography>
         </Paper>
       ) : (
-        <Card sx={{ borderRadius: 3 }}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  {['Name', 'Relationship', 'Mobile', 'Email', 'Nominee', 'Actions'].map(h => (
-                    <TableCell key={h} sx={{ fontWeight: 700 }}>{h}</TableCell>
-                  ))}
+        <TableContainer component={Card}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Member ID</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {members.map((m) => (
+                <TableRow key={m._id || m.id}>
+                  <TableCell>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Avatar sx={{ width: 32, height: 32 }}>{(m.full_name || '?')[0]}</Avatar>
+                      {m.full_name}
+                    </Box>
+                  </TableCell>
+                  <TableCell>{m.member_id || '—'}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={m.status || 'pending'} color={m.status === 'linked' || m.status === 'approved' ? 'success' : 'warning'} />
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button size="small" onClick={() => handleViewAs(m)} sx={{ mr: 1 }}>View As</Button>
+                    <IconButton size="small" color="error" onClick={() => handleDelete(m)}><DeleteIcon fontSize="small" /></IconButton>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {members.map(m => (
-                  <TableRow key={m._id || m.id} hover>
-                    <TableCell>
-                      <Box display="flex" alignItems="center" gap={1.5}>
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.light', fontSize: 14 }}>
-                          {(m.full_name || '?')[0].toUpperCase()}
-                        </Avatar>
-                        <Typography fontWeight={600}>{m.full_name}</Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell sx={{ textTransform: 'capitalize' }}>{m.relationship}</TableCell>
-                    <TableCell>{m.mobile || '—'}</TableCell>
-                    <TableCell>{m.email || '—'}</TableCell>
-                    <TableCell>
-                      {m.is_nominee ? <Chip label="Nominee" size="small" color="success" /> : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {['approved', 'linked'].includes(m.status) && m.member_id && (
-                        <Button size="small" variant="outlined" sx={{ mr: 1 }} onClick={() => handleViewAs(m)}>
-                          View
-                        </Button>
-                      )}
-                      <IconButton size="small" color="primary" onClick={() => openEdit(m)}><EditIcon fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(m)}><DeleteIcon fontSize="small" /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Card>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editId ? 'Edit Family Member' : 'Add Family Member'}</DialogTitle>
-        <DialogContent sx={{ pt: '16px !important' }}>
-          <Box display="flex" flexDirection="column" gap={2}>
-            <TextField label="Full Name *" value={form.full_name} onChange={e => setForm({ ...form, full_name: e.target.value })} fullWidth />
-            <TextField label="Relationship *" value={form.relationship} onChange={e => setForm({ ...form, relationship: e.target.value })} select fullWidth>
-              {RELATIONSHIPS.map(r => <MenuItem key={r} value={r} sx={{ textTransform: 'capitalize' }}>{r.charAt(0).toUpperCase() + r.slice(1)}</MenuItem>)}
-            </TextField>
-            <TextField label="Mobile" value={form.mobile} onChange={e => setForm({ ...form, mobile: e.target.value })} fullWidth />
-            <TextField label="Email" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} fullWidth />
-            <TextField label="Date of Birth" placeholder="DD/MM/YYYY" value={form.date_of_birth} onChange={e => setForm({ ...form, date_of_birth: e.target.value })} fullWidth />
-            <TextField label="Gender" value={form.gender} onChange={e => setForm({ ...form, gender: e.target.value })} select fullWidth>
-              <MenuItem value="">Select</MenuItem>
-              <MenuItem value="male">Male</MenuItem>
-              <MenuItem value="female">Female</MenuItem>
-              <MenuItem value="other">Other</MenuItem>
-            </TextField>
-            <TextField label="Aadhaar Number" value={form.aadhaar_number} onChange={e => setForm({ ...form, aadhaar_number: e.target.value })} fullWidth />
-            <TextField label="PAN Number" value={form.pan_number} onChange={e => setForm({ ...form, pan_number: e.target.value })} fullWidth inputProps={{ style: { textTransform: 'uppercase' } }} />
-            <FormControlLabel
-              control={<Switch checked={form.is_nominee} onChange={e => setForm({ ...form, is_nominee: e.target.checked })} color="primary" />}
-              label="Mark as Nominee"
-            />
-          </Box>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{otpRequired ? 'Verify OTP' : 'Link Family Member'}</DialogTitle>
+        <DialogContent>
+          {!otpRequired ? (
+            <>
+              <TextField
+                fullWidth label="Member ID" margin="normal"
+                value={memberId} onChange={(e) => setMemberId(e.target.value.toUpperCase())}
+                placeholder="e.g. VA202600001"
+              />
+              <TextField
+                fullWidth label="PAN" margin="normal"
+                value={panNumber} onChange={(e) => setPanNumber(e.target.value.toUpperCase())}
+                placeholder="ABCDE1234F"
+                helperText="Must match the family member’s registered PAN"
+              />
+            </>
+          ) : (
+            <>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                OTP sent to family member’s mobile{maskedMobile ? ` (${maskedMobile})` : ''}.
+              </Alert>
+              <TextField
+                fullWidth label="Enter OTP" margin="normal"
+                value={otp} onChange={(e) => setOtp(e.target.value)}
+              />
+            </>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
-            {saving ? <CircularProgress size={20} /> : editId ? 'Update' : 'Add Member'}
+            {saving ? 'Please wait…' : otpRequired ? 'Verify & Link' : 'Continue'}
           </Button>
         </DialogActions>
       </Dialog>

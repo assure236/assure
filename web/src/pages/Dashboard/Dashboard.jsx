@@ -517,17 +517,17 @@ const Dashboard = () => {
             )}
           </Paper>
 
-          {/* Recent Payments */}
+          {/* Recent Transactions */}
           <Paper sx={{ p: 3, borderRadius: 3 }}>
             <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-              <Typography variant="h6">Recent Payments</Typography>
+              <Typography variant="h6">Recent Transactions</Typography>
               <Button size="small" endIcon={<ArrowForwardIcon />} onClick={() => navigate('/payments')}>
                 View All
               </Button>
             </Box>
             {recentPayments.length === 0 ? (
               <Typography color="text.secondary" variant="body2" textAlign="center" py={2}>
-                No payments recorded yet.
+                No transactions recorded yet.
               </Typography>
             ) : (
               <List disablePadding>
@@ -561,6 +561,26 @@ const Dashboard = () => {
           </Paper>
         </Grid>
       </Grid>
+
+      <Box sx={{ mt: 4, mb: 2 }}>
+        <Typography variant="h6" fontWeight={700} gutterBottom>Trusted & Certified</Typography>
+        <Grid container spacing={2}>
+          {[
+            { src: '/assets/images/trusted_dpiit.png', label: 'DPIIT Registered' },
+            { src: '/assets/images/trusted_telangana.png', label: 'Telangana Govt. Registered' },
+            { src: '/assets/images/trusted_data_secured.png', label: 'Data Secured' },
+          ].map((b) => (
+            <Grid item xs={4} key={b.label}>
+              <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderRadius: 2, height: '100%' }}>
+                <Box component="img" src={b.src} alt={b.label} sx={{ height: 48, objectFit: 'contain', mb: 1 }} />
+                <Typography variant="caption" display="block" fontWeight={600} sx={{ whiteSpace: 'pre-line' }}>
+                  {b.label}
+                </Typography>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
 
       {showTour && (
         <SimpleTour

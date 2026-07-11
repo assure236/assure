@@ -49,6 +49,14 @@ const Support = () => {
     description: '',
     priority: 'normal',
   });
+  const [attachmentFile, setAttachmentFile] = useState(null);
+
+  const priorityLabel = (p) => {
+    const v = (p || '').toLowerCase();
+    if (v === 'high' || v === 'urgent') return 'High';
+    if (v === 'low') return 'Low';
+    return 'Normal';
+  };
 
   const fetchTickets = async () => {
     setLoading(true);
@@ -84,16 +92,29 @@ const Support = () => {
     }
     setSaving(true);
     try {
+      let attachmentUrl;
+      if (attachmentFile) {
+        const fd = new FormData();
+        fd.append('file', attachmentFile);
+        fd.append('document_type', 'support_attachment');
+        fd.append('document_name', attachmentFile.name || 'Ticket attachment');
+        const upload = await axios.post('/documents/upload', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        attachmentUrl = upload.data?.data?.file_url || upload.data?.data?.document_url;
+      }
       const res = await axios.post('/users/support', {
         subject: form.subject.trim(),
         description: form.description.trim(),
         category: toBackendCategory(form.category),
         priority: form.priority === 'high' ? 'high' : 'medium',
+        ...(attachmentUrl ? { attachment_url: attachmentUrl } : {}),
       });
       if (res.data.success) {
         toast.success('Ticket raised successfully');
         setCreateOpen(false);
         setForm({ category: 'General', subject: '', description: '', priority: 'normal' });
+        setAttachmentFile(null);
         fetchTickets();
       }
     } catch (err) {
@@ -154,7 +175,7 @@ const Support = () => {
                   <Typography variant="body2" color="text.secondary" noWrap>{t.description}</Typography>
                   <Box display="flex" gap={1} mt={1.5}>
                     <Chip label={t.category || 'General'} size="small" variant="outlined" />
-                    <Chip label={t.priority || 'medium'} size="small" color={priorityColor(t.priority)} />
+                    <Chip label={`Priority: ${priorityLabel(t.priority)}`} size="small" color={priorityColor(t.priority)} />
                   </Box>
                 </CardContent>
               </Card>
@@ -189,6 +210,17 @@ const Support = () => {
               </Button>
             ))}
           </Box>
+          <Box mt={2}>
+            <Button variant="outlined" component="label" fullWidth>
+              {attachmentFile ? attachmentFile.name : 'Add attachment (optional)'}
+              <input
+                type="file"
+                hidden
+                accept="image/*,.pdf"
+                onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+              />
+            </Button>
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
@@ -206,7 +238,7 @@ const Support = () => {
               <Box display="flex" gap={1} mb={2}>
                 <Chip label={detail.status} color={statusColor(detail.status)} size="small" />
                 <Chip label={detail.category} size="small" variant="outlined" />
-                <Chip label={detail.priority} size="small" color={priorityColor(detail.priority)} />
+                <Chip label={`Priority: ${priorityLabel(detail.priority)}`} size="small" color={priorityColor(detail.priority)} />
               </Box>
               <Typography variant="body2" color="text.secondary" gutterBottom>
                 Ticket #{detail.ticket_number || '—'}
@@ -214,6 +246,11 @@ const Support = () => {
               <Divider sx={{ my: 2 }} />
               <Typography variant="subtitle2">Description</Typography>
               <Typography variant="body2" paragraph>{detail.description}</Typography>
+              {detail.attachment_url && (
+                <Button href={detail.attachment_url} target="_blank" rel="noopener noreferrer" size="small" sx={{ mb: 1 }}>
+                  View attachment
+                </Button>
+              )}
               {detail.resolution && (
                 <>
                   <Alert severity="success" sx={{ mt: 2 }}>

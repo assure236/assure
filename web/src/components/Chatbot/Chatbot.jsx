@@ -4,13 +4,22 @@ import {
   Typography, Paper, CircularProgress, Chip, Slide
 } from '@mui/material';
 import {
-  SmartToy as BotIcon, Close as CloseIcon, Send as SendIcon,
+  Close as CloseIcon, Send as SendIcon,
   ArrowForward as ArrowIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
-const WELCOME_MESSAGE = { from: 'bot', text: "Hi! I'm Assure Bot 🤖\nHow can I help you today?\n\nTry: \"Show chits for 20 months\" or \"My payments\"", chitGroups: [] };
+const ChatbotAvatar = ({ size = 28 }) => (
+  <Box
+    component="img"
+    src="/assets/icons/chatbot.svg"
+    alt="Assure Bot"
+    sx={{ width: size, height: size, display: 'block' }}
+  />
+);
+
+const WELCOME_MESSAGE = { from: 'bot', text: "Hi! I'm Assure Bot.\nHow can I help you today?\n\nTry: \"Show chits for 20 months\" or \"My payments\"", chitGroups: [] };
 
 const Chatbot = () => {
   const [open, setOpen] = useState(false);
@@ -85,7 +94,7 @@ const Chatbot = () => {
           '&:hover': { background: 'linear-gradient(135deg, #1E3A8A, #0d47a1)' }
         }}
       >
-        <BotIcon />
+        <ChatbotAvatar size={32} />
       </Fab>
 
       {/* Chat Dialog */}
@@ -100,7 +109,7 @@ const Chatbot = () => {
           background: 'linear-gradient(135deg, #0B1F3B, #1E3A8A)',
           color: 'white', display: 'flex', alignItems: 'center', gap: 1, py: 1.5
         }}>
-          <BotIcon /> Assure Bot
+          <ChatbotAvatar size={28} /> Assure Bot
           <Box flex={1} />
           <IconButton onClick={handleClose} sx={{ color: 'white' }}><CloseIcon /></IconButton>
         </DialogTitle>

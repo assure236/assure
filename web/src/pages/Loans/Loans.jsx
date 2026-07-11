@@ -3,7 +3,7 @@ import {
   Container, Grid, Typography, Box, Card, CardContent, Button, TextField,
   MenuItem, CircularProgress, Chip, Tabs, Tab, Paper, Divider, Alert,
   Dialog, DialogTitle, DialogContent, DialogActions, LinearProgress,
-  InputAdornment, Stepper, Step, StepLabel
+  InputAdornment, Checkbox, FormControlLabel
 } from '@mui/material';
 import {
   AccountBalance as LoanIcon,
@@ -24,12 +24,6 @@ import { useActiveMember } from '../../context/ActiveMemberContext';
 
 const NAVY = '#0B1F3B';
 const GOLD = '#D4AF37';
-
-const LOAN_TYPES = [
-  { value: 'personal_loan', label: 'Personal Loan' },
-  { value: 'chit_loan', label: 'Chit Loan (against chit group)' },
-  { value: 'emergency_loan', label: 'Emergency Loan' },
-];
 
 const STATUS_CONFIG = {
   requested: { label: 'Requested', color: 'info', icon: <PendingIcon fontSize="small" /> },
@@ -56,7 +50,6 @@ const Loans = () => {
   const [loans, setLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
-  const [chitGroups, setChitGroups] = useState([]);
   const [detailLoan, setDetailLoan] = useState(null);
 
   // Application form
@@ -64,15 +57,14 @@ const Loans = () => {
     loan_type: 'personal_loan',
     requested_amount: '',
     tenure_months: '',
-    chit_group_id: '',
     purpose: '',
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const { refreshKey } = useActiveMember();
 
   useEffect(() => {
     fetchLoans();
-    fetchChitGroups();
   }, [refreshKey]);
 
   const fetchLoans = async () => {
@@ -87,16 +79,13 @@ const Loans = () => {
     }
   };
 
-  const fetchChitGroups = async () => {
-    try {
-      const res = await axios.get('/chit-groups/my-groups');
-      if (res.data.success) setChitGroups(res.data.data || []);
-    } catch { /* ignore */ }
-  };
-
   const handleApply = async () => {
     if (!form.requested_amount || !form.tenure_months) {
       toast.error('Please fill in amount and tenure');
+      return;
+    }
+    if (!acceptedTerms) {
+      toast.error('Please accept Terms & Conditions to continue');
       return;
     }
     if (Number(form.requested_amount) < 1000) {
@@ -111,20 +100,18 @@ const Loans = () => {
     setApplying(true);
     try {
       const payload = {
-        loan_type: form.loan_type,
+        loan_type: 'personal_loan',
         requested_amount: Number(form.requested_amount),
         tenure_months: Number(form.tenure_months),
         purpose: form.purpose,
       };
-      if (form.loan_type === 'chit_loan' && form.chit_group_id) {
-        payload.chit_group_id = form.chit_group_id;
-      }
       const res = await axios.post('/loans/apply', payload);
       if (res.data.success) {
         toast.success('Loan application submitted successfully!');
-        setForm({ loan_type: 'personal_loan', requested_amount: '', tenure_months: '', chit_group_id: '', purpose: '' });
+        setForm({ loan_type: 'personal_loan', requested_amount: '', tenure_months: '', purpose: '' });
+        setAcceptedTerms(false);
         fetchLoans();
-        setTab(1); // Switch to My Loans tab
+        setTab(1);
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to submit loan application');
@@ -189,36 +176,6 @@ const Loans = () => {
                 )}
 
                 <Grid container spacing={2.5}>
-                  <Grid item xs={12}>
-                    <TextField
-                      select fullWidth label="Loan Type" value={form.loan_type}
-                      onChange={(e) => setForm({ ...form, loan_type: e.target.value })}
-                      disabled={hasActiveLoan}
-                    >
-                      {LOAN_TYPES.map(t => (
-                        <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-
-                  {form.loan_type === 'chit_loan' && (
-                    <Grid item xs={12}>
-                      <TextField
-                        select fullWidth label="Select Chit Group" value={form.chit_group_id}
-                        onChange={(e) => setForm({ ...form, chit_group_id: e.target.value })}
-                        disabled={hasActiveLoan}
-                        helperText="Select the chit group you want to take a loan against"
-                      >
-                        <MenuItem value="">— Select —</MenuItem>
-                        {chitGroups.map(g => (
-                          <MenuItem key={g._id} value={g._id || g.chit_group_id}>
-                            {g.group_name || g.chit_group_id?.group_name} — {formatCurrency(g.chit_value || g.chit_group_id?.chit_value)}
-                          </MenuItem>
-                        ))}
-                      </TextField>
-                    </Grid>
-                  )}
-
                   <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth label="Loan Amount (₹)" type="number" value={form.requested_amount}
@@ -247,10 +204,23 @@ const Loans = () => {
                       placeholder="e.g., Business expansion, Medical expenses, Education..."
                     />
                   </Grid>
+
+                  <Grid item xs={12}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={acceptedTerms}
+                          onChange={(e) => setAcceptedTerms(e.target.checked)}
+                          disabled={hasActiveLoan}
+                        />
+                      }
+                      label="I agree to the Terms & Conditions for loan applications"
+                    />
+                  </Grid>
                 </Grid>
 
                 <Button
-                  variant="contained" fullWidth size="large" disabled={hasActiveLoan || applying}
+                  variant="contained" fullWidth size="large" disabled={hasActiveLoan || applying || !acceptedTerms}
                   onClick={handleApply}
                   sx={{ mt: 3, bgcolor: GOLD, color: NAVY, fontWeight: 700, py: 1.5, '&:hover': { bgcolor: '#E3C668' } }}
                 >
@@ -300,26 +270,16 @@ const Loans = () => {
               </CardContent>
             </Card>
 
-            {/* Info Card */}
+            {/* Info Card — brief eligibility note (About Loans / How It Works removed) */}
             <Card sx={{ borderRadius: 3 }}>
               <CardContent sx={{ p: 3 }}>
-                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                <Box display="flex" alignItems="center" gap={1} mb={1}>
                   <InfoIcon sx={{ color: GOLD }} />
-                  <Typography variant="h6" fontWeight={700} sx={{ color: NAVY }}>How It Works</Typography>
+                  <Typography variant="h6" fontWeight={700} sx={{ color: NAVY }}>Before you apply</Typography>
                 </Box>
-                <Stepper orientation="vertical" activeStep={-1} sx={{ '& .MuiStepIcon-root': { color: GOLD } }}>
-                  {[
-                    'Submit your loan application',
-                    'Our team reviews within 24 hours',
-                    'Get approval with best rate',
-                    'Amount disbursed to your bank',
-                    'Pay easy monthly EMIs',
-                  ].map((label, i) => (
-                    <Step key={i} active>
-                      <StepLabel><Typography variant="body2" sx={{ color: '#475569' }}>{label}</Typography></StepLabel>
-                    </Step>
-                  ))}
-                </Stepper>
+                <Typography variant="body2" color="text.secondary">
+                  Fill amount and tenure, accept Terms & Conditions, then submit. Our team reviews applications and contacts you with the next steps.
+                </Typography>
               </CardContent>
             </Card>
           </Grid>

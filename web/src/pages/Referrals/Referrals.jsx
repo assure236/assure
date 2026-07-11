@@ -39,7 +39,7 @@ const Referrals = () => {
   };
 
   const handleShare = () => {
-    const msg = `Join Assure ChitFunds using my referral code ${referralCode} and get rewards! Download the app now.`;
+    const msg = `Join Assure Chit Funds using my referral code ${referralCode}. When you pay your first subscription, I earn ₹500 credited to my Assure wallet. Sign up at https://assurechitfunds.com/register`;
     if (navigator.share) {
       navigator.share({ title: 'Assure ChitFunds Referral', text: msg }).catch(() => {});
     } else {
@@ -109,9 +109,10 @@ const Referrals = () => {
             {[
               { step: '1', text: 'Share your referral code with friends and family' },
               { step: '2', text: 'They register using your code and join a chit group' },
-              { step: '3', text: 'You earn ₹500 reward for each successful referral' },
+              { step: '3', text: 'When they pay their first subscription, you qualify for ₹500' },
+              { step: '4', text: '₹500 is auto-credited to your Assure wallet — withdraw anytime to your registered bank account' },
             ].map(({ step, text }) => (
-              <Grid item xs={12} sm={4} key={step}>
+              <Grid item xs={12} sm={6} md={3} key={step}>
                 <Box textAlign="center">
                   <Avatar sx={{ bgcolor: 'primary.main', mx: 'auto', mb: 1, width: 44, height: 44, fontWeight: 700 }}>{step}</Avatar>
                   <Typography variant="body2" color="text.secondary">{text}</Typography>

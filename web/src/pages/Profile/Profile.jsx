@@ -9,7 +9,9 @@ import {
   Edit as EditIcon, Save as SaveIcon, Cancel as CancelIcon,
   VerifiedUser as KycIcon, TrendingUp as ScoreIcon,
   Info as InfoIcon, PhotoCamera as SelfieIcon,
-  ChevronRight as ChevronRightIcon
+  ChevronRight as ChevronRightIcon,
+  PhoneAndroid as PhoneIcon, Laptop as LaptopIcon,
+  SupportAgent as AgentIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -17,6 +19,8 @@ import { useActiveMember } from '../../context/ActiveMemberContext';
 import { useDisplayUser } from '../../hooks/useDisplayUser';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+
+const NOMINEE_RELATIONS = ['Spouse', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Other'];
 
 // Credit score meter
 const CreditScoreMeter = ({ score }) => {
@@ -92,6 +96,14 @@ const Profile = () => {
   const [pwDialog, setPwDialog] = useState(false);
   const [pwData, setPwData] = useState({ current_password: '', new_password: '', confirm: '' });
   const [pwError, setPwError] = useState('');
+  const [sessions, setSessions] = useState([]);
+  const [agentRequest, setAgentRequest] = useState(null);
+  const [agentDialog, setAgentDialog] = useState(false);
+  const [agentSubmitting, setAgentSubmitting] = useState(false);
+  const [nomineeDialog, setNomineeDialog] = useState(false);
+  const [nomineeForm, setNomineeForm] = useState({ nominee_name: '', nominee_relationship: '', otp: '' });
+  const [nomineeOtpSent, setNomineeOtpSent] = useState(false);
+  const [nomineeSaving, setNomineeSaving] = useState(false);
 
   useEffect(() => {
     if (isSwitched) {
@@ -134,6 +146,106 @@ const Profile = () => {
     });
     setEditing(false);
   }, [user, refreshKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [sRes, aRes] = await Promise.all([
+          axios.get('/users/active-sessions').catch(() => null),
+          axios.get('/users/agent-request').catch(() => null),
+        ]);
+        if (cancelled) return;
+        if (sRes?.data?.success) setSessions(sRes.data.data || []);
+        if (aRes?.data?.success) setAgentRequest(aRes.data.data);
+      } catch { /* optional */ }
+    })();
+    return () => { cancelled = true; };
+  }, [refreshKey, isSwitched]);
+
+  const agentStatus = agentRequest?.is_agent || user?.role === 'agent'
+    ? 'approved'
+    : (agentRequest?.status || null);
+
+  const agentSubtitle = () => {
+    switch (agentStatus) {
+      case 'pending': return 'Request submitted — under review';
+      case 'approved': return "You're an Assure Agent";
+      case 'rejected': return 'Not approved — tap to apply again';
+      default: return 'Apply to earn referral commission';
+    }
+  };
+
+  const submitAgentRequest = async () => {
+    setAgentSubmitting(true);
+    try {
+      const res = await axios.post('/users/agent-request', {});
+      if (res.data.success) {
+        setAgentRequest(res.data.data || { status: 'pending' });
+        toast.success(res.data.message || 'Agent request submitted');
+        setAgentDialog(false);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit agent request');
+    } finally {
+      setAgentSubmitting(false);
+    }
+  };
+
+  const openNomineeDialog = () => {
+    setNomineeForm({
+      nominee_name: user?.nominee_verified ? (user?.nominee_name || '') : '',
+      nominee_relationship: user?.nominee_verified ? (user?.nominee_relationship || '') : '',
+      otp: '',
+    });
+    setNomineeOtpSent(false);
+    setNomineeDialog(true);
+  };
+
+  const sendNomineeOtp = async () => {
+    if (!nomineeForm.nominee_name.trim() || nomineeForm.nominee_name.trim().length < 2) {
+      toast.error('Enter nominee name');
+      return;
+    }
+    if (!nomineeForm.nominee_relationship) {
+      toast.error('Select relationship');
+      return;
+    }
+    try {
+      const res = await axios.post('/users/profile/nominee-otp/send', {});
+      if (res.data.success) {
+        setNomineeOtpSent(true);
+        toast.success(res.data.message || 'OTP sent to your mobile');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send OTP');
+    }
+  };
+
+  const saveNominee = async () => {
+    if (!nomineeForm.otp.trim()) {
+      toast.error('Enter OTP');
+      return;
+    }
+    setNomineeSaving(true);
+    try {
+      const res = await axios.put('/users/profile', {
+        nominee_name: nomineeForm.nominee_name.trim(),
+        nominee_relationship: nomineeForm.nominee_relationship,
+        otp: nomineeForm.otp.trim(),
+      });
+      if (res.data.success) {
+        toast.success(res.data.message || 'Nominee updated');
+        setNomineeDialog(false);
+        if (isSwitched) await reloadEffectiveProfile();
+        else if (res.data.data) setFullProfile(res.data.data);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update nominee');
+    } finally {
+      setNomineeSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -364,7 +476,6 @@ const Profile = () => {
               <List dense>
                 {[
                   { label: 'KYC Verification', path: '/kyc' },
-                  { label: 'Documents', path: '/documents' },
                   { label: 'Savings Goals', path: '/goals' },
                   { label: 'Analytics', path: '/analytics' },
                   { label: 'Referrals', path: '/referrals' },
@@ -375,7 +486,62 @@ const Profile = () => {
                     <ChevronRightIcon fontSize="small" />
                   </ListItemButton>
                 ))}
+                <ListItemButton onClick={openNomineeDialog}>
+                  <ListItemText
+                    primary="Enter Nominee Details"
+                    secondary={user?.nominee_verified
+                      ? `${user.nominee_name || ''} · ${user.nominee_relationship || ''}`
+                      : 'OTP verification required to save'}
+                  />
+                  <ChevronRightIcon fontSize="small" />
+                </ListItemButton>
+                {!isSwitched && (
+                  <ListItemButton
+                    onClick={() => {
+                      if (agentStatus === 'approved') setAgentDialog(true);
+                      else if (agentStatus === 'pending') setAgentDialog(true);
+                      else setAgentDialog(true);
+                    }}
+                  >
+                    <ListItemText primary="Become an Agent" secondary={agentSubtitle()} />
+                    <ChevronRightIcon fontSize="small" />
+                  </ListItemButton>
+                )}
               </List>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ mt: 2 }}>
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>Active Sessions</Typography>
+              {sessions.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">No session data available.</Typography>
+              ) : (
+                sessions.map((d, i) => {
+                  const isWeb = String(d.platform || '').toLowerCase().includes('web');
+                  const lastAt = d.last_active_at ? new Date(d.last_active_at) : null;
+                  return (
+                    <Box key={i} display="flex" alignItems="center" gap={1.5} py={1}
+                      sx={{ borderBottom: i < sessions.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
+                      <Avatar sx={{ bgcolor: 'primary.50', color: 'primary.main', width: 36, height: 36 }}>
+                        {isWeb ? <LaptopIcon fontSize="small" /> : <PhoneIcon fontSize="small" />}
+                      </Avatar>
+                      <Box flex={1}>
+                        <Typography variant="body2" fontWeight={600}>
+                          {d.device_name || 'Device'}
+                          {d.is_current ? ' (This device)' : ''}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {d.platform || '—'}
+                          {lastAt && !Number.isNaN(lastAt.getTime())
+                            ? ` · ${lastAt.toLocaleDateString('en-IN')}`
+                            : ''}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -427,6 +593,80 @@ const Profile = () => {
         <DialogActions>
           <Button onClick={() => { setPwDialog(false); setPwError(''); }}>Cancel</Button>
           <Button variant="contained" onClick={handleChangePassword}>Change</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={agentDialog} onClose={() => setAgentDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <AgentIcon color="primary" />
+          {agentStatus === 'approved' ? "You're an Assure Agent" : 'Become an Assure Agent'}
+        </DialogTitle>
+        <DialogContent dividers>
+          {agentStatus === 'approved' ? (
+            <Typography variant="body2">
+              You can share your referral code and earn commission on first subscriptions.
+              {agentRequest?.referral_code || user?.referral_code
+                ? ` Your code: ${agentRequest?.referral_code || user?.referral_code}`
+                : ''}
+            </Typography>
+          ) : agentStatus === 'pending' ? (
+            <Alert severity="info">Your agent request is under review. Our team typically responds within 24 hours.</Alert>
+          ) : (
+            <>
+              <Typography variant="body2" paragraph>
+                Earn commission by referring new members to Assure ChitFunds. Our team will contact you within 24 hours.
+              </Typography>
+              {agentStatus === 'rejected' && agentRequest?.admin_note ? (
+                <Alert severity="warning" sx={{ mb: 1 }}>{agentRequest.admin_note}</Alert>
+              ) : null}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAgentDialog(false)}>Close</Button>
+          {(agentStatus !== 'approved' && agentStatus !== 'pending') && (
+            <Button variant="contained" onClick={submitAgentRequest} disabled={agentSubmitting}>
+              {agentSubmitting ? 'Submitting…' : (agentStatus === 'rejected' ? 'Submit Request Again' : 'Submit Request')}
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={nomineeDialog} onClose={() => setNomineeDialog(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Enter Nominee Details</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            OTP verification is required to save nominee details.
+          </Typography>
+          <TextField
+            fullWidth label="Nominee Name" size="small" margin="dense"
+            value={nomineeForm.nominee_name}
+            onChange={(e) => setNomineeForm({ ...nomineeForm, nominee_name: e.target.value })}
+          />
+          <TextField
+            select fullWidth label="Relationship" size="small" margin="dense"
+            value={nomineeForm.nominee_relationship}
+            onChange={(e) => setNomineeForm({ ...nomineeForm, nominee_relationship: e.target.value })}
+          >
+            {NOMINEE_RELATIONS.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+          </TextField>
+          {nomineeOtpSent && (
+            <TextField
+              fullWidth label="OTP" size="small" margin="dense"
+              value={nomineeForm.otp}
+              onChange={(e) => setNomineeForm({ ...nomineeForm, otp: e.target.value })}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNomineeDialog(false)}>Cancel</Button>
+          {!nomineeOtpSent ? (
+            <Button variant="contained" onClick={sendNomineeOtp}>Send OTP</Button>
+          ) : (
+            <Button variant="contained" onClick={saveNominee} disabled={nomineeSaving}>
+              {nomineeSaving ? 'Saving…' : 'Verify & Save'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Container>

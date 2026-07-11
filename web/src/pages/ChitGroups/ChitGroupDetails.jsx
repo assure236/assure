@@ -51,6 +51,23 @@ const ChitGroupDetails = () => {
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [paying, setPaying] = useState(false);
+  const [bidHistory, setBidHistory] = useState({ open: false, loading: false, auction: null, bids: [] });
+
+  const openBidHistory = async (auction) => {
+    const auctionId = auction?._id || auction?.id;
+    setBidHistory({ open: true, loading: true, auction, bids: [] });
+    if (!auctionId) {
+      setBidHistory((s) => ({ ...s, loading: false }));
+      return;
+    }
+    try {
+      const res = await axios.get(`/auctions/${auctionId}/bids`);
+      const rows = res.data?.success ? (res.data.data || []) : [];
+      setBidHistory({ open: true, loading: false, auction, bids: Array.isArray(rows) ? rows : [] });
+    } catch {
+      setBidHistory({ open: true, loading: false, auction, bids: [] });
+    }
+  };
 
   useEffect(() => { fetchAll(); }, [id, refreshKey]);
 
@@ -315,15 +332,9 @@ const ChitGroupDetails = () => {
           </Box>
 
           <Box mt={1} mb={2}>
-            <Button
-              size="small"
-              variant="outlined"
-              onClick={openPsoLink}
-              endIcon={<OpenInNewIcon fontSize="small" />}
-              sx={{ borderColor: 'rgba(255,255,255,0.6)', color: '#fff' }}
-            >
-              PSO: {group.pso_number || group.group_number || 'N/A'}
-            </Button>
+            <Typography variant="body2" sx={{ opacity: 0.9 }}>
+              {group.group_name}
+            </Typography>
           </Box>
 
           <Box mt={2}>
@@ -339,8 +350,8 @@ const ChitGroupDetails = () => {
           <Grid container spacing={2}>
             {[
               { label: 'Chit Value', value: `₹${Number(group.chit_value || 0).toLocaleString('en-IN')}` },
-              { label: 'Monthly Installment', value: `₹${Number(group.monthly_installment || 0).toLocaleString('en-IN')}` },
-              { label: 'Total Members', value: group.total_members || group.max_members || '—' },
+              { label: 'Subscription', value: `₹${Number(group.monthly_installment || 0).toLocaleString('en-IN')}` },
+              { label: 'Members', value: group.total_members || group.max_members || '—' },
               { label: 'Start Date', value: group.commencement_date ? new Date(group.commencement_date).toLocaleDateString('en-IN') : '—' },
             ].map(({ label, value }) => (
               <Grid item xs={6} sm={3} key={label}>
@@ -358,7 +369,8 @@ const ChitGroupDetails = () => {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3 }}>
         <Tab label="Overview" />
         <Tab label="Prized Tickets" />
-        <Tab label="Payments" />
+        <Tab label="Transactions" />
+        <Tab label="More Info" />
       </Tabs>
 
       {/* Overview Tab */}
@@ -375,7 +387,7 @@ const ChitGroupDetails = () => {
                   { label: 'PSO No.', value: group.pso_number || group.group_number || '—' },
                   { label: 'Current Month', value: group.current_month || 0 },
                   { label: 'Remaining Months', value: (group.duration_months || 0) - (group.current_month || 0) },
-                  { label: 'Commenced in', value: formatMonthYear(group.commencement_date) },
+                  { label: 'Commenced from', value: formatMonthYear(group.commencement_date) },
                 ].map(({ label, value }) => (
                   <Box key={label} display="flex" justifyContent="space-between" py={0.8}
                     sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
@@ -442,17 +454,21 @@ const ChitGroupDetails = () => {
                 const amount = formatCurrency(auction.winning_bid_amount || 0);
                 return (
                 <React.Fragment key={auction._id || `${month}-${ticket}-${i}`}>
-                  <ListItem>
+                  <ListItem button onClick={() => openBidHistory(auction)}>
                     <ListItemAvatar>
-                      <Avatar sx={{ bgcolor: 'warning.main' }}>{ticket}</Avatar>
+                      <Avatar sx={{ bgcolor: 'primary.main' }}>{ticket}</Avatar>
                     </ListItemAvatar>
                     <ListItemText
                       primary={`Month ${month} — ${winner}`}
-                      secondary={`Ticket #${ticket}`}
+                      secondary={
+                        <Typography component="span" variant="body2" color="primary" sx={{ textDecoration: 'underline' }}>
+                          Ticket #{ticket} · View bid history
+                        </Typography>
+                      }
                     />
                     <Box textAlign="right">
-                      <Typography variant="body2" fontWeight={700} color="success.main">{amount}</Typography>
-                      <Chip label="Winner" size="small" color="warning" />
+                      <Typography variant="body2" fontWeight={700} color="text.primary">{amount}</Typography>
+                      <Chip label="Winner" size="small" color="primary" variant="outlined" />
                     </Box>
                   </ListItem>
                   {i < auctions.length - 1 && <Divider inset="72px" />}
@@ -522,6 +538,71 @@ const ChitGroupDetails = () => {
             </List>
           </Card>
       )}
+
+      {/* More Info Tab */}
+      {tab === 3 && (
+        <Card sx={{ borderRadius: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>Documents & Certificates</Typography>
+            <Divider sx={{ mb: 2 }} />
+            {[
+              { label: 'FDR Certificate', url: group.fdr_certificate_url },
+              { label: 'PSO Certificate', url: group.pso_certificate_url },
+              { label: 'Draft Agreement', url: group.draft_agreement_url },
+              { label: 'Signed Agreement', url: group.signed_agreement_url },
+            ].map((doc) => (
+              <Box key={doc.label} display="flex" justifyContent="space-between" alignItems="center" py={1.2}
+                sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Typography variant="body2">{doc.label}</Typography>
+                {doc.url ? (
+                  <Button size="small" variant="outlined" href={doc.url} target="_blank" rel="noopener noreferrer">
+                    View
+                  </Button>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">Not uploaded</Typography>
+                )}
+              </Box>
+            ))}
+            {(group.pso_number || group.group_number) ? (
+              <Box mt={2}>
+                <Button size="small" variant="text" onClick={openPsoLink} endIcon={<OpenInNewIcon fontSize="small" />}>
+                  Open Telangana PSO portal
+                </Button>
+              </Box>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={bidHistory.open} onClose={() => setBidHistory({ open: false, loading: false, auction: null, bids: [] })} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Bid History
+          {bidHistory.auction ? ` — Ticket #${bidHistory.auction.winner_ticket_number || '—'}` : ''}
+        </DialogTitle>
+        <DialogContent dividers>
+          {bidHistory.loading ? (
+            <Box display="flex" justifyContent="center" py={3}><CircularProgress size={28} /></Box>
+          ) : bidHistory.bids.length === 0 ? (
+            <Typography color="text.secondary">No bids found for this auction.</Typography>
+          ) : (
+            <List dense>
+              {bidHistory.bids.map((b, i) => (
+                <ListItem key={b._id || i} divider>
+                  <ListItemText
+                    primary={b.user_id?.full_name || b.member_name || 'Member'}
+                    secondary={b.created_at ? new Date(b.created_at).toLocaleString('en-IN') : ''}
+                  />
+                  <Typography fontWeight={700}>{formatCurrency(b.bid_amount || b.amount)}</Typography>
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setBidHistory({ open: false, loading: false, auction: null, bids: [] })}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Pay Now Dialog */}
       <Dialog open={payDialog.open} onClose={() => !paying && setPayDialog({ open: false, item: null })} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
