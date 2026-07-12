@@ -17,12 +17,12 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Marketing pages: tiny left/right gutter only (~16–20px) */
+/* Marketing pages: side gutters 4× prior (16/20 → 64/80) */
 .mkt-shell {
   width: 100% !important;
   box-sizing: border-box !important;
-  padding-left: 16px !important;
-  padding-right: 16px !important;
+  padding-left: 64px !important;
+  padding-right: 64px !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
 }
@@ -36,8 +36,14 @@ html {
 }
 @media (min-width: 900px) {
   .mkt-shell {
-    padding-left: 20px !important;
-    padding-right: 20px !important;
+    padding-left: 80px !important;
+    padding-right: 80px !important;
+  }
+}
+@media (max-width: 600px) {
+  .mkt-shell {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
   }
 }
 
