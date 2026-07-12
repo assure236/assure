@@ -193,7 +193,7 @@ function MarketingFooter() {
         pb: 3,
       }}
     >
-      <Box sx={marketingShellSx}>
+      <Box className="mkt-shell" sx={marketingShellSx}>
         <Box
           sx={{
             display: 'grid',
@@ -311,12 +311,15 @@ export default function MarketingLayout() {
         {/* Same rail as hero content — logo left edge = content left, CTAs right = content right */}
         <Toolbar
           disableGutters
+          className="mkt-shell"
           sx={{
             ...marketingShellSx,
             position: 'relative',
             minHeight: { xs: 64, md: 70 },
             display: 'flex',
             alignItems: 'center',
+            width: '100%',
+            maxWidth: '100%',
           }}
         >
           {/* LEFT — logo */}
@@ -484,7 +487,10 @@ export function MarketingPage({
           pb: { xs: 5, md: 5.5 },
         }}
       >
-        <Box sx={{ ...marketingShellSx, ...(narrow ? { maxWidth: 720 } : {}) }}>
+        <Box
+          className={narrow ? 'mkt-shell mkt-shell--narrow' : 'mkt-shell'}
+          sx={{ ...marketingShellSx, ...(narrow ? { maxWidth: 720 } : {}) }}
+        >
           {eyebrow && (
             <Typography variant="overline" sx={{ color: brand.goldSoft, display: 'block', mb: 1 }}>
               {eyebrow}
@@ -511,7 +517,10 @@ export function MarketingPage({
           {actions && <Box mt={3}>{actions}</Box>}
         </Box>
       </Box>
-      <Box sx={{ ...marketingShellSx, ...(narrow ? { maxWidth: 720 } : {}), py: { xs: 4, md: 5.5 } }}>
+      <Box
+        className={narrow ? 'mkt-shell mkt-shell--narrow' : 'mkt-shell'}
+        sx={{ ...marketingShellSx, ...(narrow ? { maxWidth: 720 } : {}), py: { xs: 4, md: 5.5 } }}
+      >
         {children}
       </Box>
     </Box>

@@ -1,13 +1,14 @@
 /**
- * Shared content rail — full width with only a small side gutter.
- * Header, hero, and sections MUST share this so logo ↔ content ↔ CTAs align.
+ * Tiny side gutters only (~16–20px). No max-width cap.
+ * Use BOTH sx and className `mkt-shell` so MUI cannot override padding.
  */
-export const MARKETING_GUTTER = { xs: 2, sm: 2.5, md: 3, lg: 3.5 }; // 16–28px
+export const MARKETING_GUTTER_PX = { xs: 16, md: 20 };
 
 export const marketingShellSx = {
   width: '100%',
   maxWidth: '100%',
-  mx: 'auto',
-  px: MARKETING_GUTTER,
+  mx: 0,
   boxSizing: 'border-box',
+  pl: { xs: `${MARKETING_GUTTER_PX.xs}px`, md: `${MARKETING_GUTTER_PX.md}px` },
+  pr: { xs: `${MARKETING_GUTTER_PX.xs}px`, md: `${MARKETING_GUTTER_PX.md}px` },
 };

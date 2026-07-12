@@ -68,19 +68,19 @@ export default function Home() {
         }}
       >
         <Box
+          className="mkt-shell"
           sx={{
             ...marketingShellSx,
             position: 'relative',
             zIndex: 1,
             py: { xs: 5, md: 7 },
-            display: 'flex',
-            flexDirection: { xs: 'column', md: 'row' },
-            alignItems: { xs: 'stretch', md: 'center' },
-            justifyContent: 'space-between',
-            gap: { xs: 4, md: 6 },
+            display: 'grid',
+            gridTemplateColumns: { xs: '1fr', md: '1.2fr 0.9fr' },
+            alignItems: 'center',
+            gap: { xs: 3.5, md: 4 },
           }}
         >
-          <Box sx={{ flex: '1 1 0', minWidth: 0, maxWidth: { md: '52%' } }}>
+          <Box sx={{ minWidth: 0 }}>
             <Typography
               sx={{
                 fontFamily: brand.fontDisplay,
@@ -112,7 +112,7 @@ export default function Home() {
                 fontSize: 15.5,
                 lineHeight: 1.7,
                 mb: 3.25,
-                maxWidth: 520,
+                maxWidth: 560,
               }}
             >
               A member portal for transparent chit groups — clear installments, live auctions, and payouts you can follow without chasing paperwork.
@@ -153,7 +153,7 @@ export default function Home() {
                 mt: 5,
                 pt: 3.5,
                 borderTop: '1px solid rgba(255,255,255,0.1)',
-                maxWidth: 520,
+                maxWidth: 560,
               }}
             >
               {[
@@ -181,13 +181,14 @@ export default function Home() {
             </Box>
           </Box>
 
-          <Box sx={{ flex: '0 1 420px', width: '100%', maxWidth: { xs: '100%', md: 440 } }}>
+          <Box sx={{ width: '100%', minWidth: 0 }}>
             <Box
               sx={{
                 borderRadius: 2.5,
                 border: '1px solid rgba(255,255,255,0.1)',
                 bgcolor: 'rgba(255,255,255,0.03)',
                 overflow: 'hidden',
+                width: '100%',
               }}
             >
               <Box
@@ -254,7 +255,7 @@ export default function Home() {
       </Box>
 
       <Box sx={{ py: { xs: 6.5, md: 8 }, bgcolor: '#fff' }}>
-        <Box sx={marketingShellSx}>
+        <Box className="mkt-shell" sx={marketingShellSx}>
           <Typography variant="overline" sx={{ color: brand.goldDark }}>How it works</Typography>
           <Typography
             sx={{
@@ -305,7 +306,7 @@ export default function Home() {
       </Box>
 
       <Box sx={{ py: { xs: 6.5, md: 8 }, bgcolor: brand.canvas }}>
-        <Box sx={marketingShellSx}>
+        <Box className="mkt-shell" sx={marketingShellSx}>
           <Box display="flex" justifyContent="space-between" alignItems="flex-end" flexWrap="wrap" gap={2} mb={3.5}>
             <Box>
               <Typography variant="overline" sx={{ color: brand.goldDark }}>Chit plans</Typography>
@@ -366,7 +367,7 @@ export default function Home() {
       </Box>
 
       <Box sx={{ py: { xs: 5.5, md: 6.5 }, bgcolor: '#fff', borderTop: `1px solid ${brand.line}` }}>
-        <Box sx={marketingShellSx}>
+        <Box className="mkt-shell" sx={marketingShellSx}>
           <Typography
             textAlign="center"
             sx={{
@@ -402,7 +403,7 @@ export default function Home() {
           textAlign: 'center',
         }}
       >
-        <Box sx={{ ...marketingShellSx, maxWidth: 560 }}>
+        <Box className="mkt-shell" sx={{ ...marketingShellSx, maxWidth: 560 }}>
           <Typography
             sx={{
               fontFamily: brand.fontDisplay,
