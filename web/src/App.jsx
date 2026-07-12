@@ -152,6 +152,7 @@ function App() {
             </Route>
 
             {/* Legacy public URLs → new pages */}
+            <Route path="/react-app.html" element={<Navigate to="/" replace />} />
             <Route path="/about" element={<Navigate to="/company/our-story" replace />} />
             <Route path="/contact" element={<Navigate to="/support-center/contact" replace />} />
             <Route path="/chit-education" element={<Navigate to="/learn" replace />} />

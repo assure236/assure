@@ -1,22 +1,40 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Assure ChitFunds</title>
-  <!-- Old long landing removed. Production nginx serves SPA from /build. -->
-  <script>
-    // If this file is hit from web root, send users into the SPA entry.
-    var spa = '/';
-    if (location.pathname.indexOf('/build') === -1) {
-      // Prefer react-app.html when present (postbuild), else / which SPA owns on build root.
-      spa = '/react-app.html';
-    }
-    location.replace(spa);
-  </script>
-  <meta http-equiv="refresh" content="0;url=/react-app.html" />
-</head>
-<body style="margin:0;font-family:Manrope,system-ui,sans-serif;background:#0B1F3B;color:#fff;display:grid;place-items:center;min-height:100vh">
-  <p>Loading Assure… <a href="/react-app.html" style="color:#C9A227">Open site</a></p>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0B1F3B" />
+    <meta name="description" content="Assure ChitFunds — digital chit fund member portal" />
+    <link rel="apple-touch-icon" href="/logo192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+    <title>Assure ChitFunds — Member Portal</title>
+    <script type="module" crossorigin src="/assets/index.vite-aDZzJyxw.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/Typography-CdkYfQHH.js">
+    <link rel="modulepreload" crossorigin href="/assets/react-dom-9lTx0bG8.js">
+    <link rel="modulepreload" crossorigin href="/assets/react-toastify.esm-CEjcEDI5.js">
+    <link rel="modulepreload" crossorigin href="/assets/styled-Dw14zYSB.js">
+    <link rel="modulepreload" crossorigin href="/assets/Button-XU31ABzY.js">
+    <link rel="modulepreload" crossorigin href="/assets/useControlled-PJrOJKve.js">
+    <link rel="modulepreload" crossorigin href="/assets/AuthContext-DCtxfTsV.js">
+    <link rel="modulepreload" crossorigin href="/assets/Portal-pPCaxyHr.js">
+    <link rel="modulepreload" crossorigin href="/assets/ownerWindow-DgonQQ1A.js">
+    <link rel="modulepreload" crossorigin href="/assets/useEnhancedEffect-0GQRh-J0.js">
+    <link rel="modulepreload" crossorigin href="/assets/requirePropFactory-Bj5QHbBD.js">
+    <link rel="modulepreload" crossorigin href="/assets/useId-DD7RnJEe.js">
+    <link rel="modulepreload" crossorigin href="/assets/unsupportedProp-CAn-aqrF.js">
+    <link rel="modulepreload" crossorigin href="/assets/utils-D3XtjQAF.js">
+    <link rel="modulepreload" crossorigin href="/assets/mergeSlotProps-vO6R8mw4.js">
+    <link rel="modulepreload" crossorigin href="/assets/useSlotProps-IIJXJDoa.js">
+    <link rel="modulepreload" crossorigin href="/assets/List-DtHXizj4.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-BQUxRx88.css">
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+    <div id="root"></div>
+  </body>
 </html>

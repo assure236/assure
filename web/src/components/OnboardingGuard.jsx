@@ -9,6 +9,7 @@ const ALLOWED_PATHS = [
   '/login',
   '/register',
   '/',
+  '/react-app.html',
   '/company',
   '/plans',
   '/auctions-info',
@@ -29,7 +30,7 @@ const ALLOWED_PATHS = [
 ];
 
 function pathAllowed(pathname) {
-  if (pathname === '/') return true;
+  if (pathname === '/' || pathname === '/react-app.html' || pathname === '/index.html') return true;
   return ALLOWED_PATHS.some((p) => p !== '/' && (pathname === p || pathname.startsWith(`${p}/`)));
 }
 

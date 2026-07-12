@@ -6,9 +6,6 @@ const buildDir = path.join(root, 'build');
 
 const indexVite = path.join(buildDir, 'index.vite.html');
 const indexHtml = path.join(buildDir, 'index.html');
-if (fs.existsSync(indexVite) && !fs.existsSync(indexHtml)) {
-  fs.copyFileSync(indexVite, indexHtml);
-}
 if (fs.existsSync(indexVite)) {
   fs.copyFileSync(indexVite, indexHtml);
 }
@@ -18,7 +15,10 @@ if (!fs.existsSync(indexHtml)) {
   process.exit(1);
 }
 
-// VPS nginx uses root=/var/www/.../web and try_files → /react-app.html (not /build/).
+// VPS nginx root is /var/www/.../web — / must be the SPA (pathname "/"),
+// NOT a stub that redirects to /react-app.html (that path was treated as
+// private and AuthSessionWatcher sent users to /login).
+fs.copyFileSync(indexHtml, path.join(root, 'index.html'));
 fs.copyFileSync(indexHtml, path.join(root, 'react-app.html'));
 
 const assetsSrc = path.join(buildDir, 'assets');
@@ -35,4 +35,4 @@ for (const file of ['manifest.json', 'favicon.ico', 'logo192.png', 'logo512.png'
   }
 }
 
-console.log('postbuild: synced SPA to react-app.html and /assets for nginx web root');
+console.log('postbuild: synced SPA to index.html, react-app.html, and /assets');

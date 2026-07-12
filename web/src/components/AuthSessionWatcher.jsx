@@ -4,6 +4,7 @@ import { useAuth, registerInactivityRedirect } from '../context/AuthContext';
 
 const PUBLIC_PREFIXES = [
   '/',
+  '/react-app.html',
   '/login',
   '/register',
   '/company',
@@ -26,7 +27,7 @@ const PUBLIC_PREFIXES = [
 ];
 
 const isPublicPath = (pathname) => {
-  if (pathname === '/') return true;
+  if (pathname === '/' || pathname === '/react-app.html' || pathname === '/index.html') return true;
   return PUBLIC_PREFIXES.some(
     (p) => p !== '/' && (pathname === p || pathname.startsWith(`${p}/`))
   );
