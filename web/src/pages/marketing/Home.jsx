@@ -53,7 +53,7 @@ export default function Home() {
 
   return (
     <Box>
-      {/* Hero — same left/right rail as the header (logo ↔ Join Free) */}
+      {/* Hero — full-width shell; left text under logo, right card under Join Free */}
       <Box
         sx={{
           position: 'relative',
@@ -67,183 +67,192 @@ export default function Home() {
           `,
         }}
       >
-        <Box sx={{ ...marketingShellSx, position: 'relative', zIndex: 1, py: { xs: 6, md: 8 } }}>
-          <Grid container spacing={{ xs: 4, md: 5 }} alignItems="center">
-            <Grid item xs={12} md={7}>
-              <Typography
+        <Box
+          sx={{
+            ...marketingShellSx,
+            position: 'relative',
+            zIndex: 1,
+            py: { xs: 5, md: 7 },
+            display: 'flex',
+            flexDirection: { xs: 'column', md: 'row' },
+            alignItems: { xs: 'stretch', md: 'center' },
+            justifyContent: 'space-between',
+            gap: { xs: 4, md: 6 },
+          }}
+        >
+          <Box sx={{ flex: '1 1 0', minWidth: 0, maxWidth: { md: '52%' } }}>
+            <Typography
+              sx={{
+                fontFamily: brand.fontDisplay,
+                color: '#fff',
+                fontWeight: 600,
+                fontSize: { xs: '2.35rem', sm: '2.85rem', md: '3.15rem' },
+                letterSpacing: '-0.02em',
+                lineHeight: 1.12,
+                mb: 1.75,
+              }}
+            >
+              Assure ChitFunds
+            </Typography>
+            <Typography
+              sx={{
+                color: brand.goldSoft,
+                fontWeight: 600,
+                fontSize: { xs: 17, md: 18 },
+                letterSpacing: '0.01em',
+                mb: 1.5,
+                lineHeight: 1.45,
+              }}
+            >
+              Save every month. Bid when you need funds. Track everything online.
+            </Typography>
+            <Typography
+              sx={{
+                color: 'rgba(255,255,255,0.62)',
+                fontSize: 15.5,
+                lineHeight: 1.7,
+                mb: 3.25,
+                maxWidth: 520,
+              }}
+            >
+              A member portal for transparent chit groups — clear installments, live auctions, and payouts you can follow without chasing paperwork.
+            </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <Button
+                size="large"
+                variant="contained"
+                color="secondary"
+                endIcon={<ArrowIcon />}
+                onClick={() => navigate('/register')}
+                sx={{ px: 2.75, py: 1.2, fontWeight: 700 }}
+              >
+                Create free account
+              </Button>
+              <Button
+                size="large"
+                variant="outlined"
+                onClick={() => navigate('/login')}
                 sx={{
-                  fontFamily: brand.fontDisplay,
+                  px: 2.75,
+                  py: 1.2,
+                  borderColor: 'rgba(255,255,255,0.3)',
                   color: '#fff',
                   fontWeight: 600,
-                  fontSize: { xs: '2.35rem', sm: '2.85rem', md: '3.15rem' },
-                  letterSpacing: '-0.02em',
-                  lineHeight: 1.12,
-                  mb: 1.75,
+                  '&:hover': { borderColor: brand.gold, color: brand.goldSoft },
                 }}
               >
-                Assure ChitFunds
-              </Typography>
-              <Typography
-                sx={{
-                  color: brand.goldSoft,
-                  fontWeight: 600,
-                  fontSize: { xs: 17, md: 18 },
-                  letterSpacing: '0.01em',
-                  mb: 1.5,
-                  lineHeight: 1.45,
-                }}
-              >
-                Save every month. Bid when you need funds. Track everything online.
-              </Typography>
-              <Typography
-                sx={{
-                  color: 'rgba(255,255,255,0.62)',
-                  fontSize: 15.5,
-                  lineHeight: 1.7,
-                  maxWidth: 460,
-                  mb: 3.25,
-                }}
-              >
-                A member portal for transparent chit groups — clear installments, live auctions, and payouts you can follow without chasing paperwork.
-              </Typography>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                <Button
-                  size="large"
-                  variant="contained"
-                  color="secondary"
-                  endIcon={<ArrowIcon />}
-                  onClick={() => navigate('/register')}
-                  sx={{ px: 2.75, py: 1.2, fontWeight: 700 }}
-                >
-                  Create free account
-                </Button>
-                <Button
-                  size="large"
-                  variant="outlined"
-                  onClick={() => navigate('/login')}
-                  sx={{
-                    px: 2.75,
-                    py: 1.2,
-                    borderColor: 'rgba(255,255,255,0.3)',
-                    color: '#fff',
-                    fontWeight: 600,
-                    '&:hover': { borderColor: brand.gold, color: brand.goldSoft },
-                  }}
-                >
-                  Member login
-                </Button>
-              </Stack>
+                Member login
+              </Button>
+            </Stack>
 
-              <Box
-                sx={{
-                  display: { xs: 'none', md: 'grid' },
-                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-                  gap: 2.5,
-                  mt: 5,
-                  pt: 3.5,
-                  borderTop: '1px solid rgba(255,255,255,0.1)',
-                  maxWidth: 480,
-                }}
-              >
-                {[
-                  { n: '2,400+', l: 'Active members' },
-                  { n: '₹18Cr+', l: 'Chit value tracked' },
-                  { n: '99.6%', l: 'On-time payouts' },
-                ].map((s) => (
-                  <Box key={s.l}>
-                    <Typography
-                      sx={{
-                        fontFamily: brand.fontDisplay,
-                        fontWeight: 600,
-                        fontSize: '1.35rem',
-                        color: '#fff',
-                        letterSpacing: '-0.01em',
-                      }}
-                    >
-                      {s.n}
-                    </Typography>
-                    <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.48)', mt: 0.35, fontWeight: 500 }}>
-                      {s.l}
-                    </Typography>
-                  </Box>
-                ))}
-              </Box>
-            </Grid>
-
-            <Grid item xs={12} md={5}>
-              <Box
-                sx={{
-                  borderRadius: 2.5,
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  bgcolor: 'rgba(255,255,255,0.03)',
-                  overflow: 'hidden',
-                }}
-              >
-                <Box
-                  sx={{
-                    px: { xs: 2.5, md: 3 },
-                    py: 1.75,
-                    borderBottom: '1px solid rgba(255,255,255,0.08)',
-                    bgcolor: 'rgba(0,0,0,0.18)',
-                  }}
-                >
+            <Box
+              sx={{
+                display: { xs: 'none', md: 'grid' },
+                gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                gap: 2.5,
+                mt: 5,
+                pt: 3.5,
+                borderTop: '1px solid rgba(255,255,255,0.1)',
+                maxWidth: 520,
+              }}
+            >
+              {[
+                { n: '2,400+', l: 'Active members' },
+                { n: '₹18Cr+', l: 'Chit value tracked' },
+                { n: '99.6%', l: 'On-time payouts' },
+              ].map((s) => (
+                <Box key={s.l}>
                   <Typography
                     sx={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      letterSpacing: '0.14em',
-                      textTransform: 'uppercase',
-                      color: brand.goldSoft,
+                      fontFamily: brand.fontDisplay,
+                      fontWeight: 600,
+                      fontSize: '1.35rem',
+                      color: '#fff',
+                      letterSpacing: '-0.01em',
                     }}
                   >
-                    Why members stay
+                    {s.n}
+                  </Typography>
+                  <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.48)', mt: 0.35, fontWeight: 500 }}>
+                    {s.l}
                   </Typography>
                 </Box>
-                {FEATURES.map((row, i) => (
+              ))}
+            </Box>
+          </Box>
+
+          <Box sx={{ flex: '0 1 420px', width: '100%', maxWidth: { xs: '100%', md: 440 } }}>
+            <Box
+              sx={{
+                borderRadius: 2.5,
+                border: '1px solid rgba(255,255,255,0.1)',
+                bgcolor: 'rgba(255,255,255,0.03)',
+                overflow: 'hidden',
+              }}
+            >
+              <Box
+                sx={{
+                  px: { xs: 2.5, md: 3 },
+                  py: 1.75,
+                  borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  bgcolor: 'rgba(0,0,0,0.18)',
+                }}
+              >
+                <Typography
+                  sx={{
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: '0.14em',
+                    textTransform: 'uppercase',
+                    color: brand.goldSoft,
+                  }}
+                >
+                  Why members stay
+                </Typography>
+              </Box>
+              {FEATURES.map((row, i) => (
+                <Box
+                  key={row.title}
+                  sx={{
+                    display: 'flex',
+                    gap: 1.75,
+                    alignItems: 'flex-start',
+                    px: { xs: 2.5, md: 3 },
+                    py: 2.25,
+                    borderBottom: i < FEATURES.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+                  }}
+                >
                   <Box
-                    key={row.title}
                     sx={{
+                      color: brand.goldSoft,
+                      width: 36,
+                      height: 36,
+                      borderRadius: 1.25,
+                      border: '1px solid rgba(201,162,39,0.28)',
+                      bgcolor: 'rgba(201,162,39,0.08)',
                       display: 'flex',
-                      gap: 1.75,
-                      alignItems: 'flex-start',
-                      px: { xs: 2.5, md: 3 },
-                      py: 2.25,
-                      borderBottom: i < FEATURES.length - 1 ? '1px solid rgba(255,255,255,0.07)' : 'none',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                     }}
                   >
-                    <Box
-                      sx={{
-                        color: brand.goldSoft,
-                        width: 36,
-                        height: 36,
-                        borderRadius: 1.25,
-                        border: '1px solid rgba(201,162,39,0.28)',
-                        bgcolor: 'rgba(201,162,39,0.08)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                      }}
-                    >
-                      {row.icon}
-                    </Box>
-                    <Box>
-                      <Typography fontWeight={700} color="#fff" fontSize={14.5} letterSpacing="-0.01em">
-                        {row.title}
-                      </Typography>
-                      <Typography fontSize={13.25} sx={{ color: 'rgba(255,255,255,0.52)', mt: 0.4, lineHeight: 1.55 }}>
-                        {row.text}
-                      </Typography>
-                    </Box>
+                    {row.icon}
                   </Box>
-                ))}
-              </Box>
-            </Grid>
-          </Grid>
+                  <Box>
+                    <Typography fontWeight={700} color="#fff" fontSize={14.5} letterSpacing="-0.01em">
+                      {row.title}
+                    </Typography>
+                    <Typography fontSize={13.25} sx={{ color: 'rgba(255,255,255,0.52)', mt: 0.4, lineHeight: 1.55 }}>
+                      {row.text}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Box>
         </Box>
       </Box>
 
-      {/* How it works */}
       <Box sx={{ py: { xs: 6.5, md: 8 }, bgcolor: '#fff' }}>
         <Box sx={marketingShellSx}>
           <Typography variant="overline" sx={{ color: brand.goldDark }}>How it works</Typography>
@@ -295,7 +304,6 @@ export default function Home() {
         </Box>
       </Box>
 
-      {/* Plans preview */}
       <Box sx={{ py: { xs: 6.5, md: 8 }, bgcolor: brand.canvas }}>
         <Box sx={marketingShellSx}>
           <Box display="flex" justifyContent="space-between" alignItems="flex-end" flexWrap="wrap" gap={2} mb={3.5}>
@@ -357,7 +365,6 @@ export default function Home() {
         </Box>
       </Box>
 
-      {/* Trust */}
       <Box sx={{ py: { xs: 5.5, md: 6.5 }, bgcolor: '#fff', borderTop: `1px solid ${brand.line}` }}>
         <Box sx={marketingShellSx}>
           <Typography
@@ -388,7 +395,6 @@ export default function Home() {
         </Box>
       </Box>
 
-      {/* Closing CTA */}
       <Box
         sx={{
           py: { xs: 6, md: 7.5 },

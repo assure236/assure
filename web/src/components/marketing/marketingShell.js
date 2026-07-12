@@ -1,13 +1,13 @@
 /**
- * Shared content rail for marketing pages.
- * Header, hero, and sections share these edges so logo ↔ content ↔ CTAs align.
- * Wide rail with only a small left/right gutter — not a narrow centered column.
+ * Shared content rail — full width with only a small side gutter.
+ * Header, hero, and sections MUST share this so logo ↔ content ↔ CTAs align.
  */
-export const MARKETING_MAX = 1760;
+export const MARKETING_GUTTER = { xs: 2, sm: 2.5, md: 3, lg: 3.5 }; // 16–28px
 
 export const marketingShellSx = {
-  maxWidth: MARKETING_MAX,
   width: '100%',
+  maxWidth: '100%',
   mx: 'auto',
-  px: { xs: 2, sm: 2.5, md: 3, lg: 3.5, xl: 4 },
+  px: MARKETING_GUTTER,
+  boxSizing: 'border-box',
 };

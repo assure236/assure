@@ -12,7 +12,7 @@ import {
 import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { brand } from '../../theme/brand';
 import { footerColumns, marketingNav } from './navConfig';
-import { MARKETING_MAX, marketingShellSx } from './marketingShell';
+import { marketingShellSx } from './marketingShell';
 
 const CLOSE_DELAY = 220;
 
@@ -484,7 +484,7 @@ export function MarketingPage({
           pb: { xs: 5, md: 5.5 },
         }}
       >
-        <Box sx={{ ...marketingShellSx, maxWidth: narrow ? 720 : MARKETING_MAX }}>
+        <Box sx={{ ...marketingShellSx, ...(narrow ? { maxWidth: 720 } : {}) }}>
           {eyebrow && (
             <Typography variant="overline" sx={{ color: brand.goldSoft, display: 'block', mb: 1 }}>
               {eyebrow}
@@ -511,7 +511,7 @@ export function MarketingPage({
           {actions && <Box mt={3}>{actions}</Box>}
         </Box>
       </Box>
-      <Box sx={{ ...marketingShellSx, maxWidth: narrow ? 720 : MARKETING_MAX, py: { xs: 4, md: 5.5 } }}>
+      <Box sx={{ ...marketingShellSx, ...(narrow ? { maxWidth: 720 } : {}), py: { xs: 4, md: 5.5 } }}>
         {children}
       </Box>
     </Box>
