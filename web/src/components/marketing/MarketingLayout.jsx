@@ -499,18 +499,18 @@ export function MarketingPage({
           <Typography
             sx={{
               fontFamily: brand.fontDisplay,
-              fontWeight: 600,
-              fontSize: { xs: '2rem', md: '2.45rem' },
+              fontWeight: 700,
+              fontSize: { xs: '2.5rem', md: '3rem' },
               letterSpacing: '-0.02em',
-              lineHeight: 1.2,
+              lineHeight: 1.15,
               mb: subtitle ? 1.5 : 0,
-              maxWidth: 680,
+              maxWidth: 720,
             }}
           >
             {title}
           </Typography>
           {subtitle && (
-            <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 16.5, lineHeight: 1.7, maxWidth: 580 }}>
+            <Typography sx={{ fontFamily: brand.fontBody, fontWeight: 400, color: 'rgba(255,255,255,0.68)', fontSize: { xs: 17, md: 19 }, lineHeight: 1.6, maxWidth: 620 }}>
               {subtitle}
             </Typography>
           )}

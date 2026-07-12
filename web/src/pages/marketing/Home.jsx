@@ -85,8 +85,8 @@ export default function Home() {
               sx={{
                 fontFamily: brand.fontDisplay,
                 color: '#fff',
-                fontWeight: 600,
-                fontSize: { xs: '2.35rem', sm: '2.85rem', md: '3.15rem' },
+                fontWeight: 700,
+                fontSize: { xs: '2.75rem', sm: '3.15rem', md: '3.5rem' },
                 letterSpacing: '-0.02em',
                 lineHeight: 1.12,
                 mb: 1.75,
@@ -97,8 +97,9 @@ export default function Home() {
             <Typography
               sx={{
                 color: brand.goldSoft,
-                fontWeight: 600,
-                fontSize: { xs: 17, md: 18 },
+                fontFamily: brand.fontBody,
+                fontWeight: 500,
+                fontSize: { xs: 18, md: 20 },
                 letterSpacing: '0.01em',
                 mb: 1.5,
                 lineHeight: 1.45,
@@ -108,9 +109,11 @@ export default function Home() {
             </Typography>
             <Typography
               sx={{
+                fontFamily: brand.fontBody,
+                fontWeight: 400,
                 color: 'rgba(255,255,255,0.62)',
-                fontSize: 15.5,
-                lineHeight: 1.7,
+                fontSize: { xs: 16, md: 18 },
+                lineHeight: 1.6,
                 mb: 3.25,
                 maxWidth: 560,
               }}
@@ -261,7 +264,7 @@ export default function Home() {
             sx={{
               fontFamily: brand.fontDisplay,
               fontWeight: 600,
-              fontSize: { xs: '1.65rem', md: '2rem' },
+              fontSize: { xs: '1.875rem', md: '2.125rem' },
               color: brand.navy,
               letterSpacing: '-0.015em',
               mb: 1,
@@ -269,7 +272,7 @@ export default function Home() {
           >
             Three steps to your first chit
           </Typography>
-          <Typography color="text.secondary" sx={{ mb: 4, maxWidth: 500, fontSize: 15.5, lineHeight: 1.65 }}>
+          <Typography color="text.secondary" sx={{ mb: 4, maxWidth: 500, fontSize: { xs: 16, md: 17 }, lineHeight: 1.6, fontFamily: brand.fontBody, fontWeight: 400 }}>
             No long scroll of features — just the path members actually take.
           </Typography>
           <Grid container spacing={2.5}>
@@ -287,8 +290,8 @@ export default function Home() {
                   <Typography sx={{ color: brand.goldDark, fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', mb: 1.5 }}>
                     {s.n}
                   </Typography>
-                  <Typography sx={{ fontWeight: 700, fontSize: 16.5, mb: 1, color: brand.navy }}>{s.title}</Typography>
-                  <Typography variant="body2" color="text.secondary" lineHeight={1.7}>
+                  <Typography sx={{ fontWeight: 500, fontSize: { xs: 16, md: 17 }, mb: 1, color: brand.navy, fontFamily: brand.fontDisplay }}>{s.title}</Typography>
+                  <Typography sx={{ fontFamily: brand.fontBody, fontWeight: 400, fontSize: 15.5, color: 'text.secondary', lineHeight: 1.6 }}>
                     {s.body}
                   </Typography>
                 </Box>
@@ -314,7 +317,7 @@ export default function Home() {
                 sx={{
                   fontFamily: brand.fontDisplay,
                   fontWeight: 600,
-                  fontSize: { xs: '1.65rem', md: '2rem' },
+                  fontSize: { xs: '1.875rem', md: '2.125rem' },
                   color: brand.navy,
                   letterSpacing: '-0.015em',
                 }}
@@ -373,7 +376,7 @@ export default function Home() {
             sx={{
               fontFamily: brand.fontDisplay,
               fontWeight: 600,
-              fontSize: '1.4rem',
+              fontSize: { xs: '1.875rem', md: '2.125rem' },
               color: brand.navy,
               mb: 3,
             }}
@@ -409,14 +412,14 @@ export default function Home() {
               fontFamily: brand.fontDisplay,
               color: '#fff',
               fontWeight: 600,
-              fontSize: { xs: '1.65rem', md: '1.95rem' },
+              fontSize: { xs: '1.875rem', md: '2.125rem' },
               letterSpacing: '-0.015em',
               mb: 1.5,
             }}
           >
             Ready when you are
           </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.62)', mb: 3, lineHeight: 1.7, fontSize: 15.5 }}>
+          <Typography sx={{ color: 'rgba(255,255,255,0.62)', mb: 3, lineHeight: 1.6, fontSize: { xs: 16, md: 18 }, fontFamily: brand.fontBody, fontWeight: 400 }}>
             Open your member account, finish KYC, and enroll in a group from the same portal you will use every month.
           </Typography>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} justifyContent="center">

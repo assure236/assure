@@ -9,8 +9,8 @@
   --assure-gold: #C9A227;
   --assure-canvas: #F3F5F8;
   --assure-mist: #E8EEF5;
-  --assure-font-display: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-  --assure-font-body: 'Source Sans 3', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  --assure-font-display: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
+  --assure-font-body: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
 html {
@@ -45,6 +45,56 @@ html {
     padding-left: 24px !important;
     padding-right: 24px !important;
   }
+}
+
+/* Marketing typography — Poppins headings, Inter body/bullets */
+.mkt-shell,
+.mkt-shell p,
+.mkt-shell li {
+  font-family: var(--assure-font-body);
+}
+.mkt-shell h1,
+.mkt-shell h2,
+.mkt-shell h3,
+.mkt-shell h4,
+.mkt-shell h5,
+.mkt-shell h6 {
+  font-family: var(--assure-font-display);
+}
+.mkt-shell p {
+  font-weight: 400;
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+.mkt-shell ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.mkt-shell ul li {
+  position: relative;
+  padding-left: 1.35em;
+  margin-bottom: 0.65em;
+  font-family: var(--assure-font-body);
+  font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.55;
+  color: var(--assure-navy);
+}
+.mkt-shell ul li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--assure-gold);
+}
+.mkt-shell .MuiButton-root {
+  font-family: var(--assure-font-display) !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
 }
 
 body {

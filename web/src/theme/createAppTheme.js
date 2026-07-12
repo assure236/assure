@@ -34,18 +34,72 @@ export function createAppTheme() {
     },
     typography: {
       fontFamily: brand.fontBody,
-      h1: { fontFamily: brand.fontDisplay, fontWeight: 600, letterSpacing: '-0.02em' },
-      h2: { fontFamily: brand.fontDisplay, fontWeight: 600, letterSpacing: '-0.02em' },
-      h3: { fontFamily: brand.fontDisplay, fontWeight: 600, letterSpacing: '-0.015em' },
-      h4: { fontFamily: brand.fontDisplay, fontWeight: 600, letterSpacing: '-0.015em', fontSize: '1.75rem' },
-      h5: { fontFamily: brand.fontBody, fontWeight: 700, letterSpacing: '-0.01em' },
-      h6: { fontFamily: brand.fontBody, fontWeight: 700, letterSpacing: '-0.01em' },
-      subtitle1: { fontWeight: 600 },
-      subtitle2: { fontWeight: 600 },
-      button: { fontFamily: brand.fontBody, fontWeight: 700, letterSpacing: '0.01em' },
+      fontSize: 16,
+      htmlFontSize: 16,
+      h1: {
+        fontFamily: brand.fontDisplay,
+        fontWeight: 700,
+        fontSize: 'clamp(2.75rem, 4vw, 3.5rem)', // 44–56px
+        lineHeight: 1.15,
+        letterSpacing: '-0.02em',
+      },
+      h2: {
+        fontFamily: brand.fontDisplay,
+        fontWeight: 600,
+        fontSize: 'clamp(1.875rem, 2.5vw, 2.25rem)', // 30–36px
+        lineHeight: 1.2,
+        letterSpacing: '-0.015em',
+      },
+      h3: {
+        fontFamily: brand.fontDisplay,
+        fontWeight: 500,
+        fontSize: 'clamp(1.375rem, 1.8vw, 1.5rem)', // 22–24px
+        lineHeight: 1.3,
+        letterSpacing: '-0.01em',
+      },
+      h4: {
+        fontFamily: brand.fontDisplay,
+        fontWeight: 600,
+        fontSize: '1.5rem',
+        lineHeight: 1.3,
+        letterSpacing: '-0.01em',
+      },
+      h5: {
+        fontFamily: brand.fontDisplay,
+        fontWeight: 600,
+        fontSize: '1.25rem',
+        letterSpacing: '-0.01em',
+      },
+      h6: {
+        fontFamily: brand.fontDisplay,
+        fontWeight: 600,
+        fontSize: '1.125rem',
+        letterSpacing: '-0.01em',
+      },
+      subtitle1: { fontFamily: brand.fontBody, fontWeight: 500, fontSize: '1.125rem', lineHeight: 1.6 },
+      subtitle2: { fontFamily: brand.fontBody, fontWeight: 500, fontSize: '0.95rem', lineHeight: 1.55 },
+      body1: {
+        fontFamily: brand.fontBody,
+        fontWeight: 400,
+        fontSize: '1.0625rem', // ~17px
+        lineHeight: 1.6,
+      },
+      body2: {
+        fontFamily: brand.fontBody,
+        fontWeight: 400,
+        fontSize: '0.9375rem', // 15px
+        lineHeight: 1.6,
+      },
+      button: {
+        fontFamily: brand.fontDisplay,
+        fontWeight: 600,
+        fontSize: '1rem',
+        letterSpacing: '0.02em',
+        textTransform: 'none',
+      },
       overline: {
         fontFamily: brand.fontBody,
-        fontWeight: 700,
+        fontWeight: 600,
         letterSpacing: '0.12em',
         fontSize: '0.68rem',
       },
@@ -74,7 +128,10 @@ export function createAppTheme() {
           root: {
             textTransform: 'none',
             borderRadius: 10,
-            fontWeight: 700,
+            fontFamily: brand.fontDisplay,
+            fontWeight: 600,
+            fontSize: '1rem',
+            letterSpacing: '0.02em',
             paddingInline: 18,
             paddingBlock: 9,
           },
