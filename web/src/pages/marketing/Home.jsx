@@ -126,15 +126,15 @@ export default function Home() {
                 variant="contained"
                 color="secondary"
                 endIcon={<ArrowIcon />}
-                onClick={() => navigate('/register')}
+                onClick={() => navigate('/how-it-works')}
                 sx={{ px: 2.75, py: 1.2, fontWeight: 700 }}
               >
-                Create free account
+                See how it works
               </Button>
               <Button
                 size="large"
                 variant="outlined"
-                onClick={() => navigate('/login')}
+                onClick={() => navigate('/plans')}
                 sx={{
                   px: 2.75,
                   py: 1.2,
@@ -144,7 +144,7 @@ export default function Home() {
                   '&:hover': { borderColor: brand.gold, color: brand.goldSoft },
                 }}
               >
-                Member login
+                View plans
               </Button>
             </Stack>
 

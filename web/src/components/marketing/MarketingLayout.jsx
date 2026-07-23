@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppBar, Box, Button, Collapse, Divider, Drawer, IconButton,
   List, ListItemButton, ListItemText, Stack, Toolbar, Typography,
+  Dialog, DialogActions, DialogContent, DialogTitle, TextField,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -13,6 +14,11 @@ import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-rout
 import { brand } from '../../theme/brand';
 import { footerColumns, marketingNav } from './navConfig';
 import { marketingShellSx } from './marketingShell';
+import {
+  isHiddenAuthGateUnlocked,
+  unlockHiddenAuthGate,
+  verifyHiddenAuthPassword,
+} from '../../utils/hiddenAuthGate';
 
 const CLOSE_DELAY = 220;
 
@@ -260,6 +266,10 @@ export default function MarketingLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState('');
   const [openNavId, setOpenNavId] = useState('');
+  const [gateOpen, setGateOpen] = useState(false);
+  const [gatePassword, setGatePassword] = useState('');
+  const [gateError, setGateError] = useState('');
+  const [gateUnlocked, setGateUnlocked] = useState(false);
   const closeTimer = useRef(null);
 
   const clearCloseTimer = useCallback(() => {
@@ -289,6 +299,23 @@ export default function MarketingLayout() {
     location.pathname === item.path ||
     location.pathname.startsWith(`${item.path}/`) ||
     item.columns.some((c) => c.links.some((l) => location.pathname === l.path));
+
+  const checkGatePassword = async () => {
+    setGateError('');
+    const normalized = gatePassword.trim();
+    if (!normalized) {
+      setGateError('Enter password');
+      return;
+    }
+    const ok = await verifyHiddenAuthPassword(normalized);
+    if (ok) {
+      unlockHiddenAuthGate();
+      setGateUnlocked(true);
+      setGatePassword('');
+      return;
+    }
+    setGateError('Invalid password');
+  };
 
   return (
     <Box
@@ -349,7 +376,7 @@ export default function MarketingLayout() {
             ))}
           </Box>
 
-          {/* RIGHT — auth + mobile menu */}
+          {/* RIGHT — mobile menu */}
           <Stack direction="row" spacing={1} sx={{ ml: 'auto', alignItems: 'center' }}>
             <IconButton
               sx={{ display: { xs: 'inline-flex', lg: 'none' }, color: '#fff' }}
@@ -358,34 +385,6 @@ export default function MarketingLayout() {
             >
               <MenuIcon />
             </IconButton>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => navigate('/login')}
-              sx={{
-                display: { xs: 'none', sm: 'inline-flex' },
-                borderColor: 'rgba(255,255,255,0.28)',
-                color: '#fff',
-                fontWeight: 600,
-                px: 2,
-                '&:hover': { borderColor: brand.gold, color: brand.goldSoft },
-              }}
-            >
-              Login
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              color="secondary"
-              onClick={() => navigate('/register')}
-              sx={{
-                display: { xs: 'none', sm: 'inline-flex' },
-                fontWeight: 700,
-                px: 2.25,
-              }}
-            >
-              Join Free
-            </Button>
           </Stack>
         </Toolbar>
       </AppBar>
@@ -446,21 +445,106 @@ export default function MarketingLayout() {
             );
           })}
         </List>
-        <Box sx={{ p: 2, mt: 'auto', display: 'grid', gap: 1 }}>
-          <Button fullWidth variant="outlined" onClick={() => { setMobileOpen(false); navigate('/login'); }}
-            sx={{ borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>
-            Login
-          </Button>
-          <Button fullWidth variant="contained" color="secondary" onClick={() => { setMobileOpen(false); navigate('/register'); }}>
-            Join Free
-          </Button>
-        </Box>
       </Drawer>
 
       <Box component="main" sx={{ flex: 1 }}>
         <Outlet />
       </Box>
       <MarketingFooter />
+      <Box
+        component="button"
+        type="button"
+        aria-label="Open secure access"
+        onClick={() => {
+          setGateOpen(true);
+          setGateUnlocked(isHiddenAuthGateUnlocked());
+          setGateError('');
+          setGatePassword('');
+        }}
+        sx={{
+          position: 'fixed',
+          left: 14,
+          bottom: 14,
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          border: 'none',
+          p: 0,
+          bgcolor: 'rgba(11,31,59,0.8)',
+          cursor: 'pointer',
+          zIndex: 1305,
+          boxShadow: '0 0 0 1px rgba(255,255,255,0.15)',
+          '&:hover': { bgcolor: brand.goldDark },
+        }}
+      />
+      <Dialog
+        open={gateOpen}
+        onClose={() => setGateOpen(false)}
+        PaperProps={{ sx: { borderRadius: 2, width: 'min(92vw, 420px)' } }}
+      >
+        <DialogTitle sx={{ fontFamily: brand.fontDisplay, fontWeight: 600 }}>
+          Secure access
+        </DialogTitle>
+        <DialogContent>
+          {!gateUnlocked ? (
+            <TextField
+              autoFocus
+              fullWidth
+              type="password"
+              margin="dense"
+              label="Password"
+              value={gatePassword}
+              onChange={(e) => setGatePassword(e.target.value)}
+              error={Boolean(gateError)}
+              helperText={gateError || 'Enter access password'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  checkGatePassword();
+                }
+              }}
+            />
+          ) : (
+            <Stack spacing={1.2} sx={{ pt: 0.5 }}>
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => {
+                  setGateOpen(false);
+                  navigate('/login');
+                }}
+              >
+                Go to Login
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setGateOpen(false);
+                  navigate('/register');
+                }}
+              >
+                Go to Signup
+              </Button>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          {!gateUnlocked ? (
+            <Button onClick={checkGatePassword} variant="contained" color="secondary">
+              Continue
+            </Button>
+          ) : (
+            <Button
+              onClick={() => {
+                setGateUnlocked(false);
+                setGateOpen(false);
+              }}
+            >
+              Close
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -21,6 +21,7 @@ import Layout from './components/Layout/Layout';
 import OnboardingGuard from './components/OnboardingGuard';
 import AuthSessionWatcher from './components/AuthSessionWatcher';
 import MarketingLayout from './components/marketing/MarketingLayout';
+import HiddenAuthRouteGate from './components/HiddenAuthRouteGate';
 
 const Register = lazy(() => import('./pages/Auth/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard/Dashboard'));
@@ -165,8 +166,8 @@ function App() {
             <Route path="/refer" element={<Navigate to="/learn/refer" replace />} />
             <Route path="/refer/*" element={<Navigate to="/learn/refer" replace />} />
 
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+            <Route path="/login" element={<HiddenAuthRouteGate><Login /></HiddenAuthRouteGate>} />
+            <Route path="/register" element={<HiddenAuthRouteGate><Register /></HiddenAuthRouteGate>} />
 
             <Route path="/onboarding" element={<PrivateRoute><Navigate to="/onboarding/digilocker" replace /></PrivateRoute>} />
             <Route path="/onboarding/digilocker" element={<PrivateRoute><DigiLockerStep /></PrivateRoute>} />
