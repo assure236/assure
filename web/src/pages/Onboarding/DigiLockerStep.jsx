@@ -25,6 +25,8 @@ import OnboardingLayout from '../../components/Onboarding/OnboardingLayout';
 
 const POLL_INTERVAL_MS = 3000;  // poll every 3 s while waiting
 const MAX_POLLS       = 60;     // give up after ~3 minutes
+const isLikelyMobileBrowser = () =>
+  /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent || '');
 
 export default function DigiLockerStep() {
   const navigate        = useNavigate();
@@ -61,6 +63,18 @@ export default function DigiLockerStep() {
 
     if (vid) {
       setVerificationId(vid);
+      // Cashfree callback lands on web URL; if this is a phone browser, try
+      // to return the user to the app at the same onboarding step.
+      if (isLikelyMobileBrowser()) {
+        const deepLink = `assurechitfunds://onboarding/digilocker?verification_id=${encodeURIComponent(vid)}`;
+        window.location.href = deepLink;
+        // Fallback: keep web flow working if app deep-link fails.
+        const t = setTimeout(() => {
+          setPhase('syncing');
+          syncWithBackend(vid);
+        }, 1200);
+        return () => clearTimeout(t);
+      }
       setPhase('syncing');
       syncWithBackend(vid);
     }

@@ -18,7 +18,12 @@ import 'onboarding_layout.dart';
 // ────────────────────────────────────────────────────────────────────────────
 
 class DigilockerStepScreen extends StatefulWidget {
-  const DigilockerStepScreen({super.key});
+  final String? initialVerificationId;
+
+  const DigilockerStepScreen({
+    super.key,
+    this.initialVerificationId,
+  });
 
   @override
   State<DigilockerStepScreen> createState() => _DigilockerStepScreenState();
@@ -37,7 +42,21 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkAlreadyDone());
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // If app was opened via deep-link callback from Cashfree redirect,
+      // continue syncing immediately instead of waiting for manual action.
+      final incoming = widget.initialVerificationId?.trim();
+      if (incoming != null && incoming.isNotEmpty) {
+        setState(() {
+          _verificationId = incoming;
+          _phase = 'syncing';
+          _error = null;
+        });
+        await _syncStatus();
+        return;
+      }
+      await _checkAlreadyDone();
+    });
   }
 
   @override

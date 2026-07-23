@@ -356,7 +356,14 @@ class AppRouter {
         ),
         GoRoute(
           path: '/onboarding/digilocker',
-          builder: (context, state) => const DigilockerStepScreen(),
+          builder: (context, state) {
+            final verificationId =
+                state.uri.queryParameters['verification_id'] ??
+                state.uri.queryParameters['reference_id'];
+            return DigilockerStepScreen(
+              initialVerificationId: verificationId,
+            );
+          },
         ),
         GoRoute(
           path: '/onboarding/face',
