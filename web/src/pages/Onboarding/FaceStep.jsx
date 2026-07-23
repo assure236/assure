@@ -24,6 +24,7 @@ import OnboardingLayout from '../../components/Onboarding/OnboardingLayout';
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function FaceStep() {
+  const MAX_FACE_API_ATTEMPTS = 2;
   const navigate   = useNavigate();
   const videoRef   = useRef(null);
   const canvasRef  = useRef(null);
@@ -35,6 +36,52 @@ export default function FaceStep() {
   const [error, setError]         = useState(null);
   const [attempts, setAttempts]   = useState(0);
   const [livenessScore, setLivenessScore] = useState(null);
+
+  const validateSelfieQuality = async (blob) => {
+    try {
+      const image = await createImageBitmap(blob);
+      const probeCanvas = document.createElement('canvas');
+      const size = 256;
+      probeCanvas.width = size;
+      probeCanvas.height = size;
+      const probeCtx = probeCanvas.getContext('2d', { willReadFrequently: true });
+      probeCtx.drawImage(image, 0, 0, size, size);
+
+      const img = probeCtx.getImageData(0, 0, size, size);
+      const data = img.data;
+      let lumSum = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        lumSum += 0.2126 * data[i] + 0.7152 * data[i + 1] + 0.0722 * data[i + 2];
+      }
+      const pixelCount = data.length / 4;
+      const avgLum = lumSum / pixelCount;
+      if (avgLum < 55) {
+        return { ok: false, message: 'Image is too dark. Move to a brighter place and try again.' };
+      }
+
+      if (window.FaceDetector) {
+        const detector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+        const faces = await detector.detect(probeCanvas);
+        if (!faces?.length) {
+          return { ok: false, message: 'Face not detected clearly. Keep your face fully visible and centered.' };
+        }
+        const face = faces[0].boundingBox;
+        const centerX = face.x + face.width / 2;
+        const centerY = face.y + face.height / 2;
+        const centered =
+          Math.abs(centerX - size / 2) < size * 0.18 &&
+          Math.abs(centerY - size / 2) < size * 0.2;
+        const faceAreaRatio = (face.width * face.height) / (size * size);
+        if (!centered || faceAreaRatio < 0.08) {
+          return { ok: false, message: 'Keep your face centered and closer to the camera before verifying.' };
+        }
+      }
+
+      return { ok: true };
+    } catch (_) {
+      return { ok: true };
+    }
+  };
 
   // ── Start camera ──────────────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
@@ -100,9 +147,21 @@ export default function FaceStep() {
   // ── Submit to Cashfree via backend ────────────────────────────────────────
   const submit = async () => {
     if (!snapshot) return;
+    if (attempts >= MAX_FACE_API_ATTEMPTS) {
+      setError('Maximum attempts reached for this session. Please try again later.');
+      setPhase('error');
+      return;
+    }
+    const quality = await validateSelfieQuality(snapshot);
+    if (!quality.ok) {
+      setError(quality.message);
+      setPhase('captured');
+      return;
+    }
     setPhase('submitting');
     setError(null);
-    setAttempts((a) => a + 1);
+    const nextAttempt = attempts + 1;
+    setAttempts(nextAttempt);
 
     try {
       const form = new FormData();
@@ -120,12 +179,17 @@ export default function FaceStep() {
         toast.success('Face verified by Cashfree ✅');
         setTimeout(() => navigate('/onboarding/bank', { replace: true }), 1200);
       } else {
-        setError(res.data?.message || 'Face liveness check failed. Please try again in good lighting.');
+        const baseMessage = res.data?.message || 'Face liveness check failed. Please try again in good lighting.';
+        setError(nextAttempt >= MAX_FACE_API_ATTEMPTS
+          ? `${baseMessage} Attempt limit reached for this session. Please try again later.`
+          : baseMessage);
         setPhase('error');
       }
     } catch (e) {
       const msg = e.response?.data?.message || 'Face verification failed. Check your connection and try again.';
-      setError(msg);
+      setError(nextAttempt >= MAX_FACE_API_ATTEMPTS
+        ? `${msg} Attempt limit reached for this session. Please try again later.`
+        : msg);
       setPhase('error');
     }
   };
@@ -233,13 +297,19 @@ export default function FaceStep() {
           </Stack>
         )}
 
+        {phase === 'idle' && (
+          <Alert severity="info" sx={{ width: '100%', borderRadius: 2 }}>
+            Be in a well-lit room, look straight at the camera, and remove hat or glasses before opening camera.
+          </Alert>
+        )}
+
         {/* Error */}
         {error && (
           <Alert severity="error" sx={{ width: '100%', borderRadius: 2 }}>
             {error}
             {attempts >= 2 && (
               <Typography variant="caption" display="block" mt={0.5}>
-                Tip: Move to a brighter area and look directly at the camera.
+                Attempt limit reached for this session. Please try again later.
               </Typography>
             )}
           </Alert>
@@ -317,13 +387,14 @@ export default function FaceStep() {
                 variant="contained"
                 size="large"
                 onClick={submit}
+              disabled={attempts >= MAX_FACE_API_ATTEMPTS}
                 sx={{
                   flex: 2, py: 1.6, fontWeight: 700,
                   bgcolor: '#0B1F3B', '&:hover': { bgcolor: '#1E3A8A' },
                   borderRadius: 2,
                 }}
               >
-                Verify &amp; Continue
+                {attempts >= MAX_FACE_API_ATTEMPTS ? 'Attempt limit reached' : 'Verify & Continue'}
               </Button>
             </Stack>
           )}
@@ -335,13 +406,14 @@ export default function FaceStep() {
               fullWidth
               startIcon={<RestartAltIcon />}
               onClick={handleRetry}
+              disabled={attempts >= MAX_FACE_API_ATTEMPTS}
               sx={{
                 py: 1.8, fontSize: 15, fontWeight: 700,
                 bgcolor: '#0B1F3B', '&:hover': { bgcolor: '#1E3A8A' },
                 borderRadius: 2,
               }}
             >
-              Try Again
+              {attempts >= MAX_FACE_API_ATTEMPTS ? 'Try later' : 'Try Again'}
             </Button>
           )}
         </Box>

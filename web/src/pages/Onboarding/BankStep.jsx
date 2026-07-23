@@ -7,6 +7,8 @@ import { toast } from 'react-toastify';
 import OnboardingLayout from '../../components/Onboarding/OnboardingLayout';
 
 export default function BankStep() {
+  const MIN_ACCOUNT_LEN = 9;
+  const MAX_ACCOUNT_LEN = 18;
   const navigate = useNavigate();
   const [accountNumber, setAccountNumber] = useState('');
   const [confirmAccount, setConfirmAccount] = useState('');
@@ -16,8 +18,19 @@ export default function BankStep() {
   const [error, setError] = useState(null);
 
   const submit = async () => {
+    if (submitting) return;
     setError(null);
     setResult(null);
+    const normalizedAcc = accountNumber.trim();
+    const normalizedConfirm = confirmAccount.trim();
+    if (normalizedAcc.length < MIN_ACCOUNT_LEN || normalizedAcc.length > MAX_ACCOUNT_LEN) {
+      setError(`Account number must be ${MIN_ACCOUNT_LEN}-${MAX_ACCOUNT_LEN} digits.`);
+      return;
+    }
+    if (normalizedConfirm.length < MIN_ACCOUNT_LEN || normalizedConfirm.length > MAX_ACCOUNT_LEN) {
+      setError(`Re-entered account number must be ${MIN_ACCOUNT_LEN}-${MAX_ACCOUNT_LEN} digits.`);
+      return;
+    }
     if (accountNumber !== confirmAccount) {
       setError('Account numbers do not match.');
       return;
@@ -29,7 +42,7 @@ export default function BankStep() {
     setSubmitting(true);
     try {
       const res = await axios.post('/onboarding/bank', {
-        account_number: accountNumber,
+        account_number: normalizedAcc,
         ifsc_code: ifsc.toUpperCase().trim(),
       });
       if (res.data?.success) {
@@ -53,8 +66,21 @@ export default function BankStep() {
       subtitle="Prize money and dividends will be paid to this account. Account holder name must match your KYC name."
     >
       <Stack spacing={2}>
-        <TextField label="Account Number" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))} fullWidth inputProps={{ inputMode: 'numeric' }} />
-        <TextField label="Re-enter Account Number" value={confirmAccount} onChange={(e) => setConfirmAccount(e.target.value.replace(/\D/g, ''))} fullWidth inputProps={{ inputMode: 'numeric' }} />
+        <TextField
+          label="Account Number"
+          value={accountNumber}
+          onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+          fullWidth
+          inputProps={{ inputMode: 'numeric', minLength: MIN_ACCOUNT_LEN, maxLength: MAX_ACCOUNT_LEN }}
+          helperText={`${MIN_ACCOUNT_LEN}-${MAX_ACCOUNT_LEN} digits`}
+        />
+        <TextField
+          label="Re-enter Account Number"
+          value={confirmAccount}
+          onChange={(e) => setConfirmAccount(e.target.value.replace(/\D/g, ''))}
+          fullWidth
+          inputProps={{ inputMode: 'numeric', minLength: MIN_ACCOUNT_LEN, maxLength: MAX_ACCOUNT_LEN }}
+        />
         <TextField label="IFSC Code" value={ifsc} onChange={(e) => setIfsc(e.target.value.toUpperCase())} inputProps={{ maxLength: 11, style: { textTransform: 'uppercase' } }} fullWidth />
 
         {error && <Alert severity="error">{error}</Alert>}
@@ -67,7 +93,18 @@ export default function BankStep() {
           </Alert>
         )}
 
-        <Button variant="contained" size="large" onClick={submit} disabled={submitting} sx={{ py: 1.4 }}>
+        <Button
+          variant="contained"
+          size="large"
+          onClick={submit}
+          disabled={
+            submitting ||
+            accountNumber.length < MIN_ACCOUNT_LEN ||
+            confirmAccount.length < MIN_ACCOUNT_LEN ||
+            ifsc.trim().length !== 11
+          }
+          sx={{ py: 1.4 }}
+        >
           {submitting ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Verify & Continue'}
         </Button>
       </Stack>

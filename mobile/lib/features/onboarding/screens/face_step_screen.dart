@@ -1,4 +1,8 @@
-﻿import 'dart:io';
+﻿import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -14,10 +18,12 @@ class FaceStepScreen extends StatefulWidget {
 }
 
 class _FaceStepScreenState extends State<FaceStepScreen> with WidgetsBindingObserver {
+  static const int _maxApiAttempts = 2;
   CameraController? _controller;
   bool _cameraReady = false;
   bool _submitting = false;
   String? _error;
+  int _apiAttempts = 0;
 
   @override
   void initState() {
@@ -76,6 +82,10 @@ class _FaceStepScreenState extends State<FaceStepScreen> with WidgetsBindingObse
   Future<void> _captureAndVerify() async {
     final ctrl = _controller;
     if (ctrl == null || !ctrl.value.isInitialized || _submitting) return;
+    if (_apiAttempts >= _maxApiAttempts) {
+      setState(() => _error = 'Attempt limit reached for this session. Please try again later.');
+      return;
+    }
 
     setState(() {
       _submitting = true;
@@ -84,13 +94,26 @@ class _FaceStepScreenState extends State<FaceStepScreen> with WidgetsBindingObse
 
     try {
       final photo = await ctrl.takePicture();
+      final localValidationError = await _validateCapturedImage(photo.path);
+      if (localValidationError != null) {
+        if (!mounted) return;
+        setState(() => _error = localValidationError);
+        return;
+      }
+
+      setState(() => _apiAttempts += 1);
       final res = await OnboardingApi.verifyFace(photo.path);
 
       if (!mounted) return;
       if (res['success'] == true) {
         context.go('/onboarding/bank');
       } else {
-        setState(() => _error = res['message']?.toString() ?? 'Cashfree liveness verification failed.');
+        final msg = res['message']?.toString() ?? 'Cashfree liveness verification failed.';
+        setState(() {
+          _error = _apiAttempts >= _maxApiAttempts
+              ? '$msg Attempt limit reached for this session. Please try again later.'
+              : msg;
+        });
       }
     } catch (e) {
       if (!mounted) return;
@@ -98,6 +121,76 @@ class _FaceStepScreenState extends State<FaceStepScreen> with WidgetsBindingObse
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Future<String?> _validateCapturedImage(String photoPath) async {
+    try {
+      final bytes = await File(photoPath).readAsBytes();
+      if (bytes.length < 28000) {
+        return 'Selfie quality is too low. Hold the phone steady and bring your face closer.';
+      }
+
+      final image = await _decodeImageFromBytes(bytes);
+      final width = image.width;
+      final height = image.height;
+      final rgba = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      image.dispose();
+      if (rgba == null) return 'Unable to validate selfie. Please capture again.';
+
+      final data = rgba.buffer.asUint8List();
+      final sampleStep = 12;
+      double sumLum = 0;
+      double sumSqLum = 0;
+      int count = 0;
+
+      final cx0 = (width * 0.25).floor();
+      final cx1 = (width * 0.75).floor();
+      final cy0 = (height * 0.22).floor();
+      final cy1 = (height * 0.78).floor();
+      double centerLum = 0;
+      int centerCount = 0;
+
+      for (int y = 0; y < height; y += sampleStep) {
+        for (int x = 0; x < width; x += sampleStep) {
+          final idx = (y * width + x) * 4;
+          final r = data[idx];
+          final g = data[idx + 1];
+          final b = data[idx + 2];
+          final lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+          sumLum += lum;
+          sumSqLum += lum * lum;
+          count += 1;
+          if (x >= cx0 && x <= cx1 && y >= cy0 && y <= cy1) {
+            centerLum += lum;
+            centerCount += 1;
+          }
+        }
+      }
+
+      if (count == 0 || centerCount == 0) return 'Unable to validate selfie. Please try again.';
+      final avgLum = sumLum / count;
+      final stdDev = math.sqrt(math.max(0, (sumSqLum / count) - (avgLum * avgLum)));
+      final avgCenter = centerLum / centerCount;
+
+      if (avgLum < 55) {
+        return 'Image is too dark. Move to a brighter place.';
+      }
+      if (stdDev < 22) {
+        return 'Image looks unclear. Keep the phone steady and avoid blur.';
+      }
+      if (avgCenter < avgLum * 0.9) {
+        return 'Keep your face centered and fully visible before verifying.';
+      }
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<ui.Image> _decodeImageFromBytes(Uint8List bytes) {
+    final c = Completer<ui.Image>();
+    ui.decodeImageFromList(bytes, (img) => c.complete(img));
+    return c.future;
   }
 
   @override
@@ -167,7 +260,7 @@ class _FaceStepScreenState extends State<FaceStepScreen> with WidgetsBindingObse
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(
-                  'Capture a clear front-face selfie. Liveness will be verified by Cashfree API.',
+                  'Use bright lighting, look straight at camera, and remove hat/glasses. We validate image quality before API verification.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white, fontSize: 13),
                 ),
@@ -193,7 +286,7 @@ class _FaceStepScreenState extends State<FaceStepScreen> with WidgetsBindingObse
               bottom: 20,
               child: Center(
                 child: ElevatedButton.icon(
-                  onPressed: _submitting ? null : _captureAndVerify,
+                  onPressed: (_submitting || _apiAttempts >= _maxApiAttempts) ? null : _captureAndVerify,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF0B1F3B),
                     foregroundColor: Colors.white,
@@ -206,7 +299,13 @@ class _FaceStepScreenState extends State<FaceStepScreen> with WidgetsBindingObse
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.camera_alt),
-                  label: Text(_submitting ? 'Verifying...' : 'Capture and Verify'),
+                  label: Text(
+                    _submitting
+                        ? 'Verifying...'
+                        : _apiAttempts >= _maxApiAttempts
+                            ? 'Try Again Later'
+                            : 'Capture and Verify',
+                  ),
                 ),
               ),
             ),

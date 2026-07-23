@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Button, Stack, Alert, Box, Typography, CircularProgress,
-  Stepper, Step, StepLabel, Chip, LinearProgress,
+  Stepper, Step, StepLabel, Chip, LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
@@ -27,6 +27,16 @@ const POLL_INTERVAL_MS = 3000;  // poll every 3 s while waiting
 const MAX_POLLS       = 60;     // give up after ~3 minutes
 const isLikelyMobileBrowser = () =>
   /Android|iPhone|iPad|iPod/i.test(window.navigator.userAgent || '');
+const ANDROID_APP_ID = 'com.assure.chitfunds.assure_chitfunds';
+
+function buildDeepLinks(verificationId) {
+  const encoded = encodeURIComponent(verificationId);
+  const appLink = `assurechitfunds://onboarding/digilocker?verification_id=${encoded}`;
+  const intentLink =
+    `intent://onboarding/digilocker?verification_id=${encoded}` +
+    `#Intent;scheme=assurechitfunds;package=${ANDROID_APP_ID};end`;
+  return { appLink, intentLink };
+}
 
 export default function DigiLockerStep() {
   const navigate        = useNavigate();
@@ -38,9 +48,13 @@ export default function DigiLockerStep() {
   const [error, setError]           = useState(null);
   const [pollCount, setPollCount]   = useState(0);
   const [alreadyDone, setAlreadyDone] = useState(false);
+  const [mobileCallbackVid, setMobileCallbackVid] = useState(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [digilockerUrl, setDigilockerUrl] = useState('');
 
   const pollTimer  = useRef(null);
   const pollsRef   = useRef(0);
+  const syncInFlightRef = useRef(false);
 
   // ── Check if this step is already complete ────────────────────────────────
   useEffect(() => {
@@ -66,13 +80,20 @@ export default function DigiLockerStep() {
       // Cashfree callback lands on web URL; if this is a phone browser, try
       // to return the user to the app at the same onboarding step.
       if (isLikelyMobileBrowser()) {
-        const deepLink = `assurechitfunds://onboarding/digilocker?verification_id=${encodeURIComponent(vid)}`;
-        window.location.href = deepLink;
-        // Fallback: keep web flow working if app deep-link fails.
+        const { appLink, intentLink } = buildDeepLinks(vid);
+        setMobileCallbackVid(vid);
+        // Android intent URI is more reliable than plain custom scheme from Chrome.
+        if (/Android/i.test(window.navigator.userAgent || '')) {
+          window.location.href = intentLink;
+        } else {
+          window.location.href = appLink;
+        }
+        // Fallback: keep web flow working if app deep-link is blocked.
         const t = setTimeout(() => {
+          setMobileCallbackVid(null);
           setPhase('syncing');
           syncWithBackend(vid);
-        }, 1200);
+        }, 5500);
         return () => clearTimeout(t);
       }
       setPhase('syncing');
@@ -83,6 +104,7 @@ export default function DigiLockerStep() {
 
   // ── Step 1: Create Cashfree DigiLocker URL ────────────────────────────────
   const handleStart = async () => {
+    if (phase === 'creating') return;
     setError(null);
     setPhase('creating');
     try {
@@ -94,7 +116,9 @@ export default function DigiLockerStep() {
       }
       const { url, verification_id } = res.data.data;
       setVerificationId(verification_id);
+      setDigilockerUrl(url);
       setPhase('waiting');
+      setConfirmOpen(false);
 
       // Open Cashfree DigiLocker URL in new tab
       window.open(url, '_blank', 'noopener,noreferrer');
@@ -109,6 +133,8 @@ export default function DigiLockerStep() {
 
   // ── Step 3: Sync verified docs from Cashfree into our DB ─────────────────
   const syncWithBackend = useCallback(async (vid) => {
+    if (syncInFlightRef.current) return;
+    syncInFlightRef.current = true;
     setPhase('syncing');
     stopPolling();
     try {
@@ -134,6 +160,8 @@ export default function DigiLockerStep() {
     } catch (e) {
       setError(e.response?.data?.message || 'Sync failed. Please try again.');
       setPhase('error');
+    } finally {
+      syncInFlightRef.current = false;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate]);
@@ -181,8 +209,10 @@ export default function DigiLockerStep() {
     setPhase('idle');
     setError(null);
     setVerificationId(null);
+    setDigilockerUrl('');
     setPollCount(0);
     pollsRef.current = 0;
+    syncInFlightRef.current = false;
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -230,7 +260,7 @@ export default function DigiLockerStep() {
               variant="contained"
               size="large"
               startIcon={<VerifiedUserIcon />}
-              onClick={handleStart}
+              onClick={() => setConfirmOpen(true)}
               sx={{
                 py: 1.8, fontSize: 16, fontWeight: 700,
                 bgcolor: '#0B1F3B', '&:hover': { bgcolor: '#1E3A8A' },
@@ -284,7 +314,11 @@ export default function DigiLockerStep() {
                 variant="outlined"
                 size="small"
                 startIcon={<OpenInNewIcon />}
-                onClick={handleStart}
+                onClick={() => {
+                  if (!digilockerUrl) return;
+                  window.open(digilockerUrl, '_blank', 'noopener,noreferrer');
+                }}
+                disabled={!digilockerUrl}
               >
                 Reopen tab
               </Button>
@@ -298,6 +332,45 @@ export default function DigiLockerStep() {
               </Button>
             </Stack>
           </Stack>
+        )}
+
+        {/* Mobile callback helper — shown when browser is holding callback URL */}
+        {mobileCallbackVid && (
+          <Alert severity="info" sx={{ borderRadius: 2 }}>
+            <Typography variant="body2" fontWeight={700}>
+              Opening the app…
+            </Typography>
+            <Typography variant="caption" display="block" sx={{ mb: 1 }}>
+              If it does not open automatically, tap below.
+            </Typography>
+            <Stack direction="row" spacing={1}>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => {
+                  const { appLink, intentLink } = buildDeepLinks(mobileCallbackVid);
+                  if (/Android/i.test(window.navigator.userAgent || '')) {
+                    window.location.href = intentLink;
+                  } else {
+                    window.location.href = appLink;
+                  }
+                }}
+              >
+                Open App
+              </Button>
+              <Button
+                size="small"
+                variant="text"
+                onClick={() => {
+                  setMobileCallbackVid(null);
+                  setPhase('syncing');
+                  syncWithBackend(mobileCallbackVid);
+                }}
+              >
+                Continue on Web
+              </Button>
+            </Stack>
+          </Alert>
         )}
 
         {/* Syncing — pulling docs from Cashfree */}
@@ -343,6 +416,35 @@ export default function DigiLockerStep() {
           />
         )}
       </Stack>
+      <Dialog open={confirmOpen} onClose={() => phase !== 'creating' && setConfirmOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 700 }}>Before you proceed</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.2}>
+            <Typography variant="body2">
+              You will now be redirected to DigiLocker.
+            </Typography>
+            <Typography variant="body2">
+              Please keep your Aadhaar-linked mobile number ready.
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              A verification session is created only after you tap Proceed.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)} disabled={phase === 'creating'}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleStart}
+            disabled={phase === 'creating'}
+            startIcon={phase === 'creating' ? <CircularProgress size={16} color="inherit" /> : <VerifiedUserIcon />}
+          >
+            {phase === 'creating' ? 'Creating session...' : 'Proceed'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </OnboardingLayout>
   );
 }

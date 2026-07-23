@@ -13,6 +13,8 @@ class BankStepScreen extends StatefulWidget {
 }
 
 class _BankStepScreenState extends State<BankStepScreen> {
+  static const int _minAccountLen = 9;
+  static const int _maxAccountLen = 18;
   final _acc = TextEditingController();
   final _confirm = TextEditingController();
   final _ifsc = TextEditingController();
@@ -22,14 +24,24 @@ class _BankStepScreenState extends State<BankStepScreen> {
 
   Future<void> _submit() async {
     setState(() { _error = null; _holder = null; });
-    if (_acc.text != _confirm.text) { setState(() => _error = 'Account numbers do not match.'); return; }
+    final account = _acc.text.replaceAll(RegExp(r'\D'), '');
+    final confirm = _confirm.text.replaceAll(RegExp(r'\D'), '');
+    if (account.length < _minAccountLen || account.length > _maxAccountLen) {
+      setState(() => _error = 'Account number must be $_minAccountLen-$_maxAccountLen digits.');
+      return;
+    }
+    if (confirm.length < _minAccountLen || confirm.length > _maxAccountLen) {
+      setState(() => _error = 'Re-entered account number must be $_minAccountLen-$_maxAccountLen digits.');
+      return;
+    }
+    if (account != confirm) { setState(() => _error = 'Account numbers do not match.'); return; }
     final ifsc = _ifsc.text.toUpperCase().trim();
     final ifscRe = RegExp(r'^[A-Z]{4}0[A-Z0-9]{6}$');
     if (!ifscRe.hasMatch(ifsc)) { setState(() => _error = 'Invalid IFSC. Format: ABCD0123456'); return; }
 
     setState(() => _busy = true);
     try {
-      final res = await OnboardingApi.saveBank(accountNumber: _acc.text, ifsc: ifsc);
+      final res = await OnboardingApi.saveBank(accountNumber: account, ifsc: ifsc);
       if (res['success'] == true) {
         setState(() => _holder = res['account_holder_name']?.toString());
         await Future.delayed(const Duration(milliseconds: 900));
@@ -52,9 +64,27 @@ class _BankStepScreenState extends State<BankStepScreen> {
       subtitle: 'Prize money is paid here. Account holder name must match your KYC name.',
       loading: _busy,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        TextField(controller: _acc, decoration: const InputDecoration(labelText: 'Account Number'), keyboardType: TextInputType.number),
+        TextField(
+          controller: _acc,
+          decoration: const InputDecoration(labelText: 'Account Number', helperText: '9-18 digits'),
+          keyboardType: TextInputType.number,
+          maxLength: _maxAccountLen,
+          onChanged: (v) {
+            final next = v.replaceAll(RegExp(r'\D'), '');
+            if (next != v) _acc.value = _acc.value.copyWith(text: next, selection: TextSelection.collapsed(offset: next.length));
+          },
+        ),
         const SizedBox(height: 10),
-        TextField(controller: _confirm, decoration: const InputDecoration(labelText: 'Re-enter Account Number'), keyboardType: TextInputType.number),
+        TextField(
+          controller: _confirm,
+          decoration: const InputDecoration(labelText: 'Re-enter Account Number'),
+          keyboardType: TextInputType.number,
+          maxLength: _maxAccountLen,
+          onChanged: (v) {
+            final next = v.replaceAll(RegExp(r'\D'), '');
+            if (next != v) _confirm.value = _confirm.value.copyWith(text: next, selection: TextSelection.collapsed(offset: next.length));
+          },
+        ),
         const SizedBox(height: 10),
         TextField(controller: _ifsc, decoration: const InputDecoration(labelText: 'IFSC Code', hintText: 'ABCD0123456'), textCapitalization: TextCapitalization.characters, maxLength: 11),
         if (_holder != null) Padding(padding: const EdgeInsets.only(top: 10), child: Card(color: const Color(0xFFD1FAE5), child: Padding(padding: const EdgeInsets.all(10), child: Text('Verified: $_holder')))),

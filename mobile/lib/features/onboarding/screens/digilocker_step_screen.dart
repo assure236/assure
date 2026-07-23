@@ -34,9 +34,10 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
   // Phase: idle | creating | waiting | syncing | done | error
   String _phase = 'idle';
   String? _verificationId;
+  String? _digilockerUrl;
   String? _error;
   bool _alreadyDone = false;
-  int _pollCount = 0;
+  bool _syncingStatus = false;
 
   @override
   void initState() {
@@ -104,6 +105,7 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
 
   // ── Step 1: Get Cashfree DigiLocker URL and open in browser ──────────────
   Future<void> _startDigilocker() async {
+    if (_phase == 'creating') return;
     setState(() {
       _phase = 'creating';
       _error = null;
@@ -123,6 +125,7 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
       final data = (res['data'] as Map?)?.cast<String, dynamic>() ?? {};
       final url = data['url']?.toString();
       _verificationId = data['verification_id']?.toString();
+      _digilockerUrl = url;
 
       if (url == null || url.isEmpty) {
         setState(() {
@@ -156,6 +159,7 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
 
   // ── Step 2: Sync result from Cashfree ────────────────────────────────────
   Future<void> _syncStatus() async {
+    if (_syncingStatus) return;
     if ((_verificationId ?? '').isEmpty) {
       setState(() {
         _error = 'Please start DigiLocker first.';
@@ -165,8 +169,8 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
     }
 
     setState(() {
+      _syncingStatus = true;
       _phase = 'syncing';
-      _pollCount++;
     });
 
     try {
@@ -206,6 +210,12 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
         _error = 'Sync failed: ${e.toString()}';
         _phase = 'error';
       });
+    } finally {
+      if (mounted) {
+        setState(() => _syncingStatus = false);
+      } else {
+        _syncingStatus = false;
+      }
     }
   }
 
@@ -214,8 +224,52 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
       _phase = 'idle';
       _error = null;
       _verificationId = null;
-      _pollCount = 0;
+      _digilockerUrl = null;
+      _syncingStatus = false;
     });
+  }
+
+  Future<void> _showPreflightConfirm() async {
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: _phase != 'creating',
+      builder: (ctx) => AlertDialog(
+        title: const Text('Before you proceed'),
+        content: const Text(
+          'You will now be redirected to DigiLocker. Please keep your Aadhaar-linked mobile number ready.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: _phase == 'creating' ? null : () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: _phase == 'creating'
+                ? null
+                : () async {
+                    Navigator.of(ctx).pop();
+                    await _startDigilocker();
+                  },
+            child: _phase == 'creating'
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Text('Proceed'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _reopenDigilocker() async {
+    final url = _digilockerUrl;
+    if (url == null || url.isEmpty) return;
+    final opened = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      _showSnack('Could not reopen DigiLocker in browser.', isError: true);
+    }
   }
 
   void _showSnack(String msg, {bool isError = true}) {
@@ -287,7 +341,7 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: _phase == 'creating' ? null : _startDigilocker,
+              onPressed: _phase == 'creating' ? null : _showPreflightConfirm,
               icon: _phase == 'creating'
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.verified_user),
@@ -335,11 +389,17 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
             const SizedBox(height: 16),
             // Manual check button (if auto-resume doesn't fire)
             OutlinedButton.icon(
-              onPressed: _syncStatus,
-              icon: const Icon(Icons.refresh),
-              label: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text("I'm done — Check Status"),
+              onPressed: _syncingStatus ? null : _syncStatus,
+              icon: _syncingStatus
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              label: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(_syncingStatus ? 'Checking...' : "I'm done — Check Status"),
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Color(0xFF0B1F3B)),
@@ -348,7 +408,7 @@ class _DigilockerStepScreenState extends State<DigilockerStepScreen>
             ),
             const SizedBox(height: 8),
             TextButton(
-              onPressed: _startDigilocker,
+              onPressed: (_digilockerUrl == null || _digilockerUrl!.isEmpty) ? null : _reopenDigilocker,
               child: const Text('Reopen DigiLocker'),
             ),
             TextButton(
